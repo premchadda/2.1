@@ -5,9 +5,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../shared/lib/dataService";
 import { sanitizeHtml } from "../../shared/lib/htmlSanitizer";
-import MathRenderer from "../../shared/components/MathRenderer";
 import Telemetry from "../../shared/lib/telemetry";
 import { useAuth } from "../../shared/providers/AuthContext";
+import { clearDashboardCache } from "../../shared/lib/dashboardCache";
 import "./TestInterface.css";
 
 const LiveTestInterface = () => {
@@ -62,10 +62,14 @@ const LiveTestInterface = () => {
       setIsSubmitted(true);
       window._liveTestSubmitting = false;
 
-      // Invalidate queries so live tests list and user attempt status refresh immediately
+      // Clear client-side dashboard cache & invalidate queries so dashboard and tests refresh immediately
+      clearDashboardCache();
       queryClient.invalidateQueries({ queryKey: ["live-tests"] });
       queryClient.invalidateQueries({ queryKey: ["user-attempts-live"] });
       queryClient.invalidateQueries({ queryKey: ["user-attempts"] });
+      queryClient.invalidateQueries({ queryKey: ["user-analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-activity"] });
+      queryClient.invalidateQueries({ queryKey: ["attempted-tests"] });
       queryClient.invalidateQueries({
         queryKey: ["live-test-leaderboard", liveTestId],
       });

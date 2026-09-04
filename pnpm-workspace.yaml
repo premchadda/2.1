@@ -9,7 +9,7 @@ allowBuilds:
   unrs-resolver: true
   sharp: true
 overrides:
-  qs: 6.15.3
+  qs: ^6.16.0
   minimatch: 10.2.5
   tar: ^7.5.11
   "@tootallnate/once": ^3.0.0
@@ -17,7 +17,7 @@ overrides:
   flatted: ^3.3.1
   lodash: ^4.17.21
   vite: ^6.4.2
-  axios: ^1.18.0
+  axios: ^1.20.0
   happy-dom: ^20.10.6
   ws: ^8.20.2
   nodemailer: ^9.0.1

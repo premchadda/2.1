@@ -263,7 +263,7 @@ function QuestionPalette({
                       }`}
                     >
                       <div className="flex items-center gap-1.5 min-w-0 pr-1">
-                        <span className="uppercase text-[9px] sm:text-[10px] tracking-wider opacity-80 bg-sky-200/80 dark:bg-sky-800/60 px-1.5 py-0.5 rounded font-bold shrink-0">
+                        <span className="uppercase text-[10px] sm:text-xs tracking-wider opacity-80 bg-sky-200/80 dark:bg-sky-800/60 px-1.5 py-0.5 rounded font-bold shrink-0">
                           Section
                         </span>
                         <span className="font-extrabold truncate">

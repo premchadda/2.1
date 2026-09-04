@@ -1150,7 +1150,7 @@ function TestResult() {
                   >
                     {formatScoreValue(result.score || 0)}
                   </span>
-                  <span className="text-[8px] text-gray-400 dark:text-gray-500 font-bold uppercase">
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase">
                     SCORE
                   </span>
                 </div>
@@ -1275,7 +1275,7 @@ function TestResult() {
                       >
                         {formatScoreValue(result.score || 0)}
                       </span>
-                      <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-wider">
+                      <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-wider">
                         Out of {maxScore}
                       </span>
                     </div>
@@ -1367,7 +1367,7 @@ function TestResult() {
                 {/* 4 KPI Glass Cards (Full Width Row in 1 row on mobile & desktop) */}
                 <div className="relative z-10 grid grid-cols-4 gap-2 sm:gap-3 mt-3 sm:mt-4">
                   <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
-                    <p className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+                    <p className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
                       Correct
                     </p>
                     <p className="text-sm sm:text-lg md:text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
@@ -1378,7 +1378,7 @@ function TestResult() {
                     </p>
                   </div>
                   <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
-                    <p className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+                    <p className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
                       Wrong
                     </p>
                     <p className="text-sm sm:text-lg md:text-xl font-black text-rose-600 dark:text-rose-400 mt-0.5">
@@ -1389,7 +1389,7 @@ function TestResult() {
                     </p>
                   </div>
                   <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
-                    <p className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+                    <p className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
                       Accuracy
                     </p>
                     <p className="text-sm sm:text-lg md:text-xl font-black text-amber-600 dark:text-amber-400 mt-0.5">
@@ -1397,7 +1397,7 @@ function TestResult() {
                     </p>
                   </div>
                   <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
-                    <p className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+                    <p className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
                       Time Taken
                     </p>
                     <p className="text-sm sm:text-lg md:text-xl font-black text-blue-600 dark:text-blue-400 mt-0.5 truncate">
@@ -1417,7 +1417,7 @@ function TestResult() {
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-[9px] font-black uppercase tracking-wider bg-white/30 text-white px-2 py-0.5 rounded">
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-white/30 text-white px-2 py-0.5 rounded">
                           Mistake Notebook
                         </span>
                       </div>
@@ -1450,7 +1450,7 @@ function TestResult() {
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-[9px] font-black uppercase tracking-wider bg-white/30 text-white px-2 py-0.5 rounded">
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-white/30 text-white px-2 py-0.5 rounded">
                           Score Improvement
                         </span>
                       </div>
@@ -1601,7 +1601,7 @@ function TestResult() {
                   <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-white">
                     {formatTime(result.timeSpent || result.timeTaken)}
                   </p>
-                  <p className="text-[9px] text-gray-400 dark:text-gray-500 font-medium mt-1">
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium mt-1">
                     Full test session
                   </p>
                 </div>
@@ -1612,7 +1612,7 @@ function TestResult() {
                   <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-white">
                     {avgTimePerVisitedQuestion}s
                   </p>
-                  <p className="text-[9px] text-gray-400 dark:text-gray-500 font-medium mt-1">
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium mt-1">
                     Based on {countForAvg} visited Qs
                   </p>
                 </div>
@@ -1627,7 +1627,7 @@ function TestResult() {
                         ({fastestQ.time}s)
                       </span>
                     </p>
-                    <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold truncate mt-1">
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold truncate mt-1">
                       {fastestQ.section || "Fastest"}
                     </p>
                   </div>
@@ -1643,7 +1643,7 @@ function TestResult() {
                         ({formatTime(slowestQ.time)})
                       </span>
                     </p>
-                    <p className="text-[9px] text-rose-600 dark:text-rose-400 font-bold truncate mt-1">
+                    <p className="text-[10px] text-rose-600 dark:text-rose-400 font-bold truncate mt-1">
                       {slowestQ.section || "Max Time"}
                     </p>
                   </div>

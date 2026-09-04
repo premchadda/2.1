@@ -1477,7 +1477,7 @@ export default function Leaderboard() {
                       <span className="text-white font-bold text-sm">
                         {userRanking.userName} (You)
                       </span>
-                      <span className="bg-white/20 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      <span className="bg-white/20 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
                         Your Standing
                       </span>
                     </div>
@@ -1585,7 +1585,7 @@ export default function Leaderboard() {
                             <span className="font-bold text-xs text-gray-900 dark:text-white truncate">
                               {entry.userName || "—"}
                             </span>
-                            <span className="text-[9px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.2 rounded">
+                            <span className="text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.2 rounded">
                               {ranks.badge}
                             </span>
                           </div>
@@ -1601,7 +1601,7 @@ export default function Leaderboard() {
                           style={{ fontFamily: "'JetBrains Mono', monospace" }}
                         >
                           {entry.score || 0}{" "}
-                          <span className="text-[9px] text-gray-400 dark:text-gray-500 font-normal">
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-normal">
                             pts
                           </span>
                         </span>
@@ -1711,7 +1711,7 @@ export default function Leaderboard() {
                                   >
                                     {r.userName}
                                     {isCurrentUser && (
-                                      <span className="ml-1.5 text-[8px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-1.5 py-0.2 rounded-full font-bold">
+                                      <span className="ml-1.5 text-[10px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-1.5 py-0.2 rounded-full font-bold">
                                         YOU
                                       </span>
                                     )}
