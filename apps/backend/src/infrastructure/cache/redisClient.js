@@ -17,11 +17,11 @@ const parseInteger = (value, fallback) => {
 };
 
 const redisTimeout = () =>
-  Math.min(parseInteger(process.env.REDIS_CONNECT_TIMEOUT_MS, 2000), 5000);
+  Math.min(parseInteger(process.env.REDIS_CONNECT_TIMEOUT_MS, 1000), 2000);
 const redisCommandTimeout = () =>
-  Math.min(parseInteger(process.env.REDIS_COMMAND_TIMEOUT_MS, 800), 3000);
+  Math.min(parseInteger(process.env.REDIS_COMMAND_TIMEOUT_MS, 150), 500);
 const redisRetries = () =>
-  Math.min(parseInteger(process.env.REDIS_MAX_RETRIES_PER_REQUEST, 1), 2);
+  Math.min(parseInteger(process.env.REDIS_MAX_RETRIES_PER_REQUEST, 0), 1);
 
 let consecutiveTimeouts = 0;
 let circuitOpenUntil = 0;

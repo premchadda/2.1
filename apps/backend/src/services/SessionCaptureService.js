@@ -611,7 +611,7 @@ export const getSessionForRefresh = async (sessionId) => {
 // Returns { ok, reason }. When the session has no stored hash (legacy session
 // created before this feature), we accept it so existing logins keep working.
 export const verifyRefreshTokenForSession = (session, presentedToken) => {
-  if (!session) return { ok: true, reason: "no-session-row" };
+  if (!session) return { ok: false, reason: "no-session-row" };
   if (session.is_active === false) return { ok: false, reason: "revoked" };
   if (!session.refresh_token_hash)
     return { ok: true, reason: "legacy-no-hash" };

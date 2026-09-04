@@ -29,6 +29,12 @@ import logger from "../../infrastructure/logger/logger.js";
 
 const router = express.Router();
 
+const parseOptionalFloat = (val, fallback) => {
+  if (val === undefined || val === null || val === "") return fallback;
+  const num = parseFloat(val);
+  return Number.isFinite(num) ? num : fallback;
+};
+
 router.use(protect);
 router.use(admin);
 
@@ -103,9 +109,11 @@ router.post("/import/classx", importUpload.single("file"), async (req, res) => {
       testId: req.body.testId || req.body.test_id || null,
       sectionId: req.body.sectionId || req.body.section_id || null,
       topicId: req.body.topicId || req.body.topic_id || null,
-      marks: parseFloat(req.body.marks) || 1,
-      negativeMarks:
-        parseFloat(req.body.negativeMarks || req.body.negative_marks) ?? 0.5,
+      marks: parseOptionalFloat(req.body.marks, 1),
+      negativeMarks: parseOptionalFloat(
+        req.body.negativeMarks ?? req.body.negative_marks,
+        0.5,
+      ),
       difficulty: req.body.difficulty || "medium",
       skipDuplicates: req.body.skipDuplicates !== false,
       fileName,
@@ -154,9 +162,11 @@ router.post(
         testId: req.body.testId || req.body.test_id || null,
         sectionId: req.body.sectionId || req.body.section_id || null,
         topicId: req.body.topicId || req.body.topic_id || null,
-        marks: parseFloat(req.body.marks) || 1,
-        negativeMarks:
-          parseFloat(req.body.negativeMarks || req.body.negative_marks) ?? 0.5,
+        marks: parseOptionalFloat(req.body.marks, 1),
+        negativeMarks: parseOptionalFloat(
+          req.body.negativeMarks ?? req.body.negative_marks,
+          0.5,
+        ),
         dryRun: true,
         fileName,
         userId: req.user?.id || null,
@@ -199,9 +209,11 @@ router.post(
         seriesId: req.body.seriesId || req.body.series_id || null,
         topicId: req.body.topicId || req.body.topic_id || null,
         duration: parseInt(req.body.duration) || 60,
-        marks: parseFloat(req.body.marks) || 1,
-        negativeMarks:
-          parseFloat(req.body.negativeMarks || req.body.negative_marks) ?? 0.5,
+        marks: parseOptionalFloat(req.body.marks, 1),
+        negativeMarks: parseOptionalFloat(
+          req.body.negativeMarks ?? req.body.negative_marks,
+          0.5,
+        ),
         fileName,
         userId: req.user?.id || null,
       };
@@ -323,9 +335,11 @@ router.post(
         testId: req.body.testId || req.body.test_id || null,
         sectionId: req.body.sectionId || req.body.section_id || null,
         topicId: req.body.topicId || req.body.topic_id || null,
-        marks: parseFloat(req.body.marks) || 1,
-        negativeMarks:
-          parseFloat(req.body.negativeMarks || req.body.negative_marks) ?? 0.5,
+        marks: parseOptionalFloat(req.body.marks, 1),
+        negativeMarks: parseOptionalFloat(
+          req.body.negativeMarks ?? req.body.negative_marks,
+          0.5,
+        ),
         difficulty: req.body.difficulty || "medium",
         skipDuplicates: req.body.skipDuplicates !== false,
         fileName: req.file.originalname,

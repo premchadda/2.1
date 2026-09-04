@@ -163,7 +163,15 @@ router.post(
         seriesId: req.body.seriesId || req.body.series_id || null,
         marks: parseFloat(req.body.marks) || 1,
         negativeMarks:
-          parseFloat(req.body.negativeMarks || req.body.negative_marks) ?? 0.5,
+          req.body.negativeMarks !== undefined &&
+          req.body.negativeMarks !== null &&
+          req.body.negativeMarks !== ""
+            ? parseFloat(req.body.negativeMarks)
+            : req.body.negative_marks !== undefined &&
+                req.body.negative_marks !== null &&
+                req.body.negative_marks !== ""
+              ? parseFloat(req.body.negative_marks)
+              : 0.5,
         difficulty: req.body.difficulty || "medium",
         skipDuplicates: req.body.skipDuplicates !== false,
         fileName: req.file.originalname,

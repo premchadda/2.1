@@ -55,7 +55,7 @@ import {
   useAdminRecentActivity,
 } from "../../../shared/hooks/useAdminQueries.js";
 
-const AUTO_REFRESH_INTERVAL = 30000;
+const AUTO_REFRESH_INTERVAL = 300000; // 5 minutes background refresh (selective realtime handles live updates)
 
 function DashboardSkeleton() {
   return (
@@ -195,11 +195,11 @@ export default function AdminDashboard() {
       queryClient.invalidateQueries({ queryKey: ["admin", "analytics"] });
     });
     const unsubAttempt = on("live-test:attempt_submitted", () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "stats"] });
+      // Selective invalidation: update recent activity without triggering full stats/funnel recount
       queryClient.invalidateQueries({ queryKey: ["admin", "recent-activity"] });
     });
     const unsubSession = on("session:created", () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "stats"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "recent-activity"] });
     });
 
     return () => {

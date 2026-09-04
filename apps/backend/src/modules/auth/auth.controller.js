@@ -413,11 +413,15 @@ export const authController = {
           client.release();
         }
       } catch (limitErr) {
-        // Don't block login if session limit enforcement fails
-        console.warn(
-          "[Auth] Session limit enforcement failed (non-fatal):",
+        console.error(
+          "[Auth] Session limit enforcement failed (fail-closed):",
           limitErr.message,
         );
+        return res.status(503).json({
+          success: false,
+          code: "SESSION_LIMIT_CHECK_FAILED",
+          message: "Unable to verify session limits. Please try again.",
+        });
       }
 
       const rememberMe = Boolean(req.body.rememberMe);
@@ -876,10 +880,15 @@ export const authController = {
             client.release();
           }
         } catch (limitErr) {
-          console.warn(
-            "[Auth Google] Session limit enforcement failed (non-fatal):",
+          console.error(
+            "[Auth Google] Session limit enforcement failed (fail-closed):",
             limitErr.message,
           );
+          return res.status(503).json({
+            success: false,
+            code: "SESSION_LIMIT_CHECK_FAILED",
+            message: "Unable to verify session limits. Please try again.",
+          });
         }
       }
 
@@ -1957,10 +1966,15 @@ export const authController = {
           }
         }
       } catch (limitErr) {
-        console.warn(
-          "[Auth] Session limit enforcement failed (non-fatal):",
+        console.error(
+          "[Auth] 2FA session limit enforcement failed (fail-closed):",
           limitErr.message,
         );
+        return res.status(503).json({
+          success: false,
+          code: "SESSION_LIMIT_CHECK_FAILED",
+          message: "Unable to verify session limits. Please try again.",
+        });
       }
 
       const rememberMe =

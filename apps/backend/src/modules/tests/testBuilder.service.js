@@ -255,11 +255,11 @@ const testBuilderService = {
           data.categoryId || data.category_id || null,
           data.description || null,
           data.duration || 60,
-          data.passingMarks || data.passing_marks || 0,
-          data.negativeMarks || data.negative_marks || 0,
-          data.totalMarks || data.total_marks || 0,
-          data.totalQuestions || data.total_questions || 0,
-          data.displayOrder || data.display_order || 0,
+          data.passingMarks ?? data.passing_marks ?? 0,
+          data.negativeMarks ?? data.negative_marks ?? 0,
+          data.totalMarks ?? data.total_marks ?? 0,
+          data.totalQuestions ?? data.total_questions ?? 0,
+          data.displayOrder ?? data.display_order ?? 0,
         ],
       );
 
@@ -304,11 +304,11 @@ const testBuilderService = {
             section.categoryId || section.category_id || null,
             section.description || null,
             section.duration || 60,
-            section.passingMarks || section.passing_marks || 0,
-            section.negativeMarks || section.negative_marks || 0,
-            section.totalMarks || section.total_marks || 0,
-            section.totalQuestions || section.total_questions || 0,
-            section.displayOrder || section.display_order || i + 1,
+            section.passingMarks ?? section.passing_marks ?? 0,
+            section.negativeMarks ?? section.negative_marks ?? 0,
+            section.totalMarks ?? section.total_marks ?? 0,
+            section.totalQuestions ?? section.total_questions ?? 0,
+            section.displayOrder ?? section.display_order ?? i + 1,
           ],
         );
       }

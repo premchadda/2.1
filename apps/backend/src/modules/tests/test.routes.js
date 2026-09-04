@@ -910,8 +910,13 @@ router.post("/:testId/start", protect, async (req, res) => {
         isResumed: wasResumed,
         attemptNo: currentAttemptNo,
         attemptNumber: currentAttemptNo,
-        attempt_number: currentAttemptNo,
         startTime: attempt.startTime,
+        serverTime: new Date().toISOString(),
+        serverStartTime: attempt.startTime,
+        serverEndTime: new Date(
+          new Date(attempt.startTime).getTime() +
+            (Number(test.duration) || 60) * 60 * 1000,
+        ).toISOString(),
         duration: test.duration,
         timeSpent: attempt.timeSpent || 0,
         answers: attempt.answers || [],

@@ -22,25 +22,14 @@
  * These !important overrides are fallback for legacy fixed text-3xl/4xl/5xl classes.
  */
 @media (max-width: 375px) {
-    .text-3xl { font-size: 1.5rem !important; line-height: 1.25 !important; }
-    .text-4xl { font-size: 1.875rem !important; line-height: 1.2 !important; }
-    .text-5xl { font-size: 2.25rem !important; line-height: 1.15 !important; }
     .fluid-display, .heading-display { font-size: clamp(1.5rem, 6vw, 2rem) !important; }
 }
 
-@media (max-width: 320px) {
-    .text-3xl { font-size: 1.375rem !important; }
-    .text-4xl { font-size: 1.625rem !important; }
-    .text-5xl { font-size: 1.875rem !important; }
-}
-
-
-/* Cards/sections: ensure fluid width
- * Tailwind equivalent: `w-full min-w-0 max-w-full xsm:w-auto` or use flex/grid responsive
- * Keeps cards from overflowing 320px viewport.
+/* Cards/sections: ensure fluid width for standard cards while allowing carousel flex cards
+ * Keeps cards from overflowing 320px viewport without breaking carousel items.
  */
 @media (max-width: 414px) {
-    .test-series-card, .card, .test-card, .sidebar-card {
+    .card, .test-card, .sidebar-card, .test-series-grid .test-series-card, .test-series-card:not(.flex-shrink-0) {
         width: 100% !important;
         min-width: 0 !important;
         max-width: 100% !important;
@@ -70,10 +59,14 @@
     }
 }
 
+/* Carousel cards: preserve fixed item width inside scrolling tracks */
 @media (max-width: 640px) {
-    .test-series-card {
+    .carousel-track .test-series-card,
+    .test-series-carousel .test-series-card,
+    .test-series-card.flex-shrink-0 {
         width: 240px;
         min-width: 240px;
+        flex: 0 0 240px;
         min-height: 260px;
         border-radius: 14px;
     }
@@ -84,9 +77,12 @@
 }
 
 @media (max-width: 480px) {
-    .test-series-card {
+    .carousel-track .test-series-card,
+    .test-series-carousel .test-series-card,
+    .test-series-card.flex-shrink-0 {
         width: 220px;
         min-width: 220px;
+        flex: 0 0 220px;
         min-height: 240px;
         border-radius: 12px;
     }

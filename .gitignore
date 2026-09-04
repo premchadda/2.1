@@ -77,6 +77,8 @@ run-*.js
 *.spec.js
 check-*.mjs
 check_*.mjs
+!**/__tests__/**
+
 
 # ===========================================
 # IDE AND EDITOR

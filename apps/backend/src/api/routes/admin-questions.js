@@ -83,9 +83,9 @@ const syncTestQuestionsJunction = async (testId, questionId, payload = {}) => {
           questionId,
           nextIdx,
           nextIdx,
-          payload.marks || payload.points || 2,
-          payload.negative_marks || payload.negativeMarks || 0.5,
-          payload.section_id || payload.sectionId || null,
+          payload.marks ?? payload.points ?? 2,
+          payload.negative_marks ?? payload.negativeMarks ?? 0.5,
+          payload.section_id ?? payload.sectionId ?? null,
         ],
       );
     }
@@ -566,12 +566,10 @@ router.delete("/questions/bulk", async (req, res) => {
         .json({ success: false, message: "No question IDs provided" });
     }
     if (ids.length > 200) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Cannot delete more than 200 questions at once",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Cannot delete more than 200 questions at once",
+      });
     }
 
     const deletedIds = [];
@@ -836,12 +834,10 @@ router.post("/questions/bulk/predict-difficulty", async (req, res) => {
         .json({ success: false, message: "ids array required" });
     }
     if (ids.length > 200) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Cannot process more than 200 questions at once",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Cannot process more than 200 questions at once",
+      });
     }
     const results = [];
     for (const id of ids) {
@@ -936,12 +932,10 @@ router.post("/questions", async (req, res) => {
     if (testId) {
       const existingTest = await dbHelpers.findById("tests", testId);
       if (!existingTest) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "The specified test does not exist",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "The specified test does not exist",
+        });
       }
       const sid = getTestSeriesId(existingTest);
       if (sid != null && sid !== "" && !getTestSeriesId(payload)) {
@@ -1478,14 +1472,12 @@ router.post(
         logger.warn("[Questions Bulk Debug] All rows failed validation", {
           skipDetails: questionSkipDetails,
         });
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "All rows failed validation",
-            skipped: questionSkipDetails.length,
-            skipDetails: questionSkipDetails,
-          });
+        return res.status(400).json({
+          success: false,
+          message: "All rows failed validation",
+          skipped: questionSkipDetails.length,
+          skipDetails: questionSkipDetails,
+        });
       }
 
       const CHUNK_SIZE = 500;
@@ -1527,14 +1519,12 @@ router.post(
         logger.error("Import log error:", logErr.message);
       }
 
-      res
-        .status(201)
-        .json({
-          success: true,
-          data: allInserted,
-          count: allInserted.length,
-          skipped: normalizedRows.length - mapped.length,
-        });
+      res.status(201).json({
+        success: true,
+        data: allInserted,
+        count: allInserted.length,
+        skipped: normalizedRows.length - mapped.length,
+      });
     } catch (error) {
       logger.error("[Questions Bulk Debug] Error processing request:", error);
       res
