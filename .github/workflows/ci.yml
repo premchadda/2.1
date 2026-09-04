@@ -187,3 +187,8 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres@localhost:5432/test_db
         run: node apps/backend/src/infrastructure/database/run-migrations.js
+      - name: Run database schema & relationship integrity audit
+        env:
+          DATABASE_URL: postgresql://postgres@localhost:5432/test_db
+        run: node scripts/run-database-audit.js
+

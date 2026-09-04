@@ -1,158 +1,206 @@
-import express from 'express'
-import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
-import { protect } from '../../middleware/auth.middleware.js'
-import { idsMatch } from '../../shared/utils/db-utils.js'
-import { findEntityByIdentifier, getInternalId } from '../../shared/utils/identifier-utils.js'
-import { buildPublicIdLookup, mapLookupId } from '../../shared/utils/public-id-response.js'
-import EnrollmentService from '../../services/EnrollmentService.js'
-import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
+import express from "express";
+import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
+import { protect } from "../../middleware/auth.middleware.js";
+import { idsMatch } from "../../shared/utils/db-utils.js";
+import {
+  findEntityByIdentifier,
+  getInternalId,
+} from "../../shared/utils/identifier-utils.js";
+import {
+  buildPublicIdLookup,
+  mapLookupId,
+} from "../../shared/utils/public-id-response.js";
+import EnrollmentService from "../../services/EnrollmentService.js";
+import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
-const router = express.Router()
+const router = express.Router();
 
-router.post('/enroll-exam/:examId', protect, async (req, res) => {
+router.post("/enroll-exam/:examId", protect, async (req, res) => {
   try {
-    const { examId } = req.params
-    console.log('[Enroll Exam] Request received for examId:', examId, 'userId:', req.user.id)
+    const { examId } = req.params;
+    console.log(
+      "[Enroll Exam] Request received for examId:",
+      examId,
+      "userId:",
+      req.user.id,
+    );
 
-    const exam = await findEntityByIdentifier(dbHelpers, 'exams', examId, {
-      slugFields: ['slug', 'exam_id']
-    })
+    const exam = await findEntityByIdentifier(dbHelpers, "exams", examId, {
+      slugFields: ["slug", "exam_id"],
+    });
 
     if (!exam) {
-      console.log('[Enroll Exam] Exam not found:', examId)
+      console.log("[Enroll Exam] Exam not found:", examId);
       return res.status(404).json({
         success: false,
-        message: 'Exam not found',
-      })
+        message: "Exam not found",
+      });
     }
-    console.log('[Enroll Exam] Exam found:', exam._id || exam.id, exam.title || exam.name)
+    console.log(
+      "[Enroll Exam] Exam found:",
+      exam._id || exam.id,
+      exam.title || exam.name,
+    );
 
-    const canonicalExamId = getInternalId(exam)
+    const canonicalExamId = getInternalId(exam);
 
     const result = await EnrollmentService.enrollInExam(
       dbHelpers,
       req.user.id,
-      canonicalExamId
-    )
+      canonicalExamId,
+    );
 
     if (result.alreadyEnrolled) {
-      console.log('[Enroll Exam] User already enrolled')
+      console.log("[Enroll Exam] User already enrolled");
       const enrolledExamIds = await EnrollmentService.getEnrolledExamIds(
         dbHelpers,
-        req.user.id
-      )
-      const enrolledExamsLookup = await buildPublicIdLookup(dbHelpers, 'exams', enrolledExamIds)
+        req.user.id,
+      );
+      const enrolledExamsLookup = await buildPublicIdLookup(
+        dbHelpers,
+        "exams",
+        enrolledExamIds,
+      );
       return res.json({
         success: true,
-        message: 'Already enrolled in this exam',
+        message: "Already enrolled in this exam",
         alreadyEnrolled: true,
-        data: enrolledExamIds.map((value) => mapLookupId(value, enrolledExamsLookup, value)),
-      })
+        data: enrolledExamIds.map((value) =>
+          mapLookupId(value, enrolledExamsLookup, value),
+        ),
+      });
     }
 
-    console.log('[Enroll Exam] Created enrollment record in enrollments table')
+    console.log("[Enroll Exam] Created enrollment record in enrollments table");
 
     const enrolledExamIds = await EnrollmentService.getEnrolledExamIds(
       dbHelpers,
-      req.user.id
-    )
-    const enrolledExamsLookup = await buildPublicIdLookup(dbHelpers, 'exams', enrolledExamIds)
+      req.user.id,
+    );
+    const enrolledExamsLookup = await buildPublicIdLookup(
+      dbHelpers,
+      "exams",
+      enrolledExamIds,
+    );
 
     res.json({
       success: true,
-      message: 'Successfully enrolled in exam',
+      message: "Successfully enrolled in exam",
       alreadyEnrolled: false,
-      data: enrolledExamIds.map((value) => mapLookupId(value, enrolledExamsLookup, value))
-    })
+      data: enrolledExamIds.map((value) =>
+        mapLookupId(value, enrolledExamsLookup, value),
+      ),
+    });
   } catch (error) {
-    console.error('[Enroll Exam] Error:', error)
+    console.error("[Enroll Exam] Error:", error);
     res.status(500).json({
       success: false,
       message: sanitizeErrorMessage(error),
-    })
+    });
   }
-})
+});
 
-router.delete('/unenroll-exam/:examId', protect, async (req, res) => {
+router.delete("/unenroll-exam/:examId", protect, async (req, res) => {
   try {
-    const { examId } = req.params
-    console.log('[Unenroll Exam] Request received for examId:', examId, 'userId:', req.user.id)
+    const { examId } = req.params;
+    console.log(
+      "[Unenroll Exam] Request received for examId:",
+      examId,
+      "userId:",
+      req.user.id,
+    );
 
-    const exam = await findEntityByIdentifier(dbHelpers, 'exams', examId, {
-      slugFields: ['slug', 'exam_id']
-    })
+    const exam = await findEntityByIdentifier(dbHelpers, "exams", examId, {
+      slugFields: ["slug", "exam_id"],
+    });
 
     if (!exam) {
-      console.log('[Unenroll Exam] Exam not found:', examId)
+      console.log("[Unenroll Exam] Exam not found:", examId);
       return res.status(404).json({
         success: false,
-        message: 'Exam not found',
-      })
+        message: "Exam not found",
+      });
     }
-    console.log('[Unenroll Exam] Exam found:', exam._id || exam.id, exam.title || exam.name)
+    console.log(
+      "[Unenroll Exam] Exam found:",
+      exam._id || exam.id,
+      exam.title || exam.name,
+    );
 
-    const canonicalExamId = getInternalId(exam)
+    const canonicalExamId = getInternalId(exam);
 
     const unenrolled = await EnrollmentService.unenrollFromExam(
       dbHelpers,
       req.user.id,
-      canonicalExamId
-    )
+      canonicalExamId,
+    );
 
     if (!unenrolled) {
-      console.log('[Unenroll Exam] User not enrolled in this exam')
+      console.log("[Unenroll Exam] User not enrolled in this exam");
       return res.status(400).json({
         success: false,
-        message: 'You are not enrolled in this exam',
-      })
+        message: "You are not enrolled in this exam",
+      });
     }
 
-    console.log('[Unenroll Exam] Successfully unenrolled')
+    console.log("[Unenroll Exam] Successfully unenrolled");
 
     const enrolledExamIds = await EnrollmentService.getEnrolledExamIds(
       dbHelpers,
-      req.user.id
-    )
-    const enrolledExamsLookup = await buildPublicIdLookup(dbHelpers, 'exams', enrolledExamIds)
+      req.user.id,
+    );
+    const enrolledExamsLookup = await buildPublicIdLookup(
+      dbHelpers,
+      "exams",
+      enrolledExamIds,
+    );
 
     res.json({
       success: true,
-      message: 'Successfully unenrolled from exam',
-      data: enrolledExamIds.map((value) => mapLookupId(value, enrolledExamsLookup, value))
-    })
+      message: "Successfully unenrolled from exam",
+      data: enrolledExamIds.map((value) =>
+        mapLookupId(value, enrolledExamsLookup, value),
+      ),
+    });
   } catch (error) {
-    console.error('[Unenroll Exam] Error:', error)
+    console.error("[Unenroll Exam] Error:", error);
     res.status(500).json({
       success: false,
       message: sanitizeErrorMessage(error),
-    })
+    });
   }
-})
+});
 
-router.get('/enrolled-exams', protect, async (req, res) => {
+router.get("/enrolled-exams", protect, async (req, res) => {
   try {
     const enrolledExamIds = await EnrollmentService.getEnrolledExamIds(
       dbHelpers,
-      req.user.id
-    )
+      req.user.id,
+    );
 
-    const allExams = await dbHelpers.find('exams')
-    const populatedExams = allExams
-      .filter(exam =>
-        enrolledExamIds.some(id => String(id) === String(exam.id || exam._id))
-      )
-      .sort((a, b) => (a.displayOrder ?? a.display_order ?? 0) - (b.displayOrder ?? b.display_order ?? 0))
-    
+    const populatedExams =
+      enrolledExamIds.length > 0
+        ? (
+            await dbHelpers.find("exams", {
+              id: { $in: enrolledExamIds },
+            })
+          ).sort(
+            (a, b) =>
+              (a.displayOrder ?? a.display_order ?? 0) -
+              (b.displayOrder ?? b.display_order ?? 0),
+          )
+        : [];
+
     res.json({
       success: true,
       data: populatedExams,
-    })
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: sanitizeErrorMessage(error),
-    })
+    });
   }
-})
+});
 
-export default router
+export default router;

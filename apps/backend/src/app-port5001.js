@@ -96,7 +96,6 @@ import enrollmentsAdminRoutes from "./api/routes/enrollments-admin.js";
 import communityRoutes from "./api/routes/community.js";
 import analyticsRoutes from "./api/routes/analytics.js";
 import auditRoutes from "./api/routes/admin-audit.js";
-import { mountAdminRoutes } from "./api/routes/admin-routes-index.js";
 import { adminIpAllowlist } from "./middleware/adminIpAllowlist.middleware.js";
 import { maintenanceMiddleware } from "./middleware/maintenance.middleware.js";
 import { setupSwagger } from "./api/docs/swagger.js";
@@ -958,7 +957,6 @@ app.get("/api/metrics", protect, admin, (req, res) => metricsHandler(req, res));
 // and admin panel both use /api/* prefix.
 
 app.use(adminIpAllowlist);
-mountAdminRoutes(app, adminLimiter);
 app.use("/api/admin", adminLimiter, adminRoutes);
 
 app.use(maintenanceMiddleware);
@@ -999,7 +997,6 @@ app.use("/api/discussions", validateCsrfToken, discussionsRoutes);
 app.use("/api/promotions", promotionsRoutes);
 app.use("/api/tag-configs", tagConfigRoutes);
 app.use("/api/pyps", pypHierarchyRoutes);
-app.use("/api/admin/leaderboards", adminLimiter, leaderboardAdminRoutes);
 // Compatibility alias — same router, chain-complete. LeaderboardResultsUnified.jsx
 // (out of scope) still calls /leaderboards/admin/list + /stats; remove this mount
 // once that page migrates to /admin/leaderboards/*.
@@ -1007,7 +1004,6 @@ app.use("/api/leaderboards/admin", adminLimiter, leaderboardAdminRoutes);
 app.use("/api/enrollments", validateCsrfToken, enrollmentsAdminRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/analytics", validateCsrfToken, analyticsRoutes);
-app.use("/api/admin/audit-logs", adminLimiter, validateCsrfToken, auditRoutes);
 app.use("/api/fortspy", fortskyRoutes);
 app.use("/api/import", adminLimiter, importRoutes);
 app.use("/api/embeddings", embeddingRoutes);
