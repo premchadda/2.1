@@ -1750,23 +1750,27 @@ class PostgresHelpers {
 
     const sql = `UPDATE "${table}" SET ${setClause} WHERE id = $${values.length} RETURNING *`;
 
-    // Log database update operations in camelCase
-    const camelKeys = keys.map((key) =>
-      key.replace(/_([a-z])/g, (_, c) => c.toUpperCase()),
-    );
-    console.log(
-      `\n🗄️  [DB Update] collection: ${collection} | table: ${table}`,
-    );
-    console.log(`   📝 fields: ${camelKeys.join(", ")}`);
-    console.log(`   🔑 id: ${id} (numericId: ${numericId})`);
-    console.log(`   📊 sql: ${sql.substring(0, 150)}...`);
-    console.log(`   ──`.repeat(25));
+    // Log database update operations in camelCase (opt-in: blocks event loop otherwise)
+    if (process.env.DB_LOG_QUERIES === "true") {
+      const camelKeys = keys.map((key) =>
+        key.replace(/_([a-z])/g, (_, c) => c.toUpperCase()),
+      );
+      console.log(
+        `\n🗄️  [DB Update] collection: ${collection} | table: ${table}`,
+      );
+      console.log(`   📝 fields: ${camelKeys.join(", ")}`);
+      console.log(`   🔑 id: ${id} (numericId: ${numericId})`);
+      console.log(`   📊 sql: ${sql.substring(0, 150)}...`);
+      console.log(`   ──`.repeat(25));
+    }
 
     try {
       const db = client || this.pool;
       const result = await db.query(sql, values);
       if (result.rows.length === 0) return null;
-      console.log(`   ✅ Updated 1 row in ${table}`);
+      if (process.env.DB_LOG_QUERIES === "true") {
+        console.log(`   ✅ Updated 1 row in ${table}`);
+      }
       const updated = this.toCamel(result.rows[0]);
       if (["units", "chapters", "topics", "subtopics"].includes(collection)) {
         this.getSubjectIdForCurriculumItem(

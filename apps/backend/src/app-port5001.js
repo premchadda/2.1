@@ -1161,6 +1161,35 @@ const startServer = async () => {
       logger.info(`[Redis] ${getRedisStatus().message}`);
       logger.info(`[Queue] ${isQueueEnabled() ? "Enabled" : "Disabled"}`);
       logger.info(`Background initialization complete.`);
+
+      // PERF: pre-warm the most commonly hit public endpoints so the first
+      // real user request does not pay the cold-cache penalty (Redis + pool +
+      // query planner warmup was 1-2s on the first hit per route).
+      try {
+        const warmupPaths = [
+          "/api/settings/public",
+          "/api/exams",
+          "/api/exam-categories",
+          "/api/test-categories",
+          "/api/series",
+          "/api/tests",
+          "/api/live-tests?limit=10",
+        ];
+        const warm = async (p) => {
+          try {
+            const res = await fetch(`http://127.0.0.1:${PORT}${p}`, {
+              headers: { "x-request-id": "warmup" },
+            });
+            await res.arrayBuffer().catch(() => {});
+          } catch {
+            /* best-effort only */
+          }
+        };
+        await Promise.allSettled(warmupPaths.map(warm));
+        logger.info(`Cache warmup complete (${warmupPaths.length} routes).`);
+      } catch (e) {
+        logger.warn(`Cache warmup failed (non-fatal): ${e.message}`);
+      }
       try {
         startScheduler();
         startOutboxPoller();

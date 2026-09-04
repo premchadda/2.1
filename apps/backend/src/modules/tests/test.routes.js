@@ -2308,6 +2308,7 @@ router.put("/:testId/submit", protect, async (req, res) => {
     };
 
     let result;
+    let existingAttempt;
     const client = await dbHelpers.pool.connect();
     try {
       await client.query("BEGIN");
@@ -2331,7 +2332,7 @@ router.put("/:testId/submit", protect, async (req, res) => {
         }
         attemptQuery += " FOR UPDATE";
         const { rows: attemptRows } = await client.query(attemptQuery, params);
-        const existingAttempt = attemptRows[0];
+        existingAttempt = attemptRows[0];
         if (!existingAttempt) {
           await client.query("ROLLBACK");
           client.release();
