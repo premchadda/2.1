@@ -19,6 +19,7 @@ import {
   bookmarksAPI,
 } from "../../shared/lib/dataService";
 import { API_BASE_URL } from "../../shared/lib/apiBase.js";
+import { clearDashboardCache } from "../../shared/lib/dashboardCache";
 import Telemetry from "../../shared/lib/telemetry";
 import sanitizeHtml from "../../shared/lib/sanitizeHtml";
 import { getLocalizedField } from "../../shared/lib/language";
@@ -2054,10 +2055,13 @@ function TestInterface() {
         await refreshUser();
       }
 
-      // Invalidate React Query caches so dashboard, test series, and analytics update immediately
+      // Clear client-side dashboard cache & invalidate queries so dashboard, test series, and analytics update immediately
+      clearDashboardCache();
       queryClient.invalidateQueries({ queryKey: ["user-attempts"] });
       queryClient.invalidateQueries({ queryKey: ["user-incomplete-attempts"] });
       queryClient.invalidateQueries({ queryKey: ["user-attempts-live"] });
+      queryClient.invalidateQueries({ queryKey: ["user-analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-activity"] });
       queryClient.invalidateQueries({ queryKey: ["intelligence-performance"] });
       queryClient.invalidateQueries({ queryKey: ["intelligence-weak-topics"] });
       queryClient.invalidateQueries({
@@ -2461,7 +2465,7 @@ function TestInterface() {
                             </span>
                             {sectionRemaining !== null && (
                               <span
-                                className={`text-[9px] font-bold px-1 py-0.5 rounded ${isExpired ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400" : isActive ? "bg-white/20 text-white" : getSectionTimeColor(sectionRemaining)}`}
+                                className={`text-[10px] font-bold px-1 py-0.5 rounded ${isExpired ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400" : isActive ? "bg-white/20 text-white" : getSectionTimeColor(sectionRemaining)}`}
                               >
                                 {isExpired
                                   ? "Expired"

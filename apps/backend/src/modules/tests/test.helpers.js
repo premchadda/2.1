@@ -740,10 +740,15 @@ export const getRankAndPercentile = async (
       timeSpent: row.time_spent || row.time_spent_seconds,
     }));
   } catch (err) {
-    // Fallback to dbHelpers.find if the direct query fails (e.g., column mismatch)
-    const allAttempts = await dbHelpers.find("attempts", { isCompleted: true });
-    testAttempts = allAttempts.filter(
-      (a) => idsMatch(a.testId, testId) || idsMatch(a.test_id, testId),
+    // Fallback to dbHelpers.find scoped to this test if direct pool query fails
+    const scopedAttempts = await dbHelpers.find("attempts", { testId });
+    testAttempts = (scopedAttempts || []).filter(
+      (a) =>
+        (a.isCompleted === true ||
+          ["completed", "submitted"].includes(
+            String(a.status).toLowerCase(),
+          )) &&
+        (idsMatch(a.testId, testId) || idsMatch(a.test_id, testId)),
     );
   }
 

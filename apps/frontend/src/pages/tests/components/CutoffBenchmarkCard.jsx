@@ -115,7 +115,7 @@ export default function CutoffBenchmarkCard({ sectionRef, result }) {
                           {cat}
                         </span>
                         {isUserCat && (
-                          <span className="text-[9px] font-black uppercase px-1 py-0.2 bg-blue-600 text-white rounded">
+                          <span className="text-[10px] font-black uppercase px-1 py-0.2 bg-blue-600 text-white rounded">
                             YOU
                           </span>
                         )}

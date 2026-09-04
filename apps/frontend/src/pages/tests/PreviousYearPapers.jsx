@@ -221,10 +221,10 @@ export default function PreviousYearPapers() {
                 <div className="relative z-10">
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex flex-col gap-2">
-                      <span className="inline-flex items-center px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-indigo-100/50">
+                      <span className="inline-flex items-center px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100/50">
                         {paper.exam}
                       </span>
-                      <span className="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[9px] font-black uppercase tracking-widest w-fit">
+                      <span className="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-widest w-fit">
                         Year {paper.year}
                       </span>
                     </div>
