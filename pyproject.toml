@@ -1,0 +1,21 @@
+[project]
+name = "trstprep-python"
+version = "2.1.0"
+description = "AI PDF extraction, AST analysis, and document parsing utilities for Trstprep"
+requires-python = ">=3.11"
+dependencies = [
+    "pymupdf4llm>=0.0.17",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+ai-ocr = [
+    "docling>=2.0.0",
+]
+ast-tools = [
+    "tree-sitter>=0.23.0",
+]
+
+[tool.uv]
+package = false
+
