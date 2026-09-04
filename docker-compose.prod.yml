@@ -22,14 +22,14 @@
 services:
   backend-1:
     volumes: []
-    command: npm start
+    command: pnpm start
     ports: []
     environment:
       - NODE_ENV=production
 
   backend-2:
     volumes: []
-    command: npm start
+    command: pnpm start
     ports: []
     environment:
       - NODE_ENV=production

@@ -1,184 +1,244 @@
-import express from 'express'
-import { TestCategory } from '../../data/models/index.js'
-import { responseCache } from '../../middleware/responseCache.middleware.js'
-import { protect, admin } from '../../middleware/auth.middleware.js'
-import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
+import express from "express";
+import { TestCategory } from "../../data/models/index.js";
+import { responseCache } from "../../middleware/responseCache.middleware.js";
+import { protect, admin } from "../../middleware/auth.middleware.js";
+import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
-const router = express.Router()
+const router = express.Router();
 
 // Get all active test categories (public endpoint)
 // PERF: cache the category list for 60s; it is read on nearly every page load
 // and rarely changes, so this removes a recurring multi-second DB hit.
-router.get('/', responseCache("test-categories", 60), async (req, res) => {
-  try {
-    const { examCategory } = req.query
-    let categories = await TestCategory.findActive()
-    
-    if (examCategory) {
-      categories = categories.filter(cat => String(cat.examCategoryId) === String(examCategory))
-    }
+router.get(
+  "/",
+  responseCache("test-categories", 600, { userScoped: false }),
+  async (req, res) => {
+    try {
+      const { examCategory } = req.query;
+      let categories = await TestCategory.findActive();
 
-    categories.sort((a, b) => ((a.displayOrder ?? a.display_order ?? 0) - (b.displayOrder ?? b.display_order ?? 0)))
-    
-    res.json({ success: true, data: categories })
-  } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
-  }
-})
+      if (examCategory) {
+        categories = categories.filter(
+          (cat) => String(cat.examCategoryId) === String(examCategory),
+        );
+      }
+
+      categories.sort(
+        (a, b) =>
+          (a.displayOrder ?? a.display_order ?? 0) -
+          (b.displayOrder ?? b.display_order ?? 0),
+      );
+
+      res.json({ success: true, data: categories });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 // Get categories as tree structure (public endpoint)
-router.get('/tree', responseCache("test-categories-tree", 60), async (req, res) => {
-  try {
-    const { examCategory } = req.query
-    let categories = await TestCategory.findActive()
-    
-    if (examCategory) {
-      categories = categories.filter(cat => String(cat.examCategoryId) === String(examCategory))
-    }
+router.get(
+  "/tree",
+  responseCache("test-categories-tree", 600, { userScoped: false }),
+  async (req, res) => {
+    try {
+      const { examCategory } = req.query;
+      let categories = await TestCategory.findActive();
 
-    categories.sort((a, b) => ((a.displayOrder ?? a.display_order ?? 0) - (b.displayOrder ?? b.display_order ?? 0)))
-    
-    const tree = TestCategory.buildTree(categories)
-    res.json({ success: true, data: tree })
-  } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
-  }
-})
+      if (examCategory) {
+        categories = categories.filter(
+          (cat) => String(cat.examCategoryId) === String(examCategory),
+        );
+      }
+
+      categories.sort(
+        (a, b) =>
+          (a.displayOrder ?? a.display_order ?? 0) -
+          (b.displayOrder ?? b.display_order ?? 0),
+      );
+
+      const tree = TestCategory.buildTree(categories);
+      res.json({ success: true, data: tree });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 // Get root categories only (public endpoint)
-router.get('/roots', async (req, res) => {
+router.get("/roots", async (req, res) => {
   try {
-    const { examCategory } = req.query
-    const categories = examCategory 
+    const { examCategory } = req.query;
+    const categories = examCategory
       ? await TestCategory.findRoots(examCategory)
-      : await TestCategory.findByParent(null)
-    categories.sort((a, b) => ((a.displayOrder ?? a.display_order ?? 0) - (b.displayOrder ?? b.display_order ?? 0)))
-    res.json({ success: true, data: categories })
+      : await TestCategory.findByParent(null);
+    categories.sort(
+      (a, b) =>
+        (a.displayOrder ?? a.display_order ?? 0) -
+        (b.displayOrder ?? b.display_order ?? 0),
+    );
+    res.json({ success: true, data: categories });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
 // Get test categories by exam category (public endpoint)
-router.get('/by-exam-category/:examCategoryId', async (req, res) => {
+router.get("/by-exam-category/:examCategoryId", async (req, res) => {
   try {
-    const categories = await TestCategory.findByExamCategory(req.params.examCategoryId)
-    res.json({ success: true, data: categories })
+    const categories = await TestCategory.findByExamCategory(
+      req.params.examCategoryId,
+    );
+    res.json({ success: true, data: categories });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
 // Get category by ID (public endpoint) - supports both numeric ID and slug
-router.get('/:id', async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
-    const { id } = req.params
-    
+    const { id } = req.params;
+
     // First try to find by ID
-    let category = await TestCategory.findById(id)
-    
+    let category = await TestCategory.findById(id);
+
     // If not found by ID, try to find by slug
     if (!category) {
-      category = await TestCategory.findOne({ slug: id })
+      category = await TestCategory.findOne({ slug: id });
     }
-    
+
     if (!category) {
-      return res.status(404).json({ success: false, message: 'Category not found' })
+      return res
+        .status(404)
+        .json({ success: false, message: "Category not found" });
     }
-    res.json({ success: true, data: category })
+    res.json({ success: true, data: category });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
 // Get category by slug (public endpoint)
-router.get('/slug/:slug', async (req, res) => {
+router.get("/slug/:slug", async (req, res) => {
   try {
-    const category = await TestCategory.findOne({ slug: req.params.slug })
+    const category = await TestCategory.findOne({ slug: req.params.slug });
     if (!category) {
-      return res.status(404).json({ success: false, message: 'Category not found' })
+      return res
+        .status(404)
+        .json({ success: false, message: "Category not found" });
     }
-    res.json({ success: true, data: category })
+    res.json({ success: true, data: category });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
 // Get children of a category (public endpoint)
-router.get('/:id/children', async (req, res) => {
+router.get("/:id/children", async (req, res) => {
   try {
-    const children = await TestCategory.findByParent(req.params.id)
+    const children = await TestCategory.findByParent(req.params.id);
     // Sort by displayOrder (admin-set order)
-    children.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
-    res.json({ success: true, data: children })
+    children.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+    res.json({ success: true, data: children });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
 // Get full path from root to category (public endpoint)
-router.get('/:id/path', async (req, res) => {
+router.get("/:id/path", async (req, res) => {
   try {
-    const categories = await TestCategory.find()
-    const path = TestCategory.getCategoryPath(categories, req.params.id)
-    res.json({ success: true, data: path })
+    const categories = await TestCategory.find();
+    const path = TestCategory.getCategoryPath(categories, req.params.id);
+    res.json({ success: true, data: path });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
 // Get test categories by test series (new endpoint)
-router.get('/by-test-series/:testSeriesId', async (req, res) => {
+router.get("/by-test-series/:testSeriesId", async (req, res) => {
   try {
-    const categories = await TestCategory.findByTestSeries(req.params.testSeriesId)
-    res.json({ success: true, data: categories })
+    const categories = await TestCategory.findByTestSeries(
+      req.params.testSeriesId,
+    );
+    res.json({ success: true, data: categories });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
 // Get orphaned categories (admin endpoint)
-router.get('/orphaned/list', protect, admin, async (req, res) => {
+router.get("/orphaned/list", protect, admin, async (req, res) => {
   try {
-    const orphanedCategories = await TestCategory.findOrphaned()
-    res.json({ 
-      success: true, 
+    const orphanedCategories = await TestCategory.findOrphaned();
+    res.json({
+      success: true,
       count: orphanedCategories.length,
-      data: orphanedCategories 
-    })
+      data: orphanedCategories,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
 // Bulk reassign orphaned categories to test series (admin endpoint)
-router.put('/orphaned/reassign', protect, admin, async (req, res) => {
+router.put("/orphaned/reassign", protect, admin, async (req, res) => {
   try {
-    const { categoryIds, testSeriesId } = req.body
-    
+    const { categoryIds, testSeriesId } = req.body;
+
     if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
-      return res.status(400).json({ success: false, message: 'categoryIds array is required' })
+      return res
+        .status(400)
+        .json({ success: false, message: "categoryIds array is required" });
     }
-    
+
     if (!testSeriesId) {
-      return res.status(400).json({ success: false, message: 'testSeriesId is required' })
+      return res
+        .status(400)
+        .json({ success: false, message: "testSeriesId is required" });
     }
-    
-    const updated = []
+
+    const updated = [];
     for (const categoryId of categoryIds) {
-      const result = await TestCategory.updateById(categoryId, { testSeriesId })
-      if (result) updated.push(result)
+      const result = await TestCategory.updateById(categoryId, {
+        testSeriesId,
+      });
+      if (result) updated.push(result);
     }
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: `Reassigned ${updated.length} categories to test series ${testSeriesId}`,
       updatedCount: updated.length,
-      data: updated 
-    })
+      data: updated,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
-export default router
+export default router;

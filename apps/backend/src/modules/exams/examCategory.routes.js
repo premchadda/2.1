@@ -10,81 +10,85 @@ const router = express.Router();
 // @route   GET /api/exam-categories
 // @desc    Get all exam categories with associated exams
 // @access  Public
-router.get("/", responseCache("exam-categories", 120), async (req, res) => {
-  try {
-    // Fetch categories and exams concurrently
-    let [categories, exams] = await Promise.all([
-      ExamCategory.find({ isActive: true }),
-      dbHelpers.find("exams", { isActive: true }),
-    ]);
+router.get(
+  "/",
+  responseCache("exam-categories", 600, { userScoped: false }),
+  async (req, res) => {
+    try {
+      // Fetch categories and exams concurrently
+      let [categories, exams] = await Promise.all([
+        ExamCategory.find({ isActive: true }),
+        dbHelpers.find("exams", { isActive: true }),
+      ]);
 
-    if (!categories) categories = [];
-    if (!exams) exams = [];
+      if (!categories) categories = [];
+      if (!exams) exams = [];
 
-    // Sort by display_order field (column is display_order, not order)
-    const sortedCategories = categories.sort(
-      (a, b) =>
-        (a.displayOrder ?? a.display_order ?? 0) -
-        (b.displayOrder ?? b.display_order ?? 0),
-    );
+      // Sort by display_order field (column is display_order, not order)
+      const sortedCategories = categories.sort(
+        (a, b) =>
+          (a.displayOrder ?? a.display_order ?? 0) -
+          (b.displayOrder ?? b.display_order ?? 0),
+      );
 
-    // Attach exams to each category
-    // Build category -> exams mapping in a deterministic way
-    const categoriesWithExams = sortedCategories.map((category) => {
-      // Normalize category identifiers
-      const categoryId = category.id || category.categoryId || category.slug;
-      const categorySlug = category.slug;
+      // Attach exams to each category
+      // Build category -> exams mapping in a deterministic way
+      const categoriesWithExams = sortedCategories.map((category) => {
+        // Normalize category identifiers
+        const categoryId = category.id || category.categoryId || category.slug;
+        const categorySlug = category.slug;
 
-      // Simple, robust matching: attach exams whose categoryId matches the
-      // category's id/slug values. This avoids brittle ad-hoc mappings.
-      const matchedExams = exams
-        .filter((exam) => {
-          const examCatId = exam.categoryId;
-          return (
-            examCatId === categoryId ||
-            examCatId === categorySlug ||
-            examCatId === String(categoryId) ||
-            examCatId === String(categorySlug)
+        // Simple, robust matching: attach exams whose categoryId matches the
+        // category's id/slug values. This avoids brittle ad-hoc mappings.
+        const matchedExams = exams
+          .filter((exam) => {
+            const examCatId = exam.categoryId;
+            return (
+              examCatId === categoryId ||
+              examCatId === categorySlug ||
+              examCatId === String(categoryId) ||
+              examCatId === String(categorySlug)
+            );
+          })
+          .sort(
+            (a, b) =>
+              (a.displayOrder ?? a.display_order ?? 0) -
+              (b.displayOrder ?? b.display_order ?? 0),
           );
-        })
-        .sort(
-          (a, b) =>
-            (a.displayOrder ?? a.display_order ?? 0) -
-            (b.displayOrder ?? b.display_order ?? 0),
-        );
 
-      return {
-        ...category,
-        exams: matchedExams.map((exam) => ({
-          id: exam.examId,
-          examId: exam.examId,
-          title: exam.title,
-          fullName: exam.fullName,
-          description: exam.description,
-          desc: exam.description,
-          notification: exam.notification,
-          eligibility: exam.eligibility,
-          ageLimit: exam.ageLimit,
-          syllabus: exam.syllabus,
-          seriesId: exam.seriesId,
-          isActive: exam.isActive,
-        })),
-      };
-    });
+        return {
+          ...category,
+          exams: matchedExams.map((exam) => ({
+            id: exam.examId,
+            examId: exam.examId,
+            title: exam.title,
+            fullName: exam.fullName,
+            description: exam.description,
+            desc: exam.description,
+            notification: exam.notification,
+            eligibility: exam.eligibility,
+            ageLimit: exam.ageLimit,
+            syllabus: exam.syllabus,
+            seriesId: exam.seriesId,
+            isActive: exam.isActive,
+          })),
+        };
+      });
 
-    res.json({
-      success: true,
-      count: categoriesWithExams.length,
-      data: categoriesWithExams,
-    });
-  } catch (error) {
-    console.error("Error fetching exam categories:", error);
-    res.status(500).json({
-      success: false,
-      message: sanitizeErrorMessage(error),
-    });
-  }
-});
+      res.json({
+        success: true,
+        count: categoriesWithExams.length,
+        data: categoriesWithExams,
+      });
+    } catch (error) {
+      console.error("Error fetching exam categories:", error);
+      res.status(500).json({
+        success: false,
+        message: sanitizeErrorMessage(error),
+      });
+    }
+  },
+);
 
 // @route   GET /api/exam-categories/exams
 // @desc    Get all exams

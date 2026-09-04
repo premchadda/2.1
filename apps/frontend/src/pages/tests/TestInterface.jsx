@@ -25,10 +25,7 @@ import MathRenderer from "../../shared/components/MathRenderer";
 import { useAuth } from "../../shared/providers/AuthContext";
 // M25: code-split the heavy, conditionally-shown panels out of the main
 // TestInterface chunk so they're only fetched when the user actually opens
-// them (calculator / notes / discussions).
-const CalculatorWidget = lazy(
-  () => import("../../shared/components/common/Calculator"),
-);
+// them (notes / discussions).
 const QuestionNotes = lazy(
   () => import("../../shared/components/QuestionNotes"),
 );
@@ -420,7 +417,6 @@ function TestInterface() {
     useState(false);
   const [showReviewExplanation, setShowReviewExplanation] = useState(true);
   const [reviewComparisons, setReviewComparisons] = useState({});
-  const [showCalculator, setShowCalculator] = useState(false);
   const [showImageZoom, setShowImageZoom] = useState(false);
   const [showSubmitSummary, setShowSubmitSummary] = useState(false);
   const pauseDialogRef = useRef(null);
@@ -1711,7 +1707,6 @@ function TestInterface() {
     const tag = e.target?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || e.target?.isContentEditable)
       return;
-    if (showCalculator) return; // let calculator handle its own keys
 
     const currentQ = questions[currentQuestion];
     if (!currentQ) return;
@@ -1786,14 +1781,7 @@ function TestInterface() {
     const listener = (e) => keyHandlerRef.current?.(e);
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
-  }, [
-    reviewMode,
-    loading,
-    isPaused,
-    showPauseModal,
-    showSubmitSummary,
-    showCalculator,
-  ]);
+  }, [reviewMode, loading, isPaused, showPauseModal, showSubmitSummary]);
 
   // Track question time when changing questions
   useEffect(() => {
@@ -2631,7 +2619,9 @@ function TestInterface() {
                       </button>
                     </div>
                   )}
-                  <div className="text-gray-900 dark:text-gray-100 text-base sm:text-lg md:text-xl leading-relaxed break-words font-medium antialiased">
+                  <div
+                    className={`text-gray-900 dark:text-gray-100 leading-relaxed break-words antialiased ${reviewMode ? "text-sm sm:text-base font-semibold" : "text-sm sm:text-base md:text-lg font-medium"}`}
+                  >
                     {/* Render text safely - handle both object and string formats */}
                     {currentQ?.text ? (
                       <MathRenderer
@@ -2647,7 +2637,9 @@ function TestInterface() {
 
                 {/* MSQ (Multi-Select) Checkboxes */}
                 {currentQ?.type === "msq" && (
-                  <div className="space-y-2.5">
+                  <div
+                    className={`space-y-2 ${reviewMode ? "space-y-1.5" : ""}`}
+                  >
                     {(getLocalizedField(currentQ?.options, language) || []).map(
                       (option, idx) => {
                         const isSelected =
@@ -2681,7 +2673,7 @@ function TestInterface() {
                         return (
                           <label
                             key={`option-${idx}`}
-                            className={`flex items-center gap-3.5 p-3.5 sm:p-4 border-2 rounded-xl cursor-pointer transition-all ${optionButtonClass} ${isReviewMode ? "cursor-default" : ""}`}
+                            className={`flex items-center gap-3 rounded-xl border-2 cursor-pointer transition-all ${optionButtonClass} ${isReviewMode ? "cursor-default p-2 sm:p-2.5" : "p-2.5 sm:p-3"}`}
                           >
                             <input
                               type="checkbox"
@@ -2699,9 +2691,11 @@ function TestInterface() {
                                   : [...current, idx];
                                 handleAnswer(updated);
                               }}
-                              className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                              className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                             />
-                            <span className="text-base sm:text-lg leading-relaxed break-words min-w-0 flex-1">
+                            <span
+                              className={`leading-relaxed break-words min-w-0 flex-1 ${reviewMode ? "text-xs sm:text-sm" : "text-sm sm:text-base"}`}
+                            >
                               <MathRenderer
                                 text={sanitizeHtml(
                                   getLocalizedField(option, language),
@@ -2733,7 +2727,7 @@ function TestInterface() {
                     onChange={(e) =>
                       handleAnswer(parseFloat(e.target.value) || "")
                     }
-                    className="w-full p-4 border-2 rounded-xl text-base sm:text-lg font-medium bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                    className={`w-full border-2 rounded-xl font-medium bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all ${reviewMode ? "p-2.5 sm:p-3 text-xs sm:text-sm" : "p-3 sm:p-3.5 text-sm sm:text-base"}`}
                     placeholder="Enter your answer"
                   />
                 )}
@@ -2771,7 +2765,7 @@ function TestInterface() {
                           key={String(val)}
                           onClick={() => !reviewMode && handleAnswer(val)}
                           disabled={reviewMode}
-                          className={`flex-1 p-4 border-2 rounded-xl font-bold text-base sm:text-lg transition-all ${btnClass} ${reviewMode ? "cursor-default" : ""}`}
+                          className={`flex-1 border-2 rounded-xl font-bold transition-all ${btnClass} ${reviewMode ? "cursor-default p-2.5 sm:p-3 text-xs sm:text-sm" : "p-3 sm:p-3.5 text-sm sm:text-base"}`}
                         >
                           {val ? "True" : "False"}
                         </button>
@@ -2782,7 +2776,9 @@ function TestInterface() {
 
                 {/* MCQ / Default Options Grid */}
                 {(!currentQ?.type || currentQ?.type === "mcq") && (
-                  <div className="grid grid-cols-1 gap-2 md:gap-3 w-full">
+                  <div
+                    className={`grid grid-cols-1 w-full ${reviewMode ? "gap-2" : "gap-2 md:gap-2.5"}`}
+                  >
                     {(getLocalizedField(currentQ?.options, language) || []).map(
                       (option, idx) =>
                         (() => {
@@ -2852,10 +2848,10 @@ function TestInterface() {
                             <button
                               key={`option-${idx}`}
                               onClick={() => handleAnswer(idx)}
-                              className={`group flex items-start text-left w-full p-3 sm:p-3.5 border-2 rounded-xl transition-all duration-200 select-none ${optionButtonClass} ${reviewMode && !interactiveReviewEnabled ? "cursor-default" : ""}`}
+                              className={`group flex items-start text-left w-full border-2 rounded-xl transition-all duration-200 select-none ${optionButtonClass} ${reviewMode ? "p-2 sm:p-2.5 cursor-default" : "p-2.5 sm:p-3"}`}
                             >
                               <div
-                                className={`mt-0.5 w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center mr-3 transition-colors ${optionIndicatorClass}`}
+                                className={`mt-0.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${reviewMode ? "w-5 h-5 mr-2.5" : "w-5.5 h-5.5 mr-3"} ${optionIndicatorClass}`}
                               >
                                 {(reviewMode
                                   ? (revealReviewAnswers && isCorrectOption) ||
@@ -2863,7 +2859,7 @@ function TestInterface() {
                                     (revealReviewAnswers && isSelected)
                                   : isSelected) && (
                                   <div
-                                    className={`w-3 h-3 rounded-full ${
+                                    className={`rounded-full ${reviewMode ? "w-2 h-2" : "w-2.5 h-2.5"} ${
                                       reviewMode
                                         ? revealReviewAnswers && isCorrectOption
                                           ? "bg-green-600"
@@ -2881,13 +2877,15 @@ function TestInterface() {
                                     isCurrentCompared ||
                                     (revealReviewAnswers && isSelected)
                                   : isSelected) && (
-                                  <span className="text-xs font-bold text-gray-400 dark:text-gray-500 group-hover:text-indigo-400 dark:group-hover:text-indigo-400">
+                                  <span
+                                    className={`${reviewMode ? "text-[11px]" : "text-xs"} font-bold text-gray-400 dark:text-gray-500 group-hover:text-indigo-400 dark:group-hover:text-indigo-400`}
+                                  >
                                     {String.fromCharCode(65 + idx)}
                                   </span>
                                 )}
                               </div>
                               <span
-                                className={`text-base sm:text-lg pt-0.5 leading-relaxed break-words min-w-0 flex-1 ${optionTextClass}`}
+                                className={`leading-relaxed break-words min-w-0 flex-1 ${reviewMode ? "text-xs sm:text-sm font-medium pt-0.5" : "text-sm sm:text-base font-normal pt-0.5"} ${optionTextClass}`}
                               >
                                 <MathRenderer
                                   text={sanitizeHtml(
@@ -3150,14 +3148,6 @@ function TestInterface() {
         testId={testId}
         location={location}
       />
-
-      {/* On-screen calculator for quantitative questions */}
-      <Suspense fallback={null}>
-        <CalculatorWidget
-          isOpen={showCalculator}
-          onToggle={() => setShowCalculator(false)}
-        />
-      </Suspense>
 
       {/* Submit Summary Modal */}
       <SubmitSummaryModal

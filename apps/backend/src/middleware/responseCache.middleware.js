@@ -33,18 +33,21 @@ export const invalidateResponseCache = async (namespace) => {
 // exhaust the connection pool and cause 504s on endpoints like /api/study).
 const inFlight = new Map();
 
-export const responseCache = (namespace, ttlSeconds = 30) => {
+export const responseCache = (namespace, ttlSeconds = 30, options = {}) => {
+  const userScoped = options.userScoped !== false;
   return async (req, res, next) => {
     if (req.method !== "GET") {
       return next();
     }
 
-    // SECURITY FIX (H3): For authenticated requests the cache key MUST be
-    // scoped to the user, otherwise a cached response for user A can be served
-    // to user B on shared per-user endpoints (e.g. /api/auth/me,
-    // /api/users/analytics). When no authenticated user is present the key
-    // stays global so public endpoints still share a single cache entry.
-    const userScope = req.user?.id ? `u:${req.user.id}` : "anon";
+    // For user-scoped endpoints, key is partitioned by user ID to prevent
+    // data leakage between users. For public/shared endpoints (e.g. series lists,
+    // public leaderboards), userScoped: false allows caching globally.
+    const userScope = userScoped
+      ? req.user?.id
+        ? `u:${req.user.id}`
+        : "anon"
+      : "global";
     const key = `${namespace}:${userScope}:${req.originalUrl || req.url}`;
 
     try {
@@ -111,11 +114,18 @@ export const responseCache = (namespace, ttlSeconds = 30) => {
 //   staleTtl: seconds a stale entry may be served while being refreshed
 const swrInFlight = new Set();
 
-export const swrCache = (namespace, { freshTtl = 60, staleTtl = 600 } = {}) => {
+export const swrCache = (
+  namespace,
+  { freshTtl = 60, staleTtl = 600, userScoped = true } = {},
+) => {
   return async (req, res, next) => {
     if (req.method !== "GET") return next();
 
-    const userScope = req.user?.id ? `u:${req.user.id}` : "anon";
+    const userScope = userScoped
+      ? req.user?.id
+        ? `u:${req.user.id}`
+        : "anon"
+      : "global";
     const key = `swr:${namespace}:${userScope}:${req.originalUrl || req.url}`;
 
     const envelope = await getCache(namespace, key).catch(() => null);

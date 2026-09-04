@@ -1,4 +1,9 @@
-import { getRedisClient, isRedisReady } from "./redisClient.js";
+import {
+  getRedisClient,
+  isRedisReady,
+  recordRedisFailure,
+  recordRedisSuccess,
+} from "./redisClient.js";
 import fs from "fs";
 import path from "path";
 
@@ -6,8 +11,8 @@ const localCache = new Map();
 const LOCAL_CACHE_MAX = 1000;
 const MEMORY_CACHE_TTL = 5 * 60 * 1000;
 const CACHE_IO_TIMEOUT_MS = Math.min(
-  Math.max(Number.parseInt(process.env.CACHE_IO_TIMEOUT_MS, 10) || 750, 100),
-  5000,
+  Math.max(Number.parseInt(process.env.CACHE_IO_TIMEOUT_MS, 10) || 60, 10),
+  1000,
 );
 
 const toNamespacedKey = (namespace, key) => `${namespace}:${key}`;
@@ -188,13 +193,26 @@ export const getCache = async (namespace, key) => {
     const redis = getRedisClient();
     if (redis) {
       try {
-        const value = await withCacheTimeout(redis.get(cacheKey), null);
+        let timedOut = false;
+        const timeoutPromise = new Promise((resolve) =>
+          setTimeout(() => {
+            timedOut = true;
+            resolve(null);
+          }, CACHE_IO_TIMEOUT_MS),
+        );
+        const value = await Promise.race([redis.get(cacheKey), timeoutPromise]);
+        if (timedOut) {
+          recordRedisFailure();
+          return null;
+        }
         const parsed = parseCachedValue(value);
         if (parsed !== null) {
-          setMemoryCache(cacheKey, parsed, 60 * 1000); // Warm L1 for 60s
+          recordRedisSuccess();
+          setMemoryCache(cacheKey, parsed, 300 * 1000); // Warm L1 for 5 mins
           return parsed;
         }
       } catch {
+        recordRedisFailure();
         return null;
       }
     }

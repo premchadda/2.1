@@ -5,6 +5,9 @@
 # Node modules and build outputs
 node_modules/
 .npm/
+.pnpm-store/
+pnpm-debug.log*
+package-lock.json
 apps/*/node_modules/
 packages/*/node_modules/
 apps/frontend/dist/
