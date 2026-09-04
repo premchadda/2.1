@@ -142,34 +142,21 @@
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
-    }
-    
-    .animate-float,
-    .animate-bounce-subtle,
-    .animate-attention,
-    .animate-fadeIn,
-    .animate-slideUp {
-        animation: none;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
 
     .animate-float,
     .animate-float-slow,
     .animate-shimmer,
+    .animate-pulse,
     .animate-pulse-slow,
     .animate-bounce-subtle,
     .animate-twinkle,
-    .animate-gradient-flow {
+    .animate-gradient-flow,
+    .animate-attention,
+    .animate-fadeIn,
+    .animate-slideUp,
+    .animate-spin {
         animation: none !important;
     }
 
@@ -178,8 +165,9 @@
         background: #e5e7eb !important;
         animation: none !important;
     }
-canvas.particle-canvas {
-  display: none !important;
+
+    canvas.particle-canvas {
+        display: none !important;
+    }
 }
 
-}
