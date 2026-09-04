@@ -96,6 +96,65 @@ function categorizeTests(rawTests = []) {
   return testTypesMap;
 }
 
+// In-memory cache for static series reference metadata (stages, exam_categories, exams)
+let cachedStaticMetadata = null;
+let staticMetadataExpiry = 0;
+const STATIC_METADATA_TTL_MS = 60 * 1000; // 60 seconds
+
+async function getStaticSeriesMetadata() {
+  const now = Date.now();
+  if (cachedStaticMetadata && now < staticMetadataExpiry) {
+    return cachedStaticMetadata;
+  }
+  try {
+    const [stagesRes, categoriesRes, examsRes] = await Promise.all([
+      dbHelpers.pool.query(
+        "SELECT id, name FROM stages WHERE is_active = true",
+      ),
+      dbHelpers.pool.query(
+        "SELECT id, category_id, label, slug FROM exam_categories WHERE is_active = true",
+      ),
+      dbHelpers.pool.query(
+        "SELECT id, exam_id, category_id, title, slug FROM exams WHERE is_active = true",
+      ),
+    ]);
+
+    const stagesMap = new Map();
+    (stagesRes.rows || []).forEach((s) => {
+      if (s.id) stagesMap.set(String(s.id), s.name);
+      if (s._id) stagesMap.set(String(s._id), s.name);
+    });
+
+    const categoriesMap = new Map();
+    (categoriesRes.rows || []).forEach((c) => {
+      if (c.id) categoriesMap.set(String(c.id), c.label);
+      if (c.category_id) categoriesMap.set(String(c.category_id), c.label);
+      if (c.slug) categoriesMap.set(String(c.slug), c.label);
+    });
+
+    const examsMap = new Map();
+    (examsRes.rows || []).forEach((e) => {
+      if (e.id) examsMap.set(String(e.id), e.title);
+      if (e.exam_id) examsMap.set(String(e.exam_id), e.title);
+      if (e.slug) examsMap.set(String(e.slug), e.title);
+    });
+
+    const meta = { stagesMap, categoriesMap, examsMap };
+    cachedStaticMetadata = meta;
+    staticMetadataExpiry = now + STATIC_METADATA_TTL_MS;
+    return meta;
+  } catch (err) {
+    console.error("Error fetching static series metadata", err);
+    return (
+      cachedStaticMetadata || {
+        stagesMap: new Map(),
+        categoriesMap: new Map(),
+        examsMap: new Map(),
+      }
+    );
+  }
+}
+
 // Helper function to calculate actual test counts for series
 async function enrichSeriesWithTestCounts(seriesList) {
   if (!seriesList || seriesList.length === 0) return seriesList;
@@ -104,18 +163,14 @@ async function enrichSeriesWithTestCounts(seriesList) {
 
   let testsResult = { rows: [] };
   let enrollmentsResult = { rows: [] };
-  let stagesResult = { rows: [] };
-  let categoriesResult = { rows: [] };
-  let examsResult = { rows: [] };
 
   const numericSeriesIds = seriesIds
     .map(Number)
     .filter((n) => Number.isInteger(n) && n > 0);
 
-  if (numericSeriesIds.length > 0) {
-    try {
-      const [testsRes, enrollmentsRes, stagesRes, categoriesRes, examsRes] =
-        await Promise.all([
+  const [dynamicCounts, staticMeta] = await Promise.all([
+    numericSeriesIds.length > 0
+      ? Promise.all([
           dbHelpers.pool.query(
             `SELECT series_id, COUNT(*) as actual_count, 
                   SUM(CASE WHEN is_pro = false OR type ILIKE 'free' THEN 1 ELSE 0 END) as free_count,
@@ -132,29 +187,30 @@ async function enrichSeriesWithTestCounts(seriesList) {
            GROUP BY series_id`,
             [numericSeriesIds],
           ),
-          dbHelpers.pool.query(
-            `SELECT id, name FROM stages WHERE is_active = true`,
-          ),
-          dbHelpers.pool.query(
-            `SELECT id, category_id, label FROM exam_categories WHERE is_active = true`,
-          ),
-          dbHelpers.pool.query(
-            `SELECT id, exam_id, category_id, title FROM exams WHERE is_active = true`,
-          ),
-        ]);
-      testsResult = testsRes;
-      enrollmentsResult = enrollmentsRes;
-      stagesResult = stagesRes;
-      categoriesResult = categoriesRes;
-      examsResult = examsRes;
-    } catch (e) {
-      console.error("Error fetching series counts", e);
-    }
-  }
+        ]).catch((e) => {
+          console.error("Error fetching series counts", e);
+          return [{ rows: [] }, { rows: [] }];
+        })
+      : Promise.resolve([{ rows: [] }, { rows: [] }]),
+    getStaticSeriesMetadata(),
+  ]);
+
+  testsResult = dynamicCounts[0] || { rows: [] };
+  enrollmentsResult = dynamicCounts[1] || { rows: [] };
+  const { stagesMap, categoriesMap, examsMap } = staticMeta;
+
+  const testRowMap = new Map();
+  (testsResult.rows || []).forEach((r) => {
+    testRowMap.set(String(r.series_id), r);
+  });
+  const enrollmentRowMap = new Map();
+  (enrollmentsResult.rows || []).forEach((r) => {
+    enrollmentRowMap.set(String(r.series_id), r);
+  });
 
   return seriesList.map((series) => {
     const sId = String(getInternalId(series));
-    const testRow = testsResult.rows.find((r) => String(r.series_id) === sId);
+    const testRow = testRowMap.get(sId);
     const storedTotal = parseInt(series.total_tests ?? series.totalTests) || 0;
     const storedFree = parseInt(series.free_tests ?? series.freeTests) || 0;
     const actualTestCount = testRow
@@ -164,51 +220,28 @@ async function enrichSeriesWithTestCounts(seriesList) {
     const rawTests = testRow ? testRow.raw_tests || [] : [];
     const testTypesMap = categorizeTests(rawTests);
 
-    const enrollmentRow = enrollmentsResult.rows.find(
-      (r) => String(r.series_id) === sId,
-    );
+    const enrollmentRow = enrollmentRowMap.get(sId);
     const enrollmentCount = enrollmentRow ? parseInt(enrollmentRow.count) : 0;
 
-    // Get stage names for this series
+    // Get stage names for this series (O(1) lookups)
     const stageNames = [];
     if (series.stages && Array.isArray(series.stages)) {
       series.stages.forEach((stageId) => {
-        const stage = stagesResult.rows.find(
-          (s) =>
-            String(s.id) === String(stageId) ||
-            String(s._id) === String(stageId),
-        );
-        if (stage) {
-          stageNames.push(stage.name);
+        const stageName = stagesMap.get(String(stageId));
+        if (stageName) {
+          stageNames.push(stageName);
         }
       });
     }
 
-    // Get category name for this series
-    const categoryName = (() => {
-      const catId = series.category;
-      if (!catId) return null;
-      const category = categoriesResult.rows.find(
-        (c) =>
-          String(c.id) === String(catId) ||
-          String(c.category_id) === String(catId) ||
-          (c.slug && String(c.slug) === String(catId)),
-      );
-      return category?.label || null;
-    })();
+    // Get category name for this series (O(1) lookup)
+    const categoryName = series.category
+      ? categoriesMap.get(String(series.category)) || null
+      : null;
 
-    // Get exam name for this series
-    const examName = (() => {
-      const examId = series.examId || series.exam_id || series.exam_id_fk;
-      if (!examId) return null;
-      const exam = examsResult.rows.find(
-        (e) =>
-          String(e.id) === String(examId) ||
-          String(e.exam_id) === String(examId) ||
-          (e.slug && String(e.slug) === String(examId)),
-      );
-      return exam?.title || null;
-    })();
+    // Get exam name for this series (O(1) lookup)
+    const examId = series.examId || series.exam_id || series.exam_id_fk;
+    const examName = examId ? examsMap.get(String(examId)) || null : null;
 
     // Format user count as string (e.g., "1.2K", "500")
     const formatUserCount = (count) => {
