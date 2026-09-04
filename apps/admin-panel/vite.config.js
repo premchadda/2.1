@@ -170,6 +170,11 @@ export default defineConfig(({ mode }) => {
           __dirname,
           "../../packages/shared-config",
         ),
+        dompurify: path.resolve(__dirname, "node_modules/dompurify"),
+        "react-hot-toast": path.resolve(
+          __dirname,
+          "node_modules/react-hot-toast",
+        ),
         "@": path.resolve(__dirname, "./src"),
         "@features": path.resolve(__dirname, "./src/features"),
         "@shared": path.resolve(__dirname, "./src/shared"),
