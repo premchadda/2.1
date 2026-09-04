@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Helmet } from "react-helmet-async";
 import { useParams, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../shared/lib/dataService";
 import { sanitizeHtml } from "../../shared/lib/htmlSanitizer";
@@ -12,6 +13,7 @@ import "./TestInterface.css";
 const LiveTestInterface = () => {
   const { liveTestId } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { socket, on, emit } = useAuth();
   const tabSwitchCountRef = useRef(0);
   const redirectTimerRef = useRef(null);
@@ -29,6 +31,9 @@ const LiveTestInterface = () => {
   const [attemptId, setAttemptId] = useState(null);
 
   const fetchLiveRank = useCallback(async () => {
+    if (typeof document !== "undefined" && document.hidden) {
+      return;
+    }
     try {
       const response = await api.get(`/api/live-tests/${liveTestId}/live-rank`);
       setLiveRank(response.data?.data || null);
@@ -56,6 +61,16 @@ const LiveTestInterface = () => {
 
       setIsSubmitted(true);
       window._liveTestSubmitting = false;
+
+      // Invalidate queries so live tests list and user attempt status refresh immediately
+      queryClient.invalidateQueries({ queryKey: ["live-tests"] });
+      queryClient.invalidateQueries({ queryKey: ["user-attempts-live"] });
+      queryClient.invalidateQueries({ queryKey: ["user-attempts"] });
+      queryClient.invalidateQueries({
+        queryKey: ["live-test-leaderboard", liveTestId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+
       navigate(`/live-test-results/${liveTestId}`, {
         state: { result: response.data?.data },
       });
@@ -130,10 +145,29 @@ const LiveTestInterface = () => {
     if (!test || isSubmitted) return;
 
     fetchLiveRank();
-    const rankInterval = setInterval(fetchLiveRank, 5000);
 
-    return () => clearInterval(rankInterval);
-  }, [test, isSubmitted, fetchLiveRank]);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchLiveRank();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // If socket is active, leaderboard:updated pushes live updates;
+    // polling serves only as a slow fallback (30s).
+    // If socket is inactive, poll at 10s only when document is visible.
+    const pollIntervalMs = socket ? 30000 : 10000;
+    const rankInterval = setInterval(() => {
+      if (!document.hidden) {
+        fetchLiveRank();
+      }
+    }, pollIntervalMs);
+
+    return () => {
+      clearInterval(rankInterval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [test, isSubmitted, fetchLiveRank, socket]);
 
   useEffect(() => {
     if (!socket || !test || isSubmitted) return;

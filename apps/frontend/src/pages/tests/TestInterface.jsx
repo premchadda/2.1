@@ -8,6 +8,7 @@ import {
   lazy,
 } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
 import { toast } from "react-hot-toast";
 import {
@@ -268,6 +269,7 @@ function TestInterface() {
   const seriesId = routeParams.seriesSlug || routeParams.seriesId;
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const { user, refreshUser } = useAuth();
   // Auto-detect /review route or explicit reviewMode in state
   const isReviewRoute = location.pathname.endsWith("/review");
@@ -2051,6 +2053,20 @@ function TestInterface() {
       if (refreshUser) {
         await refreshUser();
       }
+
+      // Invalidate React Query caches so dashboard, test series, and analytics update immediately
+      queryClient.invalidateQueries({ queryKey: ["user-attempts"] });
+      queryClient.invalidateQueries({ queryKey: ["user-incomplete-attempts"] });
+      queryClient.invalidateQueries({ queryKey: ["user-attempts-live"] });
+      queryClient.invalidateQueries({ queryKey: ["intelligence-performance"] });
+      queryClient.invalidateQueries({ queryKey: ["intelligence-weak-topics"] });
+      queryClient.invalidateQueries({
+        queryKey: ["intelligence-recommendations"],
+      });
+      queryClient.invalidateQueries({ queryKey: ["intelligence-streak"] });
+      queryClient.invalidateQueries({ queryKey: ["practice-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+      queryClient.invalidateQueries({ queryKey: ["attempted-tests"] });
 
       // Report adaptive difficulty for each answered question (fire-and-forget)
       submittedAnswers.forEach(({ questionId, selectedOption }) => {
