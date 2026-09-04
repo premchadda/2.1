@@ -17,14 +17,14 @@ function run(cmd) {
   }
 }
 
-// 1. Render backend service: build backend only (skip frontend & admin vite builds)
+// 1. Render backend service: backend has no compilation/build step
 if (isRender) {
   console.log(
-    "[build] Render environment detected. Building backend service only...",
+    "[build] Render environment detected. Backend is pure Node.js (no build step required).",
   );
-  run("turbo build --filter=trstprep-backend");
   process.exit(0);
 }
+
 
 // 2. Production install check (if devDependencies like Vite were omitted)
 let hasVite = false;
