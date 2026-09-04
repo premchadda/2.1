@@ -2685,7 +2685,12 @@ router.delete("/exam-seasons/:id", async (req, res) => {
 // ===== TAG CONFIGS =====
 router.get("/tag-configs", async (req, res) => {
   try {
-    const tags = await dbHelpers.find("tagConfigs", {});
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 100, 1),
+      500,
+    );
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    const tags = await dbHelpers.find("tagConfigs", {}, limit, offset);
     res.json({ success: true, data: tags });
   } catch (error) {
     res
@@ -3177,7 +3182,12 @@ router.get(
   responseCache("admin-passages", 120),
   async (req, res) => {
     try {
-      const passages = await dbHelpers.find("passages", {});
+      const limit = Math.min(
+        Math.max(parseInt(req.query.limit, 10) || 100, 1),
+        500,
+      );
+      const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+      const passages = await dbHelpers.find("passages", {}, limit, offset);
       res.json({ success: true, data: passages });
     } catch (error) {
       res
@@ -3258,7 +3268,17 @@ router.get(
   responseCache("admin-notifications", 30),
   async (req, res) => {
     try {
-      const notifications = await dbHelpers.find("notifications", {});
+      const limit = Math.min(
+        Math.max(parseInt(req.query.limit, 10) || 100, 1),
+        500,
+      );
+      const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+      const notifications = await dbHelpers.find(
+        "notifications",
+        {},
+        limit,
+        offset,
+      );
       res.json({ success: true, data: notifications });
     } catch (error) {
       res
@@ -4431,24 +4451,27 @@ router.delete("/quizzes/:id", async (req, res) => {
 // ===== ACTIVITY LOGS =====
 router.get("/activity-logs", async (req, res) => {
   try {
-    const { userId, action, limit = 50 } = req.query;
+    const { userId, action, limit = 50, offset = 0 } = req.query;
+    const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 500);
+    const parsedOffset = Math.max(parseInt(offset, 10) || 0, 0);
 
-    let logs = await dbHelpers.find("activityLogs", {});
+    const filter = {};
+    if (userId) filter.userId = userId;
+    if (action) filter.action = action;
 
-    // Filter by user if specified
-    if (userId) {
-      logs = logs.filter((log) => log.userId === userId);
-    }
+    const logs = await dbHelpers.find(
+      "activityLogs",
+      filter,
+      parsedLimit,
+      parsedOffset,
+    );
 
-    // Filter by action if specified
-    if (action) {
-      logs = logs.filter((log) => log.action === action);
-    }
-
-    // Sort by most recent and limit
-    logs = logs
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, parseInt(limit));
+    // Sort by most recent
+    logs.sort(
+      (a, b) =>
+        new Date(b.createdAt || b.created_at) -
+        new Date(a.createdAt || a.created_at),
+    );
 
     res.json({ success: true, data: logs, count: logs.length });
   } catch (error) {

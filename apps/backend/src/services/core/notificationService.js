@@ -255,52 +255,36 @@ export const handleNotificationJob = async (jobName, payload = {}) => {
 };
 
 export const sendScheduledReminders = async ({ inactivityHours = 24 } = {}) => {
-  const attempts = await dbHelpers.find("attempts", {});
-  const cutoff = Date.now() - inactivityHours * 60 * 60 * 1000;
+  // Single query: find all active users whose last attempt activity is before the
+  // inactivity cutoff (or who have never attempted anything). No full-table scan.
+  const { rows: staleUsers } = await dbHelpers.pool.query(
+    `SELECT u.id, u.email, u.name, u.notification_preferences, u.is_active
+     FROM users u
+     LEFT JOIN (
+       SELECT user_id,
+              MAX(GREATEST(
+                COALESCE(updated_at, '1970-01-01'),
+                COALESCE(submitted_at, '1970-01-01'),
+                COALESCE(created_at,  '1970-01-01')
+              )) AS last_activity
+       FROM test_attempts
+       GROUP BY user_id
+     ) a ON a.user_id = u.id
+     WHERE u.is_active = true
+       AND (a.last_activity IS NULL
+            OR a.last_activity <= NOW() - ($1 * INTERVAL '1 hour'))`,
+    [inactivityHours],
+  );
 
-  const lastActivityByUser = new Map();
-  attempts.forEach((attempt) => {
-    const userId = attempt.userId || attempt.user_id;
-    if (!userId) return;
-    const activityTs = new Date(
-      attempt.updatedAt || attempt.submittedAt || attempt.createdAt || 0,
-    ).getTime();
-    const existing = lastActivityByUser.get(String(userId)) || 0;
-    if (activityTs > existing) {
-      lastActivityByUser.set(String(userId), activityTs);
-    }
-  });
-
-  const staleUserIds = [];
-  const allUsers = await dbHelpers.find("users", {});
-  for (const user of allUsers) {
-    const userId = user.id || user._id;
-    if (!userId || user.isActive === false) continue;
-    const lastActivity = lastActivityByUser.get(String(userId)) || 0;
-    if (lastActivity <= cutoff) {
-      staleUserIds.push(userId);
-    }
-  }
-
-  if (staleUserIds.length === 0) {
+  if (staleUsers.length === 0) {
     return { remindersSent: 0 };
   }
 
-  const staleUsersResult = await dbHelpers.pool.query(
-    `SELECT * FROM users WHERE id = ANY($1)`,
-    [staleUserIds],
-  );
-  const staleUserMap = new Map();
-  staleUsersResult.rows.forEach((row) => {
-    const mapped = dbHelpers.toCamel ? dbHelpers.toCamel(row) : row;
-    const id = mapped.id || mapped._id;
-    if (id) staleUserMap.set(String(id), mapped);
-  });
-
   let reminders = 0;
-  for (const userId of staleUserIds) {
-    const user = staleUserMap.get(String(userId));
-    if (!user) continue;
+  for (const row of staleUsers) {
+    const user = dbHelpers.toCamel ? dbHelpers.toCamel(row) : row;
+    const userId = user.id || user._id;
+    if (!userId) continue;
 
     await dispatchNotification(userId, {
       title: "Practice reminder",
