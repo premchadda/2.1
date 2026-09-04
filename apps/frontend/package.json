@@ -19,6 +19,8 @@
     "@tanstack/react-query": "^5.90.21",
     "@trstprep/shared-config": "workspace:*",
     "@trstprep/shared-hooks": "workspace:*",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "axios": "^1.18.0",
     "chart.js": "^4.4.1",
     "dompurify": "^3.4.14",

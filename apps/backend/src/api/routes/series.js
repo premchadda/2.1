@@ -110,31 +110,39 @@ async function enrichSeriesWithTestCounts(seriesList) {
 
   if (seriesIds.length > 0) {
     try {
-      testsResult = await dbHelpers.pool.query(
-        `SELECT series_id, COUNT(*) as actual_count, 
-                SUM(CASE WHEN is_pro = false OR type ILIKE 'free' THEN 1 ELSE 0 END) as free_count,
-                json_agg(json_build_object('category', category, 'sub_category', sub_category, 'type', type, 'is_live', is_live)) as raw_tests
-         FROM tests 
-         WHERE is_active = true AND series_id::text = ANY($1::text[])
-         GROUP BY series_id`,
-        [seriesIds.map(String)],
-      );
-      enrollmentsResult = await dbHelpers.pool.query(
-        `SELECT series_id, COUNT(*) as count 
-         FROM enrollments 
-         WHERE series_id::text = ANY($1::text[])
-         GROUP BY series_id`,
-        [seriesIds.map(String)],
-      );
-      stagesResult = await dbHelpers.pool.query(
-        `SELECT id, name FROM stages WHERE is_active = true`,
-      );
-      categoriesResult = await dbHelpers.pool.query(
-        `SELECT id, category_id, label FROM exam_categories WHERE is_active = true`,
-      );
-      examsResult = await dbHelpers.pool.query(
-        `SELECT id, exam_id, category_id, title FROM exams WHERE is_active = true`,
-      );
+      const [testsRes, enrollmentsRes, stagesRes, categoriesRes, examsRes] =
+        await Promise.all([
+          dbHelpers.pool.query(
+            `SELECT series_id, COUNT(*) as actual_count, 
+                  SUM(CASE WHEN is_pro = false OR type ILIKE 'free' THEN 1 ELSE 0 END) as free_count,
+                  json_agg(json_build_object('category', category, 'sub_category', sub_category, 'type', type, 'is_live', is_live)) as raw_tests
+           FROM tests 
+           WHERE is_active = true AND series_id::text = ANY($1::text[])
+           GROUP BY series_id`,
+            [seriesIds.map(String)],
+          ),
+          dbHelpers.pool.query(
+            `SELECT series_id, COUNT(*) as count 
+           FROM enrollments 
+           WHERE series_id::text = ANY($1::text[])
+           GROUP BY series_id`,
+            [seriesIds.map(String)],
+          ),
+          dbHelpers.pool.query(
+            `SELECT id, name FROM stages WHERE is_active = true`,
+          ),
+          dbHelpers.pool.query(
+            `SELECT id, category_id, label FROM exam_categories WHERE is_active = true`,
+          ),
+          dbHelpers.pool.query(
+            `SELECT id, exam_id, category_id, title FROM exams WHERE is_active = true`,
+          ),
+        ]);
+      testsResult = testsRes;
+      enrollmentsResult = enrollmentsRes;
+      stagesResult = stagesRes;
+      categoriesResult = categoriesRes;
+      examsResult = examsRes;
     } catch (e) {
       console.error("Error fetching series counts", e);
     }
@@ -233,77 +241,81 @@ async function enrichSeriesWithTestCounts(seriesList) {
 // @route   GET /api/series
 // @desc    Get all test series
 // @access  Public
-router.get("/", responseCache("series-list-v2", 120), async (req, res) => {
-  try {
-    const { category, search, sort = "popular" } = req.query;
+router.get(
+  "/",
+  responseCache("series-list-v2", 600, { userScoped: false }),
+  async (req, res) => {
+    try {
+      const { category, search, sort = "popular" } = req.query;
 
-    let query = { isActive: true };
+      let query = { isActive: true };
 
-    if (category && category !== "all") {
-      query.category = category;
-    }
+      if (category && category !== "all") {
+        query.category = category;
+      }
 
-    if (search) {
-      // For lowdb we needed find then filter, but let's stick to what was there and fix slowly
-      const allSeries = await dbHelpers.find("testSeries", query);
-      const filtered = allSeries.filter(
-        (series) =>
-          series.title &&
-          series.title.toLowerCase().includes(search.toLowerCase()),
-      );
-      const enrichedSeries = await enrichSeriesWithTestCounts(filtered);
-      return res.json({
+      if (search) {
+        // For lowdb we needed find then filter, but let's stick to what was there and fix slowly
+        const allSeries = await dbHelpers.find("testSeries", query);
+        const filtered = allSeries.filter(
+          (series) =>
+            series.title &&
+            series.title.toLowerCase().includes(search.toLowerCase()),
+        );
+        const enrichedSeries = await enrichSeriesWithTestCounts(filtered);
+        return res.json({
+          success: true,
+          count: enrichedSeries.length,
+          data: enrichedSeries,
+        });
+      }
+
+      const series = await dbHelpers.find("testSeries", query);
+
+      // Enrich with actual test counts
+      const enrichedSeries = await enrichSeriesWithTestCounts(series);
+
+      // Sort logic
+      let sortedSeries = [...enrichedSeries];
+      sortedSeries.sort((a, b) => {
+        // Pinned series always come first
+        if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+        // If both are pinned, sort by manual order
+        if (a.isPinned && b.isPinned) return (a.order || 0) - (b.order || 0);
+
+        // Otherwise applies the requested activity-based sorting (or default popular)
+        switch (sort) {
+          case "rating":
+            return (b.rating || 0) - (a.rating || 0);
+          case "tests":
+            return (b.totalTests || 0) - (a.totalTests || 0);
+          case "newest":
+            return new Date(b.createdAt) - new Date(a.createdAt);
+          default: {
+            const aUserCount = parseUserCount(
+              a.activeUsers || a.usersCount || "0",
+            );
+            const bUserCount = parseUserCount(
+              b.activeUsers || b.usersCount || "0",
+            );
+            return bUserCount - aUserCount;
+          }
+        }
+      });
+
+      res.json({
         success: true,
-        count: enrichedSeries.length,
-        data: enrichedSeries,
+        count: sortedSeries.length,
+        data: sortedSeries,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: sanitizeErrorMessage(error),
       });
     }
-
-    const series = await dbHelpers.find("testSeries", query);
-
-    // Enrich with actual test counts
-    const enrichedSeries = await enrichSeriesWithTestCounts(series);
-
-    // Sort logic
-    let sortedSeries = [...enrichedSeries];
-    sortedSeries.sort((a, b) => {
-      // Pinned series always come first
-      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
-      // If both are pinned, sort by manual order
-      if (a.isPinned && b.isPinned) return (a.order || 0) - (b.order || 0);
-
-      // Otherwise applies the requested activity-based sorting (or default popular)
-      switch (sort) {
-        case "rating":
-          return (b.rating || 0) - (a.rating || 0);
-        case "tests":
-          return (b.totalTests || 0) - (a.totalTests || 0);
-        case "newest":
-          return new Date(b.createdAt) - new Date(a.createdAt);
-        default: {
-          const aUserCount = parseUserCount(
-            a.activeUsers || a.usersCount || "0",
-          );
-          const bUserCount = parseUserCount(
-            b.activeUsers || b.usersCount || "0",
-          );
-          return bUserCount - aUserCount;
-        }
-      }
-    });
-
-    res.json({
-      success: true,
-      count: sortedSeries.length,
-      data: sortedSeries,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: sanitizeErrorMessage(error),
-    });
-  }
-});
+  },
+);
 
 // @route   GET /api/series/:slug
 // @desc    Get single test series by slug

@@ -5,6 +5,8 @@ import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "react-hot-toast";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
+import { SpeedInsights } from "@vercel/speed-insights/react";
+import { Analytics } from "@vercel/analytics/react";
 import { AuthProvider } from "./shared/providers/AuthContext";
 import { ThemeProvider } from "./shared/context/ThemeContext.jsx";
 import { setSharedApiClient } from "@trstprep/shared-hooks";
@@ -72,6 +74,8 @@ function Main() {
               <AuthProvider>
                 <ThemeProvider>
                   <App />
+                  <SpeedInsights />
+                  <Analytics />
                   <Toaster
                     position="top-right"
                     containerStyle={{ zIndex: 9999999 }}

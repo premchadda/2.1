@@ -698,35 +698,38 @@ export const getTopPerformers = async (limit = 10, filter = {}) => {
     let seriesFilter = "";
     const params = [];
     if (filter.seriesId) {
-      seriesFilter = `AND series_id::text = $1`;
-      params.push(String(filter.seriesId));
+      const parsedSeriesId = Number.parseInt(filter.seriesId, 10);
+      if (!Number.isNaN(parsedSeriesId)) {
+        params.push(parsedSeriesId);
+        seriesFilter = `AND a.series_id = $${params.length}`;
+      } else {
+        params.push(String(filter.seriesId));
+        seriesFilter = `AND a.series_id::text = $${params.length}`;
+      }
     }
-    params.push(limit);
+    params.push(Math.max(1, Math.min(50, Number(limit) || 10)));
     const limitIndex = params.length;
 
     const result = await pool.query(
       `
-      SELECT user_id as uid, COUNT(*) as tests_attempted, SUM(score::numeric) as total_score
-      FROM attempts
-      WHERE (is_completed = true OR status ILIKE 'completed' OR status ILIKE 'submitted')
+      SELECT 
+        a.user_id as uid, 
+        COUNT(*) as tests_attempted, 
+        SUM(a.score::numeric) as total_score,
+        COALESCE(u.name, u.email, 'Aspirant') as user_name,
+        u.email as user_email
+      FROM attempts a
+      LEFT JOIN users u ON u.id = a.user_id
+      WHERE (a.is_completed = true OR a.status IN ('completed', 'submitted'))
       ${seriesFilter}
-      GROUP BY user_id
-      ORDER BY tests_attempted DESC, (SUM(score::numeric) / COUNT(*)) DESC
+      GROUP BY a.user_id, u.name, u.email
+      ORDER BY tests_attempted DESC, (SUM(a.score::numeric) / COUNT(*)) DESC
       LIMIT $${limitIndex}
     `,
       params,
     );
 
     if (result.rows.length === 0) return [];
-
-    const participantIds = result.rows.map((r) => r.uid).filter(Boolean);
-    const users = await dbHelpers.find("users", {
-      id: { $in: participantIds },
-    });
-    const userMap = {};
-    users.forEach((u) => {
-      userMap[String(u._id || u.id)] = u;
-    });
 
     const formatSafeName = (name, email) => {
       const raw = (name || email?.split("@")[0] || "Aspirant").trim();
@@ -741,19 +744,15 @@ export const getTopPerformers = async (limit = 10, filter = {}) => {
     };
 
     return result.rows.map((r, index) => {
-      const uid = String(r.uid);
-      const user = userMap[uid];
-      const safeName = formatSafeName(user?.name, user?.email);
+      const safeName = formatSafeName(r.user_name, r.user_email);
+      const attemptsCount = parseInt(r.tests_attempted, 10) || 0;
+      const totalScore = parseFloat(r.total_score) || 0;
       return {
         id: `rank-${index + 1}`,
         name: safeName,
-        testsAttempted: parseInt(r.tests_attempted),
+        testsAttempted: attemptsCount,
         avgScore:
-          parseInt(r.tests_attempted) > 0
-            ? Math.round(
-                parseFloat(r.total_score) / parseInt(r.tests_attempted),
-              )
-            : 0,
+          attemptsCount > 0 ? Math.round(totalScore / attemptsCount) : 0,
         avatar: safeName.charAt(0).toUpperCase() || "A",
       };
     });

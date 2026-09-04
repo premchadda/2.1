@@ -179,8 +179,8 @@ export const monitoringMiddleware = (req, res, next) => {
     // Decrease active connections
     memoryMetrics.activeConnections--;
 
-    // Log slow requests (> 1 second)
-    if (duration > 1000) {
+    // Log slow requests (> 1 second) (ignore internal background warmup requests)
+    if (duration > 1000 && req.headers["x-request-id"] !== "warmup") {
       console.warn(
         `[SLOW REQUEST] ${method} ${requestPath} - ${duration}ms - ${status}`,
       );

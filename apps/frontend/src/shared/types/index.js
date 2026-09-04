@@ -500,7 +500,14 @@ export function mapQuestionToFrontend(backendQuestion) {
   // 2. Process options & bilingual options
   let optionsFormatted = { en: [], hi: [] };
   const rawOptions = backendQuestion.options;
-  const rawOptionsHi = backendQuestion.optionsHi || backendQuestion.options_hi;
+  let rawOptionsHi = backendQuestion.optionsHi || backendQuestion.options_hi;
+  if (typeof rawOptionsHi === "string" && rawOptionsHi.trim().startsWith("[")) {
+    try {
+      rawOptionsHi = JSON.parse(rawOptionsHi);
+    } catch {
+      // keep as string
+    }
+  }
 
   if (Array.isArray(rawOptions)) {
     const enOpts = [];

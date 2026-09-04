@@ -223,39 +223,96 @@ const fetchAttemptSnapshotQuestions = async (attemptId) => {
   if (!attemptId) return [];
   try {
     const { rows } = await dbHelpers.pool.query(
-      `SELECT * FROM attempt_question_snapshots WHERE attempt_id = $1 ORDER BY order_index ASC, question_number ASC, id ASC`,
+      `SELECT aqs.*,
+              q.question_text_hi,
+              q.options_hi,
+              q.explanation_hi
+       FROM attempt_question_snapshots aqs
+       LEFT JOIN questions q ON q.id = aqs.question_id
+       WHERE aqs.attempt_id = $1
+       ORDER BY aqs.order_index ASC, aqs.question_number ASC, aqs.id ASC`,
       [attemptId],
     );
     if (rows && rows.length > 0) {
-      return rows.map((r) => ({
-        id: r.question_id || r.id,
-        _id: r.question_id || r.id,
-        question_id: r.question_id,
-        questionText: r.text,
-        question_text: r.text,
-        question: r.text,
-        options:
-          typeof r.options === "string"
-            ? JSON.parse(r.options)
-            : Array.isArray(r.options)
-              ? r.options
-              : [],
-        correctAnswer: r.correct_answer,
-        correct_answer: r.correct_answer,
-        correct_option: r.correct_answer,
-        explanation: r.explanation,
-        marks: Number(r.marks || 1),
-        negativeMarks: Number(r.negative_marks || 0),
-        negative_marks: Number(r.negative_marks || 0),
-        difficulty: r.difficulty,
-        questionType: r.question_type,
-        question_type: r.question_type,
-        section: r.section,
-        sectionId: r.section_id,
-        section_id: r.section_id,
-        orderIndex: r.order_index,
-        metadata: r.metadata || {},
-      }));
+      return rows.map((r) => {
+        const meta =
+          typeof r.metadata === "string"
+            ? (() => {
+                try {
+                  return JSON.parse(r.metadata);
+                } catch {
+                  return {};
+                }
+              })()
+            : r.metadata || {};
+
+        const rawTextHi =
+          r.question_text_hi ||
+          meta.questionTextHi ||
+          meta.question_text_hi ||
+          null;
+        const rawOptionsHi =
+          r.options_hi || meta.optionsHi || meta.options_hi || null;
+        const rawExplanationHi =
+          r.explanation_hi || meta.explanationHi || meta.explanation_hi || null;
+
+        let parsedOptions = [];
+        try {
+          parsedOptions =
+            typeof r.options === "string"
+              ? JSON.parse(r.options)
+              : Array.isArray(r.options)
+                ? r.options
+                : [];
+        } catch {
+          parsedOptions = [];
+        }
+
+        let parsedOptionsHi = null;
+        if (rawOptionsHi) {
+          try {
+            parsedOptionsHi =
+              typeof rawOptionsHi === "string"
+                ? JSON.parse(rawOptionsHi)
+                : Array.isArray(rawOptionsHi)
+                  ? rawOptionsHi
+                  : null;
+          } catch {
+            parsedOptionsHi = null;
+          }
+        }
+
+        return {
+          id: r.question_id || r.id,
+          _id: r.question_id || r.id,
+          question_id: r.question_id,
+          questionText: r.text,
+          question_text: r.text,
+          question: r.text,
+          questionTextHi: rawTextHi,
+          question_text_hi: rawTextHi,
+          options: parsedOptions,
+          optionsHi: parsedOptionsHi,
+          options_hi: parsedOptionsHi,
+          correctAnswer: r.correct_answer,
+          correct_answer: r.correct_answer,
+          correct_option: r.correct_answer,
+          explanation: r.explanation,
+          explanationHi: rawExplanationHi,
+          explanation_hi: rawExplanationHi,
+          marks: Number(r.marks || 1),
+          negativeMarks: Number(r.negative_marks || 0),
+          negative_marks: Number(r.negative_marks || 0),
+          difficulty: r.difficulty,
+          questionType: r.question_type,
+          question_type: r.question_type,
+          section: r.section,
+          sectionId: r.section_id,
+          section_id: r.section_id,
+          orderIndex: r.order_index,
+          metadata: meta,
+        };
+      });
     }
   } catch (err) {
     console.warn("[attempt-snapshot] Snapshot lookup skipped:", err.message);
@@ -320,7 +377,12 @@ const saveAttemptQuestionSnapshots = async (client, attemptId, questions) => {
           section,
           sectionId,
           orderIndex,
-          JSON.stringify(q.metadata || {}),
+          JSON.stringify({
+            ...(q.metadata || {}),
+            questionTextHi: q.questionTextHi || q.question_text_hi || null,
+            optionsHi: q.optionsHi || q.options_hi || null,
+            explanationHi: q.explanationHi || q.explanation_hi || null,
+          }),
         ],
       );
     }
@@ -833,41 +895,75 @@ const getRankAndPercentile = async (
     examCategory,
   });
 
-  // Category Cutoff resolution
-  const baseCutoff =
-    Number(testMeta?.cutoff_marks ?? testMeta?.cutoffMarks ?? 0) ||
-    Math.round(totalMarks * 0.6);
+  // Category Cutoff resolution - real database data only
   const configuredCatCutoffs =
-    testMeta?.category_cutoffs || testMeta?.categoryCutoffs || {};
-  const cutoffs = {
-    UR: Number(configuredCatCutoffs.UR ?? baseCutoff),
-    OBC: Number(configuredCatCutoffs.OBC ?? Math.round(baseCutoff * 0.93)),
-    EWS: Number(configuredCatCutoffs.EWS ?? Math.round(baseCutoff * 0.91)),
-    SC: Number(configuredCatCutoffs.SC ?? Math.round(baseCutoff * 0.82)),
-    ST: Number(configuredCatCutoffs.ST ?? Math.round(baseCutoff * 0.75)),
-  };
-  const targetCategoryCutoff = cutoffs[normalizedUserCategory] ?? cutoffs.UR;
+    testMeta?.category_cutoffs || testMeta?.categoryCutoffs || null;
+  const hasRealCategoryCutoffs =
+    configuredCatCutoffs &&
+    typeof configuredCatCutoffs === "object" &&
+    Object.keys(configuredCatCutoffs).length > 0;
+
+  const rawBaseCutoff =
+    testMeta?.cutoff_marks ??
+    testMeta?.cutoffMarks ??
+    testMeta?.passing_marks ??
+    testMeta?.passingMarks ??
+    null;
+  const baseCutoff =
+    rawBaseCutoff !== null &&
+    rawBaseCutoff !== undefined &&
+    !isNaN(Number(rawBaseCutoff))
+      ? Number(rawBaseCutoff)
+      : null;
+
+  let cutoffs = null;
+  let targetCategoryCutoff = baseCutoff;
+
+  if (hasRealCategoryCutoffs) {
+    cutoffs = {};
+    for (const [cat, val] of Object.entries(configuredCatCutoffs)) {
+      if (val !== null && val !== undefined && !isNaN(Number(val))) {
+        cutoffs[cat] = Number(val);
+      }
+    }
+    if (cutoffs[normalizedUserCategory] !== undefined) {
+      targetCategoryCutoff = cutoffs[normalizedUserCategory];
+    } else if (cutoffs.UR !== undefined) {
+      targetCategoryCutoff = cutoffs.UR;
+    } else if (baseCutoff !== null) {
+      targetCategoryCutoff = baseCutoff;
+    }
+  } else if (baseCutoff !== null) {
+    cutoffs = { [normalizedUserCategory || "Cutoff"]: baseCutoff };
+    targetCategoryCutoff = baseCutoff;
+  }
+
   const userScore = Number(attempt.score ?? 0);
-  const isCutoffCleared = userScore >= targetCategoryCutoff;
-  const cutoffMargin = Number((userScore - targetCategoryCutoff).toFixed(2));
+  const isCutoffCleared =
+    targetCategoryCutoff !== null ? userScore >= targetCategoryCutoff : true;
+  const cutoffMargin =
+    targetCategoryCutoff !== null
+      ? Number((userScore - targetCategoryCutoff).toFixed(2))
+      : 0;
 
   const cutoffData = {
     userCategory: normalizedUserCategory,
     categoryCutoff: targetCategoryCutoff,
-    overallCutoff: cutoffs.UR,
+    overallCutoff: baseCutoff,
     userScore,
     isCleared: isCutoffCleared,
     margin: cutoffMargin,
     categoryRank,
     categoryParticipants,
     cutoffs,
+    hasCategoryCutoffs: Boolean(hasRealCategoryCutoffs),
   };
 
   return {
     rank,
     totalParticipants: Math.max(1, totalParticipants),
     percentile: calibrated.percentile,
-    predictedRank: calibrated.predictedAllIndiaRank,
+    predictedRank: null, // Only show real user rank, never synthetic AIR
     isCalibrated: calibrated.isCalibrated,
     cutoffData,
   };
@@ -1279,25 +1375,36 @@ router.get("/", responseCache("tests-list-v2", 60), async (req, res) => {
 // @access  Public
 router.get(
   "/series/:seriesId",
-  responseCache("tests-series-v2", 60),
+  responseCache("tests-series-v2", 300, { userScoped: false }),
   async (req, res) => {
     try {
       const { seriesId } = req.params;
       const { page, limit } = req.query;
       const series = await findSeriesByIdentifier(seriesId);
       const resolvedSeriesId = getInternalId(series) ?? seriesId;
+      const numSeriesId = Number.parseInt(resolvedSeriesId, 10);
 
-      const { rows } = await dbHelpers.pool.query(
-        `SELECT * FROM tests 
-       WHERE is_active = true 
-         AND (status = 'published' OR status = 'active' OR status IS NULL)
-         AND (series_id::text = $1 OR series_id::text = $2 OR series_id::text = $3)`,
-        [
+      let querySql;
+      let queryParams;
+      if (!Number.isNaN(numSeriesId)) {
+        querySql = `SELECT * FROM tests 
+          WHERE is_active = true 
+            AND (status = 'published' OR status = 'active' OR status IS NULL)
+            AND series_id = $1`;
+        queryParams = [numSeriesId];
+      } else {
+        querySql = `SELECT * FROM tests 
+          WHERE is_active = true 
+            AND (status = 'published' OR status = 'active' OR status IS NULL)
+            AND (series_id::text = $1 OR series_id::text = $2 OR series_id::text = $3)`;
+        queryParams = [
           String(resolvedSeriesId),
           String(seriesId),
           String(series?.slug || seriesId),
-        ],
-      );
+        ];
+      }
+
+      const { rows } = await dbHelpers.pool.query(querySql, queryParams);
 
       let allTests = rows.map((row) => dbHelpers.toCamel(row));
       const totalCount = allTests.length;
@@ -2608,237 +2715,245 @@ router.put("/:testId/submit", protect, async (req, res) => {
 
 // @route   GET /api/tests/:testId/result/:attemptId
 // @desc    Get test result by attempt ID
-// @access  Private
-router.get("/:testId/result/:attemptId", protect, async (req, res) => {
-  try {
-    const attempt = await findAttemptByIdentifier(req.params.attemptId);
+router.get(
+  "/:testId/result/:attemptId",
+  protect,
+  responseCache("test-result-attempt", 300),
+  async (req, res) => {
+    try {
+      const attempt = await findAttemptByIdentifier(req.params.attemptId);
 
-    if (!attempt) {
-      return res.status(404).json({
-        success: false,
-        message: "Attempt not found",
-      });
-    }
-
-    if (!idsMatch(attempt.userId, req.user.id) && req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to view this attempt",
-      });
-    }
-
-    // Resolve the test from URL param (could be numeric ID, _id, or slug)
-    const testFromUrl = await findTestByIdentifier(
-      req.params.testId,
-      dbHelpers,
-    );
-
-    // Compare attempt's testId with the resolved test's ID
-    // The attempt.testId is numeric, so we need to compare with test.id or test._id
-    const resolvedTestId = testFromUrl
-      ? testFromUrl.id || testFromUrl._id
-      : req.params.testId;
-
-    if (
-      !idsMatch(attempt.testId, resolvedTestId) &&
-      !idsMatch(attempt.testId, req.params.testId)
-    ) {
-      // Also try direct comparison in case testFromUrl is null but IDs match directly
-      return res.status(400).json({
-        success: false,
-        message: "Attempt does not belong to this test",
-      });
-    }
-
-    const test =
-      testFromUrl || (await findTestByIdentifier(attempt.testId, dbHelpers));
-
-    const snapshotQuestions = await fetchAttemptSnapshotQuestions(attempt.id);
-    const questions =
-      snapshotQuestions.length > 0
-        ? snapshotQuestions
-        : await fetchTestQuestions(test);
-
-    const isLive = Boolean(
-      test.isLive ||
-      test.is_live ||
-      test.type === "live-tests" ||
-      test.type === "live" ||
-      test.testType === "live-tests" ||
-      test.testType === "live",
-    );
-    const scheduledEnd =
-      test.scheduledEnd ||
-      test.scheduled_end ||
-      test.dateEnd ||
-      test.date_end ||
-      test.endTime ||
-      test.end_time;
-    const isLiveContestActive =
-      isLive && scheduledEnd && new Date() < new Date(scheduledEnd);
-    const isAdmin = req.user?.role === "admin";
-
-    const [rankData, communityStats] = await Promise.all([
-      getRankAndPercentile(
-        resolvedTestId || test._id || test.id || req.params.testId,
-        attempt,
-        test,
-        req.user?.category || "UR",
-      ),
-      fetchTestCommunityQuestionStats(
-        resolvedTestId || test._id || test.id || req.params.testId,
-      ),
-    ]);
-    const result = buildResultPayload(
-      test,
-      attempt,
-      questions,
-      req.params.testId,
-      rankData,
-      communityStats,
-    );
-    const series = await findSeriesByIdentifier(
-      test.seriesId || test.series_id,
-    );
-    result.seriesId = getPublicResponseId(
-      dbHelpers,
-      "testSeries",
-      series,
-      result.seriesId,
-    );
-
-    if (isLiveContestActive && !isAdmin) {
-      result.isLiveLocked = true;
-      result.lockedReason = POLICY_ERROR_CODES.RESULT_LOCKED;
-      result.lockedMessage = `Detailed answer keys and solutions will unlock when the contest concludes at ${new Date(scheduledEnd).toLocaleString("en-IN")}.`;
-      if (Array.isArray(result.questions)) {
-        result.questions = result.questions.map((q) => ({
-          ...q,
-          correctOption: undefined,
-          correct_option: undefined,
-          correctAnswer: undefined,
-          correct_answer: undefined,
-          explanation: undefined,
-          solutions: undefined,
-        }));
+      if (!attempt) {
+        return res.status(404).json({
+          success: false,
+          message: "Attempt not found",
+        });
       }
-    }
 
-    res.json({
-      success: true,
-      data: result,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: sanitizeErrorMessage(error),
-    });
-  }
-});
+      if (!idsMatch(attempt.userId, req.user.id) && req.user.role !== "admin") {
+        return res.status(403).json({
+          success: false,
+          message: "Not authorized to view this attempt",
+        });
+      }
+
+      // Resolve the test from URL param (could be numeric ID, _id, or slug)
+      const testFromUrl = await findTestByIdentifier(
+        req.params.testId,
+        dbHelpers,
+      );
+
+      // Compare attempt's testId with the resolved test's ID
+      // The attempt.testId is numeric, so we need to compare with test.id or test._id
+      const resolvedTestId = testFromUrl
+        ? testFromUrl.id || testFromUrl._id
+        : req.params.testId;
+
+      if (
+        !idsMatch(attempt.testId, resolvedTestId) &&
+        !idsMatch(attempt.testId, req.params.testId)
+      ) {
+        // Also try direct comparison in case testFromUrl is null but IDs match directly
+        return res.status(400).json({
+          success: false,
+          message: "Attempt does not belong to this test",
+        });
+      }
+
+      const test =
+        testFromUrl || (await findTestByIdentifier(attempt.testId, dbHelpers));
+
+      const snapshotQuestions = await fetchAttemptSnapshotQuestions(attempt.id);
+      const questions =
+        snapshotQuestions.length > 0
+          ? snapshotQuestions
+          : await fetchTestQuestions(test);
+
+      const isLive = Boolean(
+        test.isLive ||
+        test.is_live ||
+        test.type === "live-tests" ||
+        test.type === "live" ||
+        test.testType === "live-tests" ||
+        test.testType === "live",
+      );
+      const scheduledEnd =
+        test.scheduledEnd ||
+        test.scheduled_end ||
+        test.dateEnd ||
+        test.date_end ||
+        test.endTime ||
+        test.end_time;
+      const isLiveContestActive =
+        isLive && scheduledEnd && new Date() < new Date(scheduledEnd);
+      const isAdmin = req.user?.role === "admin";
+
+      const [rankData, communityStats] = await Promise.all([
+        getRankAndPercentile(
+          resolvedTestId || test._id || test.id || req.params.testId,
+          attempt,
+          test,
+          req.user?.category || "UR",
+        ),
+        fetchTestCommunityQuestionStats(
+          resolvedTestId || test._id || test.id || req.params.testId,
+        ),
+      ]);
+      const result = buildResultPayload(
+        test,
+        attempt,
+        questions,
+        req.params.testId,
+        rankData,
+        communityStats,
+      );
+      const series = await findSeriesByIdentifier(
+        test.seriesId || test.series_id,
+      );
+      result.seriesId = getPublicResponseId(
+        dbHelpers,
+        "testSeries",
+        series,
+        result.seriesId,
+      );
+
+      if (isLiveContestActive && !isAdmin) {
+        result.isLiveLocked = true;
+        result.lockedReason = POLICY_ERROR_CODES.RESULT_LOCKED;
+        result.lockedMessage = `Detailed answer keys and solutions will unlock when the contest concludes at ${new Date(scheduledEnd).toLocaleString("en-IN")}.`;
+        if (Array.isArray(result.questions)) {
+          result.questions = result.questions.map((q) => ({
+            ...q,
+            correctOption: undefined,
+            correct_option: undefined,
+            correctAnswer: undefined,
+            correct_answer: undefined,
+            explanation: undefined,
+            solutions: undefined,
+          }));
+        }
+      }
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: sanitizeErrorMessage(error),
+      });
+    }
+  },
+);
 
 // @route   GET /api/tests/:testId/result
 // @desc    Get latest test result for current user
-// @access  Private
-router.get("/:testId/result", protect, async (req, res) => {
-  try {
-    // Resolve the test from URL param (could be numeric ID, _id, or slug)
-    const test = await findTestByIdentifier(req.params.testId, dbHelpers);
-    if (!test) {
-      return res.status(404).json({
-        success: false,
-        message: "Test not found",
-      });
-    }
+router.get(
+  "/:testId/result",
+  protect,
+  responseCache("test-result", 300),
+  async (req, res) => {
+    try {
+      // Resolve the test from URL param (could be numeric ID, _id, or slug)
+      const test = await findTestByIdentifier(req.params.testId, dbHelpers);
+      if (!test) {
+        return res.status(404).json({
+          success: false,
+          message: "Test not found",
+        });
+      }
 
-    // Get the numeric test ID for matching with attempts
-    const numericTestId = test.id || test._id;
+      // Get the numeric test ID for matching with attempts
+      const numericTestId = test.id || test._id;
 
-    // The resolved test has a canonical database ID. Use it in the query so
-    // this endpoint does not scan every completed attempt/result for the user.
-    // Keep the full-scan fallback for legacy test records without a numeric ID.
-    const canonicalTestIds = [test.id, test._id]
-      .filter(
-        (id) => id !== undefined && id !== null && /^\d+$/.test(String(id)),
-      )
-      .map(Number)
-      .filter((id, index, ids) => ids.indexOf(id) === index);
-    const attemptFilters = {
-      userId: req.user.id,
-      isCompleted: true,
-      ...(canonicalTestIds.length ? { testId: canonicalTestIds[0] } : {}),
-    };
-    const [resultRows, attemptRows] = await Promise.all([
-      dbHelpers.find("results", attemptFilters),
-      dbHelpers.find("attempts", attemptFilters),
-    ]);
-    // Match against both the URL param and the resolved numeric ID
-    const matchingResults = resultRows.filter(
-      (row) =>
-        idsMatch(row.testId, req.params.testId) ||
-        idsMatch(row.testId, numericTestId),
-    );
+      // The resolved test has a canonical database ID. Use it in the query so
+      // this endpoint does not scan every completed attempt/result for the user.
+      // Keep the full-scan fallback for legacy test records without a numeric ID.
+      const canonicalTestIds = [test.id, test._id]
+        .filter(
+          (id) => id !== undefined && id !== null && /^\d+$/.test(String(id)),
+        )
+        .map(Number)
+        .filter((id, index, ids) => ids.indexOf(id) === index);
+      const attemptFilters = {
+        userId: req.user.id,
+        isCompleted: true,
+        ...(canonicalTestIds.length ? { testId: canonicalTestIds[0] } : {}),
+      };
+      const [resultRows, attemptRows] = await Promise.all([
+        dbHelpers.find("results", attemptFilters),
+        dbHelpers.find("attempts", attemptFilters),
+      ]);
+      // Match against both the URL param and the resolved numeric ID
+      const matchingResults = resultRows.filter(
+        (row) =>
+          idsMatch(row.testId, req.params.testId) ||
+          idsMatch(row.testId, numericTestId),
+      );
 
-    // Match against both the URL param and the resolved numeric ID
-    const matchingAttempts = attemptRows.filter(
-      (row) =>
-        idsMatch(row.testId, req.params.testId) ||
-        idsMatch(row.testId, numericTestId),
-    );
+      // Match against both the URL param and the resolved numeric ID
+      const matchingAttempts = attemptRows.filter(
+        (row) =>
+          idsMatch(row.testId, req.params.testId) ||
+          idsMatch(row.testId, numericTestId),
+      );
 
-    const combined = [...matchingResults, ...matchingAttempts].sort(
-      (a, b) =>
-        new Date(b.submittedAt || b.createdAt || 0) -
-        new Date(a.submittedAt || a.createdAt || 0),
-    );
-    const attempt = combined[0];
+      const combined = [...matchingResults, ...matchingAttempts].sort(
+        (a, b) =>
+          new Date(b.submittedAt || b.createdAt || 0) -
+          new Date(a.submittedAt || a.createdAt || 0),
+      );
+      const attempt = combined[0];
 
-    if (!attempt) {
-      return res.status(404).json({
-        success: false,
-        message: "No completed attempt found for this test",
-      });
-    }
+      if (!attempt) {
+        return res.status(404).json({
+          success: false,
+          message: "No completed attempt found for this test",
+        });
+      }
 
-    const [questions, rankData, communityStats] = await Promise.all([
-      fetchTestQuestions(test),
-      getRankAndPercentile(
-        numericTestId || test._id || test.id || req.params.testId,
-        attempt,
+      const [questions, rankData, communityStats] = await Promise.all([
+        fetchTestQuestions(test),
+        getRankAndPercentile(
+          numericTestId || test._id || test.id || req.params.testId,
+          attempt,
+          test,
+          req.user?.category || "UR",
+        ),
+        fetchTestCommunityQuestionStats(
+          numericTestId || test._id || test.id || req.params.testId,
+        ),
+      ]);
+      const result = buildResultPayload(
         test,
-        req.user?.category || "UR",
-      ),
-      fetchTestCommunityQuestionStats(
-        numericTestId || test._id || test.id || req.params.testId,
-      ),
-    ]);
-    const result = buildResultPayload(
-      test,
-      attempt,
-      questions,
-      req.params.testId,
-      rankData,
-      communityStats,
-    );
-    const series = await findSeriesByIdentifier(
-      test.seriesId || test.series_id,
-    );
-    result.seriesId = getPublicResponseId(
-      dbHelpers,
-      "testSeries",
-      series,
-      result.seriesId,
-    );
+        attempt,
+        questions,
+        req.params.testId,
+        rankData,
+        communityStats,
+      );
+      const series = await findSeriesByIdentifier(
+        test.seriesId || test.series_id,
+      );
+      result.seriesId = getPublicResponseId(
+        dbHelpers,
+        "testSeries",
+        series,
+        result.seriesId,
+      );
 
-    res.json({
-      success: true,
-      data: result,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: sanitizeErrorMessage(error),
-    });
-  }
-});
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: sanitizeErrorMessage(error),
+      });
+    }
+  },
+);
 
 export default router;

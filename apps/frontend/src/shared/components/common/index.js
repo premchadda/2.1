@@ -13,5 +13,4 @@ export {
   hasCompletedOnboarding,
   getOnboardingPrefs,
 } from "../../lib/onboardingUtils";
-export { default as Calculator } from "./Calculator";
 export { TrstprepLoading } from "./TrstprepLoading";

@@ -324,18 +324,18 @@ async function enforceSessionExpiry(decoded, user) {
     );
     if (expired.expired) throw { sessionExpired: true, reason: expired.reason };
 
-    // Throttled write: record activity now.
-    try {
-      await dbHelpers.pool.query(
+    // Throttled write: record activity now (non-blocking).
+    dbHelpers.pool
+      .query(
         "UPDATE user_sessions SET last_active = NOW() WHERE session_id = $1 OR id::text = $1",
         [key],
-      );
-    } catch (writeErr) {
-      console.warn(
-        "[Auth] Session activity write failed (fail-open):",
-        writeErr.message,
-      );
-    }
+      )
+      .catch((writeErr) => {
+        console.warn(
+          "[Auth] Session activity write failed (fail-open):",
+          writeErr.message,
+        );
+      });
 
     if (idleActivityCache.size >= IDLE_CACHE_MAX) {
       idleActivityCache.delete(idleActivityCache.keys().next().value);
@@ -502,7 +502,7 @@ export const protect = async (req, res, next) => {
         // Cache miss — fall back to DB and hydrate cache.
         try {
           const sessionCheck = await dbHelpers.pool.query(
-            "SELECT is_active FROM user_sessions WHERE session_id = $1 OR id::text = $1",
+            "SELECT is_active, created_at, last_active, last_activity FROM user_sessions WHERE session_id = $1 OR id::text = $1",
             [String(decoded.sessionId)],
           );
           if (sessionCheck.rows.length === 0) {
@@ -518,8 +518,25 @@ export const protect = async (req, res, next) => {
               message: "Your session has been revoked. Please log in again.",
             });
           } else {
+            const sRow = sessionCheck.rows[0];
             // Cache session for 5 minutes to amortize future lookups.
             await setCachedSession(decoded.sessionId, { isActive: true });
+            // Pre-hydrate idle activity cache so enforceSessionExpiry does not perform a duplicate DB query
+            const sNow = Date.now();
+            const sKey = String(decoded.sessionId);
+            if (idleActivityCache.size >= IDLE_CACHE_MAX) {
+              idleActivityCache.delete(idleActivityCache.keys().next().value);
+            }
+            idleActivityCache.set(sKey, {
+              activityTs:
+                sRow.last_activity || sRow.last_active
+                  ? new Date(sRow.last_activity || sRow.last_active).getTime()
+                  : sNow,
+              createdAt: sRow.created_at
+                ? new Date(sRow.created_at).getTime()
+                : sNow,
+              lastOp: sNow,
+            });
           }
         } catch (sessionErr) {
           // Graceful degradation when the table is missing (Postgres code 42P01).

@@ -18,22 +18,22 @@ services:
     volumes:
       - ./apps/backend:/app
       - /app/node_modules
-    command: npm run dev
+    command: pnpm run dev
 
   backend-2:
     volumes:
       - ./apps/backend:/app
       - /app/node_modules
-    command: npm run dev
+    command: pnpm run dev
 
   frontend:
     volumes:
       - ./apps/frontend:/app
       - /app/node_modules
-    command: npm run dev
+    command: pnpm run dev
 
   admin-panel:
     volumes:
       - ./apps/admin-panel:/app
       - /app/node_modules
-    command: npm run dev
+    command: pnpm run dev

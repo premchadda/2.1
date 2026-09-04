@@ -1,4 +1,4 @@
-import express from "express"; // server-boot-v6
+import express from "express"; // server-boot-v7
 import dns from "dns";
 
 // Force IPv4-first DNS resolution (Supabase IPv6 often fails to resolve locally)
@@ -1174,6 +1174,7 @@ const startServer = async () => {
           "/api/series",
           "/api/tests",
           "/api/live-tests?limit=10",
+          "/api/intelligence/top-performers?limit=5&seriesId=1",
         ];
         const warm = async (p) => {
           try {
@@ -1185,7 +1186,11 @@ const startServer = async () => {
             /* best-effort only */
           }
         };
-        await Promise.allSettled(warmupPaths.map(warm));
+        // Stagger warmup in batches of 2 to avoid saturating Postgres pool at boot
+        for (let i = 0; i < warmupPaths.length; i += 2) {
+          const batch = warmupPaths.slice(i, i + 2);
+          await Promise.allSettled(batch.map(warm));
+        }
         logger.info(`Cache warmup complete (${warmupPaths.length} routes).`);
       } catch (e) {
         logger.warn(`Cache warmup failed (non-fatal): ${e.message}`);

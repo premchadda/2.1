@@ -25,31 +25,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+          run_install: false
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '20'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run lint
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
 
   # M54: Reduced redundant installs. test-backend/test-frontend/test-admin were
-  # three separate jobs, each running `npm ci`. They are now a single job that
+  # three separate jobs, each running `pnpm install`. They are now a single job that
   # installs once and runs all three test filters sequentially, cutting 3 full
-  # installs to 1. All install jobs use actions/setup-node cache: 'npm' so
-  # ~/.npm is cached between runs.
+  # installs to 1. All install jobs use pnpm cache so ~/.local/share/pnpm/store is cached.
   test:
     name: Test (Backend / Frontend / Admin)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+          run_install: false
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '20'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run test -- --filter=trstprep-backend
-      - run: npm run test -- --filter=trstprep-frontend
-      - run: npm run test -- --filter=trstprep-admin
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test -- --filter=trstprep-backend
+      - run: pnpm run test -- --filter=trstprep-frontend
+      - run: pnpm run test -- --filter=trstprep-admin
 
   # H28: Static Application Security Testing (SAST) with CodeQL
   sast-codeql:
@@ -97,12 +104,16 @@ jobs:
     needs: [lint, test, sast-codeql, sast-semgrep, data-guard]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+          run_install: false
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '20'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run build
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
 
       - name: Upload Frontend Artifact
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee7cdcfdb0d # v4.3.1
@@ -163,11 +174,15 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+          run_install: false
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '20'
-          cache: 'npm'
-      - run: npm ci
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       - name: Run migrations against test database
         env:
           DATABASE_URL: postgresql://postgres@localhost:5432/test_db

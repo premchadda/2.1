@@ -47,28 +47,24 @@ echo ""
 echo "📦 Deploying Frontend..."
 cd apps/frontend
 
-# Install dependencies (detect pnpm or npm)
-if command -v pnpm &> /dev/null && [ -f "../../pnpm-lock.yaml" -o -f "pnpm-lock.yaml" ]; then
+# Install dependencies (pnpm monorepo)
+if command -v pnpm &> /dev/null; then
     echo "  → Installing dependencies with pnpm..."
     pnpm install
 else
-    if [ -d "node_modules" ] && [ -f "package-lock.json" ] && [ "node_modules/package-lock.json" -nt "package-lock.json" ] 2>/dev/null; then
-        echo "  ⏭️  Dependencies already installed (skipping npm ci)"
-    else
-        echo "  → Installing dependencies with npm..."
-        npm ci
-    fi
+    echo "  → Installing dependencies with npm..."
+    npm install
 fi
 
 # Build for production (skip if build exists and is newer than source)
 if [ -d "dist" ] && find src -newer dist -print -quit | grep -q .; then
     echo "  → Building for production..."
-    if command -v pnpm &> /dev/null && [ -f "../../pnpm-lock.yaml" -o -f "pnpm-lock.yaml" ]; then pnpm run build; else npm run build; fi
+    pnpm run build
 elif [ -d "dist" ]; then
     echo "  ⏭️  Build is up-to-date (skipping build)"
 else
     echo "  → Building for production (no dist found)..."
-    if command -v pnpm &> /dev/null && [ -f "../../pnpm-lock.yaml" -o -f "pnpm-lock.yaml" ]; then pnpm run build; else npm run build; fi
+    pnpm run build
 fi
 
 # Check if Vercel CLI is installed
@@ -87,17 +83,13 @@ echo ""
 echo "📦 Deploying Backend..."
 cd apps/backend
 
-# Install dependencies (detect pnpm or npm)
-if command -v pnpm &> /dev/null && [ -f "../../pnpm-lock.yaml" -o -f "pnpm-lock.yaml" ]; then
+# Install dependencies (pnpm monorepo)
+if command -v pnpm &> /dev/null; then
     echo "  → Installing backend dependencies with pnpm..."
     pnpm install --prod
 else
-    if [ -d "node_modules" ] && [ -f "package-lock.json" ] && [ "node_modules/package-lock.json" -nt "package-lock.json" ] 2>/dev/null; then
-        echo "  ⏭️  Dependencies already installed (skipping npm ci)"
-    else
-        echo "  → Installing dependencies with npm..."
-        npm ci
-    fi
+    echo "  → Installing dependencies with npm..."
+    npm install --omit=dev
 fi
 
 # Run migrations before deploy

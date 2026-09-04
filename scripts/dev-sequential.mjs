@@ -71,33 +71,37 @@ const pkgMgr = (process.env.npm_config_user_agent?.includes('pnpm') || process.e
 
 async function main() {
   // Step 1: Start backend
-  spawnProcess('trstprep-backend', pkgMgr, ['run', 'dev:backend'])
+  spawnProcess('trstprep-backend', 'pnpm', ['--filter', 'trstprep-backend', 'run', 'dev'])
 
   // Step 2: Wait for backend health check
   await waitForBackendReady()
 
   // Step 3: Start frontend
   console.log(`[dev:seq] ⏳ Step 2/3: Launching frontend...`)
-  spawnProcess('trstprep-frontend', pkgMgr, ['run', 'dev:frontend'])
+  spawnProcess('trstprep-frontend', 'pnpm', ['--filter', 'trstprep-frontend', 'run', 'dev'])
   
-  // Wait 3 seconds before launching admin panel
-  await new Promise((r) => setTimeout(r, 3000))
+  // Wait 2 seconds before launching admin panel
+  await new Promise((r) => setTimeout(r, 2000))
 
   // Step 4: Start admin panel
   console.log(`[dev:seq] ⏳ Step 3/3: Launching admin panel...`)
-  spawnProcess('trstprep-admin', pkgMgr, ['run', 'dev:admin'])
+  spawnProcess('trstprep-admin', 'pnpm', ['--filter', 'trstprep-admin', 'run', 'dev'])
 }
 
 function cleanup() {
   console.log('\n[dev:seq] Shutting down all processes...')
   processes.forEach((proc) => {
-    if (proc && !proc.killed) {
+    if (proc && proc.pid) {
       try {
-        proc.kill('SIGINT')
+        if (process.platform === 'win32') {
+          spawn('taskkill', ['/F', '/T', '/PID', proc.pid.toString()], { stdio: 'ignore' })
+        } else {
+          proc.kill('SIGINT')
+        }
       } catch {}
     }
   })
-  process.exit(0)
+  setTimeout(() => process.exit(0), 500)
 }
 
 process.on('SIGINT', cleanup)

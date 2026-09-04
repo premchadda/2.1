@@ -20,7 +20,7 @@ services:
       - /app/node_modules
       - backend-uploads:/app/uploads
       - backend-spool:/app/.email-spool
-    command: npm run dev
+    command: pnpm run dev
     restart: unless-stopped
     cap_drop:
       - ALL
@@ -69,7 +69,7 @@ services:
       - /app/node_modules
       - backend-uploads:/app/uploads
       - backend-spool:/app/.email-spool
-    command: npm run dev
+    command: pnpm run dev
     restart: unless-stopped
     cap_drop:
       - ALL
@@ -118,7 +118,7 @@ services:
       - /app/node_modules
       - backend-uploads:/app/uploads
       - backend-spool:/app/.email-spool
-    command: npm run dev
+    command: pnpm run dev
     restart: unless-stopped
     cap_drop:
       - ALL
@@ -166,7 +166,7 @@ services:
         condition: service_healthy
       backend-3:
         condition: service_healthy
-    command: npm run dev
+    command: pnpm run dev
     restart: unless-stopped
     cap_drop:
       - ALL
@@ -195,7 +195,7 @@ services:
     depends_on:
       backend-1:
         condition: service_healthy
-    command: npm run dev
+    command: pnpm run dev
     restart: unless-stopped
     cap_drop:
       - ALL

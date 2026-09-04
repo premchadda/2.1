@@ -153,7 +153,7 @@ router.post(
 );
 
 // Get current authenticated user
-router.get("/me", protect, responseCache("auth-me", 30), async (req, res) => {
+router.get("/me", protect, responseCache("auth-me", 120), async (req, res) => {
   try {
     // PERF: Use user already loaded by protect middleware (avoids redundant DB query)
     const user = req.user;

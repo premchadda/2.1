@@ -22,7 +22,7 @@ if (isRender) {
   console.log(
     "[build] Render environment detected. Building backend service only...",
   );
-  run("npx turbo build --filter=trstprep-backend --no-daemon");
+  run("turbo build --filter=trstprep-backend");
   process.exit(0);
 }
 
@@ -39,10 +39,10 @@ if (!hasVite && process.env.NODE_ENV === "production") {
   console.log(
     "[build] Vite not found in production environment. Building backend only...",
   );
-  run("npx turbo build --filter=trstprep-backend --no-daemon");
+  run("turbo build --filter=trstprep-backend");
   process.exit(0);
 }
 
 // 3. Default monorepo build
 console.log("[build] Running full monorepo build...");
-run("npx turbo build --no-daemon");
+run("turbo build");

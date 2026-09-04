@@ -99,11 +99,11 @@ export default function LiveTestReview() {
             </div>
           </div>
 
-          <div className="text-slate-800 text-base sm:text-lg mb-8 leading-relaxed">
+          <div className="text-slate-800 text-sm sm:text-base font-semibold mb-5 leading-relaxed">
             <MathRenderer text={sanitizeHtml(currentQuestion.text || "")} />
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {currentQuestion.options.map((option, index) => {
               const rawCorrect =
                 currentQuestion.correctOption ??
@@ -141,18 +141,22 @@ export default function LiveTestReview() {
               return (
                 <div
                   key={index}
-                  className={`rounded-2xl border-2 px-4 py-4 ${optionClasses}`}
+                  className={`rounded-xl border-2 px-3.5 py-2.5 ${optionClasses}`}
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="text-slate-800 flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="text-slate-800 flex-1 min-w-0 text-xs sm:text-sm font-medium">
                       <MathRenderer text={sanitizeHtml(option)} />
                     </div>
-                    <div className="flex items-center gap-2 text-xs font-semibold shrink-0">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold shrink-0">
                       {isCorrectOption && (
-                        <span className="text-green-600">Correct</span>
+                        <span className="text-green-600 bg-green-100 dark:bg-green-900/40 px-1.5 py-0.5 rounded">
+                          Correct
+                        </span>
                       )}
                       {isSelectedOption && (
-                        <span className="text-indigo-600">Your Answer</span>
+                        <span className="text-indigo-600 bg-indigo-100 dark:bg-indigo-900/40 px-1.5 py-0.5 rounded">
+                          Your Answer
+                        </span>
                       )}
                     </div>
                   </div>

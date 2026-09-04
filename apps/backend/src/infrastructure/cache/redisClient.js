@@ -17,18 +17,18 @@ const parseInteger = (value, fallback) => {
 };
 
 const redisTimeout = () =>
-  Math.min(parseInteger(process.env.REDIS_CONNECT_TIMEOUT_MS, 4000), 10000);
+  Math.min(parseInteger(process.env.REDIS_CONNECT_TIMEOUT_MS, 2000), 5000);
 const redisCommandTimeout = () =>
-  Math.min(parseInteger(process.env.REDIS_COMMAND_TIMEOUT_MS, 2500), 10000);
+  Math.min(parseInteger(process.env.REDIS_COMMAND_TIMEOUT_MS, 800), 3000);
 const redisRetries = () =>
-  Math.min(parseInteger(process.env.REDIS_MAX_RETRIES_PER_REQUEST, 1), 3);
+  Math.min(parseInteger(process.env.REDIS_MAX_RETRIES_PER_REQUEST, 1), 2);
 
 let consecutiveTimeouts = 0;
 let circuitOpenUntil = 0;
 
 export const recordRedisFailure = () => {
   consecutiveTimeouts++;
-  if (consecutiveTimeouts >= 3 && Date.now() > circuitOpenUntil) {
+  if (consecutiveTimeouts >= 2 && Date.now() > circuitOpenUntil) {
     circuitOpenUntil = Date.now() + 30_000;
     logger.warn(
       "[Redis] Circuit breaker tripped: Redis is timing out. Pausing remote Redis calls for 30s to preserve fast response times.",
