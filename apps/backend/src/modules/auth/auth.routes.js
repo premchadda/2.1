@@ -16,12 +16,6 @@ import {
 } from "../../middleware/auth.middleware.js";
 import { lockoutMiddleware } from "../../middleware/lockout.middleware.js";
 import { botProtectionMiddleware } from "../../middleware/botProtection.middleware.js";
-import EnrollmentService from "../../services/EnrollmentService.js";
-import {
-  buildPublicIdLookup,
-  mapLookupId,
-} from "../../shared/utils/public-id-response.js";
-import { getUserAttempts } from "../../shared/utils/attempt-utils.js";
 import { isFeatureEnabled } from "../../services/SettingsService.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
@@ -165,118 +159,6 @@ router.get("/me", protect, responseCache("auth-me", 120), async (req, res) => {
       });
     }
 
-    const [enrollments, userAttempts] = await Promise.all([
-      dbHelpers.find("enrollments", { userId: user.id, isActive: true }),
-      // PERF: /me only needs series/test IDs + completion flags to derive
-      // enrollment/attempt summaries. Narrow the projection so we don't pull
-      // the full attempt rows (large JSONB answer/section payloads) for users
-      // with thousands of attempts — was a major contributor to the ~18s /me.
-      getUserAttempts(user.id, dbHelpers, {
-        completedOnly: true,
-        columns: [
-          "id",
-          "user_id",
-          "test_id",
-          "series_id",
-          "is_completed",
-          "is_reattempt",
-          "submitted_at",
-          "created_at",
-        ],
-      }),
-    ]);
-
-    // Derive enrollment IDs from the single enrollments query
-    const seriesIdSet = new Set();
-    const examIdSet = new Set();
-    const materialIdSet = new Set();
-
-    for (const e of enrollments) {
-      if (e.seriesId != null) seriesIdSet.add(parseInt(e.seriesId));
-      if (e.examId != null) examIdSet.add(parseInt(e.examId));
-      if (e.studyMaterialId != null)
-        materialIdSet.add(parseInt(e.studyMaterialId));
-    }
-
-    // Fallback to legacy user fields if enrollments table is empty
-    let enrolledSeries = [...seriesIdSet];
-    let enrolledExams = [...examIdSet];
-    let enrolledStudyMaterials = [...materialIdSet];
-
-    if (
-      enrolledSeries.length === 0 &&
-      enrolledExams.length === 0 &&
-      enrolledStudyMaterials.length === 0
-    ) {
-      const parseLegacy = (val) => {
-        if (!val) return [];
-        if (Array.isArray(val)) return val;
-        if (
-          typeof val === "string" &&
-          val.startsWith("{") &&
-          val.endsWith("}")
-        ) {
-          return val
-            .slice(1, -1)
-            .split(",")
-            .map(Number)
-            .filter((n) => !isNaN(n));
-        }
-        try {
-          const p = JSON.parse(val);
-          return Array.isArray(p) ? p : [];
-        } catch {
-          return [];
-        }
-      };
-      enrolledSeries = parseLegacy(user.enrolledSeries ?? user.enrolled_series);
-      enrolledExams = parseLegacy(user.enrolledExams ?? user.enrolled_exams);
-      enrolledStudyMaterials = parseLegacy(
-        user.enrolledStudyMaterials ?? user.enrolled_study_materials,
-      );
-    }
-
-    const attemptedTestsBySeries = new Map();
-    const attemptedTestIds = new Set();
-
-    for (const attempt of userAttempts) {
-      if (attempt.isReattempt === true || attempt.is_reattempt === true)
-        continue;
-
-      const seriesId = attempt.seriesId || attempt.series_id;
-      const testId = attempt.testId || attempt.test_id;
-
-      if (seriesId && testId) {
-        const seriesKey = String(seriesId);
-        if (!attemptedTestsBySeries.has(seriesKey)) {
-          attemptedTestsBySeries.set(seriesKey, new Set());
-        }
-        attemptedTestsBySeries.get(seriesKey).add(String(testId));
-      }
-
-      if (testId) {
-        attemptedTestIds.add(String(testId));
-      }
-    }
-
-    const [attemptedSeriesLookup, attemptedTestsLookup] = await Promise.all([
-      buildPublicIdLookup(
-        dbHelpers,
-        "testSeries",
-        Array.from(attemptedTestsBySeries.keys()),
-      ),
-      buildPublicIdLookup(dbHelpers, "tests", Array.from(attemptedTestIds)),
-    ]);
-
-    const attemptedTests = Object.fromEntries(
-      Array.from(attemptedTestsBySeries.entries()).map(
-        ([seriesId, testIds]) => [
-          mapLookupId(seriesId, attemptedSeriesLookup, seriesId),
-          testIds.size,
-        ],
-      ),
-    );
-
     // Load permissions for admin users
     let permissions = user.permissions || [];
     if (user.role === "super_admin") {
@@ -403,13 +285,11 @@ router.get("/me", protect, responseCache("auth-me", 120), async (req, res) => {
       data: {
         ...safeUser,
         permissions,
-        enrolledSeries,
-        enrolledExams,
-        enrolledStudyMaterials,
-        attemptedTests,
-        attemptedTestIds: Array.from(attemptedTestIds).map((testId) =>
-          mapLookupId(testId, attemptedTestsLookup, testId),
-        ),
+        enrolledSeries: [],
+        enrolledExams: [],
+        enrolledStudyMaterials: [],
+        attemptedTests: {},
+        attemptedTestIds: [],
         csrfToken,
       },
     });

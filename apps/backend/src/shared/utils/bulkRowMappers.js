@@ -274,11 +274,16 @@ export const mapBulkRowToQuestionPayload = async (row, config = {}) => {
         : rawCorrect
       : resolveCorrectOption(rawCorrect, options);
 
-  const marks = Number(row.marks || row.positive_marking) || config.marks || 1;
+  const marks = Number(row.marks ?? row.positive_marking ?? config.marks ?? 1);
+  const rawNeg =
+    row.negativeMarks ??
+    row.negative_marks ??
+    row.negative_marking ??
+    config.negativeMarks;
   const negMarks =
-    Number(row.negativeMarks || row.negative_marks || row.negative_marking) ||
-    config.negativeMarks ||
-    0;
+    rawNeg !== undefined && rawNeg !== null && rawNeg !== ""
+      ? Number(rawNeg)
+      : 0;
 
   return {
     questionText: questionText.trim(),

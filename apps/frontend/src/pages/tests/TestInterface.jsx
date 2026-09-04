@@ -549,57 +549,10 @@ function TestInterface() {
   const tabSwitchCountRef = useRef(0);
   const _lastActivityRef = useRef(Date.now());
 
-  // Derived state for sections in proper configured order (Reasoning -> GK -> Math -> English)
+  // Derived state for sections in proper configured order directly from normalized questions
   const sections = useMemo(() => {
-    const rawSections = [
-      ...new Set(questions.map((q) => q.section || "General")),
-    ];
-    if (rawSections.length <= 1) return rawSections;
-
-    const standardOrderMap = {
-      reasoning: 1,
-      "general intelligence & reasoning": 1,
-      "general intelligence and reasoning": 1,
-      "general intelligence": 1,
-      "logical reasoning": 1,
-
-      "general awareness": 2,
-      "general knowledge": 2,
-      gk: 2,
-      "current affairs": 2,
-
-      "quantitative aptitude": 3,
-      mathematics: 3,
-      math: 3,
-      maths: 3,
-      arithmetic: 3,
-
-      "english language": 4,
-      "english comprehension": 4,
-      english: 4,
-    };
-
-    const configuredOrderMap = {};
-    if (Array.isArray(test?.sections) && test.sections.length > 0) {
-      test.sections.forEach((s, idx) => {
-        const name =
-          s.name || s.title || s.subject || (typeof s === "string" ? s : "");
-        if (name) {
-          const order = s.display_order ?? s.displayOrder ?? s.order ?? idx + 1;
-          configuredOrderMap[name.toLowerCase().trim()] = Number(order);
-        }
-      });
-    }
-
-    return rawSections.sort((a, b) => {
-      const keyA = a.toLowerCase().trim();
-      const keyB = b.toLowerCase().trim();
-      const orderA = configuredOrderMap[keyA] ?? standardOrderMap[keyA] ?? 99;
-      const orderB = configuredOrderMap[keyB] ?? standardOrderMap[keyB] ?? 99;
-      if (orderA !== orderB) return orderA - orderB;
-      return rawSections.indexOf(a) - rawSections.indexOf(b);
-    });
-  }, [questions, test?.sections]);
+    return Array.from(new Set(questions.map((q) => q.section || "General")));
+  }, [questions]);
 
   // Adaptive difficulty for the current question's topic
   const currentTopicId =
@@ -879,13 +832,21 @@ function TestInterface() {
 
             // Resume previous progress from autosave only if NOT a reattempt
             if (!isReattempt) {
-              if (attemptData.timeSpent > 0) {
-                setTimeLeft(
-                  Math.max(
-                    1,
-                    (testData.duration || 60) * 60 - attemptData.timeSpent,
-                  ),
+              if (attemptData.serverEndTime) {
+                const endMs = new Date(attemptData.serverEndTime).getTime();
+                const remainingFromEnd = Math.max(
+                  0,
+                  Math.ceil((endMs - Date.now()) / 1000),
                 );
+                setTimeLeft(remainingFromEnd);
+                endTimeRef.current = endMs;
+              } else if (attemptData.timeSpent > 0) {
+                const calculatedLeft = Math.max(
+                  1,
+                  (testData.duration || 60) * 60 - attemptData.timeSpent,
+                );
+                setTimeLeft(calculatedLeft);
+                endTimeRef.current = Date.now() + calculatedLeft * 1000;
               }
               if (attemptData.answers && attemptData.answers.length > 0) {
                 const restoredAnswers = {};
@@ -1263,11 +1224,18 @@ function TestInterface() {
     };
     window.addEventListener("online", handleOnline);
 
-    // Best-effort flush when the tab is hidden (e.g. user switches apps) so the
-    // local buffer is reconciled even before the 30s interval fires.
+    // Best-effort flush when the tab is hidden and immediate resync on visible
     const handleVisibility = () => {
       if (document.visibilityState === "hidden") {
         autosave();
+      } else if (document.visibilityState === "visible") {
+        if (endTimeRef.current) {
+          const remaining = Math.max(
+            0,
+            Math.ceil((endTimeRef.current - Date.now()) / 1000),
+          );
+          setTimeLeft(remaining);
+        }
       }
     };
     window.addEventListener("visibilitychange", handleVisibility);

@@ -1219,10 +1219,11 @@ export function toPublicTestDTO(test) {
           test.questionsCount ||
           (Array.isArray(test.questions) ? test.questions.length : 0),
       ) || 0,
-    passingMarks: Number(test.passingMarks || test.passing_marks) || 0,
-    negativeMarks: Number(test.negativeMarks || test.negative_marks) || 0,
-    marksPerQuestion:
-      Number(test.marksPerQuestion || test.marks_per_question) || 2,
+    passingMarks: Number(test.passingMarks ?? test.passing_marks ?? 0),
+    negativeMarks: Number(test.negativeMarks ?? test.negative_marks ?? 0),
+    marksPerQuestion: Number(
+      test.marksPerQuestion ?? test.marks_per_question ?? 2,
+    ),
     negativeMarking: test.negativeMarking ?? test.negative_marking ?? true,
     tags: Array.isArray(test.tags) ? test.tags : [],
     rating: Number(test.rating) || 4.8,

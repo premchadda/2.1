@@ -11,7 +11,7 @@ const localCache = new Map();
 const LOCAL_CACHE_MAX = 1000;
 const MEMORY_CACHE_TTL = 5 * 60 * 1000;
 const CACHE_IO_TIMEOUT_MS = Math.min(
-  Math.max(Number.parseInt(process.env.CACHE_IO_TIMEOUT_MS, 10) || 60, 10),
+  Math.max(Number.parseInt(process.env.CACHE_IO_TIMEOUT_MS, 10) || 100, 10),
   1000,
 );
 

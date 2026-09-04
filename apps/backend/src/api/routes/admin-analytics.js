@@ -36,7 +36,7 @@ router.use(requireAnalyticsEnabled);
  */
 router.get(
   "/funnel",
-  responseCache("admin-analytics-funnel", 60),
+  responseCache("admin-analytics-funnel", 300),
   async (req, res) => {
     try {
       const client = await pool.connect();
@@ -186,7 +186,7 @@ router.get(
  */
 router.get(
   "/cohort",
-  responseCache("admin-analytics-cohort", 60),
+  responseCache("admin-analytics-cohort", 300),
   async (req, res) => {
     try {
       const { period = "monthly", months = 6 } = req.query;
@@ -315,7 +315,7 @@ router.get(
  */
 router.get(
   "/engagement",
-  responseCache("admin-analytics-engagement", 60),
+  responseCache("admin-analytics-engagement", 300),
   async (req, res) => {
     try {
       const { range = "30d", granularity = "daily" } = req.query;

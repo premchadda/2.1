@@ -667,3 +667,19 @@
   0%, 100% { background-position: 0% 50%; }
   50%      { background-position: 100% 50%; }
 }
+
+/* Mobile performance optimization: disable heavy perpetual background animations on narrow viewports
+ * Preserves interactive feedback, loaders, modal entrances, and page transitions.
+ */
+@media (max-width: 640px) {
+  .animate-float,
+  .animate-spin-slow,
+  .animate-gradient,
+  .animate-pulse-ring,
+  .animate-shimmer,
+  .animate-morph,
+  .animate-progress-glow {
+    animation: none !important;
+  }
+}
+

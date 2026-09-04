@@ -103,7 +103,7 @@ export const questionService = {
         0,
       explanation: data.explanation,
       marks: data.marks,
-      negMarks: data.negativeMarks || data.negative_marks,
+      negMarks: data.negativeMarks ?? data.negative_marks,
       difficulty: data.difficulty || "medium",
       testId: data.testId || data.test_id,
       section: data.section,
