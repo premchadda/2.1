@@ -445,7 +445,10 @@ export const CompactSectionPicker = ({
                   {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold truncate leading-tight">
+                  <p
+                    className="text-xs font-bold truncate leading-tight"
+                    title={sec.name}
+                  >
                     {sec.name}
                   </p>
                   <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-gray-500 dark:text-gray-400 flex-wrap">
@@ -531,7 +534,10 @@ export default function TestFormModal({
               {editingId ? "Edit Test" : "Create Test"}
             </h2>
             {contextLabel && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-xs sm:max-w-md">
+              <p
+                className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-xs sm:max-w-md"
+                title={contextLabel}
+              >
                 {contextLabel}
               </p>
             )}
@@ -629,7 +635,9 @@ export default function TestFormModal({
                             }`}
                           >
                             <TabIcon className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">{tab.label}</span>
+                            <span className="truncate" title={tab.label}>
+                              {tab.label}
+                            </span>
                           </button>
                         );
                       })}

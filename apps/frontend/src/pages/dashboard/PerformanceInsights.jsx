@@ -28,6 +28,7 @@ import {
   Sparkles,
   Loader2,
 } from "lucide-react";
+import ExamReadinessGauge from "./components/ExamReadinessGauge";
 
 const timeframeOptions = [
   "This Week",
@@ -246,14 +247,14 @@ function PerformanceInsights() {
         {/* Timeframe Filter */}
         <ScrollReveal>
           <Card variant="elevated" size="md" className="mb-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-brand-start" />
                 <span className="font-semibold text-gray-900 dark:text-white">
                   Overview
                 </span>
               </div>
-              <div className="flex gap-1">
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
                 {timeframeOptions.map((tf) => (
                   <button
                     key={tf}
@@ -270,6 +271,11 @@ function PerformanceInsights() {
               </div>
             </div>
           </Card>
+        </ScrollReveal>
+
+        {/* Candidate Exam Readiness & Cutoff Predictor (Wave 19) */}
+        <ScrollReveal>
+          <ExamReadinessGauge className="mb-6" />
         </ScrollReveal>
 
         {/* Stats Grid */}
@@ -543,7 +549,7 @@ function PerformanceInsights() {
 
 function LoadingPlaceholder() {
   return (
-    <div className="flex items-center justify-center py-12">
+    <div className="flex items-center justify-center py-8">
       <Loader2 className="w-6 h-6 text-brand-start animate-spin" />
     </div>
   );

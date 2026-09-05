@@ -664,7 +664,10 @@ class PostgresHelpers {
   }
 
   getTableName(collection) {
-    return this.tableMap[collection] || collection;
+    const table = this.tableMap[collection] || collection;
+    return typeof table === "string"
+      ? table.replace(/[^a-zA-Z0-9_]/g, "")
+      : table;
   }
 
   toCamel(row) {
@@ -2057,6 +2060,7 @@ class PostgresHelpers {
     for (const collection of collections) {
       try {
         const table = this.getTableName(collection);
+        if (!table || !/^[a-zA-Z0-9_]+$/.test(table)) continue;
         await this.pool.query(`DELETE FROM "${table}" WHERE is_active = false`);
       } catch (e) {
         // Collection might not exist, skip
@@ -2342,7 +2346,13 @@ export const withTransaction = async (fn, options = {}) => {
   try {
     await client.query("BEGIN");
     if (options.lockTimeout) {
-      await client.query(`SET LOCAL lock_timeout = '${options.lockTimeout}'`);
+      const lockTimeoutStr = String(options.lockTimeout).trim();
+      if (!/^\d+(ms|s|min|h|d)?$/i.test(lockTimeoutStr)) {
+        throw new ValidationError(
+          `Invalid lockTimeout value: ${lockTimeoutStr}`,
+        );
+      }
+      await client.query(`SET LOCAL lock_timeout = '${lockTimeoutStr}'`);
     }
     const result = await fn(client);
     await client.query("COMMIT");

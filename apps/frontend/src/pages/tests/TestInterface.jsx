@@ -39,29 +39,12 @@ import DifficultyBadge from "../../shared/components/common/DifficultyBadge";
 import QuestionPalette from "./QuestionPalette";
 import SubmitSummaryModal from "./components/SubmitSummaryModal";
 import ImageZoomModal from "./components/ImageZoomModal";
+import TestTimerHeader from "./components/TestTimerHeader";
+import SectionTabs from "./components/SectionTabs";
+import QuestionViewer from "./components/QuestionViewer";
+import TestBottomBar from "./components/TestBottomBar";
 import { normalizeTestQuestions } from "../../shared/utils/testClassification";
-import {
-  Clock,
-  ChevronLeft,
-  ChevronRight,
-  Flag,
-  AlertCircle,
-  AlertTriangle,
-  Menu,
-  Globe,
-  Eye,
-  EyeOff,
-  Pause,
-  Play,
-  ArrowLeft,
-  LayoutDashboard,
-  ZoomIn,
-  MessageSquare,
-  Bookmark,
-} from "lucide-react";
-
-const DEFAULT_MARKS_PER_QUESTION = 2;
-const DEFAULT_NEGATIVE_MARKS = 0.5;
+import { AlertCircle } from "lucide-react";
 
 // Local offline buffer key for in-progress answers. Uses the URL param testId
 // so it is stable and available at restore time (before numeric DB id resolves).
@@ -2217,893 +2200,86 @@ function TestInterface() {
 
       {/* Left Column: Header + Main */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
-        {/* Header */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm z-30 flex-none min-h-[3.25rem] sm:min-h-[3.5rem] md:h-14 py-1 sticky top-0 border-b border-gray-200 dark:border-gray-700">
-          <div className="h-full px-2 md:px-3 flex items-center justify-between gap-1.5 sm:gap-2">
-            {/* Left Side: Back Button + Test Name (Two rows) */}
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
-              {/* Back Button */}
-              <button
-                onClick={() => {
-                  if (reviewMode) {
-                    navigate(`/test-result/${seriesId}/${testId}`, {
-                      state: { attemptId: location.state?.attemptId },
-                    });
-                  } else {
-                    navigate(-1);
-                  }
-                }}
-                title="Go Back"
-                aria-label="Back"
-                className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 active:scale-95 transition-all flex-shrink-0"
-              >
-                <ArrowLeft className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-              </button>
-
-              {/* Test Name: shown in two rows */}
-              <div className="min-w-0 flex-1 pr-1">
-                <h1
-                  title={test?.title || "Mock Test"}
-                  className="text-xs sm:text-sm md:text-base font-extrabold text-gray-900 dark:text-gray-100 line-clamp-2 leading-tight break-words"
-                >
-                  {test?.title || "Mock Test"}
-                </h1>
-              </div>
-            </div>
-
-            {/* Right Side: Timer with embedded Pause button + Language + Controls */}
-            <div className="flex items-center justify-end gap-1.5 sm:gap-2 flex-shrink-0">
-              {/* Timer + Embedded Pause Button */}
-              {!reviewMode && (
-                <div
-                  aria-live="polite"
-                  aria-atomic="true"
-                  className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border font-mono font-bold text-xs sm:text-sm transition-colors shadow-2xs ${
-                    timeLeft < 300
-                      ? "bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 animate-pulse"
-                      : "bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={isPaused ? handleResume : handlePause}
-                    title={isPaused ? "Resume Test" : "Pause Test"}
-                    aria-label={isPaused ? "Resume Test" : "Pause Test"}
-                    className="p-0.5 sm:p-1 rounded-md hover:bg-indigo-200/60 dark:hover:bg-indigo-800/60 active:scale-95 transition-all text-indigo-700 dark:text-indigo-300 flex items-center justify-center cursor-pointer"
-                  >
-                    {isPaused ? (
-                      <Play className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 fill-current" />
-                    ) : (
-                      <Pause className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 fill-current" />
-                    )}
-                  </button>
-                  <div className="h-3.5 w-px bg-indigo-200 dark:bg-indigo-800" />
-                  <span className="tabular-nums tracking-tight font-mono">
-                    {formatTime(timeLeft)}
-                  </span>
-                </div>
-              )}
-
-              {/* Language Switcher Button */}
-              <button
-                onClick={() =>
-                  setLanguage((lang) => {
-                    const next = lang === "en" ? "hi" : "en";
-                    document.documentElement.lang = next;
-                    return next;
-                  })
-                }
-                title="Change Language"
-                className="flex items-center gap-1 h-7 sm:h-8 px-2 sm:px-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors shadow-2xs"
-              >
-                <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span className="text-[11px] sm:text-xs font-bold text-gray-700 dark:text-gray-200">
-                  {language.toUpperCase()}
-                </span>
-              </button>
-
-              {/* Fullscreen Button (Desktop) */}
-              {!reviewMode && (
-                <button
-                  onClick={requestFullscreenSafely}
-                  title="Enter fullscreen"
-                  aria-label="Enter fullscreen mode"
-                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <ZoomIn className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Fullscreen
-                  </span>
-                </button>
-              )}
-
-              {/* Desktop Dashboard Link */}
-              {reviewMode && (
-                <button
-                  onClick={() => navigate("/dashboard")}
-                  className="hidden md:flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 text-gray-600 text-xs font-semibold"
-                >
-                  <LayoutDashboard className="w-3.5 h-3.5" />
-                  <span>Dashboard</span>
-                </button>
-              )}
-
-              <button
-                onClick={() => setShowPalette(!showPalette)}
-                title="Question Palette"
-                aria-label="Toggle Question Palette"
-                className="md:hidden p-1.5 sm:p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600 transition-colors"
-              >
-                <Menu className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
-            </div>
-          </div>
-        </header>
-
-        {/* Pause Modal */}
-        {!reviewMode && showPauseModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div
-              ref={pauseDialogRef}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Test Paused"
-              tabIndex={-1}
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-sm w-full p-4 text-center"
-            >
-              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Pause className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">
-                Test Paused
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm">
-                Your test has been paused. You can resume when you're ready.
-              </p>
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4">
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Time Remaining
-                  </span>
-                  <span className="font-bold text-gray-900 dark:text-gray-100">
-                    {formatTime(timeLeft)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Questions Answered
-                  </span>
-                  <span className="font-bold text-gray-900 dark:text-gray-100">
-                    {Object.keys(answers).length}/{questions.length}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={handleResume}
-                className="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-lg hover:shadow-lg transition flex items-center justify-center gap-1.5 text-sm"
-              >
-                <Play className="w-4 h-4" />
-                Resume Test
-              </button>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-3">
-                Don't leave your test unattended for too long. Your progress is
-                saved.
-              </p>
-            </div>
-          </div>
-        )}
+        <TestTimerHeader
+          test={test}
+          reviewMode={reviewMode}
+          seriesId={seriesId}
+          testId={testId}
+          location={location}
+          navigate={navigate}
+          timeLeft={timeLeft}
+          isPaused={isPaused}
+          handleResume={handleResume}
+          handlePause={handlePause}
+          language={language}
+          setLanguage={setLanguage}
+          requestFullscreenSafely={requestFullscreenSafely}
+          showPalette={showPalette}
+          setShowPalette={setShowPalette}
+          showPauseModal={showPauseModal}
+          pauseDialogRef={pauseDialogRef}
+          answers={answers}
+          questions={questions}
+          formatTime={formatTime}
+        />
 
         {/* Main Question Area */}
         <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-gray-50 dark:bg-gray-900">
           {/* Scrollable Content */}
           <div className="flex-1 p-3 pb-24 md:pb-3 scroll-smooth overflow-y-auto overscroll-contain">
             <div className="mx-auto flex flex-col min-h-full">
-              {/* Section Tabs - Modern Compact Responsive */}
-              <div className="sticky -top-3 md:top-0 z-20 md:static mb-3 mx-[-12px] md:mx-0 md:pt-0 bg-gray-50 dark:bg-gray-900 md:bg-transparent">
-                <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-b md:border border-gray-200 dark:border-gray-700 md:rounded-xl shadow-sm w-full overflow-hidden">
-                  <div className="flex items-center gap-0 overflow-x-auto no-scrollbar px-2 md:px-3 py-1.5 md:py-2">
-                    {/* Section Pills */}
-                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 shrink-0 hidden sm:inline ml-1">
-                        Section
-                      </span>
-                      <span className="w-px h-3 bg-gray-300 dark:bg-gray-600 hidden sm:inline mr-1" />
-                      {sections.map((section) => {
-                        const isActive = currentSection === section;
-                        const sectionRemaining =
-                          getSectionTimeRemaining(section);
-                        const isExpired =
-                          sectionRemaining !== null && sectionRemaining <= 0;
-                        return (
-                          <button
-                            key={section}
-                            onClick={() => !isExpired && changeSection(section)}
-                            disabled={isExpired}
-                            title={isExpired ? `${section} (Expired)` : section}
-                            className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all duration-200 ${
-                              isExpired
-                                ? "bg-red-50/50 dark:bg-red-950/20 border-red-200/50 dark:border-red-900/50 text-red-400 dark:text-red-600 cursor-not-allowed opacity-60"
-                                : isActive
-                                  ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-indigo-900/50"
-                                  : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-700 dark:hover:text-indigo-300"
-                            }`}
-                          >
-                            <span className="text-xs font-bold leading-none truncate max-w-[220px]">
-                              {section}
-                            </span>
-                            {sectionRemaining !== null && (
-                              <span
-                                className={`text-[10px] font-bold px-1 py-0.5 rounded ${isExpired ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400" : isActive ? "bg-white/20 text-white" : getSectionTimeColor(sectionRemaining)}`}
-                              >
-                                {isExpired
-                                  ? "Expired"
-                                  : formatSectionTime(sectionRemaining)}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* Section Tabs */}
+              <SectionTabs
+                sections={sections}
+                currentSection={currentSection}
+                changeSection={changeSection}
+                getSectionTimeRemaining={getSectionTimeRemaining}
+                getSectionTimeColor={getSectionTimeColor}
+                formatSectionTime={formatSectionTime}
+              />
 
               {/* Question Card */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 md:p-5 mb-3 border border-gray-100 dark:border-gray-700 flex-1">
-                {/* Question Info Header - One Row Only */}
-                <div className="flex items-center justify-between gap-1.5 sm:gap-2 mb-3 sm:mb-4 border-b border-gray-100 dark:border-gray-700 pb-2.5 sm:pb-3 min-w-0 flex-nowrap">
-                  {/* Left: Q.No + Negative Marking + Question Timer */}
-                  <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 overflow-x-auto no-scrollbar">
-                    {/* Q Number */}
-                    <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full text-xs font-bold shrink-0">
-                      Q.{currentQuestion + 1}
-                    </span>
-
-                    {adaptiveLevel && (
-                      <DifficultyBadge
-                        level={adaptiveLevel}
-                        score={adaptiveScore}
-                        size="sm"
-                      />
-                    )}
-
-                    {/* Negative marking badge */}
-                    {!reviewMode &&
-                    Number(
-                      currentQuestion?.negative_marks ??
-                        currentQuestion?.negativeMarks ??
-                        test?.negativeMarking ??
-                        test?.negativeMarks ??
-                        DEFAULT_NEGATIVE_MARKS,
-                    ) > 0 ? (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-[10px] sm:text-[11px] font-bold shrink-0">
-                        <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
-                        <span>
-                          -
-                          {Number(
-                            currentQuestion?.negative_marks ??
-                              currentQuestion?.negativeMarks ??
-                              test?.negativeMarking ??
-                              test?.negativeMarks ??
-                              DEFAULT_NEGATIVE_MARKS,
-                          ).toFixed(2)}{" "}
-                          for wrong
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="text-gray-500 dark:text-gray-400 text-[11px] font-medium shrink-0">
-                        +
-                        {(
-                          test?.marksPerQuestion || DEFAULT_MARKS_PER_QUESTION
-                        ).toFixed(1)}{" "}
-                        Marks
-                      </span>
-                    )}
-
-                    {/* Question Timer */}
-                    {(!reviewMode ||
-                      !interactiveReviewEnabled ||
-                      reviewCurrentResponse !== undefined) && (
-                      <span className="flex items-center gap-1 text-gray-700 dark:text-gray-300 text-[10px] sm:text-[11px] font-bold bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded shrink-0">
-                        <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
-                        <span>
-                          {reviewMode
-                            ? formatTime(totalReviewTime)
-                            : (() => {
-                                const spent =
-                                  (questionTimers[currentQuestion] || 0) +
-                                  (isPaused
-                                    ? 0
-                                    : questionStartTimeRef.current
-                                      ? Math.floor(
-                                          (Date.now() -
-                                            questionStartTimeRef.current) /
-                                            1000,
-                                        )
-                                      : 0);
-                                const m = Math.floor(spent / 60)
-                                  .toString()
-                                  .padStart(2, "0");
-                                const s = (spent % 60)
-                                  .toString()
-                                  .padStart(2, "0");
-                                return `${m}:${s}`;
-                              })()}
-                        </span>
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Right: Save Question (and Discuss in Review mode) */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {reviewMode && (
-                      <button
-                        onClick={() => setShowDiscussions(true)}
-                        aria-label="Open discussions for this question"
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-800/40 transition-colors shadow-2xs"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                        <span>Discuss</span>
-                      </button>
-                    )}
-                    <button
-                      onClick={() =>
-                        toggleSaveQuestion(
-                          currentQ?.id || currentQ?._id || currentQuestion,
-                        )
-                      }
-                      aria-label="Save question"
-                      title={
-                        savedQuestions.has(
-                          String(
-                            currentQ?.id || currentQ?._id || currentQuestion,
-                          ),
-                        )
-                          ? "Saved"
-                          : "Save Question"
-                      }
-                      className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md border text-xs font-bold transition-colors shadow-2xs ${
-                        savedQuestions.has(
-                          String(
-                            currentQ?.id || currentQ?._id || currentQuestion,
-                          ),
-                        )
-                          ? "bg-amber-100 dark:bg-amber-900/50 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
-                          : "bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:border-amber-300 hover:text-amber-700"
-                      }`}
-                    >
-                      <Bookmark
-                        className={`w-3.5 h-3.5 ${savedQuestions.has(String(currentQ?.id || currentQ?._id || currentQuestion)) ? "fill-amber-500 text-amber-500" : ""}`}
-                      />
-                      <span>
-                        {savedQuestions.has(
-                          String(
-                            currentQ?.id || currentQ?._id || currentQuestion,
-                          ),
-                        )
-                          ? "Saved"
-                          : "Save"}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Question Text */}
-                <div className="prose max-w-none mb-5 w-full overflow-hidden">
-                  {questionImageUrl && (
-                    <div className="mb-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 p-1.5 relative">
-                      <img
-                        src={questionImageUrl}
-                        alt={`Question ${currentQuestion + 1}`}
-                        className="max-h-60 w-full object-contain rounded cursor-zoom-in"
-                        loading="lazy"
-                        onClick={() => setShowImageZoom(true)}
-                      />
-                      <button
-                        onClick={() => setShowImageZoom(true)}
-                        className="absolute top-2 right-2 w-7 h-7 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center transition-colors"
-                      >
-                        <ZoomIn className="w-3.5 h-3.5 text-white" />
-                      </button>
-                    </div>
-                  )}
-                  <div
-                    className={`text-gray-900 dark:text-gray-100 leading-relaxed break-words antialiased ${reviewMode ? "text-sm sm:text-base font-semibold" : "text-sm sm:text-base md:text-lg font-medium"}`}
-                  >
-                    {/* Render text safely - handle both object and string formats */}
-                    {currentQ?.text ? (
-                      <MathRenderer
-                        text={sanitizeHtml(
-                          getLocalizedField(currentQ.text, language),
-                        )}
-                      />
-                    ) : (
-                      "Loading question..."
-                    )}
-                  </div>
-                </div>
-
-                {/* MSQ (Multi-Select) Checkboxes */}
-                {currentQ?.type === "msq" && (
-                  <div
-                    className={`space-y-2 ${reviewMode ? "space-y-1.5" : ""}`}
-                  >
-                    {(getLocalizedField(currentQ?.options, language) || []).map(
-                      (option, idx) => {
-                        const isSelected =
-                          Array.isArray(answers[currentQuestion]) &&
-                          answers[currentQuestion].includes(idx);
-                        const rawCorrect =
-                          currentQ.correctOption ??
-                          currentQ.correct_option ??
-                          currentQ.correct_option_id ??
-                          currentQ.correctOptionId ??
-                          currentQ.correctAnswer ??
-                          currentQ.correct_answer ??
-                          currentQ.correct;
-                        const isCorrectOption = Array.isArray(rawCorrect)
-                          ? rawCorrect.includes(idx)
-                          : resolveCorrectIndex(currentQ) === idx;
-                        const isReviewMode = reviewMode;
-                        let optionButtonClass =
-                          "border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700";
-                        if (isReviewMode) {
-                          if (isCorrectOption)
-                            optionButtonClass =
-                              "border-green-500 bg-green-50 dark:bg-green-900/20";
-                          else if (isSelected && !isCorrectOption)
-                            optionButtonClass =
-                              "border-red-500 bg-red-50 dark:bg-red-900/20";
-                        } else if (isSelected) {
-                          optionButtonClass =
-                            "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 shadow-sm ring-1 ring-indigo-600";
-                        }
-                        return (
-                          <label
-                            key={`option-${idx}`}
-                            className={`flex items-center gap-3 rounded-xl border-2 cursor-pointer transition-all ${optionButtonClass} ${isReviewMode ? "cursor-default p-2 sm:p-2.5" : "p-2.5 sm:p-3"}`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              disabled={isReviewMode}
-                              onChange={() => {
-                                if (isReviewMode) return;
-                                const current = Array.isArray(
-                                  answers[currentQuestion],
-                                )
-                                  ? answers[currentQuestion]
-                                  : [];
-                                const updated = current.includes(idx)
-                                  ? current.filter((i) => i !== idx)
-                                  : [...current, idx];
-                                handleAnswer(updated);
-                              }}
-                              className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <span
-                              className={`leading-relaxed break-words min-w-0 flex-1 ${reviewMode ? "text-xs sm:text-sm" : "text-sm sm:text-base"}`}
-                            >
-                              <MathRenderer
-                                text={sanitizeHtml(
-                                  getLocalizedField(option, language),
-                                )}
-                              />
-                            </span>
-                            {isReviewMode && isCorrectOption && (
-                              <span className="px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-bold">
-                                Correct
-                              </span>
-                            )}
-                            {isReviewMode && isSelected && !isCorrectOption && (
-                              <span className="px-2 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-bold">
-                                Attempt
-                              </span>
-                            )}
-                          </label>
-                        );
-                      },
-                    )}
-                  </div>
-                )}
-
-                {/* Numeric Input */}
-                {currentQ?.type === "numeric" && (
-                  <input
-                    type="number"
-                    value={answers[currentQuestion] ?? ""}
-                    onChange={(e) =>
-                      handleAnswer(parseFloat(e.target.value) || "")
-                    }
-                    className={`w-full border-2 rounded-xl font-medium bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all ${reviewMode ? "p-2.5 sm:p-3 text-xs sm:text-sm" : "p-3 sm:p-3.5 text-sm sm:text-base"}`}
-                    placeholder="Enter your answer"
-                  />
-                )}
-
-                {/* True/False Buttons */}
-                {currentQ?.type === "true-false" && (
-                  <div className="flex gap-4">
-                    {[true, false].map((val) => {
-                      const isSelected = answers[currentQuestion] === val;
-                      const rawCorrect =
-                        currentQ.correctOption ??
-                        currentQ.correct_option ??
-                        currentQ.correctAnswer ??
-                        currentQ.correct_answer ??
-                        currentQ.correct;
-                      const isCorrectOption =
-                        rawCorrect === val ||
-                        (typeof rawCorrect === "string" &&
-                          rawCorrect.toLowerCase() === String(val));
-                      let btnClass =
-                        "border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700";
-                      if (reviewMode) {
-                        if (isCorrectOption)
-                          btnClass =
-                            "border-green-500 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200";
-                        else if (isSelected && !isCorrectOption)
-                          btnClass =
-                            "border-red-500 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200";
-                      } else if (isSelected) {
-                        btnClass =
-                          "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 shadow-sm ring-1 ring-indigo-600";
-                      }
-                      return (
-                        <button
-                          key={String(val)}
-                          onClick={() => !reviewMode && handleAnswer(val)}
-                          disabled={reviewMode}
-                          className={`flex-1 border-2 rounded-xl font-bold transition-all ${btnClass} ${reviewMode ? "cursor-default p-2.5 sm:p-3 text-xs sm:text-sm" : "p-3 sm:p-3.5 text-sm sm:text-base"}`}
-                        >
-                          {val ? "True" : "False"}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* MCQ / Default Options Grid */}
-                {(!currentQ?.type || currentQ?.type === "mcq") && (
-                  <div
-                    className={`grid grid-cols-1 w-full ${reviewMode ? "gap-2" : "gap-2 md:gap-2.5"}`}
-                  >
-                    {(getLocalizedField(currentQ?.options, language) || []).map(
-                      (option, idx) =>
-                        (() => {
-                          const resolvedCorrectIdx =
-                            resolveCorrectIndex(currentQ);
-                          const originalResponse = answers[currentQuestion];
-                          const isSelected = originalResponse === idx;
-                          const isCurrentCompared =
-                            reviewCurrentResponse === idx;
-                          const isCorrectOption =
-                            resolvedCorrectIdx !== null &&
-                            idx === resolvedCorrectIdx;
-                          const hasReviewAttempt =
-                            reviewCurrentResponse !== undefined &&
-                            reviewCurrentResponse !== null;
-                          const revealReviewAnswers =
-                            !interactiveReviewEnabled || hasReviewAttempt;
-                          const isDifferentReviewAttempt =
-                            interactiveReviewEnabled &&
-                            isCurrentCompared &&
-                            originalResponse !== idx;
-                          const isSameReviewAttempt =
-                            interactiveReviewEnabled &&
-                            isCurrentCompared &&
-                            originalResponse === idx;
-                          const optionButtonClass = reviewMode
-                            ? isCorrectOption && revealReviewAnswers
-                              ? "border-green-500 bg-green-50 dark:bg-green-900/20"
-                              : isDifferentReviewAttempt
-                                ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-                                : isSameReviewAttempt
-                                  ? "border-sky-500 bg-sky-50 dark:bg-sky-900/20"
-                                  : revealReviewAnswers && isSelected
-                                    ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20"
-                                    : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700"
-                            : isSelected
-                              ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 shadow-sm ring-1 ring-indigo-600"
-                              : "border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700";
-                          const optionIndicatorClass = reviewMode
-                            ? isCorrectOption && revealReviewAnswers
-                              ? "border-green-600 bg-white dark:bg-gray-800"
-                              : isDifferentReviewAttempt
-                                ? "border-red-500 bg-white dark:bg-gray-800"
-                                : isSameReviewAttempt
-                                  ? "border-sky-500 bg-white dark:bg-gray-800"
-                                  : revealReviewAnswers && isSelected
-                                    ? "border-amber-500 bg-white dark:bg-gray-800"
-                                    : "border-gray-300 dark:border-gray-500"
-                            : isSelected
-                              ? "border-indigo-600 bg-white dark:bg-gray-800"
-                              : "border-gray-300 dark:border-gray-500 group-hover:border-indigo-400 dark:group-hover:border-indigo-500";
-                          const optionTextClass = reviewMode
-                            ? isCorrectOption && revealReviewAnswers
-                              ? "text-green-900 dark:text-green-200 font-medium"
-                              : isDifferentReviewAttempt
-                                ? "text-red-900 dark:text-red-200 font-medium"
-                                : isSameReviewAttempt
-                                  ? "text-sky-900 dark:text-sky-200 font-medium"
-                                  : revealReviewAnswers && isSelected
-                                    ? "text-amber-900 dark:text-amber-200 font-medium"
-                                    : "text-gray-700 dark:text-gray-300"
-                            : isSelected
-                              ? "text-indigo-900 dark:text-indigo-200 font-medium"
-                              : "text-gray-700 dark:text-gray-300";
-
-                          return (
-                            <button
-                              key={`option-${idx}`}
-                              onClick={() => handleAnswer(idx)}
-                              className={`group flex items-start text-left w-full border-2 rounded-xl transition-all duration-200 select-none ${optionButtonClass} ${reviewMode ? "p-2 sm:p-2.5 cursor-default" : "p-2.5 sm:p-3"}`}
-                            >
-                              <div
-                                className={`mt-0.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${reviewMode ? "w-5 h-5 mr-2.5" : "w-5.5 h-5.5 mr-3"} ${optionIndicatorClass}`}
-                              >
-                                {(reviewMode
-                                  ? (revealReviewAnswers && isCorrectOption) ||
-                                    isCurrentCompared ||
-                                    (revealReviewAnswers && isSelected)
-                                  : isSelected) && (
-                                  <div
-                                    className={`rounded-full ${reviewMode ? "w-2 h-2" : "w-2.5 h-2.5"} ${
-                                      reviewMode
-                                        ? revealReviewAnswers && isCorrectOption
-                                          ? "bg-green-600"
-                                          : isDifferentReviewAttempt
-                                            ? "bg-red-500"
-                                            : isSameReviewAttempt
-                                              ? "bg-sky-500"
-                                              : "bg-amber-500"
-                                        : "bg-indigo-600"
-                                    }`}
-                                  />
-                                )}
-                                {!(reviewMode
-                                  ? (revealReviewAnswers && isCorrectOption) ||
-                                    isCurrentCompared ||
-                                    (revealReviewAnswers && isSelected)
-                                  : isSelected) && (
-                                  <span
-                                    className={`${reviewMode ? "text-[11px]" : "text-xs"} font-bold text-gray-400 dark:text-gray-500 group-hover:text-indigo-400 dark:group-hover:text-indigo-400`}
-                                  >
-                                    {String.fromCharCode(65 + idx)}
-                                  </span>
-                                )}
-                              </div>
-                              <span
-                                className={`leading-relaxed break-words min-w-0 flex-1 ${reviewMode ? "text-xs sm:text-sm font-medium pt-0.5" : "text-sm sm:text-base font-normal pt-0.5"} ${optionTextClass}`}
-                              >
-                                <MathRenderer
-                                  text={sanitizeHtml(
-                                    getLocalizedField(option, language),
-                                  )}
-                                />
-                              </span>
-
-                              {reviewMode && (
-                                <div className="ml-2 flex gap-1">
-                                  {revealReviewAnswers && isSelected && (
-                                    <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
-                                      Attempt
-                                    </span>
-                                  )}
-                                  {isSameReviewAttempt && (
-                                    <span className="px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 text-[10px] font-bold">
-                                      Same
-                                    </span>
-                                  )}
-                                  {isDifferentReviewAttempt && (
-                                    <span className="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-[10px] font-bold">
-                                      New
-                                    </span>
-                                  )}
-                                  {revealReviewAnswers && isCorrectOption && (
-                                    <span className="px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-[10px] font-bold">
-                                      Correct
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </button>
-                          );
-                        })(),
-                    )}
-                  </div>
-                )}
-
-                {reviewMode && currentQ?.explanation && (
-                  <div className="mt-3 flex justify-center">
-                    <button
-                      onClick={() => setShowReviewExplanation((prev) => !prev)}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-800/40 text-amber-700 dark:text-amber-300 text-xs font-bold transition-colors"
-                    >
-                      {showReviewExplanation ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                      {showReviewExplanation
-                        ? "Explanation On"
-                        : "Explanation Off"}
-                    </button>
-                  </div>
-                )}
-
-                {reviewMode &&
-                  currentQ?.explanation &&
-                  getLocalizedField(currentQ.explanation, language) &&
-                  showReviewExplanation && (
-                    <div className="mt-4 rounded-lg border border-sky-100 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/20 p-4">
-                      <div className="text-xs font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300 mb-2">
-                        Explanation
-                      </div>
-                      <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                        <MathRenderer
-                          text={sanitizeHtml(
-                            getLocalizedField(currentQ.explanation, language),
-                          )}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                {reviewMode &&
-                  interactiveReviewEnabled &&
-                  reviewCurrentResponse !== undefined &&
-                  reviewCurrentResponse !== null && (
-                    <div className="mt-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-                      <div className="flex items-center justify-between gap-3 mb-3">
-                        <div>
-                          <div className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            Dual Response Comparison
-                          </div>
-                          <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            First response vs current response
-                          </div>
-                        </div>
-                        <div className="text-[11px] text-gray-500 dark:text-gray-400">
-                          {(() => {
-                            const correctOption =
-                              currentQ.correctOption ??
-                              currentQ.correctAnswer ??
-                              currentQ.correct;
-                            const firstWasCorrect =
-                              answers[currentQuestion] === correctOption;
-                            const currentIsCorrect =
-                              reviewCurrentResponse === correctOption;
-                            if (firstWasCorrect || currentIsCorrect)
-                              return "Correct option chosen at some point";
-                            return "No correct option chosen in comparison";
-                          })()}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3">
-                          <div className="text-[11px] font-bold uppercase tracking-wide text-red-700 dark:text-red-300 mb-1">
-                            First Response
-                          </div>
-                          <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {answers[currentQuestion] !== undefined &&
-                            answers[currentQuestion] !== null
-                              ? `${String.fromCharCode(65 + answers[currentQuestion])}. ${(getLocalizedField(currentQ.options, language) || [])[answers[currentQuestion]] || "Option selected"}`
-                              : "No answer selected"}
-                          </div>
-                          <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                            {(() => {
-                              const correctOption =
-                                currentQ.correctOption ??
-                                currentQ.correctAnswer ??
-                                currentQ.correct;
-                              if (
-                                answers[currentQuestion] === undefined ||
-                                answers[currentQuestion] === null
-                              )
-                                return "Initially skipped";
-                              return answers[currentQuestion] === correctOption
-                                ? "Initial choice was correct"
-                                : "Initial choice was wrong";
-                            })()}
-                          </div>
-                        </div>
-                        <div className="rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/20 p-3">
-                          <div className="text-[11px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300 mb-1">
-                            Current Response
-                          </div>
-                          <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {`${String.fromCharCode(65 + reviewCurrentResponse)}. ${(getLocalizedField(currentQ.options, language) || [])[reviewCurrentResponse] || "Option selected"}`}
-                          </div>
-                          <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                            {(() => {
-                              const correctOption =
-                                currentQ.correctOption ??
-                                currentQ.correctAnswer ??
-                                currentQ.correct;
-                              return reviewCurrentResponse === correctOption
-                                ? "Current compared choice is correct"
-                                : "Current compared choice is wrong";
-                            })()}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-              </div>
+              <QuestionViewer
+                currentQ={currentQ}
+                currentQuestion={currentQuestion}
+                adaptiveLevel={adaptiveLevel}
+                adaptiveScore={adaptiveScore}
+                test={test}
+                reviewMode={reviewMode}
+                interactiveReviewEnabled={interactiveReviewEnabled}
+                reviewCurrentResponse={reviewCurrentResponse}
+                totalReviewTime={totalReviewTime}
+                questionTimers={questionTimers}
+                isPaused={isPaused}
+                questionStartTimeRef={questionStartTimeRef}
+                formatTime={formatTime}
+                setShowDiscussions={setShowDiscussions}
+                toggleSaveQuestion={toggleSaveQuestion}
+                savedQuestions={savedQuestions}
+                questionImageUrl={questionImageUrl}
+                setShowImageZoom={setShowImageZoom}
+                language={language}
+                answers={answers}
+                handleAnswer={handleAnswer}
+                resolveCorrectIndex={resolveCorrectIndex}
+                showReviewExplanation={showReviewExplanation}
+                setShowReviewExplanation={setShowReviewExplanation}
+              />
             </div>
           </div>
 
           {/* Combined Navigation Footer */}
-          <div className="sticky bottom-0 mt-auto bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 h-[64px] px-2.5 sm:px-4 items-center justify-between shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20 shrink-0 flex gap-2">
-            {/* Left Action: Prev + Mark For Review */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <button
-                type="button"
-                onClick={prevQuestion}
-                disabled={currentQuestion === 0}
-                title="Previous Question"
-                className="flex items-center gap-1 px-2.5 sm:px-3.5 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg text-xs sm:text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span>Prev</span>
-              </button>
-
-              {!reviewMode && (
-                <button
-                  type="button"
-                  onClick={toggleReview}
-                  title="Mark for Review"
-                  className={`flex items-center gap-1 px-2.5 sm:px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all border active:scale-95 cursor-pointer ${
-                    markedForReview.has(currentQuestion)
-                      ? "bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 border-purple-400 dark:border-purple-600 shadow-sm"
-                      : "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 border-blue-500 dark:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                  }`}
-                >
-                  <Flag className="w-3.5 h-3.5" />
-                  <span>
-                    {markedForReview.has(currentQuestion)
-                      ? "Marked"
-                      : "Mark For Review"}
-                  </span>
-                </button>
-              )}
-            </div>
-
-            {/* Right Action: Clear + Save & Next */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              {!reviewMode && (
-                <button
-                  type="button"
-                  onClick={clearResponse}
-                  disabled={
-                    answers[currentQuestion] === undefined &&
-                    !markedForReview.has(currentQuestion)
-                  }
-                  title="Clear Selected Option"
-                  className="px-2.5 sm:px-3 py-2 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg text-xs sm:text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer"
-                >
-                  Clear
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={nextQuestion}
-                className="flex items-center gap-1 px-3.5 sm:px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs sm:text-sm font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer"
-              >
-                <span>
-                  {reviewMode
-                    ? currentQuestion === questions.length - 1
-                      ? "Finish"
-                      : "Next"
-                    : currentQuestion === questions.length - 1
-                      ? "Submit"
-                      : "Save & Next"}
-                </span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <TestBottomBar
+            prevQuestion={prevQuestion}
+            nextQuestion={nextQuestion}
+            currentQuestion={currentQuestion}
+            questionsLength={questions.length}
+            reviewMode={reviewMode}
+            toggleReview={toggleReview}
+            markedForReview={markedForReview}
+            clearResponse={clearResponse}
+            answers={answers}
+          />
         </main>
       </div>
 

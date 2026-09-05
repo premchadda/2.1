@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { Helmet } from "react-helmet-async";
 import {
   Trophy,
@@ -8,40 +8,34 @@ import {
   Clock,
   Target,
   ArrowRight,
+  ChevronRight,
   TrendingUp,
-  Users,
-  Loader2,
+  Award,
+  Zap,
   Flame,
-  Timer,
-  Globe,
+  Star,
+  Users,
   Calendar,
+  Globe,
   BookOpen,
   Layers,
-  PieChart,
+  Crown,
+  Share2,
   TrendingDown,
   Minus,
-  Download,
-  FileSpreadsheet,
   FileText,
+  FileSpreadsheet,
+  Download,
+  Timer,
+  Loader2,
   ChevronDown,
   Video,
   BarChart3,
   Play,
   CheckCircle2,
+  PieChart,
 } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  Radar,
-} from "recharts";
+const LeaderboardCharts = lazy(() => import("./components/LeaderboardCharts"));
 import { api } from "../../shared/lib/dataService.js";
 import { useAuth } from "../../shared/providers/AuthContext";
 import { checkFeatureAccess } from "../../shared/utils/pass-helpers";
@@ -799,7 +793,7 @@ export default function Leaderboard() {
       {/* Main Content Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 mb-6 border-b border-gray-200 dark:border-gray-700 pb-3 overflow-x-auto">
+        <div className="flex items-center gap-2 mb-6 border-b border-gray-200 dark:border-gray-700 pb-3 overflow-x-auto no-scrollbar">
           {[
             { id: "overview", label: "Overview", icon: BarChart3 },
             { id: "tests", label: "Tests", icon: Target },
@@ -862,106 +856,22 @@ export default function Leaderboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <GlassCard className="p-5 md:col-span-2">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">
-                    Rank Progress
-                  </h3>
-                  <ExportMenu
-                    columns={["Rank", "Name", "Score"]}
-                    rows={filteredRankings.map((r, i) => [
-                      r.rank || i + 1,
-                      r.userName || r.name || "",
-                      r.score ?? r.accuracy ?? 0,
-                    ])}
-                    filename="leaderboard-rankings"
-                  />
-                </div>
-                {rankHistory.length > 0 ? (
-                  <>
-                    <ResponsiveContainer width="100%" height={220}>
-                      <LineChart data={rankHistory} margin={{ left: -20 }}>
-                        <CartesianGrid stroke="#f1f5f9" vertical={false} />
-                        <XAxis
-                          dataKey="label"
-                          stroke="#94a3b8"
-                          fontSize={11}
-                          tickLine={false}
-                          axisLine={false}
-                        />
-                        <YAxis
-                          reversed
-                          stroke="#94a3b8"
-                          fontSize={11}
-                          tickLine={false}
-                          axisLine={false}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            background: "#ffffff",
-                            border: "1px solid #e2e8f0",
-                            borderRadius: 8,
-                            fontSize: 12,
-                          }}
-                          labelStyle={{ color: "#475569" }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="rank"
-                          stroke="#4f46e5"
-                          strokeWidth={2.5}
-                          dot={{ fill: "#4f46e5", r: 3 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2 font-bold uppercase tracking-wider">
-                      Lower rank is better — current rank: #
-                      {userRanking?.rank || perfData?.rank || "—"}.
-                    </p>
-                  </>
-                ) : (
-                  <div className="h-[220px] flex items-center justify-center text-gray-400 dark:text-gray-500 text-xs font-medium">
-                    No rank history recorded yet. Complete tests to track
-                    performance over time.
+              <Suspense
+                fallback={
+                  <div className="md:col-span-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center text-sm text-gray-400">
+                    Loading performance charts...
                   </div>
-                )}
-              </GlassCard>
-
-              <GlassCard className="p-5">
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4">
-                  You vs Peer Average
-                </h3>
-                {radarData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <RadarChart data={radarData}>
-                      <PolarGrid stroke="#e2e8f0" />
-                      <PolarAngleAxis
-                        dataKey="subject"
-                        stroke="#64748b"
-                        fontSize={9}
-                      />
-                      <Radar
-                        name="You"
-                        dataKey="you"
-                        stroke="#4f46e5"
-                        fill="#4f46e5"
-                        fillOpacity={0.3}
-                      />
-                      <Radar
-                        name="Peer Avg"
-                        dataKey="peer"
-                        stroke="#94a3b8"
-                        fill="#94a3b8"
-                        fillOpacity={0.15}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-[220px] flex items-center justify-center text-gray-400 dark:text-gray-500 text-xs font-medium text-center">
-                    No subject breakdown available yet.
-                  </div>
-                )}
-              </GlassCard>
+                }
+              >
+                <LeaderboardCharts
+                  rankHistory={rankHistory}
+                  userRanking={userRanking}
+                  perfData={perfData}
+                  filteredRankings={filteredRankings}
+                  radarData={radarData}
+                  ExportMenu={ExportMenu}
+                />
+              </Suspense>
 
               <GlassCard className="p-5 md:col-span-3">
                 <div className="flex items-center justify-between mb-4">
@@ -1582,7 +1492,10 @@ export default function Leaderboard() {
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-xs text-gray-900 dark:text-white truncate">
+                            <span
+                              className="font-bold text-xs text-gray-900 dark:text-white truncate"
+                              title={entry.userName || "—"}
+                            >
                               {entry.userName || "—"}
                             </span>
                             <span className="text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.2 rounded">
@@ -1707,6 +1620,7 @@ export default function Leaderboard() {
                                 </div>
                                 <div className="min-w-0">
                                   <p
+                                    title={r.userName}
                                     className={`font-bold text-xs truncate ${isCurrentUser ? "text-indigo-900 dark:text-indigo-200" : "text-gray-900 dark:text-white"}`}
                                   >
                                     {r.userName}

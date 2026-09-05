@@ -316,10 +316,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           configure: configureResilientProxy,
         },
-        "/assets": {
+        "/assets/avatar": {
           target: backendUrl,
           changeOrigin: true,
           configure: configureResilientProxy,
+          selfHandleResponse: false,
         },
         "/uploads": {
           target: backendUrl,

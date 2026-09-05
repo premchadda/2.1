@@ -597,7 +597,7 @@ export default function Bookmarks() {
 
             {/* Unauthenticated View */}
             {!user && (
-              <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6">
+              <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6">
                 <Bookmark className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                 <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">
                   Sign in to Access Saved Questions
@@ -629,7 +629,7 @@ export default function Bookmarks() {
               </div>
             ) : user && filteredQuestions.length === 0 ? (
               /* Empty State */
-              <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6">
+              <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6">
                 <Sparkles className="w-10 h-10 text-amber-400 mx-auto mb-2 opacity-80" />
                 <h3 className="text-base font-bold text-gray-800 dark:text-gray-200 mb-1">
                   {questionBookmarks.length === 0
@@ -685,7 +685,10 @@ export default function Bookmarks() {
                                     <span>{sub}</span>
                                   </span>
                                   {top && (
-                                    <span className="text-gray-400 dark:text-gray-500 truncate max-w-[150px]">
+                                    <span
+                                      className="text-gray-400 dark:text-gray-500 truncate max-w-[150px]"
+                                      title={top}
+                                    >
                                       • {top}
                                     </span>
                                   )}
@@ -707,7 +710,10 @@ export default function Bookmarks() {
                                   )}
                                 </div>
 
-                                <div className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-1">
+                                <div
+                                  className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-1"
+                                  title={qText}
+                                >
                                   <MathRenderer text={sanitizeHtml(qText)} />
                                 </div>
                               </div>
@@ -770,13 +776,19 @@ export default function Bookmarks() {
                                 </span>
                               </div>
 
-                              <div className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-3">
+                              <div
+                                className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-3"
+                                title={qText}
+                              >
                                 <MathRenderer text={sanitizeHtml(qText)} />
                               </div>
                             </div>
 
                             <div className="flex items-center justify-between pt-2.5 border-t border-gray-100 dark:border-gray-700/60 text-xs">
-                              <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate max-w-[140px]">
+                              <span
+                                className="text-[11px] text-gray-400 dark:text-gray-500 truncate max-w-[140px]"
+                                title={top || getTimeAgo(b.createdAt)}
+                              >
                                 {top || getTimeAgo(b.createdAt)}
                               </span>
                               <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
@@ -811,7 +823,7 @@ export default function Bookmarks() {
         {activeTab === "other" && (
           <div className="space-y-4">
             {otherBookmarks.length === 0 ? (
-              <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6">
+              <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6">
                 <Bookmark className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                 <h3 className="text-base font-bold text-gray-800 dark:text-gray-200 mb-1">
                   No Other Saved Resources
@@ -911,7 +923,7 @@ export default function Bookmarks() {
                 ))}
               </div>
             ) : myReports.length === 0 ? (
-              <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6">
+              <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6">
                 <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2 opacity-90" />
                 <h3 className="text-base font-bold text-gray-800 dark:text-gray-200 mb-1">
                   No Reported Questions

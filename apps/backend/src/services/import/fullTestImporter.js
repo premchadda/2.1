@@ -1087,7 +1087,7 @@ export async function importFullTest(json, config = {}) {
       if (dryRun) {
         result.questionsCreated += validQRows.length;
       } else if (validQRows.length > 0) {
-        const batchSavepoint = `batch_sec_${sIdx}`;
+        const batchSavepoint = `batch_sec_${String(sIdx).replace(/[^0-9]/g, "")}`;
         try {
           await client.query(`SAVEPOINT ${batchSavepoint}`);
 
@@ -1161,8 +1161,10 @@ export async function importFullTest(json, config = {}) {
 
           for (let vi = 0; vi < validQRows.length; vi++) {
             const { qRow, qi, originalQ } = validQRows[vi];
+            const safeQi = String(qi ?? vi).replace(/[^0-9]/g, "");
+            const qSavepoint = `q_fb_${safeQi}`;
             try {
-              await client.query(`SAVEPOINT q_fb_${qi}`);
+              await client.query(`SAVEPOINT ${qSavepoint}`);
               const cols = await getTableColumns(client, "questions");
               const validCols = Object.keys(qRow).filter((c) => cols.has(c));
               const validVals = validCols.map((c) => qRow[c]);
@@ -1181,10 +1183,11 @@ export async function importFullTest(json, config = {}) {
                  ON CONFLICT DO NOTHING`,
                 [testDbId, questionDbId, sectionDbId, qi + 1],
               );
+              await client.query(`RELEASE SAVEPOINT ${qSavepoint}`);
               result.questionsCreated++;
             } catch (qErr) {
               try {
-                await client.query(`ROLLBACK TO SAVEPOINT q_fb_${qi}`);
+                await client.query(`ROLLBACK TO SAVEPOINT ${qSavepoint}`);
               } catch (_) {
                 void _;
               }

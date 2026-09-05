@@ -126,7 +126,10 @@ function QuestionPalette({
                 </span>
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">
+                <div
+                  className="truncate text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight"
+                  title={userName}
+                >
                   {userName}
                 </div>
                 {(user?.email || userEmail) && (

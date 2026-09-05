@@ -2,6 +2,7 @@ import {
   TestPolicyEngine,
   USER_PLANS,
   POLICY_ERROR_CODES,
+  isValidAttemptTransition,
 } from "../services/core/TestPolicyEngine.js";
 
 describe("TestPolicyEngine Matrix Suite", () => {
@@ -234,6 +235,103 @@ describe("TestPolicyEngine Matrix Suite", () => {
       );
       expect(policy.isLiveSolutionLocked).toBe(false);
       expect(policy.canReview).toBe(true);
+    });
+  });
+
+  describe("Subscription Expiry & Grace Periods", () => {
+    test("expired pro pass degrades user back to FREE plan", () => {
+      const expiredUser = {
+        id: 50,
+        role: "user",
+        isProUser: true,
+        proExpiry: new Date(Date.now() - 86400000).toISOString(), // expired yesterday
+      };
+      const entitlement = TestPolicyEngine.resolveUserEntitlement(expiredUser);
+      expect(entitlement.effectivePlan).toBe(USER_PLANS.FREE);
+      expect(entitlement.isPro).toBe(false);
+    });
+
+    test("active pro pass with future expiry retains PRO_MONTHLY plan", () => {
+      const activeProUser = {
+        id: 51,
+        role: "user",
+        isProUser: true,
+        proExpiry: new Date(Date.now() + 86400000 * 30).toISOString(), // 30 days future
+      };
+      const entitlement =
+        TestPolicyEngine.resolveUserEntitlement(activeProUser);
+      expect(entitlement.effectivePlan).toBe(USER_PLANS.PRO_MONTHLY);
+      expect(entitlement.isPro).toBe(true);
+    });
+  });
+
+  describe("Archived & Review Test States", () => {
+    test("archived test is blocked with TEST_UNAVAILABLE", () => {
+      const archivedTest = {
+        id: 201,
+        title: "Old 2022 Exam",
+        status: "archived",
+        is_active: true,
+      };
+      const policy = TestPolicyEngine.resolveTestAccess(
+        { id: 1, role: "user" },
+        archivedTest,
+      );
+      expect(policy.canStart).toBe(false);
+      expect(policy.code).toBe(POLICY_ERROR_CODES.TEST_UNAVAILABLE);
+    });
+
+    test("inactive test (is_active: false) is blocked with TEST_UNAVAILABLE", () => {
+      const inactiveTest = {
+        id: 202,
+        title: "Disabled Mock",
+        status: "published",
+        is_active: false,
+      };
+      const policy = TestPolicyEngine.resolveTestAccess(
+        { id: 1, role: "user" },
+        inactiveTest,
+      );
+      expect(policy.canStart).toBe(false);
+      expect(policy.code).toBe(POLICY_ERROR_CODES.TEST_UNAVAILABLE);
+    });
+
+    test("review status test is blocked with TEST_NOT_AVAILABLE", () => {
+      const reviewTest = {
+        id: 203,
+        title: "Content QA Mock",
+        status: "review",
+        is_active: true,
+      };
+      const policy = TestPolicyEngine.resolveTestAccess(
+        { id: 1, role: "user" },
+        reviewTest,
+      );
+      expect(policy.canStart).toBe(false);
+      expect(policy.code).toBe(POLICY_ERROR_CODES.TEST_NOT_AVAILABLE);
+    });
+  });
+
+  describe("Attempt Lifecycle State Machine Transitions", () => {
+    test("allows valid sequential transitions in attempt lifecycle", () => {
+      expect(isValidAttemptTransition("created", "in_progress")).toBe(true);
+      expect(isValidAttemptTransition("in_progress", "paused")).toBe(true);
+      expect(isValidAttemptTransition("paused", "in_progress")).toBe(true);
+      expect(isValidAttemptTransition("in_progress", "submitting")).toBe(true);
+      expect(isValidAttemptTransition("submitting", "completed")).toBe(true);
+      expect(isValidAttemptTransition("in_progress", "completed")).toBe(true);
+      expect(isValidAttemptTransition("in_progress", "auto_submitted")).toBe(
+        true,
+      );
+    });
+
+    test("rejects invalid transitions that violate security or idempotency", () => {
+      // Cannot reopen a completed test
+      expect(isValidAttemptTransition("completed", "in_progress")).toBe(false);
+      // Cannot pause an already completed attempt
+      expect(isValidAttemptTransition("completed", "paused")).toBe(false);
+      // Cannot jump from created straight to completed without starting
+      expect(isValidAttemptTransition("created", "completed")).toBe(false);
     });
   });
 });

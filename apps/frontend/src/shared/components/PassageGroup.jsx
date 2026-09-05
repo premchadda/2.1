@@ -1,47 +1,55 @@
-import { useState, useMemo } from 'react'
-import { ChevronDown, ChevronUp, BookOpen, MessageSquare, StickyNote } from 'lucide-react'
-import { twMerge } from 'tailwind-merge'
-import MathRenderer from './MathRenderer'
-import { getLocalizedField } from '../lib/language'
-import sanitizeHtml from '../lib/sanitizeHtml'
-import { groupQuestionsByPassage } from '../utils/passageUtils'
+import { useState, useMemo } from "react";
+import {
+  ChevronDown,
+  ChevronUp,
+  BookOpen,
+  MessageSquare,
+  StickyNote,
+} from "lucide-react";
+import { twMerge } from "tailwind-merge";
+import MathRenderer from "./MathRenderer";
+import { getLocalizedField } from "../lib/language";
+import sanitizeHtml from "../lib/sanitizeHtml";
+import { groupQuestionsByPassage } from "../utils/passageUtils";
 
 function PassageGroup({
   questions = [],
   renderQuestion,
   onOpenNotes,
   onOpenDiscussions,
-  currentLanguage = 'en',
-  className = '',
+  currentLanguage = "en",
+  className = "",
 }) {
-  const [collapsedPassages, setCollapsedPassages] = useState(new Set())
+  const [collapsedPassages, setCollapsedPassages] = useState(new Set());
 
-  const groups = useMemo(() => groupQuestionsByPassage(questions), [questions])
+  const groups = useMemo(() => groupQuestionsByPassage(questions), [questions]);
 
   const toggleCollapse = (id) => {
-    setCollapsedPassages(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
+    setCollapsedPassages((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   if (groups.length === 0) {
     return (
       <div className="text-center py-12">
         <BookOpen className="w-12 h-12 text-gray-200 dark:text-gray-700 mx-auto mb-3" />
-        <p className="text-sm font-medium text-gray-400 dark:text-gray-500">No questions available</p>
+        <p className="text-sm font-medium text-gray-400 dark:text-gray-500">
+          No questions available
+        </p>
       </div>
-    )
+    );
   }
 
   return (
-    <div className={twMerge('space-y-4', className)}>
+    <div className={twMerge("space-y-4", className)}>
       {groups.map((group) => {
-        const isPassage = group.passage !== null
-        const isCollapsed = collapsedPassages.has(group.id)
-        const questionCount = group.questions.length
+        const isPassage = group.passage !== null;
+        const isCollapsed = collapsedPassages.has(group.id);
+        const questionCount = group.questions.length;
 
         return (
           <div
@@ -61,16 +69,24 @@ function PassageGroup({
                     <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                    <h3
+                      className="text-sm font-bold text-gray-900 dark:text-white truncate"
+                      title={group.title}
+                    >
                       {group.title}
                     </h3>
                     <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
-                      {questionCount} question{questionCount !== 1 ? 's' : ''} based on this passage
+                      {questionCount} question{questionCount !== 1 ? "s" : ""}{" "}
+                      based on this passage
                     </p>
                   </div>
                 </div>
                 <div className="shrink-0 p-1 rounded-md text-gray-400 dark:text-gray-500">
-                  {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                  {isCollapsed ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronUp className="w-4 h-4" />
+                  )}
                 </div>
               </button>
             )}
@@ -84,9 +100,7 @@ function PassageGroup({
                 className="px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700"
               >
                 <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <MathRenderer
-                    text={sanitizeHtml(group.passage)}
-                  />
+                  <MathRenderer text={sanitizeHtml(group.passage)} />
                 </div>
               </div>
             )}
@@ -94,7 +108,10 @@ function PassageGroup({
             {/* Collapsed passage indicator */}
             {isPassage && isCollapsed && (
               <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700">
-                <p className="text-[11px] text-gray-400 dark:text-gray-500 italic font-medium truncate">
+                <p
+                  className="text-[11px] text-gray-400 dark:text-gray-500 italic font-medium truncate"
+                  title={group.passage}
+                >
                   {group.passage.substring(0, 120)}...
                 </p>
               </div>
@@ -119,16 +136,22 @@ function PassageGroup({
               ))}
             </div>
           </div>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
 
-function DefaultQuestionCard({ question, index, onOpenNotes, onOpenDiscussions, language = 'en' }) {
-  const questionText = getLocalizedField(question.text, language)
+function DefaultQuestionCard({
+  question,
+  index,
+  onOpenNotes,
+  onOpenDiscussions,
+  language = "en",
+}) {
+  const questionText = getLocalizedField(question.text, language);
 
-  const options = getLocalizedField(question.options, language) || []
+  const options = getLocalizedField(question.options, language) || [];
 
   return (
     <div className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
@@ -156,13 +179,18 @@ function DefaultQuestionCard({ question, index, onOpenNotes, onOpenDiscussions, 
                     {String.fromCharCode(65 + idx)}.
                   </span>
                   <span className="truncate max-w-[200px]">
-                    <MathRenderer text={sanitizeHtml(typeof opt === 'object' ? (opt[language] || opt.en || JSON.stringify(opt)) : opt)} />
+                    <MathRenderer
+                      text={sanitizeHtml(
+                        typeof opt === "object"
+                          ? opt[language] || opt.en || JSON.stringify(opt)
+                          : opt,
+                      )}
+                    />
                   </span>
                 </span>
               ))}
             </div>
           )}
-
 
           {/* Action Buttons */}
           <div className="flex gap-2 mt-1">
@@ -190,7 +218,7 @@ function DefaultQuestionCard({ question, index, onOpenNotes, onOpenDiscussions, 
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default PassageGroup
+export default PassageGroup;

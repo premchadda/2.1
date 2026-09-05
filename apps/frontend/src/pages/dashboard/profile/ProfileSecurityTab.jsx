@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { userAPI, authAPI } from "../../../shared/lib/dataService";
 import { toast } from "react-hot-toast";
+import { useConfirm } from "../../../shared/components/common/ConfirmModal";
 import {
   Lock,
   Smartphone,
@@ -25,6 +26,7 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
   const [showSessionsModal, setShowSessionsModal] = useState(false);
   const [sessions, setSessions] = useState([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const validatePasswordForm = () => {
     const errors = {};
@@ -90,7 +92,13 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
   };
 
   const handleDeactivate = async () => {
-    if (!window.confirm("Deactivate your account?")) return;
+    const ok = await confirm({
+      title: "Deactivate Account?",
+      message: "You will be signed out and your account will be deactivated.",
+      confirmLabel: "Deactivate",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await userAPI.updateProfile({ isActive: false });
       await logout();
@@ -107,10 +115,14 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
   };
 
   const handleDelete = async () => {
-    if (
-      !window.confirm("Delete your account permanently? This cannot be undone.")
-    )
-      return;
+    const ok = await confirm({
+      title: "Delete Account Permanently?",
+      message:
+        "This cannot be undone. All your data will be permanently deleted.",
+      confirmLabel: "Delete Forever",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await userAPI.deleteAccount();
       await logout();
@@ -296,12 +308,14 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
                           </span>
                         </div>
                         <button
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                "Revoke this session? This will sign you out on that device.",
-                              )
-                            ) {
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: "Revoke Session?",
+                              message: "This will sign you out on that device.",
+                              confirmLabel: "Revoke",
+                              danger: true,
+                            });
+                            if (ok) {
                               handleRevokeSession(
                                 session.id || session.sessionId,
                               );
@@ -321,6 +335,7 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
           </div>,
           document.body,
         )}
+      {ConfirmDialog}
     </div>
   );
 }

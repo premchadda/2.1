@@ -611,10 +611,16 @@ export default function AttemptedTests() {
                         </div>
 
                         {/* Series & Test Title */}
-                        <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 truncate mb-1">
+                        <div
+                          className="text-xs font-bold text-indigo-600 dark:text-indigo-400 truncate mb-1"
+                          title={test.seriesTitle || "General Practice"}
+                        >
                           {test.seriesTitle || "General Practice"}
                         </div>
-                        <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-snug line-clamp-2 mb-3.5 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                        <h3
+                          className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-snug line-clamp-2 mb-3.5 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                          title={test.title || test.testTitle}
+                        >
                           {test.title || test.testTitle}
                         </h3>
 
@@ -777,11 +783,17 @@ export default function AttemptedTests() {
                                     Reattempt
                                   </span>
                                 )}
-                                <span className="text-xs font-bold text-slate-400 truncate">
+                                <span
+                                  className="text-xs font-bold text-slate-400 truncate"
+                                  title={test.seriesTitle || "General Practice"}
+                                >
                                   {test.seriesTitle || "General Practice"}
                                 </span>
                               </div>
-                              <div className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm truncate">
+                              <div
+                                className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm truncate"
+                                title={test.title || test.testTitle}
+                              >
                                 {test.title || test.testTitle}
                               </div>
                             </td>
@@ -883,7 +895,7 @@ export default function AttemptedTests() {
 
         {/* Empty State */}
         {!loading && filteredTests.length === 0 && (
-          <div className="text-center py-14 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm max-w-md mx-auto">
+          <div className="text-center py-8 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm max-w-md mx-auto">
             <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 border border-indigo-200/60 dark:border-indigo-800/60">
               <ClipboardCheck className="w-6 h-6" />
             </div>

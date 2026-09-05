@@ -99,7 +99,10 @@ export default function CompactStatsCards({ stats = {}, customStats }) {
               >
                 {card.value}
               </span>
-              <span className="text-[10px] sm:text-[11px] font-bold leading-tight text-gray-500 dark:text-gray-400 truncate">
+              <span
+                className="text-[10px] sm:text-[11px] font-bold leading-tight text-gray-500 dark:text-gray-400 truncate"
+                title={card.label}
+              >
                 {card.label}
               </span>
             </div>

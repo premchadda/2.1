@@ -234,7 +234,10 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
                                           aria-hidden="true"
                                         />
                                       </div>
-                                      <span className="text-[11px] sm:text-[11.5px] font-semibold truncate">
+                                      <span
+                                        className="text-[11px] sm:text-[11.5px] font-semibold truncate"
+                                        title={label}
+                                      >
                                         {label}
                                       </span>
                                     </div>
@@ -295,7 +298,10 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
                                         aria-hidden="true"
                                       />
                                     </div>
-                                    <span className="text-[10px] sm:text-[10.5px] font-medium truncate">
+                                    <span
+                                      className="text-[10px] sm:text-[10.5px] font-medium truncate"
+                                      title={label}
+                                    >
                                       {label}
                                     </span>
                                   </Link>

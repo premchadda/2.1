@@ -324,6 +324,49 @@ router.post("/subscribe", async (req, res) => {
   }
 });
 
+// @route   POST /api/notifications/push-token
+// @desc    Register web/mobile device push token for authenticated user
+// @access  Private
+router.post("/push-token", protect, async (req, res) => {
+  try {
+    const { token, deviceType = "web", p256dh, auth } = req.body;
+    if (!token || typeof token !== "string" || token.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Push token is required",
+      });
+    }
+
+    const { notificationService } =
+      await import("../../services/core/notificationService.js");
+    const result = await notificationService.registerPushToken(req.user.id, {
+      token: token.trim(),
+      deviceType,
+      p256dh,
+      auth,
+    });
+
+    if (!result.success && result.reason === "missing_token_or_user") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid push token or user credentials",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Push notification token registered successfully",
+      data: result.subscription || { registered: true },
+    });
+  } catch (error) {
+    console.error("Register push token error:", error);
+    res.status(500).json({
+      success: false,
+      message: sanitizeErrorMessage(error),
+    });
+  }
+});
+
 // ============================================
 // ADMIN ROUTES
 // ============================================

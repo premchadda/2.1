@@ -2055,7 +2055,10 @@ function CurriculumBuilder() {
               onClick={() => setSubjectDropdownOpen((o) => !o)}
               className="w-full flex items-center justify-between gap-1 md:-ml-1 md:mt-0.5 text-left group/btn outline-none focus:outline-none focus:ring-0"
             >
-              <span className="text-xs md:text-[13px] font-bold text-gray-900 dark:text-white truncate pr-1">
+              <span
+                className="text-xs md:text-[13px] font-bold text-gray-900 dark:text-white truncate pr-1"
+                title={selectedSubject ? selectedSubject.name : "All Subjects"}
+              >
                 {selectedSubject ? selectedSubject.name : "All Subjects"}
               </span>
               <ChevronDown
@@ -2085,7 +2088,10 @@ function CurriculumBuilder() {
                     >
                       All Subjects
                     </div>
-                    <div className="text-[11px] md:text-xs text-gray-500 dark:text-gray-400 truncate">
+                    <div
+                      className="text-[11px] md:text-xs text-gray-500 dark:text-gray-400 truncate"
+                      title={`${data.subjects.length} subjects`}
+                    >
                       {data.subjects.length} subjects
                     </div>
                   </div>

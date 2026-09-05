@@ -7,7 +7,6 @@ import KnowledgeVaultModal from "./KnowledgeVaultModal";
 import {
   CheckCircle,
   XCircle,
-  Lightbulb,
   Bookmark,
   MessageSquare,
   Sparkles,
@@ -17,10 +16,33 @@ import {
   Plus,
   ArrowRight,
   Play,
-  Eye,
+  ArrowLeft,
+  Languages,
+  Tag,
 } from "lucide-react";
 
-export default function PracticeWorkspace({ session, onComplete, onExit }) {
+// Builds the "Exam · Stage/Paper · Year · Shift" label for previous-year
+// questions from the question's source_config JSONB ({type, examId, year,
+// shift, paper}).
+function buildPyqSourceLabel(sourceConfig, source) {
+  const sc =
+    sourceConfig && typeof sourceConfig === "object" ? sourceConfig : {};
+  const stage = sc.paper || sc.stage || sc.exam || source || "";
+  const parts = [];
+  if (sc.examName) parts.push(sc.examName);
+  if (stage) parts.push(stage);
+  if (sc.year) parts.push(String(sc.year));
+  if (sc.shift) parts.push(`Shift ${sc.shift}`);
+  const label = parts.filter(Boolean).join(" · ");
+  return label || null;
+}
+
+export default function PracticeWorkspace({
+  session,
+  onComplete,
+  onExit,
+  onLaunchTopicSession,
+}) {
   const [currentIdx, setCurrentIdx] = useState(session?.currentIndex || 0);
   const [question, setQuestion] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
@@ -41,6 +63,9 @@ export default function PracticeWorkspace({ session, onComplete, onExit }) {
 
   // Vault Modal
   const [vaultOpen, setVaultOpen] = useState(false);
+
+  // Question language switch ("en" | "hi") — only offered when Hindi exists
+  const [lang, setLang] = useState("en");
 
   // Community Approach Submit state
   const [newApproachText, setNewApproachText] = useState("");
@@ -69,6 +94,7 @@ export default function PracticeWorkspace({ session, onComplete, onExit }) {
       setCheckResult(null);
       setSelectedOption(null);
       setAiTutorResponse(null);
+      setLang("en");
 
       const q = await practiceAPI.getQuestion(session.id, idx);
       setQuestion(q);
@@ -176,6 +202,11 @@ export default function PracticeWorkspace({ session, onComplete, onExit }) {
           completedSession.timeTaken ??
           0,
       );
+      // Topic mastery recomputed server-side on completion
+      const masteryPercent =
+        result?.mastery && typeof result.mastery === "object"
+          ? (result.mastery.mastery ?? null)
+          : null;
 
       onComplete?.({
         ...result,
@@ -183,6 +214,7 @@ export default function PracticeWorkspace({ session, onComplete, onExit }) {
         correctCount: completedCorrect,
         wrongCount: completedWrong,
         skippedCount: completedSkipped,
+        masteryPercent,
         accuracy:
           answered > 0 ? Math.round((completedCorrect / answered) * 100) : 0,
         avgTimeSeconds:
@@ -229,10 +261,36 @@ export default function PracticeWorkspace({ session, onComplete, onExit }) {
   if (loading || !question) {
     return (
       <div className="min-h-[400px] flex items-center justify-center">
-        <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
+
+  // ── Language switch + PYQ source derivation ──────────────────────────
+  const questionTextEn = question.questionText || question.question_text;
+  const questionTextHi = question.questionTextHi || question.question_text_hi;
+  const optionsHi = Array.isArray(question.optionsHi) ? question.optionsHi : [];
+  const hasHindi =
+    Boolean(questionTextHi) ||
+    optionsHi.some((o) => (typeof o === "object" && o !== null ? o.text : o));
+  const isHi = lang === "hi" && hasHindi;
+
+  const qTags = Array.isArray(question.tags) ? question.tags : [];
+  const pyqSource = question.sourceConfig || {};
+  const isPyq =
+    qTags.map((t) => String(t).toLowerCase()).includes("pyq") ||
+    String(pyqSource.type || "")
+      .toLowerCase()
+      .includes("pyq") ||
+    String(pyqSource.type || "")
+      .toLowerCase()
+      .includes("prev") ||
+    String(question.source || "")
+      .toLowerCase()
+      .includes("pyq");
+  const pyqLabel = isPyq
+    ? buildPyqSourceLabel(pyqSource, question.source)
+    : null;
 
   return (
     <div className="max-w-4xl mx-auto py-6 px-4">
@@ -261,9 +319,9 @@ export default function PracticeWorkspace({ session, onComplete, onExit }) {
             <button
               type="button"
               onClick={onExit}
-              className="text-xs font-bold text-slate-500 hover:text-slate-800"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-indigo-700 bg-slate-100 hover:bg-indigo-50 border border-slate-200 px-3 py-1.5 rounded-lg transition active:scale-95"
             >
-              Exit
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to Section
             </button>
           )}
         </div>
@@ -271,25 +329,71 @@ export default function PracticeWorkspace({ session, onComplete, onExit }) {
 
       {/* ── 2. QUESTION WORKSPACE ──────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-xs mb-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between gap-2 mb-4">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
             Question {currentIdx + 1}
           </span>
-          <button
-            onClick={() => setVaultOpen(true)}
-            className="inline-flex items-center text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 px-3 py-1.5 rounded-lg border border-slate-200 transition"
-          >
-            <Bookmark className="w-3.5 h-3.5 mr-1 text-amber-500" /> Save to
-            Knowledge Vault
-          </button>
+          <div className="flex items-center gap-2">
+            {hasHindi && (
+              <div
+                className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200"
+                role="group"
+                aria-label="Question language"
+              >
+                <button
+                  onClick={() => setLang("en")}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition flex items-center gap-1 ${
+                    !isHi
+                      ? "bg-white text-indigo-700 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  <Languages className="w-3 h-3" /> EN
+                </button>
+                <button
+                  onClick={() => setLang("hi")}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${
+                    isHi
+                      ? "bg-white text-indigo-700 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  हिं
+                </button>
+              </div>
+            )}
+            <button
+              onClick={() => setVaultOpen(true)}
+              className="inline-flex items-center text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 px-3 py-1.5 rounded-lg border border-slate-200 transition"
+            >
+              <Bookmark className="w-3.5 h-3.5 mr-1 text-amber-500" /> Save to
+              Knowledge Vault
+            </button>
+          </div>
         </div>
 
-        {/* Question Text */}
-        <div className="text-base font-medium text-slate-900 leading-relaxed mb-6">
+        {/* Question Text (language-aware) */}
+        <div
+          className={`text-base font-medium text-slate-900 leading-relaxed ${
+            pyqLabel ? "mb-2" : "mb-6"
+          }`}
+        >
           <MathRenderer
-            content={question.questionText || question.question_text}
+            content={isHi && questionTextHi ? questionTextHi : questionTextEn}
           />
         </div>
+
+        {/* Previous-year paper source — exam · stage · year · shift */}
+        {pyqLabel && (
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded-md px-2 py-0.5">
+              <Tag className="w-3 h-3 text-purple-500" /> [{pyqLabel}]
+            </span>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+              Asked in previous year paper
+            </span>
+          </div>
+        )}
 
         {/* Options */}
         <div className="space-y-3 mb-8">
@@ -344,7 +448,14 @@ export default function PracticeWorkspace({ session, onComplete, onExit }) {
                 </span>
                 <div className="text-sm">
                   <MathRenderer
-                    content={typeof opt === "object" ? opt.text : opt}
+                    content={(() => {
+                      const en = typeof opt === "object" ? opt.text : opt;
+                      if (!isHi) return en;
+                      const hi = optionsHi[i];
+                      const hiText =
+                        typeof hi === "object" && hi !== null ? hi.text : hi;
+                      return hiText || en;
+                    })()}
                   />
                 </div>
               </button>
@@ -649,13 +760,28 @@ export default function PracticeWorkspace({ session, onComplete, onExit }) {
                   key={sim.id}
                   className="p-3 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between"
                 >
-                  <div className="text-xs font-medium text-slate-800 truncate max-w-lg">
+                  <div
+                    className="text-xs font-medium text-slate-800 truncate max-w-lg"
+                    title={`Level ${i + 1}`}
+                  >
                     Level {i + 1}:{" "}
                     <MathRenderer
                       content={sim.questionText || sim.question_text}
                     />
                   </div>
-                  <button className="text-xs font-bold text-indigo-600 hover:underline flex items-center">
+                  <button
+                    onClick={() => {
+                      const tid =
+                        sim.topicId || sim.topic_id || question.topicId;
+                      if (tid && onLaunchTopicSession)
+                        onLaunchTopicSession(tid);
+                    }}
+                    disabled={
+                      !onLaunchTopicSession ||
+                      !(sim.topicId || sim.topic_id || question.topicId)
+                    }
+                    className="text-xs font-bold text-indigo-600 hover:underline flex items-center disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                  >
                     Attempt <ArrowRight className="w-3 h-3 ml-1" />
                   </button>
                 </div>

@@ -118,5 +118,81 @@ describe("CertificateService", () => {
       expect(result.data.testTitle).toBe("Physics Mock");
       expect(result.data.percentage).toBe(85);
     });
+
+    it("generates distinct hashes for subsequent generations due to cryptographic salt", async () => {
+      const attemptRow = {
+        attempt_id: 1,
+        user_id: 1,
+        test_id: 10,
+        score: 85,
+        total_marks: 100,
+        submitted_at: "2025-06-01T10:00:00Z",
+        created_at: "2025-06-01T09:00:00Z",
+        test_title: "Physics Mock",
+        user_name: "Alice",
+      };
+
+      certificateService.ensureTable = jest.fn().mockResolvedValue(undefined);
+      mockPoolQuery
+        .mockResolvedValueOnce({ rows: [attemptRow] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [attemptRow] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const cert1 = await certificateService.generateCertificate(1, 1);
+      const cert2 = await certificateService.generateCertificate(1, 1);
+
+      expect(cert1.data.verificationHash).not.toBe(cert2.data.verificationHash);
+      expect(cert1.data.verificationHash).toHaveLength(64);
+      expect(cert2.data.verificationHash).toHaveLength(64);
+    });
+  });
+
+  describe("revokeCertificate", () => {
+    it("successfully revokes an active certificate", async () => {
+      certificateService.ensureTable = jest.fn().mockResolvedValue(undefined);
+      mockPoolQuery.mockResolvedValueOnce({ rows: [{ id: 42 }] });
+
+      const result = await certificateService.revokeCertificate(
+        "abcdef1234567890abcdef",
+      );
+      expect(result).toBe(true);
+
+      const updateCall = mockPoolQuery.mock.calls[0];
+      expect(updateCall[0]).toContain(
+        "UPDATE certificates SET is_revoked = TRUE",
+      );
+      expect(updateCall[1][0]).toBe("abcdef1234567890abcdef");
+    });
+
+    it("returns false when certificate does not exist or already revoked", async () => {
+      certificateService.ensureTable = jest.fn().mockResolvedValue(undefined);
+      mockPoolQuery.mockResolvedValueOnce({ rows: [] });
+
+      const result =
+        await certificateService.revokeCertificate("nonexistent_hash");
+      expect(result).toBe(false);
+    });
+
+    it("returns false gracefully when DB update throws an error", async () => {
+      certificateService.ensureTable = jest.fn().mockResolvedValue(undefined);
+      mockPoolQuery.mockRejectedValueOnce(new Error("Connection reset"));
+
+      const result = await certificateService.revokeCertificate("some_hash");
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("DB error resilience in verifyCertificate", () => {
+    it("returns system unavailable message when DB query throws error", async () => {
+      certificateService.ensureTable = jest.fn().mockResolvedValue(undefined);
+      mockPoolQuery.mockRejectedValueOnce(new Error("DB unreachable"));
+
+      const result = await certificateService.verifyCertificate("abcdef123456");
+      expect(result.isValid).toBe(false);
+      expect(result.message).toBe(
+        "Certificate verification system unavailable",
+      );
+    });
   });
 });

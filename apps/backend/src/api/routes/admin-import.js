@@ -18,6 +18,7 @@ import {
   importClassXTestsWithQuestions,
 } from "../../services/import/classxImporter.js";
 import { universalImport } from "../../services/import/enhancedImporter.js";
+import { lintQuestionImport } from "../../services/import/questionImportLinter.js";
 import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import { sendError } from "../../shared/utils/sendResponse.js";
 import {
@@ -184,6 +185,59 @@ router.post(
           preview: results.questions.slice(0, 10), // First 10 questions
           errors: results.errors.slice(0, 20),
         },
+      });
+    } catch (error) {
+      sendError(res, error);
+    }
+  },
+);
+
+/**
+ * POST /api/admin/import/questions/dry-run-lint
+ * Dry-run linter: validates question format, detects exact and near-duplicates,
+ * checks options integrity and explanations without making database writes.
+ */
+router.post(
+  "/import/questions/dry-run-lint",
+  importUpload.single("file"),
+  async (req, res) => {
+    try {
+      const { data, fileName } = parseImportData(req);
+      const rawQuestions = Array.isArray(data) ? data : data.questions || [];
+
+      if (rawQuestions.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No questions found in payload for dry-run linting",
+        });
+      }
+
+      // Check against existing questions in test if testId provided
+      let existingQuestions = [];
+      const testId = req.body.testId || req.body.test_id;
+      if (testId) {
+        try {
+          const exRes = await pool.query(
+            `SELECT id, question_text FROM questions WHERE test_id = $1 OR "testId" = $1 LIMIT 500`,
+            [testId],
+          );
+          existingQuestions = exRes.rows || [];
+        } catch (err) {
+          logger.warn(
+            "Failed to fetch existing questions for duplicate linting:",
+            err.message,
+          );
+        }
+      }
+
+      const report = lintQuestionImport(rawQuestions, existingQuestions, {
+        similarityThreshold: parseFloat(req.body.similarityThreshold) || 0.85,
+      });
+
+      res.json({
+        success: true,
+        fileName: fileName || null,
+        report,
       });
     } catch (error) {
       sendError(res, error);

@@ -577,7 +577,9 @@ function StudyMaterialDetail() {
                   {tab.label === "Tests" && (
                     <BookOpen className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                   )}
-                  <span className="truncate">{tab.label}</span>
+                  <span className="truncate" title={tab.label}>
+                    {tab.label}
+                  </span>
                   <span
                     className={`px-1.5 py-0.5 rounded-md text-[8px] sm:text-[9px] ${
                       activeTab === tab.id

@@ -281,8 +281,10 @@ export default function UserActivityLog() {
       if (idx >= buckets.length) idx = buckets.length - 1;
       const b = buckets[idx];
       if (act.type === "user_registration") b.registrations++;
-      else if (act.type === "test_completed" || act.type === "test_attempt") b.tests++;
-      else if (act.type === "media_uploaded" || act.type === "content_uploaded") b.uploads++;
+      else if (act.type === "test_completed" || act.type === "test_attempt")
+        b.tests++;
+      else if (act.type === "media_uploaded" || act.type === "content_uploaded")
+        b.uploads++;
       b.total++;
     });
     return buckets.map(({ ts, ...rest }) => rest);
@@ -944,10 +946,16 @@ export default function UserActivityLog() {
                           {user.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-gray-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                          <p
+                            className="text-xs font-bold text-gray-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400"
+                            title={user.name}
+                          >
                             {user.name}
                           </p>
-                          <p className="text-[10px] text-gray-400 truncate">
+                          <p
+                            className="text-[10px] text-gray-400 truncate"
+                            title={user.lastActive}
+                          >
                             {user.lastActive}
                           </p>
                         </div>

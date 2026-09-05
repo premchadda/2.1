@@ -140,15 +140,24 @@ function ProfileHeader({
                     </div>
                   )}
                 </div>
-                <p className="text-xs sm:text-sm text-white/80 font-medium mb-2.5 truncate">
+                <p
+                  className="text-xs sm:text-sm text-white/80 font-medium mb-2.5 truncate"
+                  title={user.email}
+                >
                   {user.email}
                 </p>
 
                 <div className="flex flex-wrap items-center gap-1.5">
                   {personalInfo.location && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/20 text-white text-[11px] font-bold rounded-lg backdrop-blur-sm truncate max-w-[150px]">
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/20 text-white text-[11px] font-bold rounded-lg backdrop-blur-sm truncate max-w-[150px]"
+                      title={personalInfo.location}
+                    >
                       <MapPin className="w-3 h-3 shrink-0" />{" "}
-                      <span className="truncate">
+                      <span
+                        className="truncate"
+                        title={personalInfo.location?.split(" -")[0]}
+                      >
                         {personalInfo.location?.split(" -")[0]}
                       </span>
                     </span>

@@ -103,30 +103,80 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
     }
   };
 
+  const [socraticStep, setSocraticStep] = useState(1);
+  const [socraticLanguage, setSocraticLanguage] = useState("en");
+  const [socraticHints, setSocraticHints] = useState({});
+
+  // Progressive Socratic Hint Fetcher
+  const fetchSocraticHint = async (step = 1, lang = socraticLanguage) => {
+    if (!currentQ) return;
+    const cacheKey = `${step}_${lang}`;
+    if (socraticHints[cacheKey]) {
+      setSocraticStep(step);
+      setAiHint(socraticHints[cacheKey]);
+      return;
+    }
+
+    try {
+      setAiLoading(true);
+      setSocraticStep(step);
+
+      const qId = currentQ.id || currentQ._id;
+      const userSelected = userAnswers[qId];
+      let studentAttempt = "";
+      if (
+        userSelected !== undefined &&
+        currentQ.options &&
+        currentQ.options[userSelected]
+      ) {
+        studentAttempt = `Candidate selected Option ${String.fromCharCode(
+          65 + userSelected,
+        )}: ${currentQ.options[userSelected]}`;
+      }
+
+      const res = await aiAPI.getSocraticHint({
+        questionText: currentQ.questionText || currentQ.question || "",
+        options: currentQ.options || [],
+        studentAttempt,
+        explanation: currentQ.explanation || "",
+        stepNumber: step,
+        language: lang,
+      });
+
+      const hintText =
+        res?.hint ||
+        "Focus on identifying the core principle before substituting numbers.";
+      setSocraticHints((prev) => ({ ...prev, [cacheKey]: hintText }));
+      setAiHint(hintText);
+    } catch {
+      // Fallback to general doubt resolver
+      try {
+        const fallbackRes = await aiAPI.askDoubt({
+          question: currentQ.questionText || currentQ.question || "",
+          topic: currentQ.topic,
+          subject: currentQ.subject,
+        });
+        const fallbackText =
+          fallbackRes?.answer ||
+          fallbackRes?.hint ||
+          "Break down the problem by identifying the core formula or rule first.";
+        setAiHint(fallbackText);
+      } catch {
+        setAiHint(
+          "Break down the problem by identifying the core formula or rule first.",
+        );
+      }
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   // AI Hint Drawer trigger
   const handleAskAiTutor = async () => {
     if (!currentQ) return;
     setAiDrawerOpen(true);
-    if (aiHint) return;
-
-    try {
-      setAiLoading(true);
-      const res = await aiAPI.askDoubt({
-        question: currentQ.questionText || currentQ.question || "",
-        topic: currentQ.topic,
-        subject: currentQ.subject,
-      });
-      setAiHint(
-        res?.answer ||
-          res?.hint ||
-          "Focus on breaking down the problem into smaller logical steps.",
-      );
-    } catch {
-      setAiHint(
-        "Break down the problem by identifying the core formula or rule first.",
-      );
-    } finally {
-      setAiLoading(false);
+    if (!aiHint) {
+      await fetchSocraticHint(1, socraticLanguage);
     }
   };
 
@@ -135,6 +185,8 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
     if (currentIndex < questions.length - 1) {
       setCurrentIndex((i) => i + 1);
       setAiHint(null);
+      setSocraticHints({});
+      setSocraticStep(1);
     } else {
       handleFinishSession();
     }
@@ -144,6 +196,8 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
     if (currentIndex > 0) {
       setCurrentIndex((i) => i - 1);
       setAiHint(null);
+      setSocraticHints({});
+      setSocraticStep(1);
     }
   };
 
@@ -486,35 +540,97 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
                     <Brain className="w-5 h-5" />
                     <span>Socratic AI Study Tutor</span>
                   </div>
-                  <button
-                    onClick={() => setAiDrawerOpen(false)}
-                    aria-label="Close drawer"
-                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const newLang = socraticLanguage === "en" ? "hi" : "en";
+                        setSocraticLanguage(newLang);
+                        fetchSocraticHint(socraticStep, newLang);
+                      }}
+                      className="px-2 py-1 text-[11px] font-bold rounded-lg border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition cursor-pointer"
+                      title="Switch English / Hindi"
+                    >
+                      {socraticLanguage === "en" ? "🇮🇳 हिन्दी" : "🇬🇧 English"}
+                    </button>
+                    <button
+                      onClick={() => setAiDrawerOpen(false)}
+                      aria-label="Close drawer"
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Socratic Step Pills */}
+                <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-slate-700/60 rounded-xl">
+                  {[
+                    { step: 1, label: "1. Concept" },
+                    { step: 2, label: "2. Deduction" },
+                    { step: 3, label: "3. Solution" },
+                  ].map((s) => (
+                    <button
+                      key={s.step}
+                      disabled={aiLoading}
+                      onClick={() =>
+                        fetchSocraticHint(s.step, socraticLanguage)
+                      }
+                      className={`py-1.5 text-[11px] font-bold rounded-lg transition text-center cursor-pointer ${
+                        socraticStep === s.step
+                          ? "bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 shadow-sm"
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-700"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
                 </div>
 
                 {aiLoading ? (
                   <div className="text-center py-12 space-y-3">
                     <Loader2 className="w-8 h-8 text-purple-600 animate-spin mx-auto" />
                     <p className="text-xs text-slate-500">
-                      Formulating step-by-step hint...
+                      Formulating Step {socraticStep} pedagogical hint...
                     </p>
                   </div>
                 ) : (
-                  <div className="bg-purple-50/70 dark:bg-purple-950/30 p-4 rounded-2xl border border-purple-100 dark:border-purple-800/40 text-xs text-purple-950 dark:text-purple-200 leading-relaxed">
-                    <p className="font-bold mb-1">💡 Concept Hint:</p>
-                    <p>{aiHint}</p>
+                  <div className="space-y-3">
+                    <div className="bg-purple-50/70 dark:bg-purple-950/30 p-4 rounded-2xl border border-purple-100 dark:border-purple-800/40 text-xs text-purple-950 dark:text-purple-200 leading-relaxed">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-purple-700 dark:text-purple-300">
+                          {socraticStep === 1 &&
+                            "💡 Step 1: Core Theorem & Formulation"}
+                          {socraticStep === 2 &&
+                            "🔍 Step 2: Intermediate Deduction & Error Check"}
+                          {socraticStep === 3 &&
+                            "📐 Step 3: Complete Structured Walkthrough"}
+                        </span>
+                      </div>
+                      <p className="whitespace-pre-line">{aiHint}</p>
+                    </div>
+
+                    {socraticStep < 3 && (
+                      <button
+                        onClick={() =>
+                          fetchSocraticHint(socraticStep + 1, socraticLanguage)
+                        }
+                        className="w-full py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <span>
+                          Need more guidance? Unlock Step {socraticStep + 1}
+                        </span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
 
               <button
                 onClick={() => setAiDrawerOpen(false)}
-                className="w-full py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition cursor-pointer"
+                className="w-full py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition cursor-pointer mt-4"
               >
-                Close Hint Drawer
+                Return to Question
               </button>
             </div>
           </div>,

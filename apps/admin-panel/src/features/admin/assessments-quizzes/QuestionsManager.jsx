@@ -59,6 +59,8 @@ import QuestionForm from "./components/QuestionForm";
 import QuestionPreviewDrawer from "./components/QuestionPreviewDrawer";
 import QuestionVersionHistoryModal from "./components/QuestionVersionHistoryModal";
 import TestPreviewDrawer from "./components/TestPreviewDrawer";
+import AuditQuestionsView from "./components/AuditQuestionsView";
+import { auditQuestionsList } from "./components/auditHelpers";
 import MathRenderer from "../../../shared/components/MathRenderer";
 import {
   QUESTION_CATEGORIES,
@@ -1442,23 +1444,7 @@ function QuestionsManager() {
 
   const auditQuestions = useMemo(() => {
     if (activeCategory !== "audit") return [];
-    return questions.filter((q) => {
-      const isDraft =
-        q.status === "draft" ||
-        q.status === "Inactive" ||
-        q.status === "Draft" ||
-        !q.isActive;
-      const noText = !q.questionText || String(q.questionText).trim() === "";
-      const noOptions =
-        !q.options ||
-        q.options.length < 2 ||
-        q.options.some((o) => !o || String(o).trim() === "");
-      const noCorrect =
-        q.correctOption === null ||
-        q.correctOption === undefined ||
-        q.correctOption === "";
-      return isDraft || noText || noOptions || noCorrect;
-    });
+    return auditQuestionsList(questions);
   }, [questions, activeCategory]);
 
   // Stats scoped to the active category
@@ -2344,7 +2330,14 @@ function QuestionsManager() {
                     className="px-6 py-4 flex items-center justify-between"
                   >
                     <div>
-                      <p className="text-sm font-medium text-gray-900 truncate max-w-md">
+                      <p
+                        className="text-sm font-medium text-gray-900 truncate max-w-md"
+                        title={
+                          item.data?.questionText ||
+                          item.data?.question_text ||
+                          `Question #${item.id}`
+                        }
+                      >
                         {item.data?.questionText ||
                           item.data?.question_text ||
                           `Question #${item.id}`}
@@ -2545,75 +2538,10 @@ function QuestionsManager() {
 
         {/* ===== LEVEL 0: Audit ===== */}
         {!showTrash && drillLevel === "audit" && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200 bg-rose-50/30 flex justify-between items-center">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900 text-rose-900">
-                  Incomplete Audit Questions
-                </h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  Found {auditQuestions.length} questions that require review
-                </p>
-              </div>
-            </div>
-            {auditQuestions.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-400" />
-                <p className="font-medium text-green-700">
-                  All questions look good!
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {auditQuestions.map((q) => (
-                  <div
-                    key={q.id || q._id}
-                    className="p-4 flex items-center justify-between hover:bg-gray-50"
-                  >
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 line-clamp-2">
-                        {q.questionText ||
-                          q.question_text ||
-                          "No Question Text"}
-                      </p>
-                      <div className="mt-2 flex gap-2">
-                        {(!q.questionText ||
-                          String(q.questionText).trim() === "") && (
-                          <Badge variant="danger">Missing Text</Badge>
-                        )}
-                        {(!q.options ||
-                          q.options.length < 2 ||
-                          q.options.some(
-                            (o) => !o || String(o).trim() === "",
-                          )) && (
-                          <Badge variant="warning">Missing Options</Badge>
-                        )}
-                        {(q.correctOption === null ||
-                          q.correctOption === undefined ||
-                          q.correctOption === "") && (
-                          <Badge variant="warning">Missing Mark Scheme</Badge>
-                        )}
-                        {(q.status === "draft" ||
-                          q.status === "Inactive" ||
-                          q.status === "Draft" ||
-                          !q.isActive) && (
-                          <Badge variant="default">Draft Status</Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="ml-4">
-                      <button
-                        onClick={() => handleEdit(q)}
-                        className="p-2 border rounded-md text-indigo-600 hover:bg-indigo-50"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <AuditQuestionsView
+            questions={auditQuestions}
+            onEditQuestion={handleEdit}
+          />
         )}
 
         {/* ===== LEVEL 1: Test Series Grid (filtered by active category) ===== */}
@@ -3892,7 +3820,14 @@ function QuestionsManager() {
               <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 w-full max-w-6xl h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-modal-pop">
                 <div className="px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-start justify-between gap-3 bg-gray-50/50 dark:bg-gray-800/40">
                   <div className="min-w-0">
-                    <h2 className="text-base sm:text-lg font-black text-gray-900 dark:text-white truncate">
+                    <h2
+                      className="text-base sm:text-lg font-black text-gray-900 dark:text-white truncate"
+                      title={
+                        selectedSeries.title ||
+                        selectedSeries.name ||
+                        "Test Series"
+                      }
+                    >
                       {selectedSeries.title ||
                         selectedSeries.name ||
                         "Test Series"}
@@ -4173,10 +4108,18 @@ function QuestionsManager() {
                                       {test.type || activeCategory}
                                     </Badge>
                                   </div>
-                                  <h4 className="font-bold text-gray-900 truncate">
+                                  <h4
+                                    className="font-bold text-gray-900 truncate"
+                                    title={
+                                      test.title || test.name || "Untitled Test"
+                                    }
+                                  >
                                     {test.title || test.name || "Untitled Test"}
                                   </h4>
-                                  <p className="text-xs text-gray-500 mt-1 truncate">
+                                  <p
+                                    className="text-xs text-gray-500 mt-1 truncate"
+                                    title={test.description || "No description"}
+                                  >
                                     {test.description || "No description"}
                                   </p>
                                 </div>
@@ -4418,7 +4361,14 @@ function QuestionsManager() {
                                         <Sparkles className="w-3 h-3" />{" "}
                                         Solution & Explanation
                                       </div>
-                                      <div className="line-clamp-3 overflow-hidden text-gray-700">
+                                      <div
+                                        className="line-clamp-3 overflow-hidden text-gray-700"
+                                        title={
+                                          typeof q.explanation === "string"
+                                            ? q.explanation
+                                            : undefined
+                                        }
+                                      >
                                         <MathRenderer content={q.explanation} />
                                       </div>
                                     </div>

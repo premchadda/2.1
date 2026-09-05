@@ -2719,10 +2719,16 @@ function TestsManager() {
                           : "Active"}
                       </Badge>
                     </div>
-                    <h3 className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                    <h3
+                      className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate"
+                      title={series.title || series.name || "Untitled Series"}
+                    >
                       {series.title || series.name || "Untitled Series"}
                     </h3>
-                    <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
+                    <p
+                      className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2"
+                      title={series.description || "No description available"}
+                    >
                       {series.description || "No description available"}
                     </p>
                   </div>

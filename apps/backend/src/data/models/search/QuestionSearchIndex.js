@@ -363,6 +363,25 @@ class QuestionSearchIndex {
     return dbHelpers.deleteByQuery(this.collection, { questionId })
   }
 
+  static async getIndexStats() {
+    const { pool } = await import('../../../infrastructure/database/postgres-helpers.js')
+    const client = await pool.connect()
+    try {
+      const result = await client.query(`
+        SELECT
+          COUNT(*) as total_indexed,
+          COUNT(CASE WHEN is_indexed = true THEN 1 END) as with_embeddings,
+          COUNT(CASE WHEN is_indexed = false THEN 1 END) as pending_embedding,
+          COUNT(DISTINCT topic_id) as topics_covered,
+          COUNT(DISTINCT subject) as subjects_covered
+        FROM question_search_index
+      `)
+      return result.rows[0]
+    } finally {
+      client.release()
+    }
+  }
+
   static async count(query = {}) {
     return dbHelpers.count(this.collection, query)
   }

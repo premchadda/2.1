@@ -140,6 +140,37 @@ async function pickPracticeQuestionIds({
       params.push(userId);
       idx++;
     }
+  } else if (mode === "weak_topic") {
+    // Smart Practice: reinforce the user's weakest topics (accuracy < 70%
+    // across logged practice answers). Falls back to the generic random
+    // selection below when the user has no answer history yet, or if the
+    // detection query fails for any reason.
+    let weakTopicIds = [];
+    try {
+      const weak = await pool.query(
+        `
+        SELECT q2.topic_id
+        FROM practice_answers pa
+        JOIN questions q2 ON q2.id = pa.question_id
+        WHERE pa.user_id = $1 AND q2.topic_id IS NOT NULL
+        GROUP BY q2.topic_id
+        HAVING (COUNT(*) FILTER (WHERE pa.is_correct))::numeric
+                 / NULLIF(COUNT(*), 0) < 0.7
+        ORDER BY (COUNT(*) FILTER (WHERE pa.is_correct))::numeric
+                 / NULLIF(COUNT(*), 0) ASC
+        LIMIT 5
+      `,
+        [userId],
+      );
+      weakTopicIds = weak.rows.map((r) => r.topic_id);
+    } catch (weakErr) {
+      console.warn("[Practice weak_topic detection]", weakErr.message);
+    }
+    if (weakTopicIds.length) {
+      conditions.push(`q.topic_id = ANY($${idx}::int[])`);
+      params.push(weakTopicIds);
+      idx++;
+    }
   } else if (mode === "bookmark") {
     conditions.push(
       `q.id IN (SELECT question_id FROM question_bookmarks WHERE user_id = $${idx})`,
@@ -176,7 +207,9 @@ async function getSafeQuestion(questionId) {
     `
     SELECT q.id, q.question_text, q.options, q.explanation, q.subject, q.topic,
            q.difficulty, q.language, q.topic_id,
-           q.subject_id
+           q.subject_id,
+           q.question_text_hi, q.options_hi, q.explanation_hi,
+           q.source_config, q.tags, q.source
     FROM questions q
     WHERE q.id = $1 AND (q.is_active = true OR q.is_active IS NULL)
   `,
@@ -212,7 +245,9 @@ async function getSafeQuestions(questionIds = []) {
   const r = await pool.query(
     `
     SELECT q.id, q.question_text, q.options, q.explanation, q.subject, q.topic,
-           q.difficulty, q.language, q.topic_id, q.subject_id
+           q.difficulty, q.language, q.topic_id, q.subject_id,
+           q.question_text_hi, q.options_hi, q.explanation_hi,
+           q.source_config, q.tags, q.source
     FROM questions q
     WHERE q.id = ANY($1::int[])
       AND (q.is_active = true OR q.is_active IS NULL)
@@ -2016,9 +2051,12 @@ router.get("/fundamentals/categories", protect, async (req, res) => {
 router.get("/fundamentals/drill", protect, async (req, res) => {
   try {
     const { category = "tables", count = 10 } = req.query;
+    // Clamp per-batch drill length (1–50). The UI picks its own round length
+    // and endless mode simply requests more batches — nothing is persisted.
+    const batchCount = Math.min(Math.max(parseInt(count, 10) || 10, 1), 50);
     const questions = [];
 
-    for (let i = 0; i < parseInt(count, 10); i++) {
+    for (let i = 0; i < batchCount; i++) {
       if (category === "tables") {
         const a = Math.floor(Math.random() * 20) + 11;
         const b = Math.floor(Math.random() * 12) + 2;
@@ -2434,6 +2472,28 @@ router.post("/ai/tutor", protect, async (req, res) => {
     res.json({ success: true, data: { promptType, response: responseText } });
   } catch (err) {
     console.error("POST /ai/tutor error:", err);
+    res.status(500).json({ success: false, error: sanitizeErrorMessage(err) });
+  }
+});
+
+/**
+ * POST /api/practice/adaptive-diagnostic
+ * Dynamically synthesizes an adaptive diagnostic mock test customized
+ * to the candidate's critical weak and developing topics.
+ */
+router.post("/adaptive-diagnostic", protect, async (req, res) => {
+  try {
+    const { questionCount, durationMinutes, title } = req.body || {};
+    const { generateAdaptiveDiagnosticTest } =
+      await import("../../services/core/adaptiveDiagnosticService.js");
+    const result = await generateAdaptiveDiagnosticTest(req.user.id, {
+      questionCount,
+      durationMinutes,
+      title,
+    });
+    res.json(result);
+  } catch (err) {
+    console.error("POST /adaptive-diagnostic error:", err);
     res.status(500).json({ success: false, error: sanitizeErrorMessage(err) });
   }
 });

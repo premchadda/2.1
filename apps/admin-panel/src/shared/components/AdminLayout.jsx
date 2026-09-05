@@ -38,12 +38,9 @@ import {
   Moon,
   Sun,
   RotateCw,
-  Smartphone,
-  Download,
 } from "lucide-react";
 import { useAuth } from "../providers/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { usePwaInstall } from "@trstprep/shared-hooks";
 import adminNavConfig, {
   getFlatNavItems,
   getBreadcrumbs,
@@ -76,7 +73,6 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { isDarkMode, toggleDarkMode } = useTheme();
-  const { isStandalone, installApp } = usePwaInstall();
 
   const handlePageRefresh = useCallback(() => {
     setIsRefreshing(true);
@@ -302,7 +298,9 @@ export default function AdminLayout() {
           <item.icon className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
           {(sidebarOpen || mobileMenuOpen) && (
             <div className="truncate">
-              <span className="truncate">{item.name}</span>
+              <span className="truncate" title={item.name}>
+                {item.name}
+              </span>
               {item.badge && (
                 <span className="ml-2 px-1.5 py-0.5 text-[9px] font-bold bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full">
                   {item.badge}
@@ -357,7 +355,9 @@ export default function AdminLayout() {
               />
             </div>
             {(sidebarOpen || mobileMenuOpen) && (
-              <span className="text-left truncate">{category.name}</span>
+              <span className="text-left truncate" title={category.name}>
+                {category.name}
+              </span>
             )}
           </div>
           {(sidebarOpen || mobileMenuOpen) && (
@@ -449,27 +449,6 @@ export default function AdminLayout() {
         >
           {filteredNav.map((category) => renderCategory(category))}
         </nav>
-
-        {/* Install Admin App - Desktop */}
-        {!isStandalone && (
-          <div className="p-2 border-t border-gray-200 dark:border-gray-800">
-            <button
-              onClick={installApp}
-              className={`w-full flex items-center ${sidebarOpen ? "justify-between px-3" : "justify-center px-2"} py-2 rounded-xl bg-indigo-50/80 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 transition-colors group text-left`}
-              title="Install Admin App"
-            >
-              <div className="flex items-center gap-2.5">
-                <Smartphone className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform" />
-                {sidebarOpen && (
-                  <span className="text-xs font-semibold">Install App</span>
-                )}
-              </div>
-              {sidebarOpen && (
-                <Download className="w-3.5 h-3.5 text-indigo-500" />
-              )}
-            </button>
-          </div>
-        )}
       </aside>
 
       {/* Sidebar - Mobile Drawer */}
@@ -510,25 +489,6 @@ export default function AdminLayout() {
         >
           {filteredNav.map((category) => renderCategory(category))}
         </nav>
-
-        {/* Install Admin App - Mobile Drawer */}
-        {!isStandalone && (
-          <div className="p-3 border-t border-gray-200 dark:border-gray-800">
-            <button
-              onClick={() => {
-                installApp();
-                setMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-indigo-50/80 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 transition-colors group text-left"
-            >
-              <div className="flex items-center gap-2.5">
-                <Smartphone className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-semibold">Install Admin App</span>
-              </div>
-              <Download className="w-3.5 h-3.5 text-indigo-500" />
-            </button>
-          </div>
-        )}
       </aside>
 
       {/* Main Content */}
@@ -555,12 +515,18 @@ export default function AdminLayout() {
                   {currentPage?.icon && (
                     <currentPage.icon className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
                   )}
-                  <span className="truncate">
+                  <span
+                    className="truncate"
+                    title={currentPage?.name || "Admin Panel"}
+                  >
                     {currentPage?.name || "Admin Panel"}
                   </span>
                 </h1>
                 {currentPage?.description && (
-                  <span className="hidden lg:inline-block text-xs text-gray-500 dark:text-gray-400 font-medium truncate max-w-sm border-l border-gray-200 dark:border-gray-700 pl-2.5">
+                  <span
+                    className="hidden lg:inline-block text-xs text-gray-500 dark:text-gray-400 font-medium truncate max-w-sm border-l border-gray-200 dark:border-gray-700 pl-2.5"
+                    title={currentPage.description}
+                  >
                     {currentPage.description}
                   </span>
                 )}

@@ -682,7 +682,10 @@ function TestCard({
 
           {/* Series Title */}
           {showSeriesTitle && test.seriesTitle && (
-            <span className="text-xs text-gray-500 dark:text-slate-400 font-medium truncate flex-1 min-w-[100px]">
+            <span
+              className="text-xs text-gray-500 dark:text-slate-400 font-medium truncate flex-1 min-w-[80px]"
+              title={test.seriesTitle}
+            >
               {test.seriesTitle}
             </span>
           )}
@@ -693,11 +696,17 @@ function TestCard({
           {/* Left Column: Title, Description, and Meta Info Row */}
           <div className="flex-1 min-w-0 space-y-2">
             <div>
-              <h3 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white leading-snug line-clamp-2">
+              <h3
+                className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white leading-snug line-clamp-2"
+                title={test.title}
+              >
                 {test.title}
               </h3>
               {test.description && (
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
+                <p
+                  className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1"
+                  title={test.description}
+                >
                   {test.description}
                 </p>
               )}

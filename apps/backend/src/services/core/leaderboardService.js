@@ -64,6 +64,9 @@ const getCompletedAttempts = async (filter = {}) => {
       isCompleted: true,
       timeSpent: Number(row.time_spent) || 0,
       timeSpentSeconds: Number(row.time_spent_seconds) || 0,
+      submittedAt: row.submitted_at,
+      updatedAt: row.updated_at,
+      createdAt: row.created_at,
     }));
   } catch (error) {
     console.error("[getCompletedAttempts] Database error:", error.message);
@@ -127,7 +130,13 @@ const attemptTimeSpent = (attempt) =>
 
 const attemptSubmittedAt = (attempt) =>
   new Date(
-    attempt.submittedAt || attempt.updatedAt || attempt.createdAt || 0,
+    attempt.submittedAt ||
+      attempt.submitted_at ||
+      attempt.updatedAt ||
+      attempt.updated_at ||
+      attempt.createdAt ||
+      attempt.created_at ||
+      0,
   ).getTime();
 
 const getLocalDateParts = (date) => {

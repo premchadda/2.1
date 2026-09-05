@@ -627,7 +627,7 @@ function AIStudyPlanner() {
                 })}
               </div>
             ) : (
-              <div className="text-center py-12">
+              <div className="text-center py-8">
                 <Brain className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                 <p className="text-gray-500 dark:text-gray-400 font-medium">
                   No sessions scheduled for today

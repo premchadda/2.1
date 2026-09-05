@@ -187,7 +187,9 @@ function TestSeriesMultiSelect({
                 key={index}
                 className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-medium rounded-md border border-purple-200 dark:border-purple-800/50 max-w-[200px] truncate"
               >
-                <span className="truncate">{name}</span>
+                <span className="truncate" title={name}>
+                  {name}
+                </span>
                 <button
                   type="button"
                   onClick={(e) => {
@@ -260,7 +262,10 @@ function TestSeriesMultiSelect({
                       checked={isSelected}
                       onChange={() => toggleSeries(seriesId)}
                     />
-                    <span className="flex-1 text-xs sm:text-sm text-gray-900 dark:text-gray-100 font-medium truncate">
+                    <span
+                      className="flex-1 text-xs sm:text-sm text-gray-900 dark:text-gray-100 font-medium truncate"
+                      title={series.title || series.name}
+                    >
                       {series.title || series.name}
                     </span>
                     {series.isPro && (
@@ -1295,7 +1300,10 @@ export default function CategoriesManager() {
               </div>
 
               {category.description && (
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                <p
+                  className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5"
+                  title={category.description}
+                >
                   {category.description}
                 </p>
               )}

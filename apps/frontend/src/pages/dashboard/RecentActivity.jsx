@@ -110,14 +110,18 @@ function RecentActivity({ recentActivity = [] }) {
 
                       <div className="min-w-0">
                         <h3 className="text-xs font-semibold text-gray-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors flex items-center gap-1">
-                          <span className="truncate">{item.action}</span>
+                          <span className="truncate" title={item.action}>
+                            {item.action}
+                          </span>
                           <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-indigo-500 transition-all shrink-0 -ml-0.5 group-hover:translate-x-0.5" />
                         </h3>
 
                         {item.detail && (
                           <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
                             <FileText className="w-2.5 h-2.5 text-gray-400 shrink-0" />
-                            <span className="truncate">{item.detail}</span>
+                            <span className="truncate" title={item.detail}>
+                              {item.detail}
+                            </span>
                           </p>
                         )}
 

@@ -36,6 +36,40 @@
     
     <title>Trstprep - SSC & Railway Test Series</title>
 
+    <!-- Structured Data (JSON-LD) for Educational Organization & Mock Tests -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "EducationalOrganization",
+            "@id": "https://trstprep.com/#organization",
+            "name": "Trstprep",
+            "url": "https://trstprep.com",
+            "logo": "https://trstprep.com/icons/icon-512.png",
+            "description": "India's premier test preparation platform for SSC CGL, CHSL, and Railway exams featuring 500+ full mocks, live national tests, and smart learning analytics.",
+            "sameAs": [
+              "https://t.me/trstprep"
+            ]
+          },
+          {
+            "@type": "Course",
+            "@id": "https://trstprep.com/#course-ssc-railway",
+            "name": "SSC & Railway Comprehensive Mock Test Series",
+            "description": "Full-length mock tests, sectional speed drills, and PYP practice for SSC CGL, CHSL, MTS, and RRB NTPC.",
+            "provider": {
+              "@id": "https://trstprep.com/#organization"
+            },
+            "educationalCredentialAwarded": "Certificate of Completion",
+            "hasCourseInstance": {
+              "@type": "CourseInstance",
+              "courseMode": "online"
+            }
+          }
+        ]
+      }
+    </script>
+
     <!-- Apply theme + background before first paint to prevent white flash -->
     <style>
       html, body { background-color: #f8f9fa; }

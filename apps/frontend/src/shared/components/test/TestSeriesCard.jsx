@@ -238,7 +238,10 @@ function TestSeriesCard({
 
           {/* Test Series Title with Stage Name in Brackets */}
           <div className="min-h-[2.75rem] mb-2.5 flex items-start">
-            <h3 className="font-bold text-gray-900 dark:text-white text-base leading-snug line-clamp-2 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors">
+            <h3
+              className="font-bold text-gray-900 dark:text-white text-base leading-snug line-clamp-2 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors"
+              title={`${title} ${stageText ? `(${stageText})` : ""}`.trim()}
+            >
               {title}{" "}
               {stageText ? (
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">

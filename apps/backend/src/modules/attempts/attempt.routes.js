@@ -16,6 +16,17 @@ import {
   mapLookupId,
 } from "../../shared/utils/public-id-response.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import {
+  ingestProctoringTelemetry,
+  getAttemptProctoringReport,
+} from "../../services/core/proctoringService.js";
+import {
+  createHandoffSession,
+  claimHandoffSession,
+  getHandoffStatus,
+  revokeHandoff,
+} from "../../services/core/sessionHandoffService.js";
+import { processSyncReplay } from "../../services/core/syncReplayService.js";
 
 const router = express.Router();
 
@@ -1165,6 +1176,204 @@ router.get("/:attemptId/analytics", protect, async (req, res) => {
     console.error("[Attempt Analytics] Error:", error);
     res
       .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// @route   POST /api/attempt/:attemptId/proctoring
+// @desc    Record proctoring telemetry events and calculate live integrity risk
+// @access  Protected
+router.post("/:attemptId/proctoring", protect, async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+    const { events = [] } = req.body;
+
+    const attempt = await findAttemptByIdentifier(attemptId);
+    if (!attempt) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Attempt not found" });
+    }
+
+    if (
+      String(attempt.userId) !== String(req.user.id) &&
+      req.user?.role !== "admin"
+    ) {
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: "Unauthorized access to attempt telemetry",
+        });
+    }
+
+    const internalId = getInternalId(attempt) || attemptId;
+    const report = await ingestProctoringTelemetry(
+      internalId,
+      req.user.id,
+      events,
+      dbHelpers,
+    );
+
+    res.json({
+      success: true,
+      data: report,
+    });
+  } catch (error) {
+    console.error("[Proctoring Telemetry] Ingest error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// @route   GET /api/attempt/:attemptId/proctoring
+// @desc    Get proctoring risk assessment report and suspicious incidents
+// @access  Protected
+router.get("/:attemptId/proctoring", protect, async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+
+    const attempt = await findAttemptByIdentifier(attemptId);
+    if (!attempt) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Attempt not found" });
+    }
+
+    if (
+      String(attempt.userId) !== String(req.user.id) &&
+      req.user?.role !== "admin"
+    ) {
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: "Unauthorized access to attempt proctoring",
+        });
+    }
+
+    const internalId = getInternalId(attempt) || attemptId;
+    const report = await getAttemptProctoringReport(internalId, dbHelpers);
+
+    res.json({
+      success: true,
+      data: report,
+    });
+  } catch (error) {
+    console.error("[Proctoring Telemetry] Report error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// @route   POST /api/attempt/handoff/claim
+// @desc    Claim an active test session on a companion device
+// @access  Private
+router.post("/handoff/claim", protect, async (req, res) => {
+  try {
+    const result = await claimHandoffSession(req.user.id, req.body);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res
+      .status(400)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// @route   GET /api/attempt/handoff/:handoffToken/status
+// @desc    Check status of a handoff token
+// @access  Private
+router.get("/handoff/:handoffToken/status", protect, async (req, res) => {
+  try {
+    const result = getHandoffStatus(req.params.handoffToken);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res
+      .status(400)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// @route   POST /api/attempt/:attemptId/handoff/create
+// @desc    Initiate cross-device session handoff
+// @access  Private
+router.post("/:attemptId/handoff/create", protect, async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+    const attempt = await findAttemptByIdentifier(attemptId);
+    if (!attempt) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Attempt not found" });
+    }
+    if (
+      String(attempt.userId) !== String(req.user.id) &&
+      req.user?.role !== "admin"
+    ) {
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: "Unauthorized access to attempt handoff",
+        });
+    }
+
+    const internalId = getInternalId(attempt) || attemptId;
+    const { state, options } = req.body || {};
+    const result = await createHandoffSession(
+      req.user.id,
+      internalId,
+      state,
+      options,
+    );
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error("[Session Handoff] Create error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// @route   DELETE /api/attempt/handoff/:handoffToken
+// @desc    Revoke a pending handoff session
+// @access  Private
+router.delete("/handoff/:handoffToken", protect, async (req, res) => {
+  try {
+    const revoked = revokeHandoff(req.user.id, req.params.handoffToken);
+    res.json({ success: true, revoked });
+  } catch (error) {
+    res
+      .status(400)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// @route   POST /api/attempt/:attemptId/sync-replay
+// @desc    Replay queued offline mutations with idempotency and conflict resolution
+// @access  Private
+router.post("/:attemptId/sync-replay", protect, async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+    const attempt = await findAttemptByIdentifier(attemptId);
+    if (!attempt) {
+      return res
+        .status(404)
+        .json({ success: false, message: `Attempt ${attemptId} not found` });
+    }
+    const internalId = getInternalId(attempt) || attemptId;
+    const result = await processSyncReplay(internalId, req.user.id, req.body);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    const status = error.statusCode || 500;
+    res
+      .status(status)
       .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });

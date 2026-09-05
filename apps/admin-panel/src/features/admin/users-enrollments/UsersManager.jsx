@@ -1190,10 +1190,16 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
                         {initial}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-gray-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                        <p
+                          className="text-sm font-bold text-gray-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400"
+                          title={userName}
+                        >
                           {userName}
                         </p>
-                        <p className="text-[11px] text-gray-400 truncate">
+                        <p
+                          className="text-[11px] text-gray-400 truncate"
+                          title={user.email}
+                        >
                           {user.email}
                         </p>
                       </div>
@@ -1558,11 +1564,16 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
                     {getUserInitial(viewingUser.name)}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-base font-bold text-gray-900 dark:text-white truncate">
+                    <h3
+                      className="text-base font-bold text-gray-900 dark:text-white truncate"
+                      title={getUserName(viewingUser)}
+                    >
                       {getUserName(viewingUser)}
                     </h3>
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <span className="truncate">{viewingUser.email}</span>
+                      <span className="truncate" title={viewingUser.email}>
+                        {viewingUser.email}
+                      </span>
                       <button
                         onClick={() =>
                           copyToClipboard(viewingUser.email, "Email")

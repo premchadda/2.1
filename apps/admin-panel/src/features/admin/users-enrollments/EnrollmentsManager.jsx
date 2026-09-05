@@ -784,10 +784,16 @@ export default function EnrollmentsManager() {
                         {initial}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-gray-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                        <p
+                          className="text-sm font-bold text-gray-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400"
+                          title={enrollment.userName || "Candidate"}
+                        >
                           {enrollment.userName || "Candidate"}
                         </p>
-                        <p className="text-[11px] text-gray-400 truncate">
+                        <p
+                          className="text-[11px] text-gray-400 truncate"
+                          title={enrollment.userEmail}
+                        >
                           {enrollment.userEmail}
                         </p>
                       </div>

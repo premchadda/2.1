@@ -156,4 +156,86 @@ describe("maintenanceMiddleware", () => {
     expect(next).not.toHaveBeenCalled();
     expect(res.statusCode).toBe(503);
   });
+
+  it("allows super_admin role via cookie token", async () => {
+    mockGetPublicSettings.mockResolvedValue({
+      maintenance: {
+        enabled: true,
+        message: "Maintenance active",
+        allowAdminAccess: true,
+      },
+    });
+
+    const superAdminToken = jwt.sign(
+      { id: 99, role: "super_admin" },
+      JWT_SECRET,
+      { expiresIn: "1h" },
+    );
+
+    const { req, res, next } = makeMocks({
+      path: "/api/tests/custom-mock",
+      cookies: { token: superAdminToken },
+    });
+
+    await maintenanceMiddleware(req, res, next);
+    expect(next).toHaveBeenCalled();
+    expect(res.statusCode).toBeNull();
+  });
+
+  it("blocks admin when allowAdminAccess is explicitly false", async () => {
+    mockGetPublicSettings.mockResolvedValue({
+      maintenance: {
+        enabled: true,
+        message: "Emergency total blackout",
+        allowAdminAccess: false,
+      },
+    });
+
+    const adminToken = jwt.sign(
+      { id: 1, role: "admin", isAdmin: true },
+      JWT_SECRET,
+      { expiresIn: "1h" },
+    );
+
+    const { req, res, next } = makeMocks({
+      path: "/api/study/materials",
+      authHeader: `Bearer ${adminToken}`,
+    });
+
+    await maintenanceMiddleware(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(503);
+    expect(res.body.message).toBe("Emergency total blackout");
+  });
+
+  it("fails open if getPublicSettings throws an exception", async () => {
+    mockGetPublicSettings.mockRejectedValue(
+      new Error("Database connection pool exhausted"),
+    );
+
+    const { req, res, next } = makeMocks({ path: "/api/tests" });
+    await maintenanceMiddleware(req, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.statusCode).toBeNull();
+  });
+
+  it("blocks and returns 503 when admin token is expired or malformed", async () => {
+    mockGetPublicSettings.mockResolvedValue({
+      maintenance: {
+        enabled: true,
+        message: "Maintenance active",
+        allowAdminAccess: true,
+      },
+    });
+
+    const { req, res, next } = makeMocks({
+      path: "/api/study/materials",
+      authHeader: "Bearer invalid.malformed.token",
+    });
+
+    await maintenanceMiddleware(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(503);
+  });
 });

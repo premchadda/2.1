@@ -1,16 +1,16 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { practiceAPI } from "../../../shared/lib/practiceAPI";
 import { toast } from "react-hot-toast";
 import {
   Zap,
-  Award,
-  CheckCircle,
-  XCircle,
   ArrowLeft,
   RefreshCw,
   Trophy,
-  BookOpen,
   Play,
+  Infinity as InfinityIcon,
+  Shuffle,
+  Flag,
+  History,
 } from "lucide-react";
 import { sanitizeHtml } from "../../../shared/lib/htmlSanitizer";
 import MathRenderer from "../../../shared/components/MathRenderer";
@@ -75,6 +75,17 @@ const DRILL_CATEGORIES = [
   },
 ];
 
+// Drill round-length presets the user can pick from (plus ∞ Endless)
+const DRILL_LENGTH_OPTIONS = [5, 10, 20, 50];
+// Endless mode streams questions in batches of this size
+const ENDLESS_BATCH = 10;
+
+const formatDuration = (ms) => {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m ${s % 60}s`;
+};
+
 export default function FundamentalsGym({ onBack }) {
   const [selectedCategory, setSelectedCategory] = useState(null); // null = show categories grid, object = show category table
   const [tableGroup, setTableGroup] = useState("11-20");
@@ -91,8 +102,20 @@ export default function FundamentalsGym({ onBack }) {
   const [startTime, setStartTime] = useState(null);
   const [completed, setCompleted] = useState(false);
   const [loading, setLoading] = useState(false);
+  // User-configurable round length + endless mode
+  const [setupCatId, setSetupCatId] = useState(null); // opens the drill-setup modal
+  const [drillLength, setDrillLength] = useState(10);
+  const [endless, setEndless] = useState(false);
+  const [answeredCount, setAnsweredCount] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // Session history — IN-MEMORY ONLY (component state). It lives while the
+  // user stays on this page and is never written to the database.
+  const [sessionHistory, setSessionHistory] = useState([]);
+  const historyIdRef = useRef(0);
 
-  const startDrill = async (catId) => {
+  const openDrillSetup = (catId) => setSetupCatId(catId);
+
+  const beginDrill = async (catId) => {
     try {
       setLoading(true);
       const cat = DRILL_CATEGORIES.find((c) => c.id === catId) || {
@@ -100,14 +123,18 @@ export default function FundamentalsGym({ onBack }) {
         title: catId,
       };
       setActiveCategory(cat);
-      const data = await practiceAPI.getFundamentalDrill(catId, 10);
+      // Endless mode starts with one batch and streams more as you advance
+      const count = endless ? ENDLESS_BATCH : drillLength;
+      const data = await practiceAPI.getFundamentalDrill(catId, count);
       setDrillData(data?.questions || []);
       setCurrentIdx(0);
       setSelectedOption(null);
       setScore(0);
+      setAnsweredCount(0);
       setCompleted(false);
       setStartTime(Date.now());
       setInDrillMode(true);
+      setSetupCatId(null);
     } catch {
       toast.error("Failed to load calculation drill");
     } finally {
@@ -115,9 +142,40 @@ export default function FundamentalsGym({ onBack }) {
     }
   };
 
+  // Records the finished round into in-memory session history only.
+  // No submitFundamentalDrill / database write happens anywhere.
+  const finishRound = () => {
+    setCompleted(true);
+    historyIdRef.current += 1;
+    setSessionHistory((prev) => [
+      {
+        id: historyIdRef.current,
+        category: activeCategory?.id,
+        title: activeCategory?.title || "Drill",
+        icon: activeCategory?.icon || "⚡",
+        score,
+        total: answeredCount,
+        durationMs: Date.now() - startTime,
+        endless,
+      },
+      ...prev,
+    ]);
+  };
+
+  // "Try again" with the exact same question set
+  const retrySameSet = () => {
+    setCurrentIdx(0);
+    setSelectedOption(null);
+    setScore(0);
+    setAnsweredCount(0);
+    setCompleted(false);
+    setStartTime(Date.now());
+  };
+
   const handleSelectOption = (opt) => {
     if (selectedOption !== null) return;
     setSelectedOption(opt);
+    setAnsweredCount((prev) => prev + 1);
     const currentQ = drillData[currentIdx];
     const isCorrect = String(opt) === String(currentQ.answer);
     if (isCorrect) setScore((prev) => prev + 1);
@@ -127,21 +185,127 @@ export default function FundamentalsGym({ onBack }) {
     if (currentIdx + 1 < drillData.length) {
       setCurrentIdx((prev) => prev + 1);
       setSelectedOption(null);
-    } else {
-      setCompleted(true);
-      const durationMs = Date.now() - startTime;
+    } else if (endless) {
+      // Infinite drill: seamlessly append the next batch of questions
+      setLoadingMore(true);
       try {
-        await practiceAPI.submitFundamentalDrill({
-          category: activeCategory.id,
-          score,
-          totalQuestions: drillData.length,
-          durationMs,
-        });
+        const data = await practiceAPI.getFundamentalDrill(
+          activeCategory.id,
+          ENDLESS_BATCH,
+        );
+        const more = data?.questions || [];
+        if (more.length === 0) {
+          finishRound();
+        } else {
+          setDrillData((prev) => [...prev, ...more]);
+          setCurrentIdx((prev) => prev + 1);
+          setSelectedOption(null);
+        }
       } catch {
-        // silent fail
+        toast.error("Couldn't load more questions — round ended");
+        finishRound();
+      } finally {
+        setLoadingMore(false);
       }
+    } else {
+      finishRound();
     }
   };
+
+  const sessionTotals = sessionHistory.reduce(
+    (acc, h) => ({ score: acc.score + h.score, total: acc.total + h.total }),
+    { score: 0, total: 0 },
+  );
+
+  // Drill-setup modal — shared across all three stage returns
+  const setupModal = setupCatId ? (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+      onClick={() => setSetupCatId(null)}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-gray-700 p-5 sm:p-7 w-full max-w-sm shadow-2xl animate-scale-in"
+      >
+        <div className="flex items-center gap-2.5 mb-4">
+          <span className="text-xl p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl border border-indigo-100 dark:border-indigo-800">
+            ⚡
+          </span>
+          <div>
+            <h3 className="font-extrabold text-slate-900 dark:text-white text-sm sm:text-base">
+              Drill Setup
+            </h3>
+            <p className="text-[11px] text-slate-500 dark:text-gray-400">
+              {DRILL_CATEGORIES.find((c) => c.id === setupCatId)?.title ||
+                setupCatId}
+            </p>
+          </div>
+        </div>
+
+        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+          Questions this round
+        </p>
+        <div className="grid grid-cols-5 gap-1.5 mb-2">
+          {DRILL_LENGTH_OPTIONS.map((n) => (
+            <button
+              key={n}
+              onClick={() => {
+                setDrillLength(n);
+                setEndless(false);
+              }}
+              className={`py-2 rounded-xl text-sm font-bold border-2 transition-all active:scale-95 ${
+                !endless && drillLength === n
+                  ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                  : "border-slate-200 dark:border-gray-700 text-slate-600 dark:text-gray-300 hover:border-indigo-300"
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+          <button
+            onClick={() => setEndless(true)}
+            title="Endless — new questions stream in until you stop"
+            className={`py-2 rounded-xl text-sm font-bold border-2 transition-all active:scale-95 inline-flex items-center justify-center ${
+              endless
+                ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                : "border-slate-200 dark:border-gray-700 text-slate-600 dark:text-gray-300 hover:border-indigo-300"
+            }`}
+          >
+            <InfinityIcon className="w-4 h-4" />
+          </button>
+        </div>
+
+        <p className="text-[10px] text-slate-400 mb-4 leading-relaxed">
+          {endless
+            ? "Endless mode: fresh questions stream in until you press End. "
+            : ""}
+          Practice-only — nothing is saved to your account. Session history
+          clears when you leave this page.
+        </p>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => setSetupCatId(null)}
+            className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-200 hover:bg-slate-200 dark:hover:bg-gray-600 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => beginDrill(setupCatId)}
+            disabled={loading}
+            className="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition inline-flex items-center justify-center gap-1.5 disabled:opacity-60"
+          >
+            {loading ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Play className="w-3.5 h-3.5 fill-white" />
+            )}
+            {loading ? "Loading…" : "Start Drill"}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   const tableCols =
     tableGroup === "1-10"
@@ -156,37 +320,82 @@ export default function FundamentalsGym({ onBack }) {
   if (inDrillMode && drillData && activeCategory) {
     const currentQ = drillData[currentIdx];
     const isLast = currentIdx === drillData.length - 1;
+    const accuracy =
+      answeredCount > 0 ? Math.round((score / answeredCount) * 100) : 0;
 
     return (
-      <div className="max-w-[95vw] sm:max-w-2xl mx-auto py-6 px-4">
+      <div className="max-w-[95vw] sm:max-w-2xl mx-auto py-4 sm:py-6 px-3 sm:px-4">
         <button
           onClick={() => setInDrillMode(false)}
-          className="inline-flex items-center text-sm font-semibold text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200 mb-6"
+          className="inline-flex items-center text-xs sm:text-sm font-semibold text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200 mb-3 sm:mb-5"
         >
           <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to{" "}
           {selectedCategory?.title || "Reference Table"}
         </button>
 
         {!completed ? (
-          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-8 shadow-sm">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100 dark:border-gray-700">
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">
-                Drill: {activeCategory.title}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-gray-700 p-4 sm:p-8 shadow-sm animate-slide-up">
+            <div className="flex items-center justify-between gap-2 mb-3 pb-3 border-b border-slate-100 dark:border-gray-700">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 sm:px-3 py-1 rounded-full truncate">
+                {endless ? "∞ " : ""}Drill: {activeCategory.title}
               </span>
-              <span className="text-sm font-semibold text-slate-500 dark:text-gray-400">
-                Question {currentIdx + 1} of {drillData.length}
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[11px] sm:text-sm font-semibold text-slate-500 dark:text-gray-400 tabular-nums">
+                  {endless ? (
+                    <>
+                      Q {currentIdx + 1} ·{" "}
+                      <InfinityIcon className="w-3 h-3 inline -mt-0.5" />
+                    </>
+                  ) : (
+                    <>
+                      Q {currentIdx + 1} / {drillData.length}
+                    </>
+                  )}
+                </span>
+                {endless && (
+                  <button
+                    onClick={finishRound}
+                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition inline-flex items-center gap-1"
+                  >
+                    <Flag className="w-3 h-3" /> End
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="text-center py-6">
-              <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white mb-8 font-mono">
+            {/* progress / live accuracy bar */}
+            <div className="h-1 bg-slate-100 dark:bg-gray-700 rounded-full overflow-hidden mb-4 sm:mb-6">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  endless
+                    ? "bg-gradient-to-r from-emerald-500 to-teal-500"
+                    : "bg-gradient-to-r from-indigo-500 to-purple-500"
+                }`}
+                style={{
+                  width: `${
+                    endless
+                      ? accuracy
+                      : Math.min(
+                          100,
+                          (answeredCount / Math.max(drillData.length, 1)) * 100,
+                        )
+                  }%`,
+                }}
+              />
+            </div>
+
+            <div
+              key={currentIdx}
+              className="text-center py-3 sm:py-6 animate-slide-in-up"
+            >
+              <h2 className="text-lg sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white mb-5 sm:mb-8 font-mono">
                 <MathRenderer text={sanitizeHtml(currentQ?.prompt)} />
               </h2>
 
-              <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-4 max-w-md mx-auto">
                 {currentQ?.options?.map((opt, i) => {
                   let btnStyle =
-                    "border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-900 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-800 dark:text-gray-200";
+                    "border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-900 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 text-slate-800 dark:text-gray-200";
                   if (selectedOption !== null) {
                     if (String(opt) === String(currentQ.answer)) {
                       btnStyle =
@@ -204,7 +413,7 @@ export default function FundamentalsGym({ onBack }) {
                     <button
                       key={i}
                       onClick={() => handleSelectOption(opt)}
-                      className={`p-4 rounded-2xl border-2 text-lg font-bold transition-all ${btnStyle}`}
+                      className={`p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border-2 text-base sm:text-lg font-bold transition-all duration-150 active:scale-95 ${btnStyle}`}
                     >
                       <MathRenderer text={sanitizeHtml(opt)} />
                     </button>
@@ -214,64 +423,158 @@ export default function FundamentalsGym({ onBack }) {
             </div>
 
             {selectedOption !== null && (
-              <div className="mt-6 flex justify-end">
+              <div className="mt-3 sm:mt-6 flex items-center justify-end gap-3">
+                {endless && (
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                    {score}/{answeredCount} · {accuracy}%
+                  </span>
+                )}
                 <button
                   onClick={handleNext}
-                  className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition"
+                  disabled={loadingMore}
+                  className="px-4 sm:px-6 py-2 sm:py-3 bg-indigo-600 text-white rounded-xl font-bold text-xs sm:text-sm hover:bg-indigo-700 active:scale-95 transition disabled:opacity-60 inline-flex items-center gap-2"
                 >
-                  {isLast ? "Complete Drill" : "Next Question →"}
+                  {loadingMore && (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  )}
+                  {loadingMore
+                    ? "Loading…"
+                    : isLast && !endless
+                      ? "Complete Drill"
+                      : "Next Question →"}
                 </button>
               </div>
             )}
           </div>
         ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-8 text-center shadow-sm">
-            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-600 dark:text-amber-400">
-              <Trophy className="w-8 h-8" />
+          <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-gray-700 p-5 sm:p-8 text-center shadow-sm animate-scale-in">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 text-amber-600 dark:text-amber-400">
+              <Trophy className="w-6 h-6 sm:w-8 sm:h-8" />
             </div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">
-              Drill Completed!
+            <h2 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white mb-1.5">
+              {endless ? "Endless Round Complete!" : "Drill Completed!"}
             </h2>
-            <p className="text-slate-500 dark:text-gray-400 text-xs mb-6">
-              Your speed and accuracy have been saved to your fundamental
-              mastery graph.
+            <p className="text-slate-500 dark:text-gray-400 text-[11px] sm:text-xs mb-4 sm:mb-6">
+              Session practice only — nothing was saved to your account.
             </p>
 
-            <div className="flex justify-center gap-6 mb-8">
-              <div className="bg-slate-50 dark:bg-gray-900 p-4 rounded-2xl border border-slate-100 dark:border-gray-700 min-w-[120px]">
-                <div className="text-xs text-slate-400 dark:text-gray-500 font-bold uppercase mb-1">
+            <div className="flex justify-center gap-2.5 sm:gap-6 mb-4 sm:mb-6">
+              <div className="bg-slate-50 dark:bg-gray-900 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100 dark:border-gray-700 min-w-[88px] sm:min-w-[120px] flex-1 max-w-[140px]">
+                <div className="text-[10px] sm:text-xs text-slate-400 dark:text-gray-500 font-bold uppercase mb-1">
                   Score
                 </div>
-                <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
-                  {score} / {drillData.length}
+                <div className="text-lg sm:text-2xl font-black text-indigo-600 dark:text-indigo-400 tabular-nums">
+                  {score} / {answeredCount}
                 </div>
               </div>
-              <div className="bg-slate-50 dark:bg-gray-900 p-4 rounded-2xl border border-slate-100 dark:border-gray-700 min-w-[120px]">
-                <div className="text-xs text-slate-400 dark:text-gray-500 font-bold uppercase mb-1">
+              <div className="bg-slate-50 dark:bg-gray-900 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100 dark:border-gray-700 min-w-[88px] sm:min-w-[120px] flex-1 max-w-[140px]">
+                <div className="text-[10px] sm:text-xs text-slate-400 dark:text-gray-500 font-bold uppercase mb-1">
                   Accuracy
                 </div>
-                <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                  {Math.round((score / drillData.length) * 100)}%
+                <div className="text-lg sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+                  {accuracy}%
+                </div>
+              </div>
+              <div className="bg-slate-50 dark:bg-gray-900 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100 dark:border-gray-700 min-w-[88px] sm:min-w-[120px] flex-1 max-w-[140px]">
+                <div className="text-[10px] sm:text-xs text-slate-400 dark:text-gray-500 font-bold uppercase mb-1">
+                  Time
+                </div>
+                <div className="text-lg sm:text-2xl font-black text-slate-700 dark:text-gray-200 tabular-nums">
+                  {formatDuration(Date.now() - startTime)}
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-center gap-4">
+            {/* Session history — in-memory only, clears when the user leaves this page */}
+            {sessionHistory.length > 0 && (
+              <div className="text-left bg-slate-50 dark:bg-gray-900 border border-slate-100 dark:border-gray-700 rounded-xl sm:rounded-2xl p-3 sm:p-4 mb-4 sm:mb-6">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <History className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    This Session ({sessionHistory.length} round
+                    {sessionHistory.length > 1 ? "s" : ""} ·{" "}
+                    {sessionTotals.score}/{sessionTotals.total} correct)
+                  </span>
+                </div>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {sessionHistory.slice(0, 8).map((h) => {
+                    const hAcc = h.total > 0 ? h.score / h.total : 0;
+                    return (
+                      <div
+                        key={h.id}
+                        className="flex items-center justify-between gap-2 text-[11px] sm:text-xs bg-white dark:bg-gray-800 border border-slate-100 dark:border-gray-700 rounded-lg px-2.5 py-1.5"
+                      >
+                        <span
+                          className="truncate font-semibold text-slate-600 dark:text-gray-300"
+                          title={h.title}
+                        >
+                          {h.icon} {h.title}
+                          {h.endless && (
+                            <span className="ml-1 text-emerald-500">∞</span>
+                          )}
+                        </span>
+                        <span className="flex items-center gap-2 shrink-0 font-mono tabular-nums">
+                          <span
+                            className={
+                              hAcc >= 0.7
+                                ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                                : "text-amber-600 dark:text-amber-400 font-bold"
+                            }
+                          >
+                            {h.score}/{h.total}
+                          </span>
+                          <span className="text-slate-400">
+                            {formatDuration(h.durationMs)}
+                          </span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {sessionHistory.length > 8 && (
+                    <p className="text-[10px] text-slate-400 text-center pt-1">
+                      +{sessionHistory.length - 8} earlier rounds
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
               <button
-                onClick={() => startDrill(activeCategory.id)}
-                className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition inline-flex items-center"
+                onClick={retrySameSet}
+                className="px-3.5 sm:px-5 py-2 sm:py-2.5 bg-slate-900 text-white rounded-xl text-[11px] sm:text-xs font-bold hover:bg-slate-800 active:scale-95 transition inline-flex items-center"
               >
-                <RefreshCw className="w-4 h-4 mr-2" /> Repeat Drill
+                <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />{" "}
+                Retry Same Set
+              </button>
+              <button
+                onClick={() => beginDrill(activeCategory.id)}
+                disabled={loading}
+                className="px-3.5 sm:px-5 py-2 sm:py-2.5 bg-indigo-600 text-white rounded-xl text-[11px] sm:text-xs font-bold hover:bg-indigo-700 active:scale-95 transition inline-flex items-center disabled:opacity-60"
+              >
+                {loading ? (
+                  <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 animate-spin" />
+                ) : (
+                  <Shuffle className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
+                )}
+                New Questions
               </button>
               <button
                 onClick={() => setInDrillMode(false)}
-                className="px-5 py-2.5 bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-gray-200 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-gray-700 transition"
+                className="px-3.5 sm:px-5 py-2 sm:py-2.5 bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-gray-200 rounded-xl text-[11px] sm:text-xs font-bold hover:bg-slate-200 dark:hover:bg-gray-600 active:scale-95 transition"
               >
                 Review Reference Data
               </button>
             </div>
+            <button
+              onClick={() => setSetupCatId(activeCategory.id)}
+              className="mt-3 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+            >
+              Change round length
+            </button>
           </div>
         )}
+        {setupModal}
       </div>
     );
   }
@@ -330,7 +633,7 @@ export default function FundamentalsGym({ onBack }) {
                   ))}
                 </div>
                 <button
-                  onClick={() => startDrill("tables")}
+                  onClick={() => openDrillSetup("tables")}
                   className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
                 >
                   <Play className="w-3.5 h-3.5 fill-white" /> Start Practice
@@ -406,7 +709,7 @@ export default function FundamentalsGym({ onBack }) {
               </div>
 
               <button
-                onClick={() => startDrill("squares")}
+                onClick={() => openDrillSetup("squares")}
                 className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
               >
                 <Play className="w-3.5 h-3.5 fill-white" /> Start Practice Drill
@@ -520,7 +823,7 @@ export default function FundamentalsGym({ onBack }) {
               </div>
 
               <button
-                onClick={() => startDrill("cubes")}
+                onClick={() => openDrillSetup("cubes")}
                 className="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
               >
                 <Play className="w-3.5 h-3.5 fill-white" /> Start Practice Drill
@@ -635,7 +938,7 @@ export default function FundamentalsGym({ onBack }) {
                   </button>
                 </div>
                 <button
-                  onClick={() => startDrill("roots")}
+                  onClick={() => openDrillSetup("roots")}
                   className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
                 >
                   <Play className="w-3.5 h-3.5 fill-white" /> Start Practice
@@ -829,7 +1132,7 @@ export default function FundamentalsGym({ onBack }) {
                   </button>
                 </div>
                 <button
-                  onClick={() => startDrill("fractions")}
+                  onClick={() => openDrillSetup("fractions")}
                   className="px-5 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
                 >
                   <Play className="w-3.5 h-3.5 fill-white" /> Start Practice
@@ -1098,7 +1401,7 @@ export default function FundamentalsGym({ onBack }) {
               </div>
 
               <button
-                onClick={() => startDrill("triplets")}
+                onClick={() => openDrillSetup("triplets")}
                 className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
               >
                 <Play className="w-3.5 h-3.5 fill-white" /> Start Practice Drill
@@ -1250,7 +1553,7 @@ export default function FundamentalsGym({ onBack }) {
               </div>
 
               <button
-                onClick={() => startDrill("divisibility")}
+                onClick={() => openDrillSetup("divisibility")}
                 className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
               >
                 <Play className="w-3.5 h-3.5 fill-white" /> Start Practice Drill
@@ -1361,7 +1664,7 @@ export default function FundamentalsGym({ onBack }) {
               </div>
 
               <button
-                onClick={() => startDrill("primes")}
+                onClick={() => openDrillSetup("primes")}
                 className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
               >
                 <Play className="w-3.5 h-3.5 fill-white" /> Start Practice Drill
@@ -1389,6 +1692,7 @@ export default function FundamentalsGym({ onBack }) {
             </div>
           </div>
         )}
+        {setupModal}
       </div>
     );
   }
@@ -1397,7 +1701,7 @@ export default function FundamentalsGym({ onBack }) {
   // STAGE 1: MAIN FUNDAMENTALS CATEGORY CARDS GRID
   // ══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="max-w-6xl mx-auto py-6 px-4 space-y-8">
+    <div className="max-w-6xl mx-auto py-4 sm:py-6 px-3 sm:px-4 space-y-4 sm:space-y-8">
       {onBack && (
         <button
           onClick={onBack}
@@ -1408,14 +1712,14 @@ export default function FundamentalsGym({ onBack }) {
       )}
 
       {/* Main Gym Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 md:p-8 shadow-sm flex flex-wrap items-center justify-between gap-6">
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-sm flex flex-wrap items-center justify-between gap-4 sm:gap-6">
         <div>
           <span className="text-xs font-bold uppercase tracking-wider bg-indigo-500/30 text-indigo-200 px-3 py-1 rounded-full mb-2 inline-block">
             Foundational Calculation Reflexes
           </span>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black flex items-center">
-            <Zap className="w-7 h-7 text-amber-400 mr-2.5" /> 🧮 Fundamentals
-            Gym Cards
+          <h1 className="text-lg sm:text-2xl lg:text-3xl font-black flex items-center">
+            <Zap className="w-5 h-5 sm:w-7 sm:h-7 text-amber-400 mr-2.5" /> 🧮
+            Fundamentals Gym Cards
           </h1>
           <p className="text-xs text-slate-300 dark:text-gray-500 mt-1 max-w-[95vw] sm:max-w-xl">
             Select a category card below to view its full reference table and
@@ -1424,48 +1728,71 @@ export default function FundamentalsGym({ onBack }) {
         </div>
       </div>
 
-      {/* CATEGORIES GRID OF CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        {DRILL_CATEGORIES.map((cat) => (
+      {/* Session summary — in-memory only, clears when you leave this page */}
+      {sessionHistory.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 bg-indigo-50/60 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl px-3 py-2 text-[11px] sm:text-xs animate-slide-up">
+          <History className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+          <span className="font-bold text-indigo-700 dark:text-indigo-300 tabular-nums">
+            Session: {sessionHistory.length} round
+            {sessionHistory.length > 1 ? "s" : ""} · {sessionTotals.score}/
+            {sessionTotals.total} correct
+          </span>
+          <span className="text-slate-400 dark:text-gray-500 hidden md:inline">
+            (history lives only while this page is open)
+          </span>
+          <button
+            onClick={() => setSessionHistory([])}
+            className="ml-auto font-bold text-slate-400 hover:text-rose-500 transition"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      {/* CATEGORIES GRID OF CARDS — compact + animated */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+        {DRILL_CATEGORIES.map((cat, idx) => (
           <div
             key={cat.id}
             onClick={() => setSelectedCategory(cat)}
-            className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-6 hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between group shadow-xs"
+            style={{ animationDelay: `${idx * 45}ms` }}
+            className="animate-slide-in-up bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 p-3 sm:p-5 shadow-xs hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-lg hover:-translate-y-1 active:scale-[0.97] transition-all duration-200 cursor-pointer flex flex-col group"
           >
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xl sm:text-2xl lg:text-3xl p-3 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-slate-100 dark:border-gray-700 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:border-indigo-100 dark:group-hover:border-indigo-800 transition">
+            <div className="flex-1">
+              <div className="flex items-start justify-between mb-2 sm:mb-3.5">
+                <span className="text-base sm:text-2xl p-1.5 sm:p-2.5 bg-slate-50 dark:bg-gray-900 rounded-lg sm:rounded-2xl border border-slate-100 dark:border-gray-700 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:border-indigo-100 dark:group-hover:border-indigo-800 transition">
                   {cat.icon}
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full">
-                  Click to View Table
+                <span className="hidden lg:inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full">
+                  View Table
                 </span>
               </div>
-              <h3 className="font-extrabold text-slate-900 dark:text-white text-lg mb-1.5 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
+              <h3 className="font-extrabold text-slate-900 dark:text-white text-[13px] sm:text-[15px] leading-snug mb-1 sm:mb-1.5 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
                 {cat.title}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed mb-6">
+              <p className="hidden sm:block text-[11px] text-slate-500 dark:text-gray-400 leading-relaxed line-clamp-2 mb-3">
                 {cat.description}
               </p>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 dark:border-gray-700 flex items-center justify-between">
-              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:underline">
-                View Reference Table →
+            <div className="pt-2 sm:pt-3 mt-auto border-t border-slate-100 dark:border-gray-700 flex items-center justify-between gap-1.5">
+              <span className="text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:underline truncate">
+                Table <span className="hidden sm:inline">→</span>
               </span>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  startDrill(cat.id);
+                  openDrillSetup(cat.id);
                 }}
-                className="px-3 py-1.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-indigo-600 transition flex items-center gap-1"
+                className="px-2 py-1 sm:px-3 sm:py-1.5 bg-slate-900 text-white rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold hover:bg-indigo-600 active:scale-95 transition flex items-center gap-1 shrink-0"
               >
-                <Play className="w-3 h-3 fill-white" /> Drill
+                <Play className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-white" /> Drill
               </button>
             </div>
           </div>
         ))}
       </div>
+      {setupModal}
     </div>
   );
 }

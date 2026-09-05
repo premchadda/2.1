@@ -217,7 +217,10 @@ export default function PracticeTopicTree({
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <h4 className="text-xs md:text-sm font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                          <h4
+                            className="text-xs md:text-sm font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors"
+                            title={topic.name}
+                          >
                             {topic.name}
                           </h4>
                           {accuracy !== null && (

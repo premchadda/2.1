@@ -143,7 +143,10 @@ const SubjectTreeNode = ({
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-                <h3 className="font-bold text-gray-900 dark:text-white text-sm sm:text-base tracking-tight truncate">
+                <h3
+                  className="font-bold text-gray-900 dark:text-white text-sm sm:text-base tracking-tight truncate"
+                  title={subject.name}
+                >
                   {subject.name}
                 </h3>
 
@@ -178,11 +181,17 @@ const SubjectTreeNode = ({
               </div>
 
               <div className="flex items-center gap-2 text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">
-                <span className="font-mono bg-gray-100 dark:bg-gray-700/50 px-1.5 sm:px-2 py-0.5 rounded text-gray-600 dark:text-gray-300 truncate max-w-[28vw] sm:max-w-none">
+                <span
+                  className="font-mono bg-gray-100 dark:bg-gray-700/50 px-1.5 sm:px-2 py-0.5 rounded text-gray-600 dark:text-gray-300 truncate max-w-[28vw] sm:max-w-none"
+                  title={subject.slug}
+                >
                   {subject.slug}
                 </span>
                 {subject.description && (
-                  <span className="truncate hidden md:inline text-gray-500 dark:text-gray-400">
+                  <span
+                    className="truncate hidden md:inline text-gray-500 dark:text-gray-400"
+                    title={subject.description}
+                  >
                     {subject.description}
                   </span>
                 )}

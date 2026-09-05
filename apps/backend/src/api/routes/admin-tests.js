@@ -83,6 +83,96 @@ const testSchema = createSchema()
   .field("promotionBannerAssetId", optionalIdField)
   .field("status", { type: "string", required: false, maxLength: 50 });
 
+// ===== TEST LIFECYCLE & VERSIONING CONFIGURATION =====
+export const LIFECYCLE_STATES = Object.freeze({
+  DRAFT: "draft",
+  IN_REVIEW: "in_review",
+  SCHEDULED: "scheduled",
+  PUBLISHED: "published",
+  ARCHIVED: "archived",
+});
+
+export const ALLOWED_TRANSITIONS = Object.freeze({
+  draft: ["in_review", "archived"],
+  in_review: ["draft", "scheduled", "published", "archived"],
+  scheduled: ["in_review", "published", "archived"],
+  published: ["archived", "draft"],
+  archived: ["draft"],
+});
+
+export const validatePublicationPrerequisites = (
+  test = {},
+  questionCount = 0,
+) => {
+  const errors = [];
+  const effectiveQuestions = Math.max(
+    Number(test.totalQuestions || test.total_questions || 0),
+    Number(questionCount || 0),
+  );
+  const effectiveMarks = Number(test.totalMarks || test.total_marks || 0);
+  const effectiveDuration = Number(test.duration || 0);
+
+  if (effectiveQuestions <= 0) {
+    errors.push("Test must have totalQuestions > 0 before publishing");
+  }
+  if (effectiveMarks <= 0) {
+    errors.push("Test must have totalMarks > 0 before publishing");
+  }
+  if (effectiveDuration <= 0) {
+    errors.push("Test must have duration > 0 before publishing");
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+};
+
+/**
+ * Deterministic Pseudo-Random Number Generator (Mulberry32)
+ * Ensures reproducible pseudo-random numbers from a given integer seed.
+ */
+export const mulberry32 = (seed) => {
+  let a = Number.isInteger(seed)
+    ? seed
+    : Math.floor(Math.abs(Number(seed)) || 1);
+  if (isNaN(a) || a === 0) a = 123456789;
+  return function () {
+    let t = (a += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+/**
+ * Deterministically shuffles an array of questions using Fisher-Yates with a seeded PRNG.
+ * Given identical questions and identical seed, the resulting array order is 100% reproducible.
+ */
+export const shuffleQuestionsWithSeed = (questions = [], seed = 42) => {
+  if (!Array.isArray(questions) || questions.length <= 1) {
+    return Array.isArray(questions) ? [...questions] : [];
+  }
+  const numericSeed =
+    typeof seed === "string"
+      ? seed
+          .split("")
+          .reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) | 0, 0)
+      : Number(seed) || 42;
+
+  const rng = mulberry32(numericSeed);
+  const result = [...questions];
+
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const temp = result[i];
+    result[i] = result[j];
+    result[j] = temp;
+  }
+
+  return result;
+};
+
 // Helper to parse asset IDs is imported from shared utils
 
 const getTestSeriesId = (source = {}) =>
@@ -893,6 +983,216 @@ router.put("/tests/:id", validateBody(testSchema), async (req, res) => {
     }
 
     res.json({ success: true, data: updated });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// PUT /api/admin/tests/:id/lifecycle - State machine transition with versioning & audit
+router.put("/tests/:id/lifecycle", async (req, res) => {
+  try {
+    const { status, scheduledAt, note, shuffleSeed } = req.body || {};
+    if (!status || typeof status !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "A valid target status string is required",
+      });
+    }
+
+    const targetStatus = status.trim().toLowerCase();
+    const validStates = Object.values(LIFECYCLE_STATES);
+    if (!validStates.includes(targetStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid target status '${status}'. Allowed states: ${validStates.join(", ")}`,
+      });
+    }
+
+    const test = await Test.findByIdentifier(req.params.id);
+    if (!test) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Test not found" });
+    }
+
+    const currentStatus = String(test.status || "draft").toLowerCase();
+
+    if (currentStatus === targetStatus) {
+      return res.json({
+        success: true,
+        message: `Test is already in '${targetStatus}' status`,
+        data: test,
+        status: targetStatus,
+        previousStatus: currentStatus,
+      });
+    }
+
+    const allowed = ALLOWED_TRANSITIONS[currentStatus] || [];
+    if (!allowed.includes(targetStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid transition from '${currentStatus}' to '${targetStatus}'. Allowed transitions: ${allowed.join(", ") || "none"}`,
+      });
+    }
+
+    // Publication / Scheduling prerequisite checks
+    if (
+      targetStatus === LIFECYCLE_STATES.PUBLISHED ||
+      targetStatus === LIFECYCLE_STATES.SCHEDULED
+    ) {
+      let questionCount = 0;
+      try {
+        const qCountRes = await pool.query(
+          `SELECT COUNT(*)::int as count FROM questions WHERE is_active = true AND (test_id = $1 OR "testId" = $1 OR test_id = $2 OR "testId" = $2)`,
+          [Number(test.id) || -1, String(test.id)],
+        );
+        questionCount = qCountRes?.rows?.[0]?.count ?? 0;
+      } catch (err) {
+        logger.warn(
+          `Could not count questions for test ${test.id}:`,
+          err.message,
+        );
+      }
+
+      const check = validatePublicationPrerequisites(test, questionCount);
+      if (!check.valid) {
+        return res.status(400).json({
+          success: false,
+          message: "Publication prerequisite checks failed",
+          errors: check.errors,
+        });
+      }
+
+      if (targetStatus === LIFECYCLE_STATES.SCHEDULED) {
+        if (!scheduledAt || isNaN(new Date(scheduledAt).getTime())) {
+          return res.status(400).json({
+            success: false,
+            message: "Scheduled tests require a valid future scheduledAt date",
+          });
+        }
+        if (new Date(scheduledAt) <= new Date()) {
+          return res.status(400).json({
+            success: false,
+            message: "scheduledAt date must be in the future",
+          });
+        }
+      }
+    }
+
+    const newVersion =
+      targetStatus === LIFECYCLE_STATES.PUBLISHED
+        ? Number(test.version || 1) + 1
+        : Number(test.version || 1);
+
+    const updatePayload = {
+      status: targetStatus,
+      isActive: targetStatus !== LIFECYCLE_STATES.ARCHIVED,
+      is_active: targetStatus !== LIFECYCLE_STATES.ARCHIVED,
+      version: newVersion,
+    };
+
+    if (targetStatus === LIFECYCLE_STATES.SCHEDULED) {
+      updatePayload.scheduledAt = new Date(scheduledAt).toISOString();
+      updatePayload.scheduled_at = new Date(scheduledAt).toISOString();
+    } else if (targetStatus === LIFECYCLE_STATES.PUBLISHED) {
+      updatePayload.publishedAt = new Date().toISOString();
+      updatePayload.published_at = new Date().toISOString();
+      updatePayload.isLive = true;
+      updatePayload.is_live = true;
+    } else if (targetStatus === LIFECYCLE_STATES.ARCHIVED) {
+      updatePayload.archivedAt = new Date().toISOString();
+      updatePayload.archived_at = new Date().toISOString();
+      updatePayload.isLive = false;
+      updatePayload.is_live = false;
+    }
+
+    if (shuffleSeed !== undefined && shuffleSeed !== null) {
+      updatePayload.shuffleSeed = String(shuffleSeed);
+      updatePayload.shuffle_seed = String(shuffleSeed);
+    }
+
+    const updated = await dbHelpers.updateById(
+      "tests",
+      test.id,
+      normalizeTestPayloadForDb(updatePayload),
+    );
+
+    try {
+      await logAuditEvent({
+        userId: req.user?.id,
+        action: "TEST_LIFECYCLE_TRANSITION",
+        resourceType: "test",
+        resourceId: test.id,
+        details: {
+          previousStatus: currentStatus,
+          status: targetStatus,
+          version: newVersion,
+          note: note || null,
+          scheduledAt: updatePayload.scheduled_at || null,
+          shuffleSeed: updatePayload.shuffle_seed || null,
+        },
+      });
+    } catch (auditErr) {
+      logger.warn(
+        "Failed to write audit log for test lifecycle transition:",
+        auditErr.message,
+      );
+    }
+
+    res.json({
+      success: true,
+      data: updated,
+      previousStatus: currentStatus,
+      status: targetStatus,
+      version: newVersion,
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// POST /api/admin/tests/:id/shuffle-preview - Deterministic question bank shuffle preview
+router.post("/tests/:id/shuffle-preview", async (req, res) => {
+  try {
+    const test = await Test.findByIdentifier(req.params.id);
+    if (!test) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Test not found" });
+    }
+
+    const seed =
+      req.body?.seed ??
+      req.query?.seed ??
+      test.shuffleSeed ??
+      test.shuffle_seed ??
+      42;
+
+    const result = await pool.query(
+      `SELECT id, question_text, marks, difficulty, topic, section_id FROM questions WHERE is_active = true AND (test_id = $1 OR "testId" = $1 OR test_id = $2 OR "testId" = $2) ORDER BY id ASC`,
+      [Number(test.id) || -1, String(test.id)],
+    );
+
+    const questions = result.rows.map((r) => dbHelpers.toCamel(r));
+    const shuffled = shuffleQuestionsWithSeed(questions, seed);
+
+    res.json({
+      success: true,
+      testId: test.id,
+      seed,
+      totalQuestions: questions.length,
+      shuffledOrder: shuffled.map((q, idx) => ({
+        position: idx + 1,
+        questionId: q.id || q._id,
+        topic: q.topic,
+        marks: q.marks,
+        difficulty: q.difficulty,
+      })),
+    });
   } catch (error) {
     res
       .status(500)

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useConfirm } from "../../shared/components/common/ConfirmModal";
+import { toast } from "react-hot-toast";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -532,7 +533,9 @@ export default function StudyMaterialChapter() {
       setTimeout(() => setShareSuccess(false), 2000);
     } catch (err) {
       console.error("Failed to copy chapter link:", err);
-      alert("Failed to copy link. Please copy the URL from the address bar.");
+      toast.error(
+        "Failed to copy link. Please copy the URL from the address bar.",
+      );
     }
   };
 
