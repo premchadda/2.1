@@ -103,32 +103,6 @@ router.get("/by-exam-category/:examCategoryId", async (req, res) => {
   }
 });
 
-// Get category by ID (public endpoint) - supports both numeric ID and slug
-router.get("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // First try to find by ID
-    let category = await TestCategory.findById(id);
-
-    // If not found by ID, try to find by slug
-    if (!category) {
-      category = await TestCategory.findOne({ slug: id });
-    }
-
-    if (!category) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Category not found" });
-    }
-    res.json({ success: true, data: category });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
-
 // Get category by slug (public endpoint)
 router.get("/slug/:slug", async (req, res) => {
   try {
@@ -139,47 +113,6 @@ router.get("/slug/:slug", async (req, res) => {
         .json({ success: false, message: "Category not found" });
     }
     res.json({ success: true, data: category });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
-
-// Get children of a category (public endpoint)
-router.get("/:id/children", async (req, res) => {
-  try {
-    const children = await TestCategory.findByParent(req.params.id);
-    // Sort by displayOrder (admin-set order)
-    children.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
-    res.json({ success: true, data: children });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
-
-// Get full path from root to category (public endpoint)
-router.get("/:id/path", async (req, res) => {
-  try {
-    const categories = await TestCategory.find();
-    const path = TestCategory.getCategoryPath(categories, req.params.id);
-    res.json({ success: true, data: path });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
-
-// Get test categories by test series (new endpoint)
-router.get("/by-test-series/:testSeriesId", async (req, res) => {
-  try {
-    const categories = await TestCategory.findByTestSeries(
-      req.params.testSeriesId,
-    );
-    res.json({ success: true, data: categories });
   } catch (error) {
     res
       .status(500)
@@ -234,6 +167,73 @@ router.put("/orphaned/reassign", protect, admin, async (req, res) => {
       updatedCount: updated.length,
       data: updated,
     });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// Get category by ID (public endpoint) - supports both numeric ID and slug
+router.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // First try to find by ID
+    let category = await TestCategory.findById(id);
+
+    // If not found by ID, try to find by slug
+    if (!category) {
+      category = await TestCategory.findOne({ slug: id });
+    }
+
+    if (!category) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Category not found" });
+    }
+    res.json({ success: true, data: category });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// Get children of a category (public endpoint)
+router.get("/:id/children", async (req, res) => {
+  try {
+    const children = await TestCategory.findByParent(req.params.id);
+    // Sort by displayOrder (admin-set order)
+    children.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+    res.json({ success: true, data: children });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// Get full path from root to category (public endpoint)
+router.get("/:id/path", async (req, res) => {
+  try {
+    const categories = await TestCategory.find();
+    const path = TestCategory.getCategoryPath(categories, req.params.id);
+    res.json({ success: true, data: path });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// Get test categories by test series (new endpoint)
+router.get("/by-test-series/:testSeriesId", async (req, res) => {
+  try {
+    const categories = await TestCategory.findByTestSeries(
+      req.params.testSeriesId,
+    );
+    res.json({ success: true, data: categories });
   } catch (error) {
     res
       .status(500)

@@ -351,11 +351,17 @@ export default function VideoPlayer({
         >
           <div className="flex items-center justify-between px-4 py-2 bg-black/90">
             <div className="min-w-0 flex-1 mr-3">
-              <h3 className="text-white font-semibold text-sm truncate">
+              <h3
+                className="text-white font-semibold text-sm truncate"
+                title={videoData?.title}
+              >
                 {videoData?.title}
               </h3>
               {videoData?.description && (
-                <p className="text-white/50 text-xs truncate">
+                <p
+                  className="text-white/50 text-xs truncate"
+                  title={videoData.description}
+                >
                   {videoData.description}
                 </p>
               )}

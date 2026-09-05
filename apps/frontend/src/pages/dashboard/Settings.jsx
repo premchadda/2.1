@@ -49,6 +49,7 @@ import {
   Key,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { useConfirm } from "../../shared/components/common/ConfirmModal";
 
 // Springy Smooth Toggle Switch
 function ModernToggle({ checked, onChange, disabled = false, label, sub }) {
@@ -253,13 +254,17 @@ export default function Settings() {
     }
   };
 
+  const { confirm, ConfirmDialog } = useConfirm();
+
   const handleTwoFARegenerate = async () => {
-    if (
-      !window.confirm(
+    const ok = await confirm({
+      title: "Regenerate Backup Codes?",
+      message:
         "Regenerating backup codes invalidates all previous ones. Continue?",
-      )
-    )
-      return;
+      confirmLabel: "Regenerate",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       setTwoFARegenerating(true);
       const res = await authAPI.twoFactorRegenerateBackupCodes();
@@ -281,8 +286,13 @@ export default function Settings() {
   };
 
   const handleTwoFADisable = async () => {
-    if (!window.confirm("Disable two-factor authentication for this account?"))
-      return;
+    const ok = await confirm({
+      title: "Disable 2FA?",
+      message: "Disable two-factor authentication for this account?",
+      confirmLabel: "Disable",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       setTwoFADisabling(true);
       await authAPI.twoFactorDisable();
@@ -1420,12 +1430,14 @@ export default function Settings() {
 
                             <button
                               type="button"
-                              onClick={() => {
-                                if (
-                                  window.confirm(
-                                    `Revoke this session (${browserName} on ${osName})? This device will be signed out.`,
-                                  )
-                                ) {
+                              onClick={async () => {
+                                const ok = await confirm({
+                                  title: "Revoke Session?",
+                                  message: `Revoke this session (${browserName} on ${osName})? This device will be signed out.`,
+                                  confirmLabel: "Revoke",
+                                  danger: true,
+                                });
+                                if (ok) {
                                   handleRevokeSession(sessionId);
                                 }
                               }}
@@ -2254,6 +2266,7 @@ export default function Settings() {
           </div>
         </div>
       )}
+      {ConfirmDialog}
     </div>
   );
 }

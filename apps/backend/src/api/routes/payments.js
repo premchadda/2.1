@@ -1,7 +1,7 @@
 import express from "express";
 import Razorpay from "razorpay";
 import crypto from "crypto";
-import { protect } from "../../middleware/auth.middleware.js";
+import { protect, optionalAuth } from "../../middleware/auth.middleware.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import {
   dbHelpers,
@@ -192,11 +192,11 @@ const validateCouponHelper = async (couponCode, amount, userId, planId) => {
 };
 
 // @route   POST /api/payments/validate-coupon
-// @desc    Validate a coupon code
-// @access  Private
+// @desc    Validate a coupon code (supports guests previewing prices or authenticated users)
+// @access  Public / Optional Auth
 router.post(
   "/validate-coupon",
-  protect,
+  optionalAuth,
   asyncHandler(async (req, res) => {
     const { couponCode, amount, planId } = req.body;
     if (!couponCode || !amount || !planId) {
@@ -209,7 +209,7 @@ router.post(
     const validation = await validateCouponHelper(
       couponCode,
       Number(amount),
-      req.user.id,
+      req.user?.id || null,
       planId,
     );
     if (!validation.valid) {
@@ -235,7 +235,7 @@ router.post(
 // @route   POST /api/payments/apply-coupon (alias for /validate-coupon)
 router.post(
   "/apply-coupon",
-  protect,
+  optionalAuth,
   asyncHandler(async (req, res) => {
     const { couponCode, amount, planId } = req.body;
     if (!couponCode || !amount || !planId) {
@@ -248,7 +248,7 @@ router.post(
     const validation = await validateCouponHelper(
       couponCode,
       Number(amount),
-      req.user.id,
+      req.user?.id || null,
       planId,
     );
     if (!validation.valid) {
@@ -588,7 +588,9 @@ router.post(
             fallbackAmount = Number(
               fbPlan.price || fbPlan.amount || fallbackAmount,
             );
-        } catch (_e) { void _e; }
+        } catch (_e) {
+          void _e;
+        }
         const transactionAmount =
           verifiedOrderAmount != null ? verifiedOrderAmount : fallbackAmount;
 
@@ -845,10 +847,6 @@ router.post(
         signatureValid: true,
       });
 
-      // Re-derive for business logic (kept for existing code below)
-      // eslint-disable-next-line no-unused-vars
-      const _paymentEntity = paymentEntity;
-
       if (event === "payment.captured") {
         // Payment was successfully captured
         const orderId = paymentEntity.order_id;
@@ -982,7 +980,9 @@ router.post(
                   html,
                 ).catch(() => {});
               }
-            } catch (_e) { void _e; }
+            } catch (_e) {
+              void _e;
+            }
           });
         }
       } else if (event === "refund.created" || event === "refund.processed") {
@@ -1031,7 +1031,9 @@ router.post(
                   `UPDATE payments SET status='refunded', refunded_at=NOW() WHERE gateway_payment_id=$1 AND status != 'refunded'`,
                   [gatewayPaymentId],
                 );
-              } catch (_e) { void _e; }
+              } catch (_e) {
+                void _e;
+              }
             }
           });
         }
@@ -1048,7 +1050,9 @@ router.post(
           `UPDATE webhook_events SET status='processed' WHERE gateway_payment_id=$1 AND event=$2 AND status='received'`,
           [payId, evt],
         );
-      } catch (_e) { void _e; }
+      } catch (_e) {
+        void _e;
+      }
       res.json({ success: true, message: "Webhook processed" });
     } catch (error) {
       console.error("Webhook error:", error);
@@ -1062,7 +1066,9 @@ router.post(
             error.message,
           ],
         );
-      } catch (_e) { void _e; }
+      } catch (_e) {
+        void _e;
+      }
       res
         .status(500)
         .json({ success: false, message: "Webhook processing failed" });
@@ -1136,7 +1142,9 @@ router.get(
     let txn = null;
     try {
       txn = await dbHelpers.findOne("transactions", { orderId, userId });
-    } catch (_e) { void _e; }
+    } catch (_e) {
+      void _e;
+    }
     if (!txn) {
       try {
         const r = await pool.query(
@@ -1144,7 +1152,9 @@ router.get(
           [orderId, userId],
         );
         txn = r.rows[0] || null;
-      } catch (_e) { void _e; }
+      } catch (_e) {
+        void _e;
+      }
     }
     if (!txn)
       return res
@@ -1154,7 +1164,9 @@ router.get(
     let user = null;
     try {
       user = await dbHelpers.findById("users", userId);
-    } catch (_e) { void _e; }
+    } catch (_e) {
+      void _e;
+    }
     res.json({
       success: true,
       data: {
@@ -1177,4 +1189,3 @@ router.get(
 );
 
 export default router;
-

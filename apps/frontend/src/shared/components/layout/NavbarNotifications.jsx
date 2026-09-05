@@ -259,6 +259,7 @@ export default function NavbarNotifications() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p
+                        title={notif.title}
                         className={`text-sm font-medium truncate group-hover:text-brand-start transition-colors ${!notif.read ? "text-gray-900 dark:text-white font-semibold" : "text-gray-700 dark:text-gray-300"}`}
                       >
                         {notif.title}
@@ -270,7 +271,10 @@ export default function NavbarNotifications() {
                         />
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2 dark:text-gray-400">
+                    <p
+                      className="text-xs text-gray-500 mt-0.5 line-clamp-2 dark:text-gray-400"
+                      title={notif.message}
+                    >
                       {notif.message}
                     </p>
                     <p className="text-[10px] text-gray-400 mt-1 dark:text-gray-500">

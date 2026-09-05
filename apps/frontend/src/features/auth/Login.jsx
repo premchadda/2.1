@@ -402,7 +402,10 @@ function Login() {
 
                           <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
                             {locationStr ? (
-                              <span className="flex items-center gap-1 truncate">
+                              <span
+                                className="flex items-center gap-1 truncate"
+                                title={locationStr}
+                              >
                                 <Globe className="w-3 h-3 shrink-0 text-gray-400" />
                                 <span className="truncate">{locationStr}</span>
                               </span>

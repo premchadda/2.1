@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
-import { userAPI } from "../../../shared/lib/dataService";
+import { useConfirm } from "../../../shared/components/common/ConfirmModal";
 
 function ProfilePersonalTab({
   user,
@@ -39,6 +39,7 @@ function ProfilePersonalTab({
   refreshUser,
 }) {
   const navigate = useNavigate();
+  const { confirm, ConfirmDialog } = useConfirm();
 
   if (isEditing) {
     return (
@@ -218,84 +219,6 @@ function ProfilePersonalTab({
           </div>
         )}
 
-        {/* ── Exam Reservation Category & Cutoff Benchmark Card ── */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 dark:from-blue-900/30 dark:to-purple-900/30 px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20 text-white">
-                <Award className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-base font-extrabold text-gray-900 dark:text-white">
-                  Exam Reservation Category
-                </h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Benchmarking for Category Cutoffs & Category All-India Rank
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-gray-500 dark:text-gray-400 hidden sm:inline">
-                Active Category:
-              </span>
-              <span className="px-3 py-1 bg-blue-600 text-white rounded-xl text-xs font-black shadow-xs tracking-wider">
-                {user?.category || personalInfo?.category || "UR"}
-              </span>
-            </div>
-          </div>
-
-          <div className="p-5">
-            <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">
-              Select your reservation/social category to enable automatic
-              category cutoff clearance tracking and cohort benchmarking across
-              all mock tests:
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-              {[
-                { id: "UR", label: "UR (General)", desc: "Unreserved" },
-                { id: "OBC", label: "OBC", desc: "Other Backward Classes" },
-                { id: "EWS", label: "EWS", desc: "Economically Weaker" },
-                { id: "SC", label: "SC", desc: "Scheduled Caste" },
-                { id: "ST", label: "ST", desc: "Scheduled Tribe" },
-              ].map((cat) => {
-                const isSelected =
-                  (user?.category || personalInfo?.category || "UR") === cat.id;
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await userAPI.updateProfile({ category: cat.id });
-                        if (refreshUser) await refreshUser();
-                        toast.success(`Category updated to ${cat.id}!`);
-                      } catch (err) {
-                        toast.error("Failed to update category.");
-                      }
-                    }}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                      isSelected
-                        ? "bg-blue-50 dark:bg-blue-900/30 border-blue-500 text-blue-900 dark:text-blue-100 ring-2 ring-blue-500/20 shadow-xs"
-                        : "bg-gray-50 dark:bg-gray-700/40 border-gray-200 dark:border-gray-600 hover:border-blue-300 text-gray-700 dark:text-gray-300"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-black">{cat.id}</span>
-                      {isSelected && (
-                        <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-                      )}
-                    </div>
-                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 truncate font-medium">
-                      {cat.desc}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
           <div className="bg-gray-50 dark:bg-gray-700/50 px-5 py-4 border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between">
@@ -429,9 +352,11 @@ function ProfilePersonalTab({
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mt-5">
           <button
             onClick={async () => {
-              const ok = await window.confirm(
-                "Are you sure you want to logout?",
-              );
+              const ok = await confirm({
+                title: "Log out?",
+                message: "Are you sure you want to logout?",
+                confirmLabel: "Logout",
+              });
               if (ok) {
                 logout();
                 navigate("/");
@@ -454,6 +379,7 @@ function ProfilePersonalTab({
           </button>
         </div>
       </div>
+      {ConfirmDialog}
     </div>
   );
 }

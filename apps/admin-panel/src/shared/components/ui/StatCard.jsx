@@ -42,7 +42,10 @@ export default function StatCard({
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate">
+        <p
+          className="text-[11px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate"
+          title={title}
+        >
           {title}
         </p>
         <div className="flex items-baseline gap-2 mt-0.5">
@@ -68,7 +71,10 @@ export default function StatCard({
           )}
         </div>
         {subtitle && (
-          <p className="text-[10px] sm:text-[11px] font-medium text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+          <p
+            className="text-[10px] sm:text-[11px] font-medium text-gray-400 dark:text-gray-500 mt-0.5 truncate"
+            title={subtitle}
+          >
             {subtitle}
           </p>
         )}

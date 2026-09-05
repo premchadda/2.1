@@ -142,6 +142,9 @@ const ActiveSessionsManager = lazy(
 const LiveTestMonitor = lazy(
   () => import("./features/admin/system-settings/LiveTestMonitor"),
 );
+const LiveProctoringConsole = lazy(
+  () => import("./features/admin/assessments-quizzes/LiveProctoringConsole"),
+);
 const ModerationManager = lazy(
   () => import("./features/admin/moderation/ModerationManager"),
 );
@@ -242,6 +245,11 @@ function App() {
             <Route path="users" element={<UsersPermissions />} />
             <Route path="sessions" element={<ActiveSessionsManager />} />
             <Route path="live-monitor" element={<LiveTestMonitor />} />
+            <Route path="live-proctoring" element={<LiveProctoringConsole />} />
+            <Route
+              path="live-proctoring/:liveTestId"
+              element={<LiveProctoringConsole />}
+            />
             <Route path="enrollments" element={<EnrollmentsManager />} />
             <Route path="results" element={<ResultsManager />} />
 

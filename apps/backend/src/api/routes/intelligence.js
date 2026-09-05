@@ -10,6 +10,18 @@ import {
   rankPredictionService,
   recommendationService,
 } from "../../services/core/index.js";
+import {
+  calibrateQuestionById,
+  predictQuestionDifficulty,
+  classifyBloomsTaxonomy,
+} from "../../modules/questions/questionDifficulty.service.js";
+import { generateStructuredExplainer } from "../../services/core/solutionExplainerService.js";
+import {
+  generatePersonalizedRoadmap,
+  simulateMilestoneTimeMachine,
+} from "../../services/core/studyRoadmapService.js";
+import { generateSocraticHint } from "../../services/core/socraticHintService.js";
+import { calculateExamReadiness } from "../../services/core/examReadinessService.js";
 
 const router = express.Router();
 
@@ -35,8 +47,10 @@ router.use(protect);
 
 router.get("/performance", async (req, res) => {
   try {
+    const period = req.query.period || req.query.timeframe || "month";
     const data = await analyticsService.getUserPerformanceAnalytics(
       req.user.id,
+      { period },
     );
     res.json({ success: true, data });
   } catch (error) {
@@ -246,6 +260,210 @@ router.post("/daily-quiz/:quizId/submit", async (req, res) => {
       return res.status(404).json({ success: false, message: result.reason });
     }
     res.json({ success: true, data: result.result });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+router.get("/questions/:id/calibration", async (req, res) => {
+  try {
+    const data = await calibrateQuestionById(req.params.id);
+    if (!data) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Question not found" });
+    }
+    res.json({ success: true, data });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+router.post("/questions/calibrate-batch", async (req, res) => {
+  try {
+    const questions = Array.isArray(req.body?.questions)
+      ? req.body.questions
+      : [];
+    if (questions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No questions provided for calibration",
+      });
+    }
+    const results = [];
+    for (const q of questions) {
+      const calibration = await predictQuestionDifficulty(q);
+      results.push({
+        id: q.id || q._id,
+        ...calibration,
+      });
+    }
+    res.json({ success: true, count: results.length, data: results });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+router.post("/questions/:id/structured-explainer", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const language = req.body?.language || req.query?.language || "en";
+
+    // Look up question by ID or use provided payload
+    let question = req.body?.question;
+    if (!question) {
+      const qRes = await pool
+        .query(
+          "SELECT id, question_text, question_text_hi, explanation, explanation_hi, options, options_hi, correct_option FROM questions WHERE id = $1 LIMIT 1",
+          [id],
+        )
+        .catch(() => ({ rows: [] }));
+
+      if (qRes.rows.length > 0) {
+        const row = qRes.rows[0];
+        question = {
+          id: row.id,
+          questionText: row.question_text,
+          questionTextHi: row.question_text_hi,
+          explanation: row.explanation,
+          explanationHi: row.explanation_hi,
+          options:
+            typeof row.options === "string"
+              ? JSON.parse(row.options)
+              : row.options,
+          optionsHi:
+            typeof row.options_hi === "string"
+              ? JSON.parse(row.options_hi)
+              : row.options_hi,
+          correctOption: row.correct_option,
+        };
+      }
+    }
+
+    if (!question) {
+      return res.status(404).json({
+        success: false,
+        message: `Question ${id} not found`,
+      });
+    }
+
+    const explainer = generateStructuredExplainer(question, { language });
+    res.json({
+      success: true,
+      data: {
+        questionId: id,
+        ...explainer,
+      },
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// Study Roadmap & Milestone Time Machine (Wave 17)
+router.get("/study-roadmap", async (req, res) => {
+  try {
+    const roadmap = await generatePersonalizedRoadmap(req.user.id, req.query);
+    res.json({ success: true, data: roadmap });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+router.post("/time-machine", async (req, res) => {
+  try {
+    const roadmap =
+      req.body?.roadmap ||
+      (await generatePersonalizedRoadmap(req.user.id, req.body));
+    const simulation = simulateMilestoneTimeMachine(roadmap, req.body);
+    res.json({ success: true, data: simulation });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// Socratic Progressive Hint & Cognitive Friction (Wave 18)
+router.post("/questions/:id/socratic-hint", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      tier = 1,
+      language = "en",
+      telemetry = null,
+      question: passedQuestion,
+    } = req.body || {};
+
+    let question = passedQuestion || null;
+    if (!question) {
+      const qRes = await pool
+        .query(
+          "SELECT id, question_text, question_text_hi, explanation, explanation_hi, options, options_hi, correct_option FROM questions WHERE id = $1 LIMIT 1",
+          [id],
+        )
+        .catch(() => ({ rows: [] }));
+
+      if (qRes.rows.length > 0) {
+        const row = qRes.rows[0];
+        question = {
+          id: row.id,
+          questionText: row.question_text,
+          questionTextHi: row.question_text_hi,
+          explanation: row.explanation,
+          explanationHi: row.explanation_hi,
+          options:
+            typeof row.options === "string"
+              ? JSON.parse(row.options)
+              : row.options,
+          optionsHi:
+            typeof row.options_hi === "string"
+              ? JSON.parse(row.options_hi)
+              : row.options_hi,
+          correctOptionIndex: row.correct_option,
+        };
+      }
+    }
+
+    if (!question) {
+      return res.status(404).json({
+        success: false,
+        message: `Question ${id} not found`,
+      });
+    }
+
+    const hint = generateSocraticHint(question, { tier, language, telemetry });
+    res.json({
+      success: true,
+      data: hint,
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// Candidate Exam Readiness & Cutoff Percentile Predictor (Wave 18)
+router.get("/exam-readiness", async (req, res) => {
+  try {
+    const examSlug = req.query.exam || req.query.examSlug || "default";
+    const category = req.query.category || "ur";
+    const result = await calculateExamReadiness(req.user.id, {
+      examSlug,
+      category,
+    });
+    res.json({ success: true, data: result });
   } catch (error) {
     res
       .status(500)

@@ -24,6 +24,7 @@ import {
   Target,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "react-hot-toast";
 import SearchBox from "../../shared/components/common/SearchBox";
 import {
   hasLegacyEnrolledSeriesIds,
@@ -317,7 +318,7 @@ function TestSeries() {
         navigate(`/test-series/${series.slug || series.id}`);
       } else {
         // Show error to user instead of silently redirecting
-        alert(`Enrollment failed: ${message}`);
+        toast.error(`Enrollment failed: ${message}`);
       }
     } finally {
       setEnrollingId(null);
@@ -616,10 +617,18 @@ function TestSeries() {
                                   )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h3 className="font-extrabold text-gray-900 dark:text-white text-xs sm:text-sm truncate group-hover:text-indigo-600 transition-colors">
+                                <h3
+                                  className="font-extrabold text-gray-900 dark:text-white text-xs sm:text-sm truncate group-hover:text-indigo-600 transition-colors"
+                                  title={series.title}
+                                >
                                   {series.title}
                                 </h3>
-                                <p className="text-[10px] sm:text-[11px] text-gray-400 font-semibold truncate capitalize">
+                                <p
+                                  className="text-[10px] sm:text-[11px] text-gray-400 font-semibold truncate capitalize"
+                                  title={
+                                    series.categoryName || series.category || ""
+                                  }
+                                >
                                   {String(
                                     series.categoryName ||
                                       series.category ||
@@ -1089,7 +1098,10 @@ function TestSeries() {
                                   to={`/test-series/${s.slug || s._id}`}
                                   className="group/link flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-200"
                                 >
-                                  <span className="text-xs sm:text-sm font-medium truncate pr-3">
+                                  <span
+                                    className="text-xs sm:text-sm font-medium truncate pr-3"
+                                    title={s.title}
+                                  >
                                     {s.title}
                                   </span>
                                   <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-300 group-hover/link:text-indigo-500 group-hover/link:translate-x-0.5 transition-all flex-shrink-0" />
@@ -1185,7 +1197,10 @@ function TestSeries() {
                             <CheckCircle className="w-4 h-4 text-white" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors">
+                            <p
+                              className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors"
+                              title={attempt.title || "Test Attempted"}
+                            >
                               {attempt.title || "Test Attempted"}
                             </p>
                             <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">

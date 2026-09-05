@@ -1379,7 +1379,10 @@ export default function PracticeQuestionsManager() {
                             {subjectName}
                           </span>
                           {(chapterName || topicName) && (
-                            <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[160px]">
+                            <div
+                              className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[160px]"
+                              title={`${chapterName || ""} ${topicName ? `› ${topicName}` : ""}`}
+                            >
                               {chapterName} {topicName && `› ${topicName}`}
                             </div>
                           )}
@@ -1410,7 +1413,12 @@ export default function PracticeQuestionsManager() {
                                     .join(", ")}
                                   :
                                 </span>
-                                <span className="truncate max-w-[120px] text-gray-700 dark:text-gray-300 font-normal">
+                                <span
+                                  className="truncate max-w-[120px] text-gray-700 dark:text-gray-300 font-normal"
+                                  title={correctIdx
+                                    .map((i) => optList[i] || `Option ${i + 1}`)
+                                    .join(" | ")}
+                                >
                                   {correctIdx
                                     .map((i) => optList[i] || `Option ${i + 1}`)
                                     .join(" | ")}
@@ -1428,7 +1436,13 @@ export default function PracticeQuestionsManager() {
                                   Opt{" "}
                                   {String.fromCharCode(65 + (correctIdx || 0))}:
                                 </span>
-                                <span className="truncate max-w-[120px] text-gray-700 dark:text-gray-300 font-normal">
+                                <span
+                                  className="truncate max-w-[120px] text-gray-700 dark:text-gray-300 font-normal"
+                                  title={
+                                    optList[correctIdx] ||
+                                    `Option ${correctIdx + 1}`
+                                  }
+                                >
                                   {optList[correctIdx] ||
                                     `Option ${correctIdx + 1}`}
                                 </span>

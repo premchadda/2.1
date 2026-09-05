@@ -1047,7 +1047,10 @@ export default function QuizzesManager() {
                             {getSubjectName(q.subject || q.subject_id)}
                           </span>
                           {q.topic && (
-                            <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[140px]">
+                            <div
+                              className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[140px]"
+                              title={`Topic: ${q.topic}`}
+                            >
                               Topic: {q.topic}
                             </div>
                           )}

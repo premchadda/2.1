@@ -33,7 +33,9 @@ export function normalizeScorerOption(value) {
       if (Array.isArray(parsed)) {
         return normalizeScorerOption(parsed);
       }
-    } catch {}
+    } catch {
+      // Ignore malformed JSON strings; fallback to other parsing strategies below
+    }
   }
 
   // Handle comma-separated list e.g. "A, C" or "0, 2"

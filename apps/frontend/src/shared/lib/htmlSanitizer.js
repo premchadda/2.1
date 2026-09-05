@@ -50,7 +50,11 @@ if (purify) {
 
 export const sanitizeHtml = (html) => {
   if (!purify || !html) return html;
-  return purify.sanitize(html, {
+  const needsWrap = typeof html === "string" && !html.trim().startsWith("<");
+  const payload = needsWrap
+    ? `<span data-sanitizer-wrap="1">${html}</span>`
+    : html;
+  const sanitized = purify.sanitize(payload, {
     ALLOWED_TAGS: [
       // Standard Typography & Structural Tags
       "b",
@@ -148,6 +152,12 @@ export const sanitizeHtml = (html) => {
     ALLOWED_URI_REGEXP:
       /^(?:(?:(?:https?|ftp):|data:image\/)|[^a-z]|[a-z+.]+[^a-z+.:])/i,
   });
+  if (needsWrap) {
+    return sanitized
+      .replace(/^<span data-sanitizer-wrap="1">/i, "")
+      .replace(/<\/span>$/i, "");
+  }
+  return sanitized;
 };
 
 /**

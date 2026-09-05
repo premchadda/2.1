@@ -68,6 +68,71 @@ export const sendPushNotification = async (
   };
 };
 
+export function isWithinQuietHours(userPrefs = {}, date = new Date()) {
+  const enabled =
+    userPrefs?.quietHoursEnabled ?? userPrefs?.quiet_hours_enabled ?? false;
+  if (!enabled) return false;
+
+  const startStr =
+    userPrefs?.quietHoursStart || userPrefs?.quiet_hours_start || "22:00";
+  const endStr =
+    userPrefs?.quietHoursEnd || userPrefs?.quiet_hours_end || "07:00";
+
+  const [startH, startM] = startStr.split(":").map(Number);
+  const [endH, endM] = endStr.split(":").map(Number);
+
+  const curMinutes = date.getHours() * 60 + date.getMinutes();
+  const startMinutes = (startH || 0) * 60 + (startM || 0);
+  const endMinutes = (endH || 0) * 60 + (endM || 0);
+
+  if (startMinutes <= endMinutes) {
+    return curMinutes >= startMinutes && curMinutes < endMinutes;
+  } else {
+    return curMinutes >= startMinutes || curMinutes < endMinutes;
+  }
+}
+
+export const registerPushToken = async (
+  userId,
+  { token, deviceType = "web", p256dh = null, auth = null } = {},
+) => {
+  if (!userId || !token) {
+    return { success: false, reason: "missing_token_or_user" };
+  }
+
+  try {
+    const result = await dbHelpers.pool.query(
+      `INSERT INTO push_subscriptions (user_id, token, device_type, p256dh, auth, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+       ON CONFLICT (user_id, token) 
+       DO UPDATE SET device_type = EXCLUDED.device_type, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, updated_at = NOW()
+       RETURNING id, user_id, token, device_type`,
+      [String(userId), token, deviceType, p256dh, auth],
+    );
+    return { success: true, subscription: result.rows[0] };
+  } catch (err) {
+    // Fallback: update user's notification_preferences with the push token
+    try {
+      const user = await dbHelpers.findById("users", userId);
+      if (user) {
+        const prefs =
+          typeof user.notificationPreferences === "string"
+            ? JSON.parse(user.notificationPreferences)
+            : user.notificationPreferences || {};
+        prefs.pushToken = token;
+        prefs.deviceType = deviceType;
+        await dbHelpers.updateById("users", userId, {
+          notificationPreferences: prefs,
+        });
+        return { success: true, fallback: true };
+      }
+    } catch {
+      // ignore fallback error
+    }
+    return { success: false, reason: err.message };
+  }
+};
+
 async function shouldDeliverNow(userId, frequency) {
   if (!frequency || frequency === "instant") return true;
   const intervalDays =
@@ -169,6 +234,16 @@ export const dispatchNotification = async (
         effectiveSendPush = false;
       }
     }
+
+    // Quiet hours check: defer non-critical push notifications during student's quiet hours
+    const userPrefs =
+      typeof user?.notificationPreferences === "string"
+        ? JSON.parse(user.notificationPreferences)
+        : user?.notificationPreferences || user?.notification_preferences || {};
+
+    if (!isCritical && effectiveSendPush && isWithinQuietHours(userPrefs)) {
+      effectiveSendPush = false;
+    }
   } catch {
     // If settings lookup fails, fail open for notifications to avoid dropping critical alerts
   }
@@ -251,6 +326,56 @@ export const handleNotificationJob = async (jobName, payload = {}) => {
     });
   }
 
+  if (jobName === "notifications.streak-milestone") {
+    const days = payload.streakDays || payload.days || 1;
+    return dispatchNotification(payload.userId, {
+      title: `🔥 ${days}-Day Study Streak!`,
+      message: `Incredible dedication! You've kept your learning streak alive for ${days} days.${payload.xpAwarded ? ` +${payload.xpAwarded} XP awarded.` : ""}`,
+      type: "streak",
+      metadata: payload,
+    });
+  }
+
+  if (jobName === "notifications.discussion-reply") {
+    const replier = payload.replierName || "A peer";
+    const preview = payload.commentPreview
+      ? `"${payload.commentPreview.slice(0, 80)}..."`
+      : "Someone replied to your comment.";
+    const targetLink = payload.questionId
+      ? `/discussions/${payload.questionId}`
+      : payload.actionUrl || null;
+
+    return dispatchNotification(payload.userId, {
+      title: `New reply from ${replier}`,
+      message: preview,
+      type: "discussion",
+      actionUrl: targetLink,
+      metadata: {
+        ...payload,
+        link: targetLink,
+      },
+    });
+  }
+
+  if (jobName === "notifications.mock-test-reminder") {
+    const title = payload.testTitle || "Live Mock Test";
+    const seriesSlug = payload.seriesSlug || "ssc-cgl-2026";
+    const testLink = payload.testId
+      ? `/${seriesSlug}/tests/${payload.testId}`
+      : null;
+
+    return dispatchNotification(payload.userId, {
+      title: `Upcoming Mock Test: ${title}`,
+      message: `The live mock test "${title}" starts ${payload.startTime ? `at ${payload.startTime}` : "soon"}. Prepare your workspace!`,
+      type: "mock_reminder",
+      actionUrl: testLink,
+      metadata: {
+        ...payload,
+        link: testLink,
+      },
+    });
+  }
+
   return { skipped: true, reason: "unknown_job_name" };
 };
 
@@ -309,6 +434,8 @@ export const notificationService = {
   dispatchNotification,
   handleNotificationJob,
   sendScheduledReminders,
+  registerPushToken,
+  isWithinQuietHours,
 };
 
 export default notificationService;

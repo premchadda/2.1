@@ -8,6 +8,7 @@ import { sanitizeHtml } from "../../shared/lib/htmlSanitizer";
 import Telemetry from "../../shared/lib/telemetry";
 import { useAuth } from "../../shared/providers/AuthContext";
 import { clearDashboardCache } from "../../shared/lib/dashboardCache";
+import { useConfirm } from "../../shared/components/common/ConfirmModal";
 import "./TestInterface.css";
 
 const LiveTestInterface = () => {
@@ -29,6 +30,7 @@ const LiveTestInterface = () => {
   const [markedForReview, setMarkedForReview] = useState(new Set());
   const [visitedQuestions, setVisitedQuestions] = useState(new Set());
   const [attemptId, setAttemptId] = useState(null);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const fetchLiveRank = useCallback(async () => {
     if (typeof document !== "undefined" && document.hidden) {
@@ -279,7 +281,7 @@ const LiveTestInterface = () => {
   useEffect(() => {
     if (loading || isSubmitted || !test) return;
 
-    const handleKeyDown = (e) => {
+    const handleKeyDown = async (e) => {
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")
         return;
 
@@ -299,7 +301,14 @@ const LiveTestInterface = () => {
         handleClearResponse();
       } else if (key === "s") {
         e.preventDefault();
-        if (window.confirm("Are you sure you want to submit the test?")) {
+        const ok = await confirm({
+          title: "Submit Test?",
+          message:
+            "Are you sure you want to submit the test? You cannot change your answers afterwards.",
+          confirmLabel: "Submit",
+          danger: true,
+        });
+        if (ok) {
           handleSubmit();
         }
       } else if (["1", "2", "3", "4"].includes(key)) {
@@ -317,7 +326,7 @@ const LiveTestInterface = () => {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [loading, isSubmitted, test, currentQuestion, handleSubmit]);
+  }, [loading, isSubmitted, test, currentQuestion, handleSubmit, confirm]);
 
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
@@ -634,6 +643,7 @@ const LiveTestInterface = () => {
           </div>
         </div>
       </div>
+      {ConfirmDialog}
     </div>
   );
 };

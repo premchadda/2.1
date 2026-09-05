@@ -1144,7 +1144,10 @@ export default function StagesManager() {
                             <div className="flex-1 min-w-0">
                               {/* Row 1: Name, Slug, Status */}
                               <div className="flex items-center gap-1 flex-wrap">
-                                <h3 className="font-bold text-gray-900 dark:text-white text-xs truncate">
+                                <h3
+                                  className="font-bold text-gray-900 dark:text-white text-xs truncate"
+                                  title={stage.name}
+                                >
                                   {stage.name}
                                 </h3>
                                 <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">
@@ -1362,11 +1365,17 @@ export default function StagesManager() {
                           {series.icon || "📚"}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-gray-900 dark:text-white truncate">
+                          <h3
+                            className="font-bold text-gray-900 dark:text-white truncate"
+                            title={series.name || series.title}
+                          >
                             {series.name || series.title}
                           </h3>
                           {series.description && (
-                            <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                            <p
+                              className="text-xs text-gray-400 dark:text-gray-500 truncate"
+                              title={series.description}
+                            >
                               {series.description}
                             </p>
                           )}

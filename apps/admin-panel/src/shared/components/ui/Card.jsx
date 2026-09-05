@@ -70,11 +70,17 @@ Card.Header = function CardHeader({
       className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 mb-3.5 ${className}`}
     >
       <div>
-        <h3 className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-white truncate">
+        <h3
+          className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-white truncate"
+          title={title}
+        >
           {title}
         </h3>
         {subtitle && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-medium truncate">
+          <p
+            className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-medium truncate"
+            title={subtitle}
+          >
             {subtitle}
           </p>
         )}

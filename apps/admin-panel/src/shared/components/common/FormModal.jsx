@@ -31,7 +31,10 @@ const FormModal = ({
         className={`bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 w-full ${sizeClasses[size] || sizeClasses.md} max-h-[92vh] overflow-hidden flex flex-col shadow-2xl animate-modal-pop`}
       >
         <div className="px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-          <h2 className="text-base sm:text-lg font-black text-gray-900 dark:text-white truncate">
+          <h2
+            className="text-base sm:text-lg font-black text-gray-900 dark:text-white truncate"
+            title={title}
+          >
             {title}
           </h2>
           <button

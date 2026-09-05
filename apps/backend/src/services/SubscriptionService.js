@@ -13,6 +13,20 @@ function fisherYatesShuffle(arr) {
 // Get the shared pool directly
 const getPool = () => pool;
 
+let notificationServiceInstance = null;
+const getNotificationService = async () => {
+  if (!notificationServiceInstance) {
+    try {
+      const mod = await import("./core/notificationService.js");
+      notificationServiceInstance =
+        mod.notificationService || mod.default || mod;
+    } catch (e) {
+      // ignore
+    }
+  }
+  return notificationServiceInstance;
+};
+
 export const SUBSCRIPTION_PLANS = {
   PRO_PASS_MONTHLY: "pro_pass_monthly",
   PRO_PASS_YEARLY: "pro_pass_yearly",
@@ -72,11 +86,16 @@ class SubscriptionService {
                 ELSE 'Free'
               END AS plan_name
        FROM subscriptions 
-       WHERE user_id = $1 AND status = 'active' AND expiry_date > NOW()
+       WHERE user_id = $1 AND (status = 'active' OR status = 'grace_period') AND (expiry_date IS NULL OR expiry_date > NOW() OR status = 'grace_period')
        ORDER BY created_at DESC LIMIT 1`,
       [userId],
     );
-    return result.rows[0] || null;
+    if (!result.rows[0]) return null;
+    const row = result.rows[0];
+    return {
+      ...row,
+      inGracePeriod: row.status === "grace_period",
+    };
   }
 
   async hasActiveProPass(userId) {
@@ -92,7 +111,13 @@ class SubscriptionService {
       }
       return false;
     }
-    return sub.plan_type.includes("pro_pass");
+    return (
+      sub.plan_type.includes("pro_pass") ||
+      sub.plan_type.startsWith("pro_") ||
+      sub.plan_type === "pro_monthly" ||
+      sub.plan_type === "pro_yearly" ||
+      sub.plan_type === "pro_lifetime"
+    );
   }
 
   async hasFeature(userId, feature) {
@@ -212,7 +237,7 @@ class SubscriptionService {
     const params = userId ? [subscriptionId, userId] : [subscriptionId];
     await getPool().query(
       `UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() ${whereClause}`,
-      [subscriptionId],
+      params,
     );
   }
 
@@ -341,34 +366,159 @@ class SubscriptionService {
     return result.rows;
   }
 
-  async processExpiredSubscriptions() {
+  async processExpiredSubscriptions({
+    gracePeriodHours = 48,
+    notify = true,
+  } = {}) {
+    const pool = getPool();
+    let inGracePeriod = [];
+    let downgradedToFree = [];
+    let notifiedUsers = 0;
+
     try {
-      const subResult = await getPool().query(
-        `UPDATE subscriptions 
-         SET status = 'expired', updated_at = NOW() 
-         WHERE status = 'active' AND expiry_date IS NOT NULL AND expiry_date < NOW()
-         RETURNING id, user_id`,
+      // 1. Move active subscriptions that expired within the grace period into 'grace_period'
+      const graceResult = await pool.query(
+        `UPDATE subscriptions
+         SET status = 'grace_period', updated_at = NOW()
+         WHERE status = 'active'
+           AND expiry_date IS NOT NULL
+           AND expiry_date <= NOW()
+           AND expiry_date > NOW() - ($1::text || ' hours')::interval
+         RETURNING id, user_id, plan_type, expiry_date`,
+        [gracePeriodHours],
       );
+      inGracePeriod = graceResult.rows || [];
 
-      const userResult = await getPool().query(
-        `UPDATE users 
-         SET is_pro_user = false 
-         WHERE is_pro_user = true AND pro_expiry IS NOT NULL AND pro_expiry < NOW()
-         RETURNING id`,
+      // 2. Final expiry: Subscriptions expired beyond the grace period
+      const expiryResult = await pool.query(
+        `UPDATE subscriptions
+         SET status = 'expired', updated_at = NOW()
+         WHERE status IN ('active', 'grace_period')
+           AND expiry_date IS NOT NULL
+           AND expiry_date <= NOW() - ($1::text || ' hours')::interval
+         RETURNING id, user_id, plan_type, expiry_date`,
+        [gracePeriodHours],
       );
+      downgradedToFree = expiryResult.rows || [];
 
-      if (subResult.rowCount > 0 || userResult.rowCount > 0) {
-        console.log(
-          `[SubscriptionExpiry] Expired ${subResult.rowCount} subscriptions and reset ${userResult.rowCount} user pro statuses.`,
+      // 3. Auto-downgrade users without remaining active or grace_period subscriptions to Free tier (is_pro_user = false)
+      if (downgradedToFree.length > 0) {
+        const userIds = Array.from(
+          new Set(downgradedToFree.map((s) => s.user_id)),
+        );
+        await pool.query(
+          `UPDATE users
+           SET is_pro_user = false, updated_at = NOW()
+           WHERE id = ANY($1::int[])
+             AND id NOT IN (
+               SELECT user_id FROM subscriptions
+               WHERE status IN ('active', 'grace_period')
+                 AND (expiry_date IS NULL OR expiry_date > NOW())
+             )`,
+          [userIds],
         );
       }
+
+      // Also reset legacy pro_expiry users if expired past grace
+      const legacyResult = await pool.query(
+        `UPDATE users
+         SET is_pro_user = false, updated_at = NOW()
+         WHERE is_pro_user = true
+           AND pro_expiry IS NOT NULL
+           AND pro_expiry <= NOW() - ($1::text || ' hours')::interval
+         RETURNING id`,
+        [gracePeriodHours],
+      );
+
+      // 4. Dispatch candidate notifications
+      if (notify) {
+        const notifier = await getNotificationService();
+        if (notifier && typeof notifier.dispatchNotification === "function") {
+          // Grace period alert
+          for (const sub of inGracePeriod) {
+            try {
+              await notifier.dispatchNotification({
+                userId: sub.user_id,
+                type: "subscription_grace_period",
+                title: "Pro Pass Grace Period Active",
+                message: `Your Pro Pass subscription has expired. You have ${gracePeriodHours} hours of grace period to renew before your access is downgraded to Free.`,
+                data: {
+                  subscriptionId: sub.id,
+                  planType: sub.plan_type,
+                  expiryDate: sub.expiry_date,
+                  gracePeriodHours,
+                },
+                priority: "high",
+              });
+              notifiedUsers++;
+            } catch (notifyErr) {
+              console.warn(
+                `[SubscriptionExpiry] Grace notice failed for user ${sub.user_id}:`,
+                notifyErr.message,
+              );
+            }
+          }
+
+          // Full expiration notice
+          for (const sub of downgradedToFree) {
+            try {
+              await notifier.dispatchNotification({
+                userId: sub.user_id,
+                type: "subscription_expired",
+                title: "Pro Pass Expired — Switched to Free",
+                message:
+                  "Your Pro Pass grace period has ended. Your account has been switched to the Free plan. Upgrade anytime to restore unlimited test access.",
+                data: {
+                  subscriptionId: sub.id,
+                  planType: sub.plan_type,
+                  downgradedTo: "Free",
+                },
+                priority: "high",
+              });
+              notifiedUsers++;
+            } catch (notifyErr) {
+              console.warn(
+                `[SubscriptionExpiry] Expiry notice failed for user ${sub.user_id}:`,
+                notifyErr.message,
+              );
+            }
+          }
+        }
+      }
+
+      const totalDowngraded =
+        downgradedToFree.length + (legacyResult.rowCount || 0);
+
+      if (inGracePeriod.length > 0 || totalDowngraded > 0) {
+        console.log(
+          `[SubscriptionExpiry] ${inGracePeriod.length} in grace period, ${totalDowngraded} downgraded to Free tier.`,
+        );
+      }
+
       return {
-        expiredSubscriptions: subResult.rowCount,
-        expiredUsers: userResult.rowCount,
+        success: true,
+        gracePeriodHours,
+        inGracePeriodCount: inGracePeriod.length,
+        downgradedCount: downgradedToFree.length,
+        legacyExpiredCount: legacyResult.rowCount || 0,
+        expiredSubscriptions: downgradedToFree.length,
+        expiredUsers: totalDowngraded,
+        notifiedUsers,
+        inGracePeriod,
+        downgradedToFree,
       };
     } catch (err) {
       console.error("[SubscriptionExpiry] Worker error:", err.message);
-      return { expiredSubscriptions: 0, expiredUsers: 0 };
+      return {
+        success: false,
+        error: err.message,
+        inGracePeriodCount: 0,
+        downgradedCount: 0,
+        legacyExpiredCount: 0,
+        expiredSubscriptions: 0,
+        expiredUsers: 0,
+        notifiedUsers: 0,
+      };
     }
   }
 }

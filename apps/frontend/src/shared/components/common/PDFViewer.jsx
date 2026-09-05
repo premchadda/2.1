@@ -46,11 +46,17 @@ export default function PDFViewer({ isOpen, onClose, pdfData }) {
             <X className="w-5 h-5 text-white" />
           </button>
           <div className="min-w-0">
-            <h3 className="text-white font-semibold text-sm truncate">
+            <h3
+              className="text-white font-semibold text-sm truncate"
+              title={pdfData?.title || "PDF Document"}
+            >
               {pdfData?.title || "PDF Document"}
             </h3>
             {pdfData?.description && (
-              <p className="text-gray-400 text-xs truncate">
+              <p
+                className="text-gray-400 text-xs truncate"
+                title={pdfData.description}
+              >
                 {pdfData.description}
               </p>
             )}

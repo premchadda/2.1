@@ -667,7 +667,10 @@ function TestInstructions() {
                   ]}
                 />
               </div>
-              <div className="sm:hidden font-bold text-tcs-text-primary text-sm truncate">
+              <div
+                className="sm:hidden font-bold text-tcs-text-primary text-sm truncate"
+                title={test.title}
+              >
                 {test.title}
               </div>
             </div>
@@ -1160,7 +1163,14 @@ function TestInstructions() {
                 onChange={(e) => setAgreedToRules(e.target.checked)}
                 className="w-4 h-4 text-tcs-primary rounded border-tcs-border focus:ring-tcs-primary cursor-pointer shrink-0"
               />
-              <span className="text-[11px] font-medium text-tcs-text-primary select-none truncate">
+              <span
+                title={
+                  isHindi
+                    ? "मैं सभी नियमों से सहमत हूँ।"
+                    : "I agree to all rules & instructions."
+                }
+                className="text-[11px] font-medium text-tcs-text-primary select-none truncate"
+              >
                 {isHindi
                   ? "मैं सभी नियमों से सहमत हूँ।"
                   : "I agree to all rules & instructions."}
@@ -1296,7 +1306,10 @@ function TestInstructions() {
             {/* Test Badge */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-900/90 border border-indigo-500/40 text-indigo-300 text-xs font-mono shadow-inner">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="truncate max-w-[240px]">
+              <span
+                title={test?.title || "Assessment"}
+                className="truncate max-w-[240px]"
+              >
                 {test?.title || "Assessment"}
               </span>
             </div>

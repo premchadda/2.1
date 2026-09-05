@@ -1228,7 +1228,10 @@ export default function TestSeriesManager() {
                         <span
                           className={`w-2 h-2 rounded-full flex-shrink-0 ${item.isActive ? "bg-emerald-500" : "bg-red-50 dark:bg-red-900/20"}`}
                         ></span>
-                        <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                        <h3
+                          className="font-semibold text-gray-900 dark:text-white truncate"
+                          title={item.title}
+                        >
                           {item.title}
                         </h3>
                         {item.isPinned && (

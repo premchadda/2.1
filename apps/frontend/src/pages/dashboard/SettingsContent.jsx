@@ -36,7 +36,7 @@ function SettingsContent({
   settingsTab,
   setSettingsTab: _setSettingsTab,
 }) {
-  const { confirm, ConfirmDialog: _ConfirmDialog } = useConfirm();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [saving, setSaving] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     current: "",
@@ -168,7 +168,13 @@ function SettingsContent({
   };
 
   const handleDeactivate = async () => {
-    if (!window.confirm("Deactivate your account?")) return;
+    const ok = await confirm({
+      title: "Deactivate Account?",
+      message: "You will be signed out and your account will be deactivated.",
+      confirmLabel: "Deactivate",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await userAPI.updateProfile({ isActive: false });
       await logout();
@@ -185,10 +191,14 @@ function SettingsContent({
   };
 
   const handleDelete = async () => {
-    if (
-      !window.confirm("Delete your account permanently? This cannot be undone.")
-    )
-      return;
+    const ok = await confirm({
+      title: "Delete Account Permanently?",
+      message:
+        "This cannot be undone. All your data will be permanently deleted.",
+      confirmLabel: "Delete Forever",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await userAPI.deleteAccount();
       await logout();
@@ -682,12 +692,14 @@ function SettingsContent({
                           </span>
                         </div>
                         <button
-                          onClick={() => {
-                            if (
-                              confirm(
-                                "Revoke this session? This will sign you out on that device.",
-                              )
-                            ) {
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: "Revoke Session?",
+                              message: "This will sign you out on that device.",
+                              confirmLabel: "Revoke",
+                              danger: true,
+                            });
+                            if (ok) {
                               handleRevokeSession(
                                 session.id || session.sessionId,
                               );
@@ -707,6 +719,7 @@ function SettingsContent({
           </div>,
           document.body,
         )}
+      {ConfirmDialog}
     </div>
   );
 }

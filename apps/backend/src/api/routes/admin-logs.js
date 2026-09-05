@@ -1,6 +1,12 @@
 import express from "express";
 import { protect, admin } from "../../middleware/auth.middleware.js";
 import logBuffer from "../../infrastructure/logger/logBuffer.js";
+import {
+  ingestErrorLog,
+  getErrorClusters,
+  getErrorSummary,
+  resolveCluster,
+} from "../../services/core/errorFingerprintService.js";
 
 const router = express.Router();
 
@@ -189,6 +195,65 @@ router.get("/export", (req, res) => {
       message: "Failed to export logs",
       error: error.message,
     });
+  }
+});
+
+/**
+ * POST /api/admin/logs/fingerprint/ingest
+ * Ingests an error, computes its fingerprint, and records it in error clusters
+ */
+router.post("/fingerprint/ingest", (req, res) => {
+  try {
+    const result = ingestErrorLog(req.body);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/logs/fingerprint/clusters
+ * Retrieve clustered error occurrences with filters
+ */
+router.get("/fingerprint/clusters", (req, res) => {
+  try {
+    const { category, severity, resolved, minOccurrences, limit } = req.query;
+    const clusters = getErrorClusters({
+      category,
+      severity,
+      resolved,
+      minOccurrences: minOccurrences ? parseInt(minOccurrences, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 50,
+    });
+    res.json({ success: true, count: clusters.length, data: clusters });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/logs/fingerprint/summary
+ * Retrieve overall error metrics, spike alerts, and category distributions
+ */
+router.get("/fingerprint/summary", (req, res) => {
+  try {
+    const summary = getErrorSummary();
+    res.json({ success: true, data: summary });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/admin/logs/fingerprint/:fingerprint/resolve
+ * Marks an error cluster as resolved
+ */
+router.post("/fingerprint/:fingerprint/resolve", (req, res) => {
+  try {
+    const resolved = resolveCluster(req.params.fingerprint);
+    res.json({ success: true, resolved });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
   }
 });
 

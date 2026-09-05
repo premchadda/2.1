@@ -62,23 +62,59 @@ export default function Privacy() {
           </section>
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-3">
-              5. Your Rights
+              5. Your Rights under DPDP Act 2023
             </h2>
-            <p className="text-gray-600">
-              You have the right to access, correct, or delete your personal
-              information. Contact us to exercise these rights.
+            <p className="text-gray-600 mb-2">
+              In accordance with the Digital Personal Data Protection (DPDP) Act
+              2023, you have the following statutory rights as a Data Principal:
             </p>
+            <ul className="list-disc list-inside text-gray-600 space-y-1">
+              <li>
+                <strong className="text-gray-800">Right to Access:</strong> You
+                can request a summary of personal data being processed and the
+                processing activities.
+              </li>
+              <li>
+                <strong className="text-gray-800">
+                  Right to Correction and Erasure:
+                </strong>{" "}
+                You can request correction of inaccurate data, completion of
+                incomplete data, or erasure of personal data no longer necessary
+                for the purpose it was collected.
+              </li>
+              <li>
+                <strong className="text-gray-800">
+                  Right of Grievance Redressal:
+                </strong>{" "}
+                You have the right to register a grievance with our Data
+                Protection / Grievance Officer.
+              </li>
+              <li>
+                <strong className="text-gray-800">Right to Nominate:</strong>{" "}
+                You may nominate another individual to exercise your rights in
+                the event of death or incapacity.
+              </li>
+            </ul>
           </section>
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-3">
-              6. Contact
+              6. Grievance Redressal & Contact
             </h2>
             <p className="text-gray-600">
-              For questions about this policy, contact us at {supportEmail}
+              For privacy requests or DPDP grievances, you may contact our
+              designated Grievance Officer at{" "}
+              <a
+                href={`mailto:${supportEmail}`}
+                className="text-indigo-600 hover:underline font-medium"
+              >
+                {supportEmail}
+              </a>
+              . All grievances are acknowledged within 24 hours and addressed
+              within 7 business days.
             </p>
           </section>
-          <p className="text-sm text-gray-500 pt-4">
-            Last updated: February 17, 2026
+          <p className="text-sm text-gray-500 pt-4 border-t border-gray-100">
+            Last updated: September 2026 • Compliant with DPDP Act 2023
           </p>
         </div>
       </div>

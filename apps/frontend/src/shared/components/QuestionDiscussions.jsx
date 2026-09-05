@@ -106,7 +106,10 @@ function CommentItem({ comment, currentUser, onEdit, onDelete }) {
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="text-xs font-bold text-gray-900 dark:text-white truncate">
+          <span
+            className="text-xs font-bold text-gray-900 dark:text-white truncate"
+            title={userName}
+          >
             {userName}
           </span>
           <span className="flex items-center gap-0.5 text-[10px] text-gray-400 dark:text-gray-500 font-medium shrink-0">

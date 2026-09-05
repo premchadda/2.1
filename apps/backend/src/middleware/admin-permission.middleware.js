@@ -3,12 +3,11 @@ import { pool } from "../infrastructure/database/postgres-helpers.js";
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 const resourceForPath = (path = "") => {
-  const segments = path.split("?")[0].split("/").filter(Boolean);
-  const resource = segments[0] || "content";
-  // Don't allow .. in path
-  if (resource.includes("..")) {
+  if (path.includes("..")) {
     return null;
   }
+  const segments = path.split("?")[0].split("/").filter(Boolean);
+  const resource = segments[0] || "content";
   if (
     ["users", "enrollments", "sessions", "roles", "permissions"].includes(
       resource,
@@ -42,6 +41,7 @@ const resourceForPath = (path = "") => {
     return "settings";
   if (
     [
+      "monetization",
       "payments",
       "subscription-plans",
       "plans",
@@ -51,7 +51,13 @@ const resourceForPath = (path = "") => {
   )
     return "monetization";
   if (
-    ["banners", "faqs", "notifications", "email-templates"].includes(resource)
+    [
+      "communications",
+      "banners",
+      "faqs",
+      "notifications",
+      "email-templates",
+    ].includes(resource)
   )
     return "communications";
   if (["moderation"].includes(resource)) return "moderation";
@@ -197,17 +203,19 @@ export const loadAdminPermissions = async (req, res, next) => {
 };
 
 export const requireAdminPermission = (req, res, next) => {
+  const path = req.path || "";
+  if (path.includes("..")) {
+    return res.status(400).json({ error: "Invalid path" });
+  }
+
   const permissions = req.user?.permissions || [];
   if (permissions.includes("*") || req.user?.role === "super_admin")
     return next();
 
-  const segments = (req.path || "").split("?")[0].split("/").filter(Boolean);
+  const segments = path.split("?")[0].split("/").filter(Boolean);
   const rawResource = segments[0] || "content";
-  if (rawResource.includes("..")) {
-    return res.status(400).json({ error: "Invalid path" });
-  }
 
-  const resource = resourceForPath(req.path);
+  const resource = resourceForPath(path);
   if (resource === null) {
     return res.status(400).json({ error: "Invalid path" });
   }

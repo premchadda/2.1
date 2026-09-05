@@ -35,11 +35,17 @@ export default function AdminPageHeader({
             </div>
           )}
           <div className="min-w-0">
-            <h1 className="text-base sm:text-lg md:text-xl font-black text-gray-900 dark:text-white truncate tracking-tight">
+            <h1
+              className="text-base sm:text-lg md:text-xl font-black text-gray-900 dark:text-white truncate tracking-tight"
+              title={title}
+            >
               {title}
             </h1>
             {subtitle && (
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate mt-0.5 font-medium">
+              <p
+                className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate mt-0.5 font-medium"
+                title={subtitle}
+              >
                 {subtitle}
               </p>
             )}

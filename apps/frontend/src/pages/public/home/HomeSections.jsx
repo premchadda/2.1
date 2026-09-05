@@ -1,4 +1,4 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ScrollReveal, TestSeriesCard } from "../../../shared/components";
 import {
   ArrowRight,
@@ -404,7 +404,10 @@ function HomeSections(props) {
                                   : test.participants || 0}
                               </span>
                             </div>
-                            <h3 className="font-bold text-gray-800 dark:text-white text-xs md:text-sm mb-1.5 line-clamp-1 group-hover:text-brand-start transition-colors">
+                            <h3
+                              className="font-bold text-gray-800 dark:text-white text-xs md:text-sm mb-1.5 line-clamp-1 group-hover:text-brand-start transition-colors"
+                              title={test.title}
+                            >
                               {test.title}
                             </h3>
                             <div className="flex flex-col gap-1 text-[10px] md:text-[11px] text-gray-600 dark:text-gray-400 mb-2">
@@ -414,7 +417,10 @@ function HomeSections(props) {
                               </div>
                               <div className="flex items-center gap-1 font-medium text-amber-800 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-900/40 px-2 py-0.5 rounded text-[9px] border border-amber-200 dark:border-amber-800/60">
                                 <Calendar className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
-                                <span className="truncate">
+                                <span
+                                  className="truncate"
+                                  title={`Available: ${getTestStartDate(test) ? new Date(getTestStartDate(test)).toLocaleDateString("en-GB") : "Available Now"}`}
+                                >
                                   Available:{" "}
                                   {getTestStartDate(test)
                                     ? `${new Date(getTestStartDate(test)).toLocaleDateString("en-GB")}`

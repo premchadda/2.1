@@ -1,40 +1,27 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { practiceAPI } from "../../shared/lib/practiceAPI";
 import { useAuth } from "../../shared/providers/AuthContext";
-import MathRenderer from "../../shared/components/MathRenderer";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
-import KnowledgeVaultModal from "./components/KnowledgeVaultModal";
 import FundamentalsGym from "./components/FundamentalsGym";
 import PracticeWorkspace from "./components/PracticeWorkspace";
 import PracticeTopicTree from "./components/PracticeTopicTree";
 
 import {
-  Zap,
   BookOpen,
-  Target,
   Flame,
   Star,
   Award,
   Layers,
-  Bookmark,
-  CheckCircle,
-  XCircle,
-  RefreshCw,
   ArrowRight,
-  TrendingUp,
   Sparkles,
   AlertCircle,
   ArrowLeft,
   Play,
-  Clock,
   ChevronDown,
-  ShieldCheck,
-  Lock,
-  Gift,
   RotateCcw,
 } from "lucide-react";
 
@@ -89,11 +76,15 @@ const getSubjectIcon = (subject) => {
 
 export default function PracticeLab() {
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [screen, setScreen] = useState("dashboard"); // dashboard | setup | session | fundamentals | complete | exam_practice | chapter_detail
   const [activeSession, setActiveSession] = useState(null);
   const [completeSummary, setCompleteSummary] = useState(null);
   const [selectedChapter, setSelectedChapter] = useState(null);
+  // Where the user launched the session from — "Back to Section" returns here
+  const [sessionReturnScreen, setSessionReturnScreen] = useState("dashboard");
+  // Prevents the ?mode=mistakes deep link from creating duplicate sessions
+  const deepLinkLaunchedRef = useRef(false);
 
   // Exam Selection State
   const [selectedExam, setSelectedExam] = useState(() => {
@@ -131,6 +122,7 @@ export default function PracticeLab() {
         difficulty: config.difficulty || "mixed",
         targetCount: config.count || 20,
       });
+      setSessionReturnScreen(screen || "dashboard");
       setActiveSession(session);
       setScreen("session");
     } catch (err) {
@@ -146,12 +138,19 @@ export default function PracticeLab() {
     const testIdParam = searchParams.get("testId");
     const subjectIdParam = searchParams.get("subjectId");
     if (modeParam === "mistakes") {
-      handleStartSession({
-        mode: "mistakes",
-        testId: testIdParam || undefined,
-        subjectId: subjectIdParam || undefined,
-        count: 25,
-      });
+      // Guard against StrictMode double-invocation / rapid remounts
+      if (!deepLinkLaunchedRef.current) {
+        deepLinkLaunchedRef.current = true;
+        handleStartSession({
+          mode: "mistakes",
+          testId: testIdParam || undefined,
+          subjectId: subjectIdParam || undefined,
+          count: 25,
+        });
+      }
+      // Clear the params so revisiting/navigating back doesn't spawn
+      // another mistakes session unintentionally
+      setSearchParams({}, { replace: true });
     }
   }, [searchParams]);
 
@@ -205,6 +204,7 @@ export default function PracticeLab() {
           onResume={async (session) => {
             try {
               const fullSession = await practiceAPI.getSession(session.id);
+              setSessionReturnScreen("dashboard");
               setActiveSession(fullSession);
               setScreen("session");
             } catch {
@@ -254,7 +254,15 @@ export default function PracticeLab() {
       {screen === "session" && activeSession && (
         <PracticeWorkspace
           session={activeSession}
-          onExit={() => setScreen("dashboard")}
+          onExit={() => setScreen(sessionReturnScreen || "dashboard")}
+          onLaunchTopicSession={(topicId) =>
+            handleStartSession({
+              mode: "learn",
+              topicId,
+              count: 10,
+              difficulty: "mixed",
+            })
+          }
           onComplete={(summary) => {
             if (!summary) return;
             setCompleteSummary(summary);
@@ -536,36 +544,37 @@ function ExamPracticeHub({
           {/* Chapter Cards — one full-width card per row */}
           <div className="overflow-y-auto flex-1 pr-1">
             {subjectsLoading ? (
-              <div className="flex items-center justify-center py-16 text-sm text-slate-400 dark:text-gray-500">
+              <div className="flex items-center justify-center py-8 text-sm text-slate-400 dark:text-gray-500">
                 <div className="w-5 h-5 mr-2 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
                 Loading live subjects and chapters…
               </div>
             ) : chaptersList.length > 0 ? (
-              <div className="space-y-4">
-                {chaptersList.map((ch) => (
+              <div className="space-y-3 sm:space-y-4">
+                {chaptersList.map((ch, idx) => (
                   <div
                     key={ch.id}
                     onClick={() => onStartChapter(ch)}
-                    className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-5 md:p-6 hover:border-indigo-400 dark:hover:border-indigo-800 hover:shadow-md transition cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 group"
+                    style={{ animationDelay: `${Math.min(idx, 8) * 40}ms` }}
+                    className="animate-slide-in-up bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-gray-700 p-4 sm:p-5 md:p-6 hover:border-indigo-400 dark:hover:border-indigo-800 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99] transition-all duration-200 cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-5 group"
                   >
                     <div className="min-w-0">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-full">
+                      <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
+                        <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 sm:px-2.5 py-1 rounded-full truncate">
                           {ch.badge}
                         </span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded">
+                        <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded shrink-0">
                           {ch.tag}
                         </span>
                       </div>
-                      <h4 className="font-extrabold text-slate-900 dark:text-white text-base mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
+                      <h4 className="font-extrabold text-slate-900 dark:text-white text-[15px] sm:text-base mb-0.5 sm:mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition line-clamp-2">
                         {ch.title}
                       </h4>
-                      <p className="text-xs font-bold text-slate-400 dark:text-gray-500">
+                      <p className="text-[11px] sm:text-xs font-bold text-slate-400 dark:text-gray-500">
                         {ch.count} Practice Questions
                       </p>
                     </div>
 
-                    <button className="w-full sm:w-auto sm:min-w-[170px] py-2.5 px-4 bg-slate-50 dark:bg-gray-900 text-slate-800 dark:text-gray-200 rounded-xl text-xs font-bold group-hover:bg-indigo-600 group-hover:text-white transition flex items-center justify-center gap-1.5">
+                    <button className="w-full sm:w-auto sm:min-w-[170px] py-2 sm:py-2.5 px-4 bg-slate-50 dark:bg-gray-900 text-slate-800 dark:text-gray-200 rounded-xl text-xs font-bold group-hover:bg-indigo-600 group-hover:text-white active:scale-[0.98] transition flex items-center justify-center gap-1.5 shrink-0">
                       <Play className="w-3.5 h-3.5 fill-current" /> Start
                       Practice →
                     </button>
@@ -573,7 +582,7 @@ function ExamPracticeHub({
                 ))}
               </div>
             ) : (
-              <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700">
+              <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700">
                 <BookOpen className="w-10 h-10 text-slate-300 dark:text-gray-600 mx-auto mb-3" />
                 <h4 className="text-base font-bold text-slate-800 dark:text-white">
                   No practice chapters available
@@ -591,12 +600,12 @@ function ExamPracticeHub({
       {/* ── FULL-WIDTH SECTION: PASS BANNER + EXPLORE SIMILAR ── */}
 
       {/* PASS NEW PROMO BANNER — full width below both columns */}
-      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-3xl p-6 md:p-8 text-white shadow-md flex flex-wrap items-center justify-between gap-6">
+      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 text-white shadow-md flex flex-wrap items-center justify-between gap-4 sm:gap-6">
         <div>
           <span className="text-[10px] uppercase font-bold tracking-wider bg-white/20 text-amber-100 px-3 py-1 rounded-full mb-2 inline-block">
             passNew • Trstprep Pass
           </span>
-          <h3 className="text-2xl font-black">
+          <h3 className="text-lg sm:text-2xl font-black">
             Unlock All Practice of All Exams with Pass!
           </h3>
           <p className="text-xs text-amber-100 mt-1 max-w-lg">
@@ -765,17 +774,17 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
       </div>
 
       {/* Chapter Hero Banner */}
-      <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 rounded-3xl p-6 md:p-8 text-white">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 text-white">
+        <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
           <div className="flex-1 min-w-0">
             <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 text-indigo-200 px-3 py-1 rounded-full mb-2 inline-block">
               Chapter Practice
             </span>
-            <h1 className="text-2xl md:text-xl sm:text-2xl lg:text-3xl font-black mt-1 leading-tight">
+            <h1 className="text-lg sm:text-2xl lg:text-3xl font-black mt-1 leading-tight">
               {chapter.title}
             </h1>
             {chapterData && (
-              <p className="text-indigo-200 text-sm mt-2">
+              <p className="text-indigo-200 text-xs sm:text-sm mt-2">
                 {chapterData.totalTopics} Topics · {chapterData.totalQuestions}{" "}
                 Practice Questions
               </p>
@@ -961,28 +970,31 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
                 Loading available question sets…
               </div>
             ) : getAvailableSets(currentTopic).length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {getAvailableSets(currentTopic).map((ps) => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                {getAvailableSets(currentTopic).map((ps, idx) => (
                   <div
                     key={ps.id}
                     onClick={() => handleStartSet(ps)}
-                    className={`${ps.bg} border ${ps.border} rounded-3xl p-5 cursor-pointer hover:shadow-md transition group`}
+                    style={{ animationDelay: `${idx * 45}ms` }}
+                    className={`${ps.bg} border ${ps.border} rounded-2xl sm:rounded-3xl p-4 sm:p-5 cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group`}
                   >
-                    <div className="flex items-start justify-between mb-3">
-                      <h4 className={`font-extrabold text-base ${ps.text}`}>
+                    <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
+                      <h4
+                        className={`font-extrabold text-[15px] sm:text-base ${ps.text}`}
+                      >
                         {ps.label}
                       </h4>
                       <span
-                        className={`text-[10px] font-bold uppercase tracking-wider ${ps.text} bg-white/60 dark:bg-gray-800/60 px-2 py-0.5 rounded-lg`}
+                        className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider ${ps.text} bg-white/60 dark:bg-gray-800/60 px-2 py-0.5 rounded-lg shrink-0`}
                       >
                         {ps.count} Qs
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-gray-400 mb-4 leading-relaxed">
+                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 mb-3 sm:mb-4 leading-relaxed">
                       {ps.desc}
                     </p>
                     <button
-                      className={`w-full py-2.5 ${ps.btn} text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5`}
+                      className={`w-full py-2 sm:py-2.5 ${ps.btn} text-white rounded-xl text-xs font-black transition active:scale-[0.98] flex items-center justify-center gap-1.5`}
                     >
                       <Play className="w-3.5 h-3.5 fill-current" /> Start
                       Practice →
@@ -1051,7 +1063,7 @@ function PracticeHubDashboard({
   if (isLoading || !dash) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-8 flex justify-center">
-        <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -1079,7 +1091,7 @@ function PracticeHubDashboard({
   ].slice(0, 4);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-6xl mx-auto px-3 sm:px-4 py-5 sm:py-8 space-y-4 sm:space-y-8">
       {/* Title & Daily Streak */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -1092,25 +1104,25 @@ function PracticeHubDashboard({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 px-4 py-2 flex items-center gap-2.5 shadow-xs">
-            <Flame className="w-5 h-5 text-orange-500" />
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-gray-700 px-3 py-1.5 sm:px-4 sm:py-2 flex items-center gap-2 sm:gap-2.5 shadow-xs">
+            <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
             <div>
-              <div className="text-lg font-black text-slate-900 dark:text-white leading-none">
+              <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-none">
                 {streak.currentStreak ?? 0}
               </div>
-              <div className="text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-wider">
+              <div className="text-[9px] sm:text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-wider">
                 Day streak
               </div>
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 px-4 py-2 flex items-center gap-2.5 shadow-xs">
-            <Star className="w-5 h-5 text-indigo-500" />
+          <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-gray-700 px-3 py-1.5 sm:px-4 sm:py-2 flex items-center gap-2 sm:gap-2.5 shadow-xs">
+            <Star className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500" />
             <div>
-              <div className="text-lg font-black text-slate-900 dark:text-white leading-none">
+              <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-none">
                 {streak.totalCorrect ?? 0}
               </div>
-              <div className="text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-wider">
+              <div className="text-[9px] sm:text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-wider">
                 Correct Total
               </div>
             </div>
@@ -1142,21 +1154,21 @@ function PracticeHubDashboard({
         </div>
       )}
 
-      <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-rose-500/10 border border-amber-500/20 rounded-3xl p-5 md:p-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 flex-shrink-0">
-            <RotateCcw className="w-6 h-6" />
+      <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-rose-500/10 border border-amber-500/20 rounded-2xl sm:rounded-3xl p-4 sm:p-5 md:p-6 flex flex-wrap items-center justify-between gap-3 sm:gap-4 animate-slide-up">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 flex-shrink-0">
+            <RotateCcw className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950 px-2.5 py-0.5 rounded-md">
                 Mistake Notebook
               </span>
-              <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 hidden sm:inline">
                 Cross-Platform Mistakes
               </span>
             </div>
-            <h3 className="text-lg font-black text-slate-900 dark:text-white mt-0.5">
+            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-0.5">
               Re-Practice Past Incorrect Questions
             </h3>
             <p className="text-xs text-slate-600 dark:text-gray-400 max-w-[95vw] sm:max-w-xl">
@@ -1170,7 +1182,7 @@ function PracticeHubDashboard({
         <button
           onClick={() => onLaunchSmart("mistakes")}
           disabled={mistakeCount === 0}
-          className={`px-5 py-2.5 rounded-xl font-black text-xs transition flex items-center gap-2 shadow-xs ${
+          className={`w-full sm:w-auto px-5 py-2.5 rounded-xl font-black text-xs transition flex items-center justify-center gap-2 shadow-xs active:scale-[0.98] ${
             mistakeCount > 0
               ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 cursor-pointer"
               : "bg-slate-200 dark:bg-gray-700 text-slate-400 dark:text-gray-500 cursor-not-allowed"
@@ -1184,26 +1196,28 @@ function PracticeHubDashboard({
       </div>
 
       {/* 🧮 5-LAYER HUBS GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
         {/* Hub 1: Fundamentals */}
         <div
           onClick={onOpenFundamentals}
-          className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl p-6 text-white cursor-pointer hover:shadow-lg transition-all group flex flex-col justify-between"
+          className="animate-slide-in-up bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-white cursor-pointer hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all duration-200 group flex flex-col justify-between"
         >
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-xl sm:text-2xl lg:text-3xl">🧮</span>
-              <span className="text-[10px] uppercase font-bold tracking-wider bg-white/20 px-3 py-1 rounded-full text-indigo-100">
+            <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+              <span className="text-lg sm:text-2xl lg:text-3xl">🧮</span>
+              <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider bg-white/20 px-2 sm:px-3 py-1 rounded-full text-indigo-100">
                 Calculation Gym
               </span>
             </div>
-            <h3 className="text-xl font-extrabold mb-1">Fundamentals</h3>
-            <p className="text-xs text-indigo-100 leading-relaxed mb-6">
+            <h3 className="text-base sm:text-xl font-extrabold mb-1">
+              Fundamentals
+            </h3>
+            <p className="text-[11px] sm:text-xs text-indigo-100 leading-relaxed mb-4 sm:mb-6">
               Tables (1–30), Squares (1–50), Cubes, Roots, Fractions ↔ %, Ratios
               & Triplets for 5x exam calculation speed.
             </p>
           </div>
-          <button className="w-full py-2.5 bg-white dark:bg-gray-800 text-indigo-700 dark:text-white rounded-xl text-xs font-black group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition">
+          <button className="w-full py-2 sm:py-2.5 bg-white dark:bg-gray-800 text-indigo-700 dark:text-white rounded-xl text-xs font-black group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition">
             Train Calculation Speed →
           </button>
         </div>
@@ -1211,24 +1225,25 @@ function PracticeHubDashboard({
         {/* Hub 2: Exam & Concept Practice */}
         <div
           onClick={onOpenExamPractice}
-          className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-6 cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-800 hover:shadow-md transition-all group flex flex-col justify-between"
+          style={{ animationDelay: "60ms" }}
+          className="animate-slide-in-up bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-gray-700 p-4 sm:p-6 cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-800 hover:shadow-md hover:-translate-y-1 active:scale-[0.98] transition-all duration-200 group flex flex-col justify-between"
         >
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-xl sm:text-2xl lg:text-3xl">📚</span>
-              <span className="text-[10px] uppercase font-bold tracking-wider bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1 rounded-full">
+            <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+              <span className="text-lg sm:text-2xl lg:text-3xl">📚</span>
+              <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 sm:px-3 py-1 rounded-full max-w-[60%] truncate">
                 {selectedExam ? selectedExam.name : "Choose Exam"}
               </span>
             </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
+            <h3 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
               Exam & Concepts
             </h3>
-            <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed mb-6">
+            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 leading-relaxed mb-4 sm:mb-6">
               Targeted practice questions across SSC, Railway, Banking, UPSC.
               Select subject, topic, and difficulty.
             </p>
           </div>
-          <button className="w-full py-2.5 bg-slate-100 dark:bg-gray-700 text-slate-800 dark:text-gray-200 rounded-xl text-xs font-bold group-hover:bg-indigo-600 group-hover:text-white transition">
+          <button className="w-full py-2 sm:py-2.5 bg-slate-100 dark:bg-gray-700 text-slate-800 dark:text-gray-200 rounded-xl text-xs font-bold group-hover:bg-indigo-600 group-hover:text-white transition">
             {selectedExam
               ? `Practice ${selectedExam.name} Questions →`
               : "Select Exam to Practice →"}
@@ -1238,24 +1253,25 @@ function PracticeHubDashboard({
         {/* Hub 3: Smart AI Practice */}
         <div
           onClick={() => onLaunchSmart("weak_topic")}
-          className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-6 cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-800 hover:shadow-md transition-all group flex flex-col justify-between"
+          style={{ animationDelay: "120ms" }}
+          className="animate-slide-in-up bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-gray-700 p-4 sm:p-6 cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-800 hover:shadow-md hover:-translate-y-1 active:scale-[0.98] transition-all duration-200 group flex flex-col justify-between"
         >
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-xl sm:text-2xl lg:text-3xl">🎯</span>
-              <span className="text-[10px] uppercase font-bold tracking-wider bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-3 py-1 rounded-full">
+            <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+              <span className="text-lg sm:text-2xl lg:text-3xl">🎯</span>
+              <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-2 sm:px-3 py-1 rounded-full">
                 Personalized AI
               </span>
             </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
+            <h3 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
               Smart Practice
             </h3>
-            <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed mb-6">
+            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 leading-relaxed mb-4 sm:mb-6">
               AI-driven speed drills and weak-topic reinforcement calculated
               from your past test performance.
             </p>
           </div>
-          <button className="w-full py-2.5 bg-slate-100 dark:bg-gray-700 text-slate-800 dark:text-gray-200 rounded-xl text-xs font-bold group-hover:bg-amber-500 group-hover:text-white transition">
+          <button className="w-full py-2 sm:py-2.5 bg-slate-100 dark:bg-gray-700 text-slate-800 dark:text-gray-200 rounded-xl text-xs font-bold group-hover:bg-amber-500 group-hover:text-white transition">
             Start Smart Drill →
           </button>
         </div>
@@ -1269,31 +1285,32 @@ function PracticeHubDashboard({
         </h3>
 
         {recommendedTopics.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {recommendedTopics.map((topic) => {
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+            {recommendedTopics.map((topic, idx) => {
               const weakTopic = weakTopicMap.get(String(topic.id));
               const mode = weakTopic ? "weak_topic" : "learn";
               return (
                 <div
                   key={topic.id}
                   onClick={() => onLaunchSmart(mode, topic.id)}
-                  className="p-4 bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-800 cursor-pointer transition shadow-2xs"
+                  style={{ animationDelay: `${idx * 45}ms` }}
+                  className="animate-slide-in-up p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-800 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] cursor-pointer transition-all duration-200 shadow-2xs"
                 >
-                  <div className="flex items-center justify-between mb-2 gap-2">
-                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 truncate">
+                  <div className="flex items-center justify-between mb-1.5 sm:mb-2 gap-1.5">
+                    <span className="text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400 truncate">
                       {weakTopic ? "🔥 Weak Topic" : "📚 Available Topic"}
                     </span>
-                    <span className="text-[10px] font-mono bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded whitespace-nowrap">
+                    <span className="text-[9px] sm:text-[10px] font-mono bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-1.5 sm:px-2 py-0.5 rounded whitespace-nowrap shrink-0">
                       {weakTopic?.accuracy !== null &&
                       weakTopic?.accuracy !== undefined
                         ? `${weakTopic.accuracy}% Accuracy`
-                        : `${getQuestionCount(topic)} Questions`}
+                        : `${getQuestionCount(topic)} Qs`}
                     </span>
                   </div>
-                  <div className="font-bold text-slate-900 dark:text-white text-sm mb-1">
+                  <div className="font-bold text-slate-900 dark:text-white text-[13px] sm:text-sm mb-0.5 sm:mb-1 line-clamp-2">
                     {topic.name}
                   </div>
-                  <p className="text-xs text-slate-400 dark:text-gray-500 truncate">
+                  <p className="text-[10px] sm:text-xs text-slate-400 dark:text-gray-500 truncate">
                     {topic.subjectName} · {topic.chapterName}
                   </p>
                 </div>
@@ -1309,7 +1326,7 @@ function PracticeHubDashboard({
 
       {/* TOPIC TREE BROWSER */}
       {treeData && (
-        <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-6 shadow-xs">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-gray-700 p-4 sm:p-6 shadow-xs">
           <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center">
             <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400 mr-2" />{" "}
             Explore Curriculum Topics
@@ -1622,9 +1639,9 @@ function PracticeCompleteScreen({ summary, onDashboard, onRestartSession }) {
               Concept Mastery
             </div>
             <div className="text-2xl font-black text-amber-500 mt-0.5">
-              {summary.masteryChange !== null &&
-              summary.masteryChange !== undefined
-                ? `${summary.masteryChange > 0 ? "+" : ""}${summary.masteryChange}%`
+              {summary.masteryPercent !== null &&
+              summary.masteryPercent !== undefined
+                ? `${summary.masteryPercent}%`
                 : "—"}
             </div>
           </div>

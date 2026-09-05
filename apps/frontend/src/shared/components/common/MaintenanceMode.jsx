@@ -39,7 +39,10 @@ export default function MaintenanceMode({ children }) {
         <div className="sticky top-0 z-[9999] bg-amber-500 text-white px-4 py-2 flex items-center justify-between gap-3 shadow-lg">
           <div className="flex items-center gap-2 min-w-0">
             <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-            <span className="text-xs sm:text-sm font-bold truncate">
+            <span
+              className="text-xs sm:text-sm font-bold truncate"
+              title="Maintenance Mode is ACTIVE — non-admin users see the maintenance page."
+            >
               Maintenance Mode is ACTIVE — non-admin users see the maintenance
               page.
             </span>

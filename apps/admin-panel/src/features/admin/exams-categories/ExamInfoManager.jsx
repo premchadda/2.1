@@ -368,7 +368,10 @@ export default function ExamInfoManager() {
                         <span className="text-xs font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-1.5 py-0.5 rounded">
                           #{exam.id}
                         </span>
-                        <h3 className="font-bold text-gray-900 dark:text-white truncate">
+                        <h3
+                          className="font-bold text-gray-900 dark:text-white truncate"
+                          title={exam.title}
+                        >
                           {exam.title}
                         </h3>
                         <span
@@ -381,7 +384,12 @@ export default function ExamInfoManager() {
                           {exam.isActive !== false ? "Active" : "Inactive"}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                      <p
+                        className="text-sm text-gray-500 dark:text-gray-400 truncate"
+                        title={
+                          exam.fullName || exam.description || "No description"
+                        }
+                      >
                         {exam.fullName || exam.description || "No description"}
                       </p>
                       <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400 dark:text-gray-500">

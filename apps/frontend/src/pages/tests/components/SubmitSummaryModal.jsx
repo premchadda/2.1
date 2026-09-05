@@ -331,7 +331,10 @@ export default function SubmitSummaryModal({
                       key={idx}
                       className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors"
                     >
-                      <td className="py-3 px-4 font-semibold text-gray-900 dark:text-gray-100 max-w-[200px] truncate">
+                      <td
+                        className="py-3 px-4 font-semibold text-gray-900 dark:text-gray-100 max-w-[200px] truncate"
+                        title={sec.name}
+                      >
                         {sec.name}
                       </td>
                       <td className="py-3 px-3 text-center font-bold text-gray-800 dark:text-gray-200">
@@ -391,7 +394,10 @@ export default function SubmitSummaryModal({
                   className="p-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800/60 shadow-sm space-y-2.5"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="font-bold text-sm text-gray-900 dark:text-white truncate max-w-[180px]">
+                    <div
+                      className="font-bold text-sm text-gray-900 dark:text-white truncate max-w-[200px]"
+                      title={sec.name}
+                    >
                       {sec.name}
                     </div>
                     <div className="text-xs font-mono text-gray-500 dark:text-gray-400">

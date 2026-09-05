@@ -492,6 +492,7 @@ export default function CommandPalette({ isOpen, onClose }) {
                         text={item.name}
                         query={query}
                         className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate"
+                        title={item.name}
                       />
                       {item.group === "Actions" && (
                         <span className="px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 rounded-md shrink-0">
@@ -505,7 +506,10 @@ export default function CommandPalette({ isOpen, onClose }) {
                       )}
                     </div>
                     {item.description && (
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5 font-medium">
+                      <p
+                        className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5 font-medium"
+                        title={item.description}
+                      >
                         <HighlightedText
                           text={item.description}
                           query={query}

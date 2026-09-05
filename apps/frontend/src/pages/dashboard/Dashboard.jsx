@@ -1320,7 +1320,10 @@ function Dashboard() {
                                 k
                               </span>
                             </div>
-                            <h3 className="font-bold text-gray-800 dark:text-white text-sm mb-2 line-clamp-1 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors">
+                            <h3
+                              className="font-bold text-gray-800 dark:text-white text-sm mb-2 line-clamp-1 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors"
+                              title={test.title}
+                            >
                               {test.title}
                             </h3>
                             <div className="flex flex-col gap-1.5 text-[10px] text-gray-600 dark:text-gray-400 mb-3">
@@ -1332,7 +1335,10 @@ function Dashboard() {
                               </div>
                               <div className="flex items-center gap-1 font-medium text-amber-800 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-900/40 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-800/60">
                                 <Calendar className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
-                                <span className="truncate">
+                                <span
+                                  className="truncate"
+                                  title={`Available: ${test.timePeriod}`}
+                                >
                                   Available: {test.timePeriod}
                                 </span>
                               </div>

@@ -343,6 +343,34 @@ export const attemptService = {
         await repo.saveSectionScores(attempt.id, sectionScores, client);
       }
 
+      // Persist to results table for analytics, leaderboards, and certificates
+      try {
+        const percentage =
+          totalMarks > 0 ? Number(((score / totalMarks) * 100).toFixed(2)) : 0;
+        await client.query(
+          `INSERT INTO results (
+            attempt_id, user_id, test_id, series_id, score,
+            total_marks, percentage, time_taken, submitted_at, created_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+          ON CONFLICT DO NOTHING`,
+          [
+            attempt.id,
+            userId,
+            test.id,
+            test.seriesId || test.series_id || null,
+            score,
+            totalMarks,
+            percentage,
+            Number(timeSpent) || 0,
+          ],
+        );
+      } catch (resultsErr) {
+        console.warn(
+          "[attempt.service] Failed to persist to results table:",
+          resultsErr.message,
+        );
+      }
+
       await client.query("COMMIT");
     } catch (err) {
       await client.query("ROLLBACK").catch(() => {});

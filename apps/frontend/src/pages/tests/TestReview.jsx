@@ -342,7 +342,10 @@ export default function TestReview() {
               <Sparkles className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <h1 className="font-extrabold text-sm sm:text-base text-white truncate max-w-[200px] sm:max-w-md">
+              <h1
+                className="font-extrabold text-sm sm:text-base text-white truncate max-w-[200px] sm:max-w-md"
+                title={testData.testTitle || "Solutions & Review"}
+              >
                 {testData.testTitle || "Solutions & Review"}
               </h1>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider hidden sm:block">
@@ -741,7 +744,10 @@ export default function TestReview() {
                     <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
                       Topic
                     </span>
-                    <span className="text-xs font-extrabold text-gray-800 dark:text-gray-200 truncate mt-0.5 block">
+                    <span
+                      className="text-xs font-extrabold text-gray-800 dark:text-gray-200 truncate mt-0.5 block"
+                      title={currentQuestion.topic || "General"}
+                    >
                       {currentQuestion.topic || "General"}
                     </span>
                   </div>

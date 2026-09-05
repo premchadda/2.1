@@ -737,10 +737,16 @@ export default function TagConfigsManager() {
                         <TagIcon name={tag.icon} className="w-5 h-5" />
                       </div>
                       <div className="min-w-0">
-                        <h4 className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                        <h4
+                          className="text-xs font-bold text-gray-900 dark:text-white truncate"
+                          title={tag.label || tag.name}
+                        >
                           {tag.label || tag.name}
                         </h4>
-                        <span className="text-[10px] font-mono text-gray-400 block truncate">
+                        <span
+                          className="text-[10px] font-mono text-gray-400 block truncate"
+                          title={`#${tag.name || tag.id}`}
+                        >
                           #{tag.name || tag.id}
                         </span>
                       </div>

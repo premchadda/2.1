@@ -230,7 +230,7 @@ export default function OnboardingWizard() {
 
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="w-8 h-8 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+              <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
             </div>
           ) : step === 0 ? (
             <div className="space-y-4">

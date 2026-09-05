@@ -412,11 +412,24 @@ export const getUserWeakTopics = async (
   }));
 };
 
-export const getUserPerformanceAnalytics = async (userId) => {
+export const getUserPerformanceAnalytics = async (
+  userId,
+  { period = "month" } = {},
+) => {
   let completed = [];
+  const normalizedPeriod = String(period).toLowerCase();
+  const intervalClause =
+    normalizedPeriod === "week"
+      ? " AND COALESCE(submitted_at, created_at) >= NOW() - INTERVAL '7 days'"
+      : normalizedPeriod === "month"
+        ? " AND COALESCE(submitted_at, created_at) >= NOW() - INTERVAL '30 days'"
+        : normalizedPeriod === "quarter"
+          ? " AND COALESCE(submitted_at, created_at) >= NOW() - INTERVAL '90 days'"
+          : "";
+
   try {
     const attemptsResult = await pool.query(
-      `SELECT * FROM attempts WHERE (user_id = $1 OR user_id = $2) AND (is_completed = true OR LOWER(status) IN ('completed', 'submitted')) ORDER BY submitted_at ASC, created_at ASC`,
+      `SELECT * FROM attempts WHERE (user_id = $1 OR user_id = $2) AND (is_completed = true OR LOWER(status) IN ('completed', 'submitted'))${intervalClause} ORDER BY submitted_at ASC, created_at ASC`,
       [Number(userId) || -1, String(userId)],
     );
     completed = attemptsResult.rows.map((r) => ({
@@ -435,14 +448,30 @@ export const getUserPerformanceAnalytics = async (userId) => {
       err.message,
     );
     const attempts = await dbHelpers.find("attempts", { userId });
+    const cutoffDate =
+      normalizedPeriod === "week"
+        ? new Date(Date.now() - 7 * 86400000)
+        : normalizedPeriod === "month"
+          ? new Date(Date.now() - 30 * 86400000)
+          : normalizedPeriod === "quarter"
+            ? new Date(Date.now() - 90 * 86400000)
+            : null;
+
     completed = attempts
       .filter((attempt) => {
         const status = String(attempt.status || "").toLowerCase();
-        return (
+        const isDone =
           attempt.isCompleted === true ||
           status === "completed" ||
-          status === "submitted"
-        );
+          status === "submitted";
+        if (!isDone) return false;
+        if (cutoffDate) {
+          const attemptDate = new Date(
+            attempt.submittedAt || attempt.createdAt || 0,
+          );
+          if (attemptDate < cutoffDate) return false;
+        }
+        return true;
       })
       .sort(
         (a, b) =>
@@ -518,7 +547,56 @@ export const getUserPerformanceAnalytics = async (userId) => {
   const roundedAvgScore = Number(averageScore.toFixed(2));
   const roundedAccuracy = Number(overallAccuracy.toFixed(2));
 
+  // Topic Mastery Radar classification
+  const topicMasteryRadar = {
+    mastered: [],
+    developing: [],
+    criticalWeak: [],
+  };
+
+  (weakTopics || []).forEach((t) => {
+    const acc = safeNumber(t.accuracy ?? 100 - (t.wrongPercentage ?? 0));
+    const entry = {
+      topic: t.topic || t.name,
+      subject: t.subject || "General",
+      accuracy: acc,
+      attempts: safeNumber(t.totalAttempts ?? t.total ?? 0),
+    };
+    if (acc >= 80) {
+      topicMasteryRadar.mastered.push(entry);
+    } else if (acc >= 50) {
+      topicMasteryRadar.developing.push(entry);
+    } else {
+      topicMasteryRadar.criticalWeak.push(entry);
+    }
+  });
+
+  // Speed vs Accuracy Efficiency Matrix
+  let paceCategory = "Balanced";
+  if (testCount > 0) {
+    if (overallAccuracy >= 75 && speedPerQuestion <= 50) {
+      paceCategory = "Optimal & Fast";
+    } else if (overallAccuracy >= 75 && speedPerQuestion > 50) {
+      paceCategory = "Accurate but Cautious";
+    } else if (overallAccuracy < 75 && speedPerQuestion <= 50) {
+      paceCategory = "Fast but Error-Prone";
+    } else {
+      paceCategory = "Needs Foundational Review";
+    }
+  }
+
+  const efficiencyMatrix = {
+    paceCategory,
+    accuracy: roundedAccuracy,
+    speedPerQuestion: Number(speedPerQuestion.toFixed(2)),
+    efficiencyScore:
+      speedPerQuestion > 0
+        ? Number(((overallAccuracy / speedPerQuestion) * 10).toFixed(1))
+        : 0,
+  };
+
   return {
+    period: normalizedPeriod,
     totalTests: testCount,
     testCount,
     avgScore: roundedAvgScore,
@@ -530,7 +608,10 @@ export const getUserPerformanceAnalytics = async (userId) => {
     totalAttempted,
     rank: rank || 1,
     subjectWise,
+    topicMasteryRadar,
+    efficiencyMatrix,
     summary: {
+      period: normalizedPeriod,
       testCount,
       totalTests: testCount,
       averageScore: roundedAvgScore,
@@ -541,6 +622,7 @@ export const getUserPerformanceAnalytics = async (userId) => {
       totalQuestions,
       totalAttempted,
       rank: rank || 1,
+      paceCategory,
     },
     trends: performanceTrend,
     weakTopics,

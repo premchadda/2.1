@@ -11,6 +11,7 @@ import {
   getExamUpdates,
   getExamYearlyData,
 } from "../../shared/lib/dataService";
+import { toast } from "react-hot-toast";
 import {
   Bell,
   Layout,
@@ -529,7 +530,7 @@ function ExamInfoNew() {
     } catch (err) {
       // user cancelled share sheet — not an error
       if (err?.name === "AbortError" || err?.code === "ERR_CANCELED") return;
-      alert(
+      toast.error(
         "Could not copy the link. Please copy it manually from the address bar.",
       );
     }
@@ -539,7 +540,7 @@ function ExamInfoNew() {
     e.preventDefault();
     if (reportSubmitting) return;
     if (!reportCategory) {
-      alert("Please select what is wrong before submitting.");
+      toast.error("Please select what is wrong before submitting.");
       return;
     }
     setReportSubmitting(true);
@@ -560,7 +561,7 @@ function ExamInfoNew() {
         2500,
       );
     } catch {
-      alert("Could not submit the report. Please try again.");
+      toast.error("Could not submit the report. Please try again.");
     } finally {
       setReportSubmitting(false);
     }
@@ -797,7 +798,10 @@ function ExamInfoNew() {
                       <p className="text-[8px] md:text-[10px] text-white/50 uppercase tracking-wide font-semibold">
                         Conducted by
                       </p>
-                      <p className="font-extrabold text-[10px] md:text-xs text-white truncate max-w-[80px] md:max-w-[120px]">
+                      <p
+                        className="font-extrabold text-[10px] md:text-xs text-white truncate max-w-[80px] md:max-w-[120px]"
+                        title={examData.static.conductingBody}
+                      >
                         {examData.static.conductingBody}
                       </p>
                     </div>
@@ -941,7 +945,10 @@ function ExamInfoNew() {
                         <p className="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide font-semibold">
                           Conducting Body
                         </p>
-                        <p className="font-bold text-xs sm:text-sm text-gray-700 dark:text-gray-300 truncate">
+                        <p
+                          className="font-bold text-xs sm:text-sm text-gray-700 dark:text-gray-300 truncate"
+                          title={examData.static.conductingBody}
+                        >
                           {examData.static.conductingBody}
                         </p>
                       </div>

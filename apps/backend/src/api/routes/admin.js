@@ -57,6 +57,7 @@ import adminTestSeriesRoutes from "./admin-test-series.js";
 import adminTestsRoutes from "./admin-tests.js";
 import adminUsersRoutes from "./admin-users.js";
 import leaderboardRoutes from "./leaderboards-admin.js";
+import adminLiveTestsRoutes from "./admin-live-tests.js";
 
 const router = express.Router();
 
@@ -118,5 +119,6 @@ router.use("/moderation", adminModerationRoutes);
 router.use("/backups", adminBackupsRoutes);
 router.use("/logs", adminLogsRoutes);
 router.use("/leaderboards", leaderboardRoutes);
+router.use("/live-tests", adminLiveTestsRoutes);
 
 export default router;

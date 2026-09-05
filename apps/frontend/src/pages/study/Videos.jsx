@@ -153,7 +153,10 @@ const VideoCard = ({ video, index = 0, progress = null }) => {
           </div>
         ) : (
           <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400">
-            <span className="flex items-center gap-1 font-medium truncate max-w-[120px]">
+            <span
+              className="flex items-center gap-1 font-medium truncate max-w-[120px]"
+              title={video.instructor || "Expert Faculty"}
+            >
               <GraduationCap className="w-3 h-3 text-slate-400 shrink-0" />
               <span className="truncate">
                 {video.instructor || "Expert Faculty"}
@@ -216,11 +219,17 @@ const TrendingCard = ({ video, progress = null }) => {
         )}
       </div>
       <div className="p-2.5">
-        <h3 className="font-bold text-slate-900 dark:text-white line-clamp-2 group-hover:text-rose-500 dark:group-hover:text-rose-400 transition-colors text-[11px] leading-snug">
+        <h3
+          className="font-bold text-slate-900 dark:text-white line-clamp-2 group-hover:text-rose-500 dark:group-hover:text-rose-400 transition-colors text-[11px] leading-snug"
+          title={video.title}
+        >
           {video.title}
         </h3>
         <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-500 dark:text-slate-400">
-          <span className="truncate max-w-[80px]">
+          <span
+            className="truncate max-w-[80px]"
+            title={video.subject || "Lecture"}
+          >
             {video.subject || "Lecture"}
           </span>
           <span>{video.views?.toLocaleString() || 0} views</span>
@@ -970,17 +979,26 @@ function Videos() {
                               </div>
                               <div className="flex-1 min-w-0 flex flex-col justify-between">
                                 <div>
-                                  <h3 className="font-bold text-slate-900 dark:text-white line-clamp-2 text-xs sm:text-sm group-hover:text-rose-500 dark:group-hover:text-rose-400 transition-colors leading-snug">
+                                  <h3
+                                    className="font-bold text-slate-900 dark:text-white line-clamp-2 text-xs sm:text-sm group-hover:text-rose-500 dark:group-hover:text-rose-400 transition-colors leading-snug"
+                                    title={video.title}
+                                  >
                                     {video.title}
                                   </h3>
                                   {video.topic && (
-                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate">
+                                    <p
+                                      className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate"
+                                      title={video.topic}
+                                    >
                                       {video.topic}
                                     </p>
                                   )}
                                 </div>
                                 <div className="flex items-center justify-between mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                                  <span className="truncate">
+                                  <span
+                                    className="truncate"
+                                    title={`${video.instructor || "Faculty"} · ${video.subject}`}
+                                  >
                                     {video.instructor || "Faculty"} ·{" "}
                                     {video.subject}
                                   </span>

@@ -19,6 +19,7 @@ import MathRenderer from "../../../shared/components/MathRenderer";
 import sanitizeHtml from "../../../shared/lib/sanitizeHtml";
 import { getSubjectEmoji } from "../../../shared/config";
 import { toast } from "react-hot-toast";
+import { useConfirm } from "../../../shared/components/common/ConfirmModal";
 
 export default function QuestionDetailModal({
   bookmark,
@@ -37,6 +38,7 @@ export default function QuestionDetailModal({
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const item = bookmark?.item || {};
 
@@ -447,10 +449,14 @@ export default function QuestionDetailModal({
 
             {onRemove && (
               <button
-                onClick={() => {
-                  if (
-                    window.confirm("Remove this question from your saved list?")
-                  ) {
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: "Remove Bookmark?",
+                    message: "Remove this question from your saved list?",
+                    confirmLabel: "Remove",
+                    danger: true,
+                  });
+                  if (ok) {
                     onRemove(bookmark._id || bookmark.id);
                     onClose();
                   }
@@ -487,6 +493,7 @@ export default function QuestionDetailModal({
           </div>
         </div>
       </div>
+      {ConfirmDialog}
     </div>,
     document.body,
   );

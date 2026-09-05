@@ -218,6 +218,7 @@ function BottomNav() {
                 </div>
 
                 <span
+                  title={label}
                   className={`text-[9px] font-semibold transition-all duration-300 truncate w-full text-center ${
                     active
                       ? "opacity-100"

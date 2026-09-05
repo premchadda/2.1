@@ -7,6 +7,8 @@ import {
   hasDevanagari,
   hasLatin,
   detectScript,
+  getLocalizedField,
+  pickDefaultLanguage,
 } from "../shared/lib/language";
 
 describe("Language utilities", () => {
@@ -126,6 +128,71 @@ describe("Language utilities", () => {
       expect(formatLanguagesDisplay(["en", "hi"], 2, 4)).toBe(
         "English, Hindi +4",
       );
+    });
+  });
+
+  describe("getLocalizedField", () => {
+    it("extracts Hindi from embedded bilingual spans when lang='hi'", () => {
+      const html =
+        '<span class="eqt">What is the capital?</span><span class="hqt">राजधानी क्या है?</span>';
+      expect(getLocalizedField(html, "hi")).toBe("राजधानी क्या है?");
+    });
+
+    it("extracts English from embedded bilingual spans when lang='en'", () => {
+      const html =
+        '<span class="eqt">What is the capital?</span><span class="hqt">राजधानी क्या है?</span>';
+      expect(getLocalizedField(html, "en")).toBe("What is the capital?");
+    });
+
+    it("falls back to English when Hindi span is empty", () => {
+      const html =
+        '<span class="eqt">Only English available</span><span class="hqt"></span>';
+      expect(getLocalizedField(html, "hi")).toBe("Only English available");
+    });
+
+    it("falls back to Hindi when English span is empty", () => {
+      const html =
+        '<span class="eqt"></span><span class="hqt">केवल हिंदी उपलब्ध</span>';
+      expect(getLocalizedField(html, "en")).toBe("केवल हिंदी उपलब्ध");
+    });
+
+    it("resolves from object with en/hi keys with fallback", () => {
+      const obj = { en: "Velocity", hi: "वेग" };
+      expect(getLocalizedField(obj, "hi")).toBe("वेग");
+      expect(getLocalizedField(obj, "en")).toBe("Velocity");
+
+      const objOnlyEn = { en: "Momentum", hi: "" };
+      expect(getLocalizedField(objOnlyEn, "hi")).toBe("Momentum");
+
+      const objOnlyHi = { en: "", hi: "संवेग" };
+      expect(getLocalizedField(objOnlyHi, "en")).toBe("संवेग");
+    });
+
+    it("maps array of options individually with bilingual resolution", () => {
+      const options = [
+        { en: "Option A", hi: "विकल्प A" },
+        { en: "Option B", hi: "विकल्प B" },
+      ];
+      expect(getLocalizedField(options, "hi")).toEqual([
+        "विकल्प A",
+        "विकल्प B",
+      ]);
+      expect(getLocalizedField(options, "en")).toEqual([
+        "Option A",
+        "Option B",
+      ]);
+    });
+  });
+
+  describe("pickDefaultLanguage", () => {
+    it("returns 'hi' if question contains predominantly Hindi content", () => {
+      const q = { text: { hi: "भारत का राष्ट्रीय पक्षी क्या है?" } };
+      expect(pickDefaultLanguage(q)).toBe("hi");
+    });
+
+    it("returns 'en' for English question text", () => {
+      const q = { text: { en: "What is the speed of light?" } };
+      expect(pickDefaultLanguage(q)).toBe("en");
     });
   });
 });

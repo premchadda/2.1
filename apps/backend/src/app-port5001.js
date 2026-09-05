@@ -1277,9 +1277,21 @@ const fatalShutdown = (label, err) => {
 process.on("uncaughtException", (error) =>
   fatalShutdown("Uncaught Exception", error),
 );
-process.on("unhandledRejection", (reason) =>
-  fatalShutdown("Unhandled Rejection", reason),
-);
+process.on("unhandledRejection", (reason) => {
+  const msg = String(reason?.message || reason || "");
+  if (
+    msg.includes("Command timed out") ||
+    msg.includes("Connection is closed") ||
+    msg.includes("enableOfflineQueue")
+  ) {
+    logger.warn(
+      { err: reason },
+      "[Redis] Transient background error handled non-fatally",
+    );
+    return;
+  }
+  fatalShutdown("Unhandled Rejection", reason);
+});
 
 startServer();
 export default app;

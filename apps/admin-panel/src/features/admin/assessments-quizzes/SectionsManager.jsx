@@ -209,7 +209,10 @@ function SectionPreview({ existingSections, preset, seriesName, stageName }) {
             </span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                <span
+                  className="text-sm font-medium text-gray-900 dark:text-white truncate"
+                  title={section.name}
+                >
                   {section.name}
                 </span>
                 {section.exam_alias && (
@@ -283,7 +286,10 @@ function SectionPreview({ existingSections, preset, seriesName, stageName }) {
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate line-through decoration-gray-300">
+                  <span
+                    className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate line-through decoration-gray-300"
+                    title={section.name}
+                  >
                     {section.name}
                   </span>
                   <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded uppercase">
@@ -542,20 +548,34 @@ function SectionsManager({ testId: propTestId } = {}) {
       } else {
         // Duplicate check scoped to same series/stage/test (not global)
         const duplicate = sections.find((s) => {
-          if (String(s.name || "").toLowerCase() !== data.name.trim().toLowerCase()) return false;
+          if (
+            String(s.name || "").toLowerCase() !==
+            data.name.trim().toLowerCase()
+          )
+            return false;
           if (String(s.id) === String(excludeId)) return false;
-          const sameSeries = String(s.test_series_id || "") === String(data.test_series_id || "");
-          const sameStage = String(s.stage_id || "") === String(data.stage_id || "");
-          const sameTest = String(s.test_id || "") === String(data.test_id || "");
+          const sameSeries =
+            String(s.test_series_id || "") ===
+            String(data.test_series_id || "");
+          const sameStage =
+            String(s.stage_id || "") === String(data.stage_id || "");
+          const sameTest =
+            String(s.test_id || "") === String(data.test_id || "");
           // If either side has series/stage context, require matching context; otherwise fall back to testId check
-          if (data.test_series_id || data.stage_id || s.test_series_id || s.stage_id) {
+          if (
+            data.test_series_id ||
+            data.stage_id ||
+            s.test_series_id ||
+            s.stage_id
+          ) {
             return sameSeries && sameStage && sameTest;
           }
           if (testId) return String(s.test_id) === String(testId);
           return true;
         });
         if (duplicate) {
-          validationErrors.name = "A section with this name already exists in this scope";
+          validationErrors.name =
+            "A section with this name already exists in this scope";
         }
       }
 

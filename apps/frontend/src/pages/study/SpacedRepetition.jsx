@@ -90,7 +90,10 @@ function Flashcard({ card, onKnow, onNeedsReview, index }) {
                 {priority.text}
               </span>
               {card.topic_name && (
-                <span className="px-2.5 py-1 text-[10px] font-medium rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400">
+                <span
+                  className="px-2.5 py-1 text-[10px] font-medium rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 truncate max-w-[140px]"
+                  title={card.topic_name}
+                >
                   {card.topic_name}
                 </span>
               )}

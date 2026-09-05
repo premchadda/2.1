@@ -83,7 +83,9 @@ export default function SectionWiseScorecard({
                     <td className="py-3 px-3 sm:px-4 font-bold text-gray-900 dark:text-white">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
-                        <span className="truncate">{s.subject}</span>
+                        <span className="truncate" title={s.subject}>
+                          {s.subject}
+                        </span>
                       </div>
                     </td>
                     <td className="py-3 px-2 sm:px-3 text-center font-bold text-gray-700 dark:text-gray-300">
