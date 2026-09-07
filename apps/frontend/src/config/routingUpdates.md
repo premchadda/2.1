@@ -1,128 +1,138 @@
-// Add these routes to your App.jsx or routing configuration
-// This file shows the new routes to add for all the new features
+# Frontend Route Map (generated from `src/App.jsx`)
 
-const newRoutes = [
-  // ===== PREVIOUS YEAR PAPERS =====
-  {
-    path: '/pyp',
-    element: lazy(() => import('./pages/exams/PreviousYearPapers')),
-    name: 'PreviousYearPapers'
-  },
-  {
-    path: '/pyp/:id',
-    element: lazy(() => import('./pages/exams/PYPTest')),
-    name: 'PYPTest'
-  },
+> Last verified: 2026-09-06 against `apps/frontend/src/App.jsx` + `src/app/routes.jsx`.
+> This file documents the CURRENT routes. There is nothing to add — do not treat
+> this as a to-do list. If you need a new route, add it in `App.jsx` following
+> the architecture in §3, then update the table below.
 
-  // ===== CURRENT AFFAIRS =====
-  {
-    path: '/current-affairs',
-    element: lazy(() => import('./pages/public/CurrentAffairs')),
-    name: 'CurrentAffairs'
-  },
-  {
-    path: '/current-affairs/:id',
-    element: lazy(() => import('./pages/public/CurrentAffairsDetail')),
-    name: 'CurrentAffairsDetail'
-  },
+## 1. Current route map
 
-  // ===== LIVE TESTS =====
-  {
-    path: '/live-tests',
-    element: lazy(() => import('./pages/public/LiveTests')),
-    name: 'LiveTests'
-  },
-  {
-    path: '/live-test/:id',
-    element: lazy(() => import('./pages/public/LiveTestInterface')),
-    name: 'LiveTestInterface',
-    protected: true
-  },
-  {
-    path: '/live-test/:id/results',
-    element: lazy(() => import('./pages/public/LiveTestResults')),
-    name: 'LiveTestResults',
-    protected: true
-  },
+Columns: path → component → protected → gate (`pageKey` / `featureKey`) → notes.
+All layout routes render inside `<Layout />`. Auth modal routes (`/login`,
+`/signup`) render `<Home />` + modal overlay. `*` renders `NotFound`.
 
-  // ===== PRACTICE QUESTIONS =====
-  {
-    path: '/practice',
-    element: lazy(() => import('./pages/public/PracticeQuestions')),
-    name: 'PracticeQuestions'
-  },
+### Standalone routes (outside `<Layout />`)
 
-  // ===== BOOKMARKS =====
-  {
-    path: '/bookmarks',
-    element: lazy(() => import('./pages/MyBookmarks')),
-    name: 'Bookmarks',
-    protected: true
-  },
+| Path                                      | Component         | Protected | Notes               |
+| ----------------------------------------- | ----------------- | --------- | ------------------- |
+| `/verify-email`                           | EmailVerification | no        | —                   |
+| `/:seriesSlug/tests/:testId/instructions` | TestInstructions  | yes       | slug-style test URL |
+| `/:seriesSlug/tests/:testId/result`       | TestResult        | yes       | —                   |
+| `/:seriesSlug/tests/:testId/review`       | TestInterface     | yes       | review mode         |
+| `/:seriesSlug/tests/:testId`              | TestInterface     | yes       | —                   |
+| `/test/:seriesId/:testId/instructions`    | TestInstructions  | yes       | id-style test URL   |
+| `/test/:seriesId/:testId`                 | TestInterface     | yes       | —                   |
+| `/test-result/:seriesId/:testId`          | TestResult        | yes       | —                   |
+| `/test-review/:seriesId/:testId`          | TestInterface     | yes       | review mode         |
 
-  // ===== ADMIN ROUTES =====
-  {
-    path: '/admin/pyp',
-    element: lazy(() => import('./features/admin/PYPManager')),
-    name: 'PYPManager',
-    protected: true,
-    adminOnly: true
-  },
-  {
-    path: '/admin/current-affairs',
-    element: lazy(() => import('./features/admin/CurrentAffairsManager')),
-    name: 'CurrentAffairsManager',
-    protected: true,
-    adminOnly: true
-  },
-  {
-    path: '/admin/live-tests',
-    element: lazy(() => import('./features/admin/LiveTestsManager')),
-    name: 'LiveTestsManager',
-    protected: true,
-    adminOnly: true
-  },
-  {
-    path: '/admin/practice',
-    element: lazy(() => import('./features/admin/PracticeQuestionsManager')),
-    name: 'PracticeQuestionsManager',
-    protected: true,
-    adminOnly: true
-  }
-]
+### Layout routes (inside `<Layout />`)
 
-/*
- * NAVIGATION UPDATES
- * Add to main Navbar:
- * 
- * <NavLink to="/pyp">Previous Year Papers</NavLink>
- * <NavLink to="/current-affairs">Current Affairs</NavLink>
- * <NavLink to="/live-tests">Live Tests</NavLink>
- * <NavLink to="/practice">Practice Questions</NavLink>
- * <NavLink to="/bookmarks">My Bookmarks</NavLink>
- * 
- * Add to Admin Dashboard:
- * <NavLink to="/admin/pyp">PYP Management</NavLink>
- * <NavLink to="/admin/current-affairs">Current Affairs</NavLink>
- * <NavLink to="/admin/live-tests">Live Tests</NavLink>
- * <NavLink to="/admin/practice">Practice Questions</NavLink>
- */
+| Path                                                  | Component                               | Protected | Gate                      | Notes                                                     |
+| ----------------------------------------------------- | --------------------------------------- | --------- | ------------------------- | --------------------------------------------------------- |
+| `/`                                                   | Home                                    | no        | —                         | `RootRoute`: authenticated users redirect to `/dashboard` |
+| `/login`                                              | Home + Login modal                      | no        | —                         | overlay via background location                           |
+| `/signup`                                             | Home + Signup modal                     | no        | —                         | overlay via background location                           |
+| `/dashboard`                                          | Dashboard                               | yes       | —                         | —                                                         |
+| `/dashboard/ai-planner`                               | AIStudyPlanner                          | yes       | —                         | —                                                         |
+| `/ai-tutor`                                           | AIStudyPlanner                          | yes       | —                         | alias of the planner                                      |
+| `/dashboard/insights`                                 | PerformanceInsights                     | yes       | `featureKey: analytics`   | —                                                         |
+| `/dashboard/rankings`                                 | Leaderboard                             | yes       | —                         | —                                                         |
+| `/test-series`                                        | TestSeries                              | no        | —                         | canonical listing                                         |
+| `/tests`                                              | TestSeries                              | no        | —                         | alias → same component                                    |
+| `/live-tests`                                         | LiveTests                               | no        | —                         | listing                                                   |
+| `/live`                                               | → `/live-tests`                         | no        | —                         | redirect                                                  |
+| `/pricing`                                            | → `/pass`                               | no        | —                         | redirect                                                  |
+| `/results`                                            | → `/attempted-tests`                    | no        | —                         | redirect                                                  |
+| `/test-series/:seriesId`                              | TestDetails                             | no        | —                         | —                                                         |
+| `/test-series/:seriesId/my`                           | TestDetails                             | no        | —                         | —                                                         |
+| `/:examSlug/test-series/my`                           | TestDetails                             | no        | —                         | exam-scoped                                               |
+| `/:examSlug/test-series/:seriesId`                    | TestDetails                             | no        | —                         | exam-scoped                                               |
+| `/test-series/:id/leaderboard`                        | SeriesLeaderboard                       | no        | —                         | —                                                         |
+| `/study`                                              | StudyMaterial                           | no        | —                         | —                                                         |
+| `/study/:subjectId`                                   | StudyMaterialDetail                     | no        | —                         | —                                                         |
+| `/study/:subjectId/:chapterId`                        | StudyMaterialChapter                    | no        | —                         | —                                                         |
+| `/exams`                                              | Exams                                   | no        | —                         | canonical                                                 |
+| `/exams-old`                                          | → `/exams`                              | no        | —                         | redirect                                                  |
+| `/exams/category/:categoryId`                         | ExamCategory                            | no        | —                         | —                                                         |
+| `/exams/category/:categoryId/exam/:examId`            | ExamInfoNew                             | no        | —                         | —                                                         |
+| `/exams/category/:categoryId/exam/:examId/year/:year` | ExamYear                                | no        | —                         | —                                                         |
+| `/exam/:examId`                                       | ExamInfoNew                             | no        | —                         | canonical short form                                      |
+| `/exam-old/:examId`                                   | → `/exam/:examId`                       | no        | —                         | `LegacyExamRedirect`                                      |
+| `/exam/:examId/updates`                               | ExamUpdates                             | no        | —                         | —                                                         |
+| `/exam/:examId/year/:year`                            | ExamYear                                | no        | —                         | —                                                         |
+| `/exam/:examId/compare`                               | ExamCompare                             | no        | —                         | —                                                         |
+| `/tag/:tag`                                           | TagPage                                 | no        | —                         | —                                                         |
+| `/videos`                                             | Videos                                  | no        | `pageKey: videos`         | gated via `FeatureGate`/coming-soon                       |
+| `/videos/:subjectSlug/:chapterSlug/:videoId`          | VideoDetail                             | no        | —                         | —                                                         |
+| `/videos/:id`                                         | VideoDetail                             | no        | —                         | short form                                                |
+| `/analysis`                                           | Analysis                                | yes       | `featureKey: analytics`   | —                                                         |
+| `/attempted-tests`                                    | AttemptedTests                          | yes       | —                         | —                                                         |
+| `/pass`                                               | Pass                                    | no        | —                         | pricing/membership                                        |
+| `/profile`                                            | Profile                                 | yes       | —                         | —                                                         |
+| `/settings`                                           | Settings                                | yes       | —                         | —                                                         |
+| `/about`                                              | About                                   | no        | —                         | —                                                         |
+| `/contact`                                            | Contact                                 | no        | —                         | —                                                         |
+| `/terms`                                              | Terms                                   | no        | —                         | —                                                         |
+| `/privacy`                                            | Privacy                                 | no        | —                         | —                                                         |
+| `/refund`                                             | Refund                                  | no        | —                         | —                                                         |
+| `/faq`                                                | Faq                                     | no        | —                         | —                                                         |
+| `/search`                                             | SearchPage                              | no        | —                         | —                                                         |
+| `/forgot-password`                                    | ForgotPassword                          | no        | —                         | —                                                         |
+| `/reset-password`                                     | ResetPassword                           | no        | —                         | —                                                         |
+| `/live-test-results/:liveTestId`                      | LiveTestResults                         | yes       | —                         | singular `live-test-results` is correct here              |
+| `/live-tests/:liveTestId/leaderboard`                 | LiveTestLeaderboard                     | yes       | —                         | —                                                         |
+| `/live-tests/:liveTestId`                             | LiveTestInterface                       | yes       | —                         | canonical live-test runner (plural)                       |
+| `/live-tests/:liveTestId/review`                      | LiveTestReview                          | yes       | —                         | —                                                         |
+| `/spaced-repetition`                                  | SpacedRepetition                        | yes       | —                         | —                                                         |
+| `/current-affairs`                                    | CurrentAffairs                          | no        | `pageKey: currentAffairs` | —                                                         |
+| `/current-affairs/:caId`                              | CurrentAffairsDetail                    | no        | —                         | —                                                         |
+| `/previous-year-papers`                               | PreviousYearPapers                      | no        | —                         | canonical PYP listing                                     |
+| `/pyps`                                               | PypsLanding                             | no        | —                         | landing                                                   |
+| `/pyps/:examCategory/:examSlug`                       | → `/pyps/:examSlug`                     | no        | —                         | `LegacyPypsExamRedirect`                                  |
+| `/pyps/:examCategory`                                 | PypsLanding                             | no        | —                         | —                                                         |
+| `/tag/pyps`, `/tag/pyq`, `/tag/previous-year-papers`  | PypsLanding                             | no        | —                         | tag aliases                                               |
+| `/pyp/:pypId/test`                                    | PYPTest                                 | yes       | —                         | PYP runner                                                |
+| `/leaderboard`                                        | Leaderboard                             | no        | —                         | —                                                         |
+| `/refer-and-earn`                                     | ReferAndEarn                            | no        | `pageKey: referAndEarn`   | —                                                         |
+| `/practice`                                           | PracticeLab                             | yes       | —                         | practice experience                                       |
+| `/quizzes`                                            | TagPage (`tagProp="quizzes"`)           | no        | —                         | —                                                         |
+| `/blog`                                               | Blog                                    | no        | —                         | —                                                         |
+| `/blog/:id`                                           | BlogDetail                              | no        | —                         | —                                                         |
+| `/community`                                          | Community                               | no        | `pageKey: doubtForum`     | —                                                         |
+| `/community/groups/:id`                               | Community                               | no        | `pageKey: studyGroups`    | —                                                         |
+| `/notifications`                                      | Notifications                           | yes       | —                         | —                                                         |
+| `/bookmarks`                                          | Bookmarks (`pages/dashboard/Bookmarks`) | yes       | —                         | —                                                         |
+| `/achievements`                                       | Achievements                            | yes       | `pageKey: achievements`   | —                                                         |
+| `/error-500`                                          | ServerError                             | no        | —                         | —                                                         |
 
-/*
- * ENVIRONMENT VARIABLES TO ADD
- * 
- * VITE_ENABLE_I18N=true
- * VITE_LANGUAGES=en,hi
- * VITE_DEFAULT_LANGUAGE=en
- * 
- * For Phone Auth:
- * VITE_TWILIO_ACCOUNT_SID=your_account_sid
- * VITE_TWILIO_AUTH_TOKEN=your_auth_token
- * VITE_TWILIO_PHONE=+1234567890
- * 
- * Or Firebase:
- * VITE_FIREBASE_API_KEY=your_api_key
- * VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
- */
+## 2. Do NOT add these (stale proposals with correct alternatives)
 
-export default newRoutes
+| Do NOT add                                                                                                | Why                                                                | Use instead                                                                                                                                                |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/pyp`, `/pyp/:id`                                                                                        | never existed in `App.jsx`                                         | `/previous-year-papers`, `/pyps…`, `/pyp/:pypId/test` (protected)                                                                                          |
+| `/live-test/:id` (singular)                                                                               | no such route; runner is plural                                    | `/live-tests/:liveTestId` (protected); results at `/live-test-results/:liveTestId`                                                                         |
+| `/admin/*` in the frontend                                                                                | admin is a separate app (`:3002`); no `/admin` routes in `App.jsx` | admin-panel repo routes                                                                                                                                    |
+| `pages/public/PracticeQuestions`                                                                          | file does not exist                                                | `pages/tests/PracticeLab` at `/practice` (protected)                                                                                                       |
+| `pages/MyBookmarks`                                                                                       | file does not exist                                                | `pages/dashboard/Bookmarks` at `/bookmarks` (protected)                                                                                                    |
+| `pages/public/CurrentAffairs(Detail)`, `pages/public/LiveTests`, `pages/public/LiveTestInterface/Results` | wrong locations                                                    | `pages/study/CurrentAffairs`, `pages/tests/LiveTests`, `pages/tests/LiveTestInterface`, `pages/tests/LiveTestResults`, `pages/public/CurrentAffairsDetail` |
+| `pages/exams/PreviousYearPapers`, `pages/exams/PYPTest`                                                   | wrong locations                                                    | `pages/tests/PreviousYearPapers`, `pages/tests/PYPTest`, `pages/pyps/PypsLanding`                                                                          |
+
+## 3. Routing architecture
+
+- **Code splitting:** pages load via `lazyWithRetry` (`src/shared/utils/lazyWithRetry`)
+  — lazy + automatic retry, cutting the initial bundle ~30–50%. Layout-level
+  components (`Layout`, `ScrollToTop`, `ErrorBoundary`, `MaintenanceMode`,
+  `PwaUpdatePrompt`) stay eager.
+- **Route factory:** `createRoute(path, element, opts)` (`src/app/routes.jsx`)
+  de-duplicates route setup; `wrapElement(element, { protected, featureKey, pageKey })`
+  composes `<RouteErrorBoundary>` + optional `<ProtectedRoute>` + optional
+  `<FeatureGate>` around every page.
+- **`RootRoute`:** `/` waits for auth resolution (`PageSkeleton` meanwhile) so
+  logged-in users go straight to `/dashboard` without a Home flash.
+- **Gating:** `featureKey` (e.g. `analytics`) checks feature flags;
+  `pageKey` (e.g. `videos`, `currentAffairs`, `referAndEarn`, `achievements`,
+  `doubtForum`, `studyGroups`) links routes to `comingSoonConfig` so ungated
+  pages can render `PageComingSoon` (`src/shared/components/common/FeatureGate.jsx`,
+  `PageComingSoon.jsx`, `src/shared/config/comingSoonConfig.js`).
+- **Conventions:** list pages stay public; runners/results stay protected;
+  legacy paths use `<Navigate replace />` redirects, never duplicate components.

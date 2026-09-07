@@ -1,194 +1,76 @@
-# Centralized Configuration
+# Shared Config — Admin Panel (`src/shared/config/`)
 
-This directory contains centralized configuration files for emojis and assets.
+> Last verified: 2026-09-06. Admin-panel app (`:3002`).
 
-## 📁 Files
+Centralised configuration for the admin panel: navigation, emojis, question
+taxonomies, exam/section presets, coming-soon gating. For image/asset helpers,
+see the asset rule below — they live in the shared package, not here.
 
-| File | Purpose |
-|------|---------|
-| `emojiConfig.js` | All emoji mappings and helper functions |
-| `assetConfig.js` | Image URLs, thumbnails, and asset helpers |
-| `index.js` | Single entry point for all configs |
+## Import rule
 
-## 🎯 Usage
-
-### Import Individual Items
-
-```javascript
-// Import specific emoji maps
-import { CATEGORY_EMOJIS, SUBJECT_EMOJIS } from '@/shared/config/emojiConfig'
-
-// Import helper functions
-import { getCategoryEmoji, getSubjectEmoji } from '@/shared/config/emojiConfig'
-
-// Import asset helpers
-import { getValidThumbnail, getCategoryImage } from '@/shared/config/assetConfig'
-```
-
-### Import from Index (Recommended)
+**Import asset helpers from `@trstprep/shared-config`** (canonical source:
+`packages/shared-config/src/index.js`). Import everything else from this
+directory's `index.js` barrel. Do **not** use the `@/shared/...` alias in new
+code — it is not the convention in this repo and the old examples using it have
+been removed from this doc.
 
 ```javascript
-// Import everything from config
-import { getCategoryEmoji, getValidThumbnail } from '@/shared/config'
+// Assets — canonical shared package (works in admin-panel AND frontend)
+import { getValidThumbnail, getCategoryImage } from "@trstprep/shared-config";
 
-// Or import specific configs
-import { emojiConfig, assetConfig } from '@/shared/config'
+// Everything else — local barrel
+import { getCategoryEmoji, getSubjectEmoji } from "./index.js";
+import { adminNavConfig, getFlatNavItems } from "./index.js";
+import { DIFFICULTY_LEVELS } from "./index.js";
 ```
 
-## 🎨 Emoji Helpers
+> Note: `index.js` currently re-exports the local `emojiConfig.js` /
+> `assetConfig.js` modules. Prefer `@trstprep/shared-config` directly for any
+> asset helper; treat the local asset re-export as legacy.
 
-### Available Functions
+## Files (all 11 entries)
 
-```javascript
-// Category emoji (SSC, Banking, Railway, etc.)
-getCategoryEmoji('SSC') // Returns: 📝
+| File                    | Purpose                                                                                                              | Key exports / consumed by                                                                                                                                                                                                                              |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `adminNavConfig.js`     | Single source of truth for admin sidebar nav: `categories` + item metadata (`name`, `description`, `id`, `keywords`) | `adminNavConfig`, `getFlatNavItems`, `getNavItemByPath`, `getCategoryById`, `getBreadcrumbs` — consumed by `src/shared/components/AdminLayout.jsx` (permission filtering via `canViewItem`, search via `filterAndRank`, dropdown via `CommandPalette`) |
+| `assetConfig.js`        | **DEPRECATED shim** — re-exports `@trstprep/shared-config` for backward compatibility only                           | Do not add code here. Canonical: `packages/shared-config/src/index.js` (`PICSUM_BASE_URL`, `THUMBNAIL_SIZES`, `CATEGORY_SEEDS`, `SUBJECT_SEEDS`, `getPicsumUrl`, `getCategoryImage`, `getSubjectImage`, `getValidThumbnail`, …)                        |
+| `comingSoonConfig.js`   | Coming-soon / maintenance gating: per-page flags + site-wide maintenance mode, with backend-synced loaders/updaters  | `SITE_CONFIG`, `COMING_SOON_PAGES`, `isPageComingSoon(pageKey)`, `getComingSoonConfig(pageKey)`, `isSiteInMaintenance(role)`, `updatePageComingSoonStatus`, `updateMaintenanceMode`, `getAllPagesStatus`                                               |
+| `difficultyConfig.js`   | Difficulty taxonomy                                                                                                  | `DIFFICULTY_LEVELS`, `DIFFICULTY_KEYS`, `getDifficultyMeta(value)`                                                                                                                                                                                     |
+| `emojiConfig.js`        | All emoji maps + lookup helpers                                                                                      | See emoji section below                                                                                                                                                                                                                                |
+| `examPresets.js`        | Ready-made exam blueprints (exam → sections matrix) extracted for reuse, e.g. SSC CGL Tier-I/II                      | `EXAM_PRESETS`                                                                                                                                                                                                                                         |
+| `index.js`              | Barrel re-exporting `emojiConfig` + `assetConfig` (legacy, see import rule)                                          | `emojiConfig`, `assetConfig` (defaults) + all named exports                                                                                                                                                                                            |
+| `questionCategories.js` | Question-category taxonomy + mapping between question-category and test-category values                              | `QUESTION_CATEGORIES`, `QUESTION_CAT_TO_TEST_CAT_MAP`, `TEST_CAT_TO_QUESTION_CAT`, `QUESTION_CATEGORY_ALIASES`, `normalizeKey`, `getQuestionCategoryId`                                                                                                |
+| `questionConstants.js`  | Question form constants                                                                                              | `QUESTION_TYPES`, `STATUS_OPTIONS`                                                                                                                                                                                                                     |
+| `sectionPresets.js`     | Ready-made section blueprints extracted from TestsManager (single source of truth for section shapes)                | default `SECTION_PRESETS`                                                                                                                                                                                                                              |
+| `README.md`             | This file                                                                                                            | —                                                                                                                                                                                                                                                      |
 
-// Subject emoji (Quant, Reasoning, English, etc.)
-getSubjectEmoji('Quantitative Aptitude') // Returns: 📊
+## Emoji maps (regenerated from `emojiConfig.js`, 2026-09-06)
 
-// Test type emoji (Mock Tests, PYPs, etc.)
-getTestTypeEmoji('Mock Tests') // Returns: 🧪
+Helpers: `getEmoji(key, map, fallback)`, `getCategoryEmoji`, `getSubjectEmoji`,
+`getTestTypeEmoji`, `getStageEmoji`, `getAchievementEmoji`, `getNavEmoji`,
+`getStatusEmoji`, `getRandomHeroEmoji`, `getRandomEmojis(count, exclude)`,
+plus `ALL_EMOJIS`. Every map has a `'default'` fallback key.
 
-// Stage emoji (Beginner, Intermediate, etc.)
-getStageEmoji('Advanced') // Returns: 🚀
+- `CATEGORY_EMOJIS` — `SSC, Banking, Railway, Railways, UPSC, Defence, Teaching, State, Insurance, CAT, CLAT, NEET, Engineering, Other`
+- `SUBJECT_EMOJIS` — `Quantitative Aptitude, Quant, Maths, Mathematics, Reasoning, Logical Reasoning, Verbal Reasoning, English, English Language & Comprehension, General Awareness, GK, Current Affairs, Science, History, Geography, Polity, Economics, Computer, General Science`
+- `TEST_TYPE_EMOJIS` — `Mock Tests, Full Mocks, Mock Test, PYPs, PYQs, Previous Year, PRO, Pro, Live Tests, Live Test, Sectional Tests, Sectional, Grand Tests, Grand Test, Special Quizzes, Quiz, Chapter Tests, Chapter, Practice, Free, Paid`
+- `STAGE_EMOJIS` — `Beginner, Intermediate, Advanced, Expert, Foundation, Complete`
+- `ACHIEVEMENT_EMOJIS` — `First Test, Top 100, Top 50, Top 10, 10 Tests, 50 Tests, 100 Tests, 5 Series, 10 Series, Pro Member, Streak 7, Streak 30, Perfect Score, Early Bird, Night Owl`
+- `NAVIGATION_EMOJIS` — `Home, Dashboard, Test Series, Study Materials, Practice Tests, Exams, Results, Profile, Settings, Help, Pro Pass, Leaderboard, Achievements, Bookmarks, Notifications, Community, Videos, Current Affairs, Blog, Contact`
+- `FEATURE_EMOJIS` — `Tests, Questions, Videos, Notes, PDFs, Live Classes, Doubts, Analysis, Rank, Performance, Study Plan, Reminders, Pro, Free, Download, Upload`
+- `STATUS_EMOJIS` — `success, error, warning, info, pending, loading, completed, locked, unlocked, active, inactive, new, hot`
+- `HERO_EMOJIS` — array of 16 decorative emoji (no keys)
 
-// Achievement emoji
-getAchievementEmoji('First Test') // Returns: 🎯
+## Where do I add X?
 
-// Navigation emoji
-getNavEmoji('Dashboard') // Returns: 📊
-
-// Status emoji
-getStatusEmoji('success') // Returns: ✅
-
-// Random hero emoji (for decorations)
-getRandomHeroEmoji() // Returns random from HERO_EMOJIS
-```
-
-### All Emoji Maps
-
-- `CATEGORY_EMOJIS` - Exam categories (SSC, Banking, etc.)
-- `SUBJECT_EMOJIS` - Subjects (Quant, Reasoning, etc.)
-- `TEST_TYPE_EMOJIS` - Test types (Mock, PYP, etc.)
-- `STAGE_EMOJIS` - Learning stages
-- `ACHIEVEMENT_EMOJIS` - Achievements and badges
-- `NAVIGATION_EMOJIS` - Navigation menu items
-- `FEATURE_EMOJIS` - Feature highlights
-- `STATUS_EMOJIS` - Status indicators
-- `HERO_EMOJIS` - Decorative emojis
-
-## 🖼️ Asset Helpers
-
-### Available Functions
-
-```javascript
-// Get Picsum URL with seed
-getPicsumUrl('ssc', '400x200')
-// Returns: https://picsum.photos/seed/ssc/400/200
-
-// Get category image
-getCategoryImage('SSC', 'large')
-// Returns: https://picsum.photos/seed/ssc/400/200
-
-// Get subject image
-getSubjectImage('Reasoning', 'medium')
-// Returns: https://picsum.photos/seed/reasoning/320/180
-
-// Get valid thumbnail (validates or generates fallback)
-getValidThumbnail(userProvidedUrl, 'SSC', 'large')
-
-// Check if URL is valid (not placeholder)
-isValidImageUrl('https://example.com/image.jpg') // true
-isValidImageUrl('https://via.placeholder.com/400x200') // false
-
-// Get video thumbnail
-getVideoThumbnail('dQw4w9WgXcQ', 'medium')
-
-// Get avatar URL
-getAvatarUrl('John Doe', 'medium')
-
-// Get initials
-getInitials('John Doe') // Returns: JD
-
-// Get banner URL
-getBannerUrl('hero', 'hero')
-
-// Get asset URL
-getAssetUrl('/uploads/images/test.jpg')
-```
-
-### Thumbnail Sizes
-
-| Name | Dimensions | Usage |
-|------|------------|-------|
-| `small` | 160x90 | Small cards |
-| `medium` | 320x180 | Standard thumbnails |
-| `large` | 400x200 | Large cards |
-| `wide` | 800x400 | Banners |
-| `square` | 200x200 | Square thumbnails |
-| `hero` | 1200x600 | Hero sections |
-| `card` | 400x300 | 4:3 cards |
-| `video` | 640x360 | Video thumbnails |
-
-
-### Before (Hardcoded)
-
-```javascript
-// Old way - hardcoded emoji
-const getCategoryEmoji = (cat) => {
-  const emojis = { 'SSC': '📝', 'Banking': '💰', 'Railway': '🚂' }
-  return emojis[cat] || '📋'
-}
-
-// Old way - hardcoded image URL
-const imageUrl = 'https://via.placeholder.com/400x200?text=SSC'
-```
-
-### After (Centralized)
-
-```javascript
-// New way - import from config
-import { getCategoryEmoji } from '@/shared/config'
-
-const icon = getCategoryEmoji('SSC') // 📝
-
-// New way - use asset helper
-import { getValidThumbnail } from '@/shared/config'
-
-const imageUrl = getValidThumbnail(null, 'SSC', 'large')
-// https://picsum.photos/seed/ssc/400/200
-```
-
-## 📝 Adding New Emojis
-
-To add new emojis, edit the appropriate config file:
-
-```javascript
-// In emojiConfig.js
-export const CATEGORY_EMOJIS = {
-  // ... existing entries
-  'New Category': '🆕',  // Add new entry
-}
-```
-
-## ⚙️ Configuration
-
-### Adding New Thumbnail Sizes
-
-```javascript
-// In assetConfig.js
-export const THUMBNAIL_SIZES = {
-  // ... existing sizes
-  custom: '500x300',  // Add new size
-}
-```
-
-### Adding New Category Seeds
-
-```javascript
-// In assetConfig.js
-export const CATEGORY_SEEDS = {
-  // ... existing seeds
-  'New Category': 'new-category',  // Add new seed
-}
-```
+| I want to…                                   | Edit this                                                   | Notes                                                                                                                                    |
+| -------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Add a sidebar section / page                 | `adminNavConfig.js` (`categories` → `items`)                | `AdminLayout` picks it up automatically (permission filter + search index). Keep `id` stable — it feeds breadcrumbs + `getNavItemByPath` |
+| Add search keywords for a nav item           | Same item's `keywords` array in `adminNavConfig.js`         | Searched by `filterAndRank` in `AdminLayout` + `CommandPalette`                                                                          |
+| Add a category / subject / status emoji      | `emojiConfig.js` map                                        | Add the key to the right map; helpers fall back to `'default'`                                                                           |
+| Add a difficulty level                       | `difficultyConfig.js` (`DIFFICULTY_LEVELS`)                 | `DIFFICULTY_KEYS` derives automatically                                                                                                  |
+| Add a question type or status option         | `questionConstants.js`                                      | Form dropdowns consume these                                                                                                             |
+| Add a question-category mapping              | `questionCategories.js`                                     | Keep both map directions + aliases in sync                                                                                               |
+| Add an exam or section preset                | `examPresets.js` / `sectionPresets.js`                      | Exam presets are exam-level; section presets are section-level (TestsManager source)                                                     |
+| Gate a page behind coming-soon / maintenance | `comingSoonConfig.js` (`COMING_SOON_PAGES` / `SITE_CONFIG`) | Or toggle via backend sync (`updatePageComingSoonStatus`)                                                                                |
+| Add an image/thumbnail helper                | **Don't** — use `packages/shared-config/src/index.js`       | `assetConfig.js` here is a deprecated shim                                                                                               |

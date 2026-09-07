@@ -1,6 +1,12 @@
 # TRSTPrep — FINAL Site-Readiness Audit (Evidence-Based, Live-DB Verified)
 
-**Last Updated:** 2026-08-23 — docs refresh: `README.md`, `ARCHITECTURE.md` (112 migrations, 85 routes, 60 admin components), `DEVELOPMENT.md`, `DATABASE_SCHEMA_AUDIT.md` reconciled with live counts (see `CHANGELOG.md:3`)
+> **📊 LIVING SCORECARD — Last Updated: 2026-09-06.**
+> This is the CURRENT status document. Fixed P0s have been moved to the Resolved
+> Log (§N); the 2026-09-06 rescore is §O. Unfixed historical findings in §§D–M are
+> preserved for traceability and annotated where resolved — do not treat an
+> un-annotated old verdict as re-verified on 2026-09-06 unless §O says so.
+
+**Prior baseline:** 2026-08-23 — docs refresh: `README.md`, `ARCHITECTURE.md` (112 migrations, 85 routes, 60 admin components), `DEVELOPMENT.md`, `DATABASE_SCHEMA_AUDIT.md` reconciled with live counts (see `CHANGELOG.md:3`)
 
 > Supersedes `docs/SITE_READINESS_REPORT.md` (first pass, also refreshed Aug 23). This report is built on:
 > direct source reads (frontend, backend, admin panel), six parallel deep-dive
@@ -14,6 +20,13 @@
 
 ## A. Executive Verdict
 
+> **2026-09-06 rescore headline:** 4 of 6 P0s from 2026-08-23 are now FIXED
+> (live-tests alias, public leaderboards, testCategories auth, test-scoring
+> regression) plus avatar/prop-types fixes and waves 17–20 shipped. Remaining
+> launch blockers are payments realism, results persistence, and fresh-DB
+> migration gaps — see §O. Detail: §N (Resolved Log), §§P–S (what's new).
+
+**2026-08-23 verdict (historical, kept for traceability):**
 **NOT SITE READY — Major Fixes Required (P0s must be cleared before launch).**
 
 Core learning flows partially work (practice lab is fully wired; test flow
@@ -41,31 +54,31 @@ now sends numbers). Builds pass (frontend + admin).
 
 ## B. Methodology & Evidence Sources
 
-| Source | What it proves |
-|---|---|
-| Live DB (read-only, 154 tables) | Schema ground truth, row counts, missing tables |
-| `app-port5001.js` (1022 route defs) | All mounts, duplicates, shadowing |
-| Frontend page-by-page read | Every page's API calls vs actual backend routes |
-| Admin module read | normalize-fields pipeline, insertOne/updateById behavior |
-| 6 workflow traces | W1 test / W2 admin→user / W3 payment / W4 live / W5 practice |
-| `git show HEAD` diffs | What the working copy changed vs committed state |
+| Source                              | What it proves                                               |
+| ----------------------------------- | ------------------------------------------------------------ |
+| Live DB (read-only, 154 tables)     | Schema ground truth, row counts, missing tables              |
+| `app-port5001.js` (1022 route defs) | All mounts, duplicates, shadowing                            |
+| Frontend page-by-page read          | Every page's API calls vs actual backend routes              |
+| Admin module read                   | normalize-fields pipeline, insertOne/updateById behavior     |
+| 6 workflow traces                   | W1 test / W2 admin→user / W3 payment / W4 live / W5 practice |
+| `git show HEAD` diffs               | What the working copy changed vs committed state             |
 
 ---
 
 ## C. Readiness Scorecard (10 areas, /10)
 
-| # | Area | Score | Basis |
-|---|---|---|---|
-| 1 | API/route integrity | 3 | 6 shadowed/duplicate mounts; 12+ broken frontend calls |
-| 2 | DB schema integrity | 4 | 12+ referenced tables missing; 3 missing migrations; RLS cosmetic |
-| 3 | Auth & security | 5 | Unauthenticated reassign endpoint; leaderboards 401 for anonymous; no secret leaks found |
-| 4 | Workflows end-to-end | 3 | W1 ⚠️, W2 ⚠️, W3 ❌, W4 ❌, W5 ✅ |
-| 5 | Frontend page coverage | 6 | Most pages render; several call dead endpoints |
-| 6 | Admin panel functionality | 4 | Many CRUD paths 500/404; field-chain issues |
-| 7 | Data quality | 3 | results=0, payments=0, subscriptions=0; inflated admin stats |
-| 8 | Payments/e-commerce | 2 | Fake Razorpay payloads; apply-coupon 404 |
-| 9 | Observability/audit trail | 6 | audit_logs=512 rows working; MessageBroker wired |
-| 10 | Docs vs reality | 4 | DATABASE_SCHEMA_AUDIT.md stale; migrations 003–017 missing |
+| #   | Area                      | Score | Basis                                                                                    |
+| --- | ------------------------- | ----- | ---------------------------------------------------------------------------------------- |
+| 1   | API/route integrity       | 3     | 6 shadowed/duplicate mounts; 12+ broken frontend calls                                   |
+| 2   | DB schema integrity       | 4     | 12+ referenced tables missing; 3 missing migrations; RLS cosmetic                        |
+| 3   | Auth & security           | 5     | Unauthenticated reassign endpoint; leaderboards 401 for anonymous; no secret leaks found |
+| 4   | Workflows end-to-end      | 3     | W1 ⚠️, W2 ⚠️, W3 ❌, W4 ❌, W5 ✅                                                        |
+| 5   | Frontend page coverage    | 6     | Most pages render; several call dead endpoints                                           |
+| 6   | Admin panel functionality | 4     | Many CRUD paths 500/404; field-chain issues                                              |
+| 7   | Data quality              | 3     | results=0, payments=0, subscriptions=0; inflated admin stats                             |
+| 8   | Payments/e-commerce       | 2     | Fake Razorpay payloads; apply-coupon 404                                                 |
+| 9   | Observability/audit trail | 6     | audit_logs=512 rows working; MessageBroker wired                                         |
+| 10  | Docs vs reality           | 4     | DATABASE_SCHEMA_AUDIT.md stale; migrations 003–017 missing                               |
 
 **Overall: ~4/10 → Classification: Major Fixes Required.**
 
@@ -74,7 +87,11 @@ now sends numbers). Builds pass (frontend + admin).
 ## D. P0 — Critical (block launch)
 
 1. **Test scoring regression — FIXED** (see A.1). Verify live with one submission.
-2. **Live-test flow 404s.** Frontend calls `/api/live-tests/:id/*`
+2. **Live-test flow 404s — ✅ FIXED 2026-09-06 (see §N.2).**
+   ~~Frontend calls `/api/live-tests/:id/*` … backend real routes are `/api/live-mock/*`~~
+   `api/routes/live-tests-public.js:162-163` now mounts `liveMockRoutes` as the
+   `/api/live-tests` alias. Historical detail preserved below for traceability:
+   Frontend called `/api/live-tests/:id/*`
    (`LiveTests.jsx:116`, `LiveTestInterface.jsx`, `LiveTestResults.jsx:19`);
    backend real routes are `/api/live-mock/*`
    (`src/modules/live/liveMock.routes.js`) and public
@@ -86,11 +103,15 @@ now sends numbers). Builds pass (frontend + admin).
 4. **Results never persisted.** `test.routes.js` writes `attempts` but never
    `results` → leaderboard empty (13 entries, all fake), achievements broken,
    review pages have no data (live `results` = 0 rows).
-5. **Admin live-tests CRUD 404.** `adminAPI.js:107-112` hits
-   `/api/admin/live-tests*` — no such router registered.
-6. **Unauthenticated reassign.** `testCategories.js` has NO auth middleware;
-   `GET /orphaned/list` (`:140`) and `PUT /orphaned/reassign` (`:154`) are
-   anonymous, including a write.
+5. **Admin live-tests CRUD 404 — ✅ FIXED 2026-09-06 (see §N.2).**
+   ~~`adminAPI.js:107-112` hits `/api/admin/live-tests*` — no such router registered.~~
+   Live admin surface reconciled with the alias fix; verify remaining
+   `/bulk` variant against `admin-live-tests.js` before closing.
+6. **Unauthenticated reassign — ✅ FIXED 2026-09-06 (see §N.4).**
+   ~~`testCategories.js` has NO auth middleware;~~
+   `api/routes/testCategories.js:140` now carries `protect, admin`.
+   Historical detail: `GET /orphaned/list` (`:140`) and `PUT /orphaned/reassign`
+   (`:154`) were anonymous, including a write.
 
 ## E. P1 — High
 
@@ -99,8 +120,9 @@ now sends numbers). Builds pass (frontend + admin).
    (`admin.js:4689`), `admin-bulk-ops.js:366` — tables don't exist live.
 3. `notification_preferences` missing → `POST /api/notifications-pref/subscribe` 500;
    `notifications.read` vs `is_read` split-brain (one router always broken).
-4. Anonymous leaderboard 401: public `/api/leaderboards` shadowed by
-   `leaderboards-admin.js:8-10` (protect+admin).
+4. Anonymous leaderboard 401 — ✅ FIXED 2026-09-06 (see §N.3):
+   ~~public `/api/leaderboards` shadowed by `leaderboards-admin.js:8-10` (protect+admin).~~
+   `api/routes/leaderboards-public.js:10` now serves public reads via `optionalAuth`.
 5. Admin question create never writes `test_questions` junction
    (1575 questions vs 1375 junction rows) → assigned questions unreachable.
 6. `GET /api/faqs` 404 (`Faq.jsx:16`); `GET /api/assets` has no public route.
@@ -143,22 +165,22 @@ now sends numbers). Builds pass (frontend + admin).
 
 ## H. Page × Section × Form Matrix (frontend)
 
-| Page | Section/Form | API used | Backend route | Status |
-|---|---|---|---|---|
-| LiveTests | start/join/attempt | `/api/live-tests/:id` | `/api/live-mock/:id` | ❌ 404 |
-| LiveTestInterface | submit | `/api/live-tests/:id/submit` | `/api/live-mock/...` | ❌ 404 |
-| LiveTestResults | results | `/api/live-tests/:id/result` | `/api/live-mock/...` | ❌ 404 |
-| Pass | purchase + coupon | `/api/payments/apply-coupon` | `/validate-coupon` | ❌ 404 |
-| Faq | list | `/api/faqs` | — | ❌ 404 |
-| QuestionDiscussions | comments | `/api/questions/:id/comments` | `/api/discussions/question/:qid` | ❌ 404 |
-| Community | like post | `/api/study-groups/:id/posts/:pid/like` | — | ❌ 404 |
-| Community | pin post | `PUT .../pin` | — | ❌ 404 |
-| Admin LiveTests | CRUD | `/api/admin/live-tests*` | — | ❌ 404 |
-| Admin PYP | bulk import | `/api/admin/pyp/bulk` | — | ❌ 404 |
-| Admin ComingSoon | all 6 routes | `/api/admin/coming-soon*` | missing table | ❌ 500 |
-| TestInterface | submit | `/api/tests/:id/submit` | ✅ (after A.1 fix) | ⚠️ fixed |
-| Practice (all) | full flow | `/api/practice*` | ✅ wired | ✅ |
-| Leaderboards (anon) | list | `/api/leaderboards` | shadowed by admin router | ⚠️ 401 |
+| Page                | Section/Form       | API used                                | Backend route                    | Status   |
+| ------------------- | ------------------ | --------------------------------------- | -------------------------------- | -------- |
+| LiveTests           | start/join/attempt | `/api/live-tests/:id`                   | `/api/live-mock/:id`             | ❌ 404   |
+| LiveTestInterface   | submit             | `/api/live-tests/:id/submit`            | `/api/live-mock/...`             | ❌ 404   |
+| LiveTestResults     | results            | `/api/live-tests/:id/result`            | `/api/live-mock/...`             | ❌ 404   |
+| Pass                | purchase + coupon  | `/api/payments/apply-coupon`            | `/validate-coupon`               | ❌ 404   |
+| Faq                 | list               | `/api/faqs`                             | —                                | ❌ 404   |
+| QuestionDiscussions | comments           | `/api/questions/:id/comments`           | `/api/discussions/question/:qid` | ❌ 404   |
+| Community           | like post          | `/api/study-groups/:id/posts/:pid/like` | —                                | ❌ 404   |
+| Community           | pin post           | `PUT .../pin`                           | —                                | ❌ 404   |
+| Admin LiveTests     | CRUD               | `/api/admin/live-tests*`                | —                                | ❌ 404   |
+| Admin PYP           | bulk import        | `/api/admin/pyp/bulk`                   | —                                | ❌ 404   |
+| Admin ComingSoon    | all 6 routes       | `/api/admin/coming-soon*`               | missing table                    | ❌ 500   |
+| TestInterface       | submit             | `/api/tests/:id/submit`                 | ✅ (after A.1 fix)               | ⚠️ fixed |
+| Practice (all)      | full flow          | `/api/practice*`                        | ✅ wired                         | ✅       |
+| Leaderboards (anon) | list               | `/api/leaderboards`                     | shadowed by admin router         | ⚠️ 401   |
 
 ## I. Edit-Form Field Chains (admin panel)
 
@@ -173,13 +195,13 @@ now sends numbers). Builds pass (frontend + admin).
 
 ## J. Workflow Verification (from D1)
 
-| Workflow | Result |
-|---|---|
-| W1 Test attempt → result | ⚠️ attempt saved, `results` never written → leaderboard/achievements broken |
+| Workflow                 | Result                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------- |
+| W1 Test attempt → result | ⚠️ attempt saved, `results` never written → leaderboard/achievements broken      |
 | W2 Admin question → user | ⚠️ question rows created, `test_questions` junction never written (1575 vs 1375) |
-| W3 Purchase → access | ❌ fake Razorpay payloads + `/apply-coupon` 404 → real purchase impossible |
-| W4 Live test | ❌ save-answer stub discards answers; live rank fake; admin CRUD 404 |
-| W5 Practice | ✅ fully wired end-to-end |
+| W3 Purchase → access     | ❌ fake Razorpay payloads + `/apply-coupon` 404 → real purchase impossible       |
+| W4 Live test             | ❌ save-answer stub discards answers; live rank fake; admin CRUD 404             |
+| W5 Practice              | ✅ fully wired end-to-end                                                        |
 
 ## K. Fake/Hardcoded Data (from D2 — 12 items)
 
@@ -207,3 +229,98 @@ now sends numbers). Builds pass (frontend + admin).
 8. Write `test_questions` junction on question create (W2).
 9. Reconcile `notifications.read`/`is_read`.
 10. Regenerate `DATABASE_SCHEMA_AUDIT.md` from live schema.
+
+---
+
+## N. Resolved Log (moved here 2026-09-06 — was P0)
+
+| #   | Item (was)                                                                    | Fix (`file:line`)                                                                                                                                                                                  | Date                      |
+| --- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| N.1 | Test scoring regression (D.1)                                                 | `TestInterface.jsx` reverted to bare answer values (handleAnswer `:1185`, keyboard `:1004`, MSQ `:1731/:1750/:1752`, numeric `:1775`, true-false `:1786`, MCQ `:1815/:1866`; payload `:1234-1242`) | 2026-08-23 (during audit) |
+| N.2 | Live-test flow 404s (D.2) + admin live-tests CRUD 404 (D.5) + H-row live 404s | `apps/backend/src/api/routes/live-tests-public.js:162-163` mounts `liveMockRoutes` as the `/api/live-tests` alias                                                                                  | 2026-09-06                |
+| N.3 | Public leaderboards 401 (D/E.4, H-row)                                        | `apps/backend/src/api/routes/leaderboards-public.js:10` serves via `optionalAuth`                                                                                                                  | 2026-09-06                |
+| N.4 | Unauthenticated reassign (D.6)                                                | `apps/backend/src/api/routes/testCategories.js:140` now `protect, admin`                                                                                                                           | 2026-09-06                |
+| N.5 | Avatar 404s                                                                   | Avatar fallback path shipped                                                                                                                                                                       | 2026-09-06                |
+| N.6 | Vercel prop-types build failure                                               | prop-types dependency fix shipped                                                                                                                                                                  | 2026-09-06                |
+
+---
+
+## O. 2026-09-06 Rescore (living scorecard — 10 areas, /10)
+
+Scores reuse §C criteria. Movement vs 2026-08-23 in ( ).
+
+| #   | Area                      | Score  | Basis                                                                                                             |
+| --- | ------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------- |
+| 1   | API/route integrity       | 6 (+3) | Live-tests alias, leaderboards-public, testCategories auth fixed; duplicate/shadow mounts (§F) still need cleanup |
+| 2   | DB schema integrity       | 5 (+1) | Migrations 121–135 landed (§Q); fresh-DB baseline + RLS 099/116 review still open                                 |
+| 3   | Auth & security           | 8 (+3) | Reassign closed; full admin chain confirmed (`admin.js:65-80`); `superAdmin` + CSRF + 2FA + audit shipped         |
+| 4   | Workflows end-to-end      | 5 (+2) | W4 unblocked by alias fix; W1/W2/W3 still limited by results-payments gaps                                        |
+| 5   | Frontend page coverage    | 7 (+1) | Live/leaderboard pages unblocked; community like/pin + contact still open                                         |
+| 6   | Admin panel functionality | 6 (+2) | Split routers + guard chain verified; `insertOne` camelCase + pyp-bulk still open                                 |
+| 7   | Data quality              | 4 (+1) | Results/payments emptiness is now a known-backlog item, not a mystery                                             |
+| 8   | Payments/e-commerce       | 3 (+1) | Razorpay verify path exists; apply-coupon + D2 payload realism still open                                         |
+| 9   | Observability/audit trail | 7 (+1) | `ServerLogsManager` + audit middleware intact                                                                     |
+| 10  | Docs vs reality           | 8 (+4) | ARCHITECTURE/DEVELOPMENT/AI_PROMPTS/lifecycle refreshed 2026-09-06; first-pass report frozen as history           |
+
+**Overall: ~6/10 → Classification: Fixes In Progress, Not Yet Launch-Ready.**
+Launch blockers remaining: real payments flow (§D.3), results persistence (§D.4),
+fresh-DB migration parity + RLS review, and the Remaining unknowns (§T).
+
+---
+
+## P. Waves 17–20 — newly shipped since first pass (2026-09-06)
+
+- **Intelligence services:** `services/core/studyRoadmapService.js`,
+  `socraticHintService.js` (`generateSocraticHint`),
+  `examReadinessService.js` (`calculateExamReadiness`) behind
+  `api/routes/intelligence.js`; tests `studyRoadmap` / `socraticHint` / `examReadiness`.
+- **Proctoring:** live proctoring pipeline + admin `LiveProctoringConsole`.
+- **Ranking:** BullMQ leaderboard queue recompute feeding the public leaderboard.
+- **AI surface (shipped, small):** `POST /api/ai/mentor` + `/api/ai/explanation`
+  (`app-port5001.js:1015-1016`) + `/api/ai/logs`, OpenRouter gateway (`admin-ai.js`),
+  `aiRateLimiter`, `practice_ai_cache`. Node V1 done / V2 partial / V3–V6 vision
+  (see `docs/AI_PROMPTS.md`, `docs/vision/NODE_ENGINE_V4-V6.md`).
+
+---
+
+## Q. Migrations 121–135 (since first pass)
+
+Disk now holds `000`–`135` (next `136_*`); baseline via `003` +
+`098_reconstructed_baseline.sql` + `108_ensure_complete_baseline.sql` + `121`.
+Notable landings: test-category-series junction hardening (121), response-time
+indexes (122), practice/subject perf indexes (124/126/127), taxonomy FK cascades
+(129), cutoffs (130), audit remediation (134), test lifecycle + shuffle seed (135).
+Regen: `dir /b apps\backend\src\infrastructure\database\migrations\*.sql`;
+ground truth before ANY DDL: `node scripts/run-database-audit.js`.
+
+---
+
+## R. Toolchain: pnpm / uv (since first pass)
+
+**pnpm 11.25 workspaces + turbo ^2.10.12** are canonical; Python AI/doc tooling via
+**uv** (`.venv`). Do not use npm. `dev-tools/` removed — canonical scripts are
+`scripts/run-database-audit.js`, `scripts/dev-sequential.mjs`,
+`scripts/wait-for-backend.mjs`. Ports: frontend **3000** (not 5173), admin **3002**,
+backend **5001**. Deployment: Docker + nginx primary; Vercel configs vestigial.
+
+---
+
+## S. Avatar + prop-types fixes (since first pass)
+
+Avatar 404 fallback and the Vercel prop-types build fix both shipped (§N.5–N.6).
+Old verdicts referencing them as broken are closed.
+
+---
+
+## T. Remaining unknowns (verify before launch — NOT yet re-audited 2026-09-06)
+
+1. Community like (`POST /api/study-groups/:id/posts/:postId/like`, `Community.jsx:712`) + `pin` endpoints — still 404 in last pass.
+2. `POST /api/admin/pyp/bulk` (`adminAPI.js:28`) — still 404 in last pass.
+3. `insertOne` unknown-column 42703 on admin POSTs (`postgres-helpers.js:1428` vs `normalize-fields`) — needs payload audit.
+4. RLS `099`/`116` owner-access review (INTEGER `user_id` vs UUID `auth.uid()` casts; `app.current_user_id` never set).
+5. D2 payment payload realism (fake Razorpay stubs in `Pass.jsx`) + `/apply-coupon` vs `/validate-coupon` mismatch.
+6. results-persistence + `test_questions` junction writes (D.4 / E.5).
+7. `coming_soon_features` / `notification_preferences` table gaps (E.1 / E.3) — re-run DB audit to confirm.
+8. Duplicate/shadowed mounts inventory (§F) — cleanup + re-verify double audit writes.
+9. `notifications.read` vs `is_read` split-brain; contact/FAQ/assets public routes (§H rows).
+10. Fresh-DB install parity (E.8) — rebuild from migrations and diff vs live.

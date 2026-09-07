@@ -1,76 +1,97 @@
-# Database Schema — Audit & Remediation Summary
+# Database Migrations
 
-**Last updated:** 2026-08-23
-**Audit document:** `docs/AUDIT_2026-06-15.md`
-**Migration chain:** `apps/backend/src/infrastructure/database/migrations/` (000-048)
+> As of 2026-09-06. Migration chain lives in
+> `apps/backend/src/infrastructure/database/migrations/`.
+> **Gate: run `node scripts/run-database-audit.js` (repo root) before ANY
+> migration, DDL change, or schema assumption.** Do not assume a table, index,
+> or column exists — verify first. Write pool = `DATABASE_URL`, read pool =
+> `DATABASE_READ_URL` (falls back to primary); see
+> `apps/backend/docs/DATABASE_REPLICAS.md`.
 
----
+## Current chain (000–135+, as observed 2026-09-06)
 
-## What was wrong
+The directory holds ~125 files from `000_baseline_functions.sql` through
+`135_test_lifecycle_and_shuffle_seed.sql` (numbering has gaps and letter
+suffixes — `000a`, `056a`/`056b`, `057b` — so sort by name and let the runner
+validate). Key landmarks:
 
-The comprehensive audit identified **8 BLOCKER**, **16 HIGH**, and **20+ MEDIUM/LOW** issues in the database schema. The schema was defined in **5 overlapping places** (migrations, postgres-helpers.js `initTables()`, ORM model files, the legacy `data/models/test/TestCategory.sql`, and the live database export). The migration runner required a unique 3-digit numeric prefix and the codebase had 2 duplicate-prefix pairs that caused the backend to crash on startup.
+- `098_reconstructed_baseline.sql` — reconstructed baseline consolidating the
+  early chain (migrations 003–017 era fixes).
+- `099_rls_policies.sql` — RLS policy pass.
+- `100_reconcile_duplicate_tables.sql` — duplicate-table reconciliation.
+- `101_consolidate_achievements.sql` — achievement consolidation.
+- `094_certificates_and_attempt_dedup.sql` — certificates + attempt dedup.
+- `095_create_missing_tables.sql` — missing-table backfill.
+- `096_soft_delete_columns_and_fks.sql` — soft-delete columns.
+- `097_fix_exam_id_type_mismatch.sql` — `exam_id` type fix.
+- `102_add_attempt_number_column.sql` and later (`103`–`135`) — incremental
+  fixes: column types, indexes, RLS tightening, taxonomy FKs, audit
+  remediation. The tail keeps growing; list the directory for the latest.
 
-## What was fixed
+```bash
+# from the repo root
+ls apps/backend/src/infrastructure/database/migrations/ | sort
+node scripts/run-database-audit.js
+```
 
-### Migrations added (11 new files, 039-048)
+The migration runner requires unique numeric prefixes and **crashes backend
+startup on duplicates** — never introduce a second file with an existing
+prefix (a past `042_*` collision had to be renamed to `046_*`/`047_*`).
 
-| File | Purpose | Resolves |
-|------|---------|----------|
-| `039_comprehensive_schema_consolidation.sql` | Missing tables (passages, community_votes, content_moderation_queue, ai_logs), missing FKs (20+), ENUM types, RLS enable on 50+ tables, test_attempts → view, attempts.status CHECK fix, navigation_config.badge/badge_color | BLOCKERs #1-3, HIGHs #1-5, MEDIUM #1-2 |
-| `040_final_code_schema_reconciliations.sql` | users.full_name, exam_seasons.exam_internal_id, faqs/testimonials/page_content FKs, CHECK constraints (subscriptions, coupons, promotions, study_groups.category), community_votes → group_post_likes sync trigger, faqs FK to test_categories | BLOCKER #4-5, HIGH #6-8 |
-| `041_discussions_and_missing_relations.sql` | discussions.parent_id self-FK, discussions.{type,parent_id,reference_type,reference_id,upvotes,downvotes,public_id} columns, exam_rooms table, test_state_machine table, tags table, question_tag_map.tag_id FK, faqs FK to exam_categories | HIGH #9-10, BLOCKER exam_rooms |
-| `043_create_exam_rooms.sql` | Defensive CREATE TABLE for exam_rooms (referenced in supabase_data/exam_rooms.json) | BLOCKER exam_rooms |
-| `044_align_live_tests_schema.sql` | Adds 18+ metadata columns to live_tests (subject, category, status, etc.) expected by the admin UI and seed JSON | HIGH live_tests schema drift |
-| `045_create_live_tests.sql` | Defensive CREATE TABLE for live_tests (was created from JS string in postgres-helpers.js) | BLOCKER live_tests |
-| `046_create_remaining_missing_tables.sql` | app_settings, navigation_menu, exam_seasons, coupons, promotions, discussions, study_groups, study_group_members, study_group_messages, referrals, achievement_definitions, user_achievements (12 tables) | BLOCKERs app_settings, exam_seasons, coupons, promotions |
-| `047_orphan_tracking_and_rls.sql` | _deleted_test_id on tests/questions/test_series, live_tests.metadata, activity_logs admin columns, questions.subject_id FK, ENABLES RLS on 50+ tables | HIGH _deleted_test_id, MEDIUM RLS enabled |
-| `048_rls_policies_and_final_reconciliations.sql` | **This fix** — RLS POLICIES for all tables enabled in 047, compatibility views (v_group_messages, v_user_topic_performance, v_test_attempts), users_admin_all tightening, schema_migrations_metadata provenance table, schema comment | HIGH RLS policies missing |
+## Frozen history: the 039–048 remediation (June 2026)
 
-### Code fixes (already in place)
+The section below is a frozen record of the June 2026 audit remediation
+(11 files, `039`–`048`). It is kept for provenance — do not re-apply or
+edit these files; new fixes go in new numbered migrations.
 
-| File | Issue | Fix |
-|------|-------|-----|
-| `apps/backend/src/modules/attempts/attempt.repository.js` | `INSERT INTO attempt_answers (selected_option)` — column doesn't exist | Inserts BOTH `selected_option_id` and `selected_option` (line 32-35) |
-| `apps/backend/src/modules/questions/question.repository.js` | `INSERT INTO questions (..., neg_marks, ...)` | Uses `negative_marks` (line 29) |
-| `apps/backend/src/modules/tests/test.repository.js` | `JOIN users u ON ... SELECT u.full_name` | Uses `u.name` (line 131) |
-| `apps/backend/src/api/routes/admin-navigation.js` | Reads/inserts `badge, badge_color` | Schema now has those columns (039 + 040) |
-| `apps/backend/src/api/routes/community.js` | `dbHelpers.findOne('communityVotes', ...)` | tableMap maps `communityVotes → community_votes` (postgres-helpers.js:956) |
-| `apps/backend/src/modules/exams/exam-seasons.routes.js` | Join on `exams.exam_id` (VARCHAR) | Already joins on `exams.id` (INTEGER); exam_internal_id column added by 040 for backfill |
+| File                                             | Purpose                                                                                                                                                                                                                                        | Resolves                                                 |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `039_comprehensive_schema_consolidation.sql`     | Missing tables (passages, community_votes, content_moderation_queue, ai_logs), missing FKs (20+), ENUM types, RLS enable on 50+ tables, test_attempts → view, attempts.status CHECK fix, navigation_config.badge/badge_color                   | BLOCKERs #1-3, HIGHs #1-5, MEDIUM #1-2                   |
+| `040_final_code_schema_reconciliations.sql`      | users.full_name, exam_seasons.exam_internal_id, faqs/testimonials/page_content FKs, CHECK constraints (subscriptions, coupons, promotions, study_groups.category), community_votes → group_post_likes sync trigger, faqs FK to test_categories | BLOCKER #4-5, HIGH #6-8                                  |
+| `041_discussions_and_missing_relations.sql`      | discussions.parent_id self-FK, discussions.{type,parent_id,reference_type,reference_id,upvotes,downvotes,public_id} columns, exam_rooms table, test_state_machine table, tags table, question_tag_map.tag_id FK, faqs FK to exam_categories    | HIGH #9-10, BLOCKER exam_rooms                           |
+| `043_create_exam_rooms.sql`                      | Defensive CREATE TABLE for exam_rooms (referenced in seed data)                                                                                                                                                                                | BLOCKER exam_rooms                                       |
+| `044_align_live_tests_schema.sql`                | Metadata columns on live_tests expected by the admin UI and seed JSON                                                                                                                                                                          | HIGH live_tests schema drift                             |
+| `045_create_live_tests.sql`                      | Defensive CREATE TABLE for live_tests                                                                                                                                                                                                          | BLOCKER live_tests                                       |
+| `046_create_remaining_missing_tables.sql`        | app_settings, navigation_menu, exam_seasons, coupons, promotions, discussions, study_groups, study_group_members, study_group_messages, referrals, achievement_definitions, user_achievements (12 tables)                                      | BLOCKERs app_settings, exam_seasons, coupons, promotions |
+| `047_orphan_tracking_and_rls.sql`                | _deleted_test_id on tests/questions/test_series, live_tests.metadata, activity_logs admin columns, questions.subject_id FK, RLS enabled on 50+ tables                                                                                          | HIGH _deleted_test_id, MEDIUM RLS enabled                |
+| `048_rls_policies_and_final_reconciliations.sql` | RLS POLICIES for all tables enabled in 047, compatibility views (v_group_messages, v_user_topic_performance, v_test_attempts), users_admin_all tightening, schema_migrations_metadata provenance table, schema comment                         | HIGH RLS policies missing                                |
 
-### Migration runner
+(Note: `042_placeholder_retired.sql` is an empty retired placeholder — the old
+`042_*` pair was renamed to `046_*`/`047_*` to fix the duplicate-prefix
+startup crash.)
 
-The migration runner (line 43-50) **crashes backend startup** on duplicate numeric prefixes. The original state had:
-- `042_create_remaining_missing_tables.sql` (×1)
-- `042_orphan_tracking_and_rls.sql` (×1)
+### Code fixes shipped alongside (already in place)
 
-These were renamed to `046_*` and `047_*` to give every migration a unique 3-digit prefix.
+- `attempt.repository.js` — inserts both `selected_option_id` and
+  `selected_option` (column mismatch fix).
+- `question.repository.js` — uses `negative_marks` (not `neg_marks`).
+- `test.repository.js` — joins `users` on `u.name` (not `u.full_name`).
+- `admin-navigation.js` — `badge`/`badge_color` columns now exist (039/040).
+- `community.js` — `tableMap` maps `communityVotes → community_votes`.
+- `exam-seasons.routes.js` — joins on `exams.id` (INTEGER); `040` added
+  `exam_internal_id` for backfill.
 
 ## How to verify
 
-### 1. List the migration chain
+### 1. Unique prefixes
 
 ```bash
 ls -1 apps/backend/src/infrastructure/database/migrations/ | sort
 ```
 
-All prefixes must be unique. The runner validates this and throws on duplicates.
+### 2. Mandatory audit gate (repo root)
 
-### 2. Run the dry-run cleanup
+```bash
+node scripts/run-database-audit.js
+```
+
+### 3. Dry-run legacy-table cleanup (no DROPs in dry-run)
 
 ```bash
 psql "$DATABASE_URL" -f apps/backend/src/infrastructure/database/scripts/cleanup_legacy_tables.sql
 ```
 
-Lists every legacy table, its row count, and whether it can be safely dropped. **No DROPs happen in dry-run mode.**
-
-### 3. Apply the actual cleanup (after review)
-
-```bash
-psql "$DATABASE_URL" -c "SET app.confirm_drop = 'YES_I_REALLY_MEAN_IT';"
-psql "$DATABASE_URL" -f apps/backend/src/infrastructure/database/scripts/cleanup_legacy_tables.sql
-```
-
-### 4. Verify RLS policies
+### 4. RLS policies present
 
 ```sql
 SELECT tablename, COUNT(*) AS policy_count
@@ -80,54 +101,33 @@ SELECT tablename, COUNT(*) AS policy_count
  ORDER BY tablename;
 ```
 
-Every table in 047's RLS list should now have at least one policy (typically a `*_self`, `*_admin`, or `*_public_read` policy from 048).
-
-### 5. Verify the BLOCKERs
+### 5. Spot-check remediated objects
 
 ```sql
--- BLOCKER #1: passages table exists
 SELECT 1 FROM information_schema.tables WHERE table_name = 'passages';
-
--- BLOCKER #2: community_votes table exists
 SELECT 1 FROM information_schema.tables WHERE table_name = 'community_votes';
-
--- BLOCKER #3: navigation_config has badge columns
 SELECT column_name FROM information_schema.columns
  WHERE table_name = 'navigation_config' AND column_name IN ('badge', 'badge_color');
-
--- BLOCKER #4: users has full_name
 SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'full_name';
-
--- BLOCKER #5: exam_seasons has exam_internal_id
-SELECT 1 FROM information_schema.columns WHERE table_name = 'exam_seasons' AND column_name = 'exam_internal_id';
-
--- BLOCKER #6: attempts.status no longer allows 'finish'
-SELECT conname, pg_get_constraintdef(oid)
-  FROM pg_constraint WHERE conname = 'attempts_status_chk';
-
--- HIGH: RLS policies exist
-SELECT tablename, policyname FROM pg_policies
- WHERE schemaname = 'public' AND tablename IN (
-   'doubts', 'bookmarks', 'wrong_questions', 'revision_queue',
-   'practice_answers', 'enrollments', 'subscriptions', 'transactions',
-   'discussions', 'community_votes', 'community_comments', 'study_groups'
- );
 ```
 
-## What's STILL not done (LOW priority)
+## Known leftover work (LOW priority, manual review)
 
-These were deliberately left for manual review and are tracked in `cleanup_legacy_tables.sql` BLOCK 3:
+Tracked in `cleanup_legacy_tables.sql`:
 
-1. **Drop legacy tables** — `test_state_machine`, `exam_rooms`, `group_messages`, `group_posts`, `group_post_comments`, `group_post_likes`, `email_templates` (UUID), `navigation_menu`, `question_options`. Run the cleanup script after confirming row counts are 0.
-2. **Remove `initTables()` from `postgres-helpers.js`** — lines 1070-2046 contain ~1000 lines of inline DDL that duplicates what the migrations do. The 048 migration's `COMMENT ON SCHEMA public` documents that new tables should NOT be added there.
-3. **Drop `notifications.read` legacy column** — kept for backward compat per 034. Manual cleanup once the FE confirms no consumers.
-4. **Drop `test_questions` lack of FKs** — added by 039 (test_id, question_id, section_id). CASCADE delete now works.
-5. **Verify the vector index** — 039 uncommented `CREATE INDEX idx_search_embedding` (ivfflat). Requires `vector` extension on the production database.
+1. **Drop legacy tables** after confirming 0 rows (`test_state_machine`,
+   `exam_rooms`, `group_messages`, `group_posts`, `group_post_comments`,
+   `group_post_likes`, UUID `email_templates`, `navigation_menu`,
+   `question_options`).
+2. **Shrink `initTables()` in `postgres-helpers.js`** — inline DDL there
+   duplicates the migrations; new tables belong in migrations only.
+3. **Drop `notifications.read`** once the frontend confirms no consumers.
+4. **Verify the vector index** (`idx_search_embedding`, ivfflat) — requires
+   the `vector` extension on the production database.
 
-## Outstanding code-level issues (not DB)
+## Code-level notes (not schema)
 
-These are not schema issues but were flagged in the audit:
-
-- `users` table has 30+ columns referenced by FE in camelCase (`avatar`, `isProUser`, `enrolledSeries`) — the camelCase ↔ snake_case conversion in `dbHelpers` (line 2187) handles this transparently.
-- The `RbacManager` admin UI uses `user.role` (VARCHAR) not the `user_roles` table — tracked separately, not in scope.
-- The `EmailTemplates` admin writes `enabled` column but 030 added `is_active` — both are maintained by the trigger.
+- `users` camelCase fields referenced by the frontend are handled by the
+  camelCase ↔ snake_case conversion in `dbHelpers`.
+- The `RbacManager` admin UI uses `user.role` (VARCHAR), not the `user_roles`
+  table — tracked separately.

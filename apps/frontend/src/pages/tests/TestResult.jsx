@@ -40,6 +40,7 @@ import { normalizeTestQuestions } from "../../shared/utils/testClassification";
 import CutoffBenchmarkCard from "./components/CutoffBenchmarkCard";
 import SectionWiseScorecard from "./components/SectionWiseScorecard";
 import TestSolutionsList from "./components/TestSolutionsList";
+import TestLeaderboardTab from "./components/TestLeaderboardTab";
 
 function TestResult() {
   const routeParams = useParams();
@@ -52,7 +53,7 @@ function TestResult() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [_activeTab, _setActiveTab] = useState("overview");
+  const [mobileTab, setMobileTab] = useState("analysis"); // "analysis" | "solution" | "leaderboard"
   const [solutionFilter, setSolutionFilter] = useState("all");
   const [solutionSectionFilter, setSolutionSectionFilter] = useState("all");
   const [expandedSolutions, setExpandedSolutions] = useState({});
@@ -82,23 +83,46 @@ function TestResult() {
   const confettiShownRef = useRef(new Set());
   const confettiTimerRef = useRef(null);
 
+  const handleMobileTabChange = (tab) => {
+    setMobileTab(tab);
+    if (tab === "solution") {
+      setActiveSection("solutions");
+    } else if (tab === "leaderboard") {
+      setActiveSection("leaderboard");
+    } else {
+      setActiveSection("score");
+    }
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   const selectSection = (id) => {
     setActiveSection(id);
     setSidebarOpen(false);
-    const el = sectionRefs.current[id];
-    const container = mainScrollRef.current;
-    if (el && container) {
-      const containerRect = container.getBoundingClientRect();
-      const elRect = el.getBoundingClientRect();
-      const targetScrollTop =
-        container.scrollTop + (elRect.top - containerRect.top) - 16;
-      container.scrollTo({
-        top: Math.max(0, targetScrollTop),
-        behavior: "smooth",
-      });
-    } else if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (id === "solutions") {
+      setMobileTab("solution");
+    } else if (id === "leaderboard") {
+      setMobileTab("leaderboard");
+    } else {
+      setMobileTab("analysis");
     }
+    setTimeout(() => {
+      const el = sectionRefs.current[id];
+      const container = mainScrollRef.current;
+      if (el && container) {
+        const containerRect = container.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const targetScrollTop =
+          container.scrollTop + (elRect.top - containerRect.top) - 16;
+        container.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior: "smooth",
+        });
+      } else if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 50);
   };
 
   const nextAttemptNumber =
@@ -364,6 +388,7 @@ function TestResult() {
             "difficulty",
             "time",
             "solutions",
+            "leaderboard",
           ];
           let currentSection = sectionOrder[0];
 
@@ -910,6 +935,7 @@ function TestResult() {
     { id: "difficulty", label: "Difficulty", icon: Zap },
     { id: "time", label: "Time", icon: Timer },
     { id: "solutions", label: "Solutions", icon: BookOpen },
+    { id: "leaderboard", label: "Leaderboard", icon: Trophy },
   ];
 
   // Unique sections list
@@ -1096,6 +1122,75 @@ function TestResult() {
         </div>
       </div>
 
+      {/* ═══ MOBILE TOP TABS (1. Analysis, 2. Solution, 3. Leaderboard) ═══ */}
+      <div className="md:hidden shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 py-2 z-30 shadow-xs">
+        <div className="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-gray-900/90 p-1 rounded-xl">
+          <button
+            type="button"
+            data-testid="tab-analysis"
+            onClick={() => handleMobileTabChange("analysis")}
+            className={`flex items-center justify-center gap-1.5 py-2 px-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              mobileTab === "analysis"
+                ? "bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            <span
+              className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
+                mobileTab === "analysis"
+                  ? "bg-indigo-600 text-white dark:bg-indigo-500"
+                  : "bg-slate-200 dark:bg-gray-700 text-slate-700 dark:text-gray-300"
+              }`}
+            >
+              1
+            </span>
+            <span className="truncate">Analysis</span>
+          </button>
+          <button
+            type="button"
+            data-testid="tab-solution"
+            onClick={() => handleMobileTabChange("solution")}
+            className={`flex items-center justify-center gap-1.5 py-2 px-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              mobileTab === "solution"
+                ? "bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            <span
+              className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
+                mobileTab === "solution"
+                  ? "bg-indigo-600 text-white dark:bg-indigo-500"
+                  : "bg-slate-200 dark:bg-gray-700 text-slate-700 dark:text-gray-300"
+              }`}
+            >
+              2
+            </span>
+            <span className="truncate">Solution</span>
+          </button>
+          <button
+            type="button"
+            data-testid="tab-leaderboard"
+            onClick={() => handleMobileTabChange("leaderboard")}
+            className={`flex items-center justify-center gap-1.5 py-2 px-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              mobileTab === "leaderboard"
+                ? "bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            <span
+              className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
+                mobileTab === "leaderboard"
+                  ? "bg-indigo-600 text-white dark:bg-indigo-500"
+                  : "bg-slate-200 dark:bg-gray-700 text-slate-700 dark:text-gray-300"
+              }`}
+            >
+              3
+            </span>
+            <span className="truncate">Leaderboard</span>
+          </button>
+        </div>
+      </div>
+
       <div className="flex-1 flex relative overflow-hidden min-h-0">
         {/* ═══ LEFT SIDEBAR ═══ */}
         {sidebarOpen && (
@@ -1217,543 +1312,586 @@ function TestResult() {
           className="flex-1 min-w-0 h-full overflow-y-auto scroll-smooth px-4 md:px-8 py-6"
         >
           <div className="max-w-5xl mx-auto space-y-8 pb-16">
-            {/* ── Section 1: Score ── */}
-            <section
-              ref={(el) => (sectionRefs.current["score"] = el)}
-              data-section-id="score"
-              className="scroll-mt-4 space-y-4"
+            {/* ── Analysis Tab (Sections 1 to 5) ── */}
+            <div
+              className={`space-y-8 ${
+                mobileTab !== "analysis" ? "hidden md:block" : ""
+              }`}
             >
-              <div className="relative bg-gradient-to-br from-indigo-50 via-slate-50 to-indigo-100 dark:from-slate-900 dark:via-indigo-950 dark:to-slate-950 rounded-2xl sm:rounded-3xl border border-indigo-100 dark:border-indigo-950/40 p-4 sm:p-6 md:p-8 overflow-hidden shadow-card dark:shadow-2xl transition-all duration-300">
-                {/* Animated Glow Background Effects */}
-                <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-                  <div className="absolute -top-32 -left-32 w-80 h-80 bg-indigo-400/15 dark:bg-indigo-500/15 rounded-full blur-3xl animate-pulse duration-[8000ms]" />
-                  <div className="absolute -bottom-32 -right-32 w-80 h-80 bg-violet-400/15 dark:bg-indigo-600/15 rounded-full blur-3xl animate-pulse duration-[6000ms]" />
-                  <div className="absolute inset-0 opacity-[0.06] dark:opacity-5 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:20px_20px]" />
-                </div>
-
-                {/* Top Row: Left Marks Dial + Right Test Name, Rank, Percentile, Badge */}
-                <div className="relative z-10 flex flex-row items-center gap-3.5 sm:gap-6 text-left">
-                  {/* Score Dial / Marks Display (Left Side) */}
-                  <div className="relative w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 flex-shrink-0 bg-white dark:bg-slate-900 rounded-full p-2.5 shadow-md border-2 border-indigo-200 dark:border-indigo-800/80">
-                    <svg
-                      viewBox="0 0 100 100"
-                      className="w-full h-full transform -rotate-90"
-                    >
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="40"
-                        stroke="currentColor"
-                        strokeWidth="8"
-                        fill="transparent"
-                        className="text-slate-100 dark:text-slate-800"
-                      />
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="40"
-                        stroke={
-                          scorePct >= 70
-                            ? "#10b981"
-                            : scorePct >= 40
-                              ? "#f59e0b"
-                              : "#ef4444"
-                        }
-                        strokeWidth="8"
-                        fill="transparent"
-                        strokeDasharray={251.327}
-                        strokeDashoffset={
-                          251.327 -
-                          (Math.max(0, Math.min(100, scorePct)) / 100) * 251.327
-                        }
-                        className="transition-all duration-1000 ease-out"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span
-                        className={`text-xl sm:text-2xl md:text-xl sm:text-2xl lg:text-3xl font-black tracking-tighter ${
-                          (result.score || 0) < 0
-                            ? "text-rose-600 dark:text-rose-400"
-                            : "text-slate-900 dark:text-white"
-                        }`}
-                        style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                      >
-                        {formatScoreValue(result.score || 0)}
-                      </span>
-                      <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-wider">
-                        Out of {maxScore}
-                      </span>
-                    </div>
+              {/* ── Section 1: Score ── */}
+              <section
+                ref={(el) => (sectionRefs.current["score"] = el)}
+                data-section-id="score"
+                className="scroll-mt-4 space-y-4"
+              >
+                <div className="relative bg-gradient-to-br from-indigo-50 via-slate-50 to-indigo-100 dark:from-slate-900 dark:via-indigo-950 dark:to-slate-950 rounded-2xl sm:rounded-3xl border border-indigo-100 dark:border-indigo-950/40 p-4 sm:p-6 md:p-8 overflow-hidden shadow-card dark:shadow-2xl transition-all duration-300">
+                  {/* Animated Glow Background Effects */}
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                    <div className="absolute -top-32 -left-32 w-80 h-80 bg-indigo-400/15 dark:bg-indigo-500/15 rounded-full blur-3xl animate-pulse duration-[8000ms]" />
+                    <div className="absolute -bottom-32 -right-32 w-80 h-80 bg-violet-400/15 dark:bg-indigo-600/15 rounded-full blur-3xl animate-pulse duration-[6000ms]" />
+                    <div className="absolute inset-0 opacity-[0.06] dark:opacity-5 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:20px_20px]" />
                   </div>
 
-                  {/* Score Title & Context (Right Side: Test Name, Rank, Percentile, Badge) */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <h2 className="text-base sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white leading-tight break-words">
-                      {result.testTitle || "Test Completed!"}
-                    </h2>
-
-                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mt-2">
-                      {/* Performance Badge */}
-                      <div
-                        className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-full ${perfBadge.bg} ${perfBadge.text} text-[10px] sm:text-xs font-black shadow-xs`}
+                  {/* Top Row: Left Marks Dial + Right Test Name, Rank, Percentile, Badge */}
+                  <div className="relative z-10 flex flex-row items-center gap-3.5 sm:gap-6 text-left">
+                    {/* Score Dial / Marks Display (Left Side) */}
+                    <div className="relative w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 flex-shrink-0 bg-white dark:bg-slate-900 rounded-full p-2.5 shadow-md border-2 border-indigo-200 dark:border-indigo-800/80">
+                      <svg
+                        viewBox="0 0 100 100"
+                        className="w-full h-full transform -rotate-90"
                       >
-                        <BadgeIcon className="w-3.5 h-3.5" /> {perfBadge.label}
-                      </div>
-
-                      {/* Rank Pill/Card */}
-                      {result.rank !== undefined && result.rank !== null && (
-                        <span
-                          className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-amber-100 dark:bg-amber-400/20 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-400/30 shadow-2xs"
-                          title={
-                            result.totalParticipants
-                              ? `Rank ${result.rank || 1} out of ${result.totalParticipants} test participants`
-                              : `Rank ${result.rank || 1}`
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          stroke="currentColor"
+                          strokeWidth="8"
+                          fill="transparent"
+                          className="text-slate-100 dark:text-slate-800"
+                        />
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          stroke={
+                            scorePct >= 70
+                              ? "#10b981"
+                              : scorePct >= 40
+                                ? "#f59e0b"
+                                : "#ef4444"
                           }
-                        >
-                          <Trophy className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />{" "}
-                          Rank #{result.rank || 1}
-                          {result.totalParticipants &&
-                          result.totalParticipants > 1
-                            ? ` / ${result.totalParticipants.toLocaleString()}`
-                            : ""}
-                        </span>
-                      )}
-
-                      {/* Category Rank Pill */}
-                      {result.categoryRank && (
+                          strokeWidth="8"
+                          fill="transparent"
+                          strokeDasharray={251.327}
+                          strokeDashoffset={
+                            251.327 -
+                            (Math.max(0, Math.min(100, scorePct)) / 100) *
+                              251.327
+                          }
+                          className="transition-all duration-1000 ease-out"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
                         <span
-                          className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-blue-100 dark:bg-blue-400/20 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-400/30 shadow-2xs"
-                          title={`Category Rank among ${result.cutoffData?.userCategory || "UR"} candidates`}
-                        >
-                          <Award className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />{" "}
-                          {result.cutoffData?.userCategory || "UR"} Rank #
-                          {result.categoryRank}
-                          {result.categoryParticipants &&
-                          result.categoryParticipants > 1
-                            ? ` / ${result.categoryParticipants.toLocaleString()}`
-                            : ""}
-                        </span>
-                      )}
-
-                      {/* Percentile Pill/Card */}
-                      {result.percentile !== undefined && (
-                        <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-indigo-100 dark:bg-indigo-400/20 text-indigo-900 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-400/30 shadow-2xs">
-                          <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-300" />{" "}
-                          {Number(result.percentile).toFixed(1)}%ile{" "}
-                          {result.isCalibrated ? "(Calibrated)" : ""}
-                        </span>
-                      )}
-
-                      {/* Attempt Delta */}
-                      {attemptDelta !== null && (
-                        <span
-                          className={`inline-flex items-center px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black ${
-                            attemptDelta >= 0
-                              ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30"
-                              : "bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30"
+                          className={`text-xl sm:text-2xl md:text-xl sm:text-2xl lg:text-3xl font-black tracking-tighter ${
+                            (result.score || 0) < 0
+                              ? "text-rose-600 dark:text-rose-400"
+                              : "text-slate-900 dark:text-white"
                           }`}
+                          style={{ fontFamily: "'JetBrains Mono', monospace" }}
                         >
-                          {attemptDelta >= 0 ? "+" : ""}
-                          {attemptDelta}% vs Previous
+                          {formatScoreValue(result.score || 0)}
                         </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Encouraging Copy Banner (Full Width Row) */}
-                <div className="relative z-10 bg-white/75 dark:bg-slate-800/75 backdrop-blur-md rounded-xl p-3 border border-indigo-100 dark:border-indigo-900/40 flex items-center gap-2.5 shadow-2xs mt-3 sm:mt-4">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                  <p className="text-slate-700 dark:text-emerald-300 text-xs sm:text-sm font-bold leading-snug">
-                    {getEncouragingCopy()}
-                  </p>
-                </div>
-
-                {/* 4 KPI Glass Cards (Full Width Row in 1 row on mobile & desktop) */}
-                <div className="relative z-10 grid grid-cols-4 gap-2 sm:gap-3 mt-3 sm:mt-4">
-                  <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
-                    <p
-                      className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate"
-                      title="Correct"
-                    >
-                      Correct
-                    </p>
-                    <p className="text-sm sm:text-lg md:text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
-                      {correctCount}
-                      <span className="text-[10px] sm:text-xs text-slate-400 font-medium">
-                        /{totalQuestions}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
-                    <p
-                      className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate"
-                      title="Wrong"
-                    >
-                      Wrong
-                    </p>
-                    <p className="text-sm sm:text-lg md:text-xl font-black text-rose-600 dark:text-rose-400 mt-0.5">
-                      {wrongCount}
-                      <span className="text-[10px] sm:text-xs text-slate-400 font-medium">
-                        /{totalQuestions}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
-                    <p
-                      className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate"
-                      title="Accuracy"
-                    >
-                      Accuracy
-                    </p>
-                    <p className="text-sm sm:text-lg md:text-xl font-black text-amber-600 dark:text-amber-400 mt-0.5">
-                      {overallAccuracy.toFixed(1)}%
-                    </p>
-                  </div>
-                  <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
-                    <p
-                      className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate"
-                      title="Time Taken"
-                    >
-                      Time Taken
-                    </p>
-                    <p
-                      className="text-sm sm:text-lg md:text-xl font-black text-blue-600 dark:text-blue-400 mt-0.5 truncate"
-                      title={formatTime(result.timeSpent || result.timeTaken)}
-                    >
-                      {formatTime(result.timeSpent || result.timeTaken)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Reattempt & Mistake Re-Practice Actions */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Card 1: 1-Click Mistake Re-Practice */}
-                <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 rounded-2xl p-4 text-white shadow-md flex flex-col justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-white shrink-0">
-                      <RotateCcw className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-[10px] font-black uppercase tracking-wider bg-white/30 text-white px-2 py-0.5 rounded">
-                          Mistake Notebook
+                        <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-wider">
+                          Out of {maxScore}
                         </span>
                       </div>
-                      <h4 className="text-sm font-extrabold text-white">
-                        Re-Practice Incorrect Questions
-                      </h4>
-                      <p className="text-white/90 text-xs mt-0.5">
-                        {wrongCount > 0
-                          ? `Directly re-practice all ${wrongCount} incorrect questions from this test in Practice Lab.`
-                          : "Review all test questions or practice missed questions across previous tests."}
-                      </p>
                     </div>
-                  </div>
-                  <button
-                    onClick={() =>
-                      navigate(`/practice?mode=mistakes&testId=${testId}`)
-                    }
-                    className="w-full py-2.5 bg-white dark:bg-gray-800 text-amber-900 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" /> Re-Practice Mistakes
-                    in Practice Lab →
-                  </button>
-                </div>
 
-                {/* Card 2: Full Test Reattempt */}
-                <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 rounded-2xl p-4 text-white shadow-md flex flex-col justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-white shrink-0">
-                      <Trophy className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-[10px] font-black uppercase tracking-wider bg-white/30 text-white px-2 py-0.5 rounded">
-                          Score Improvement
-                        </span>
-                      </div>
-                      <h4 className="text-sm font-extrabold text-white">
-                        Reattempt Full Test
-                      </h4>
-                      <p className="text-white/90 text-xs mt-0.5">
-                        Re-take the complete mock test to build speed and
-                        reinforce test endurance.
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleRealReattempt}
-                    className="w-full py-2.5 bg-white dark:bg-gray-800 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm transition-all active:scale-95 cursor-pointer"
-                  >
-                    Reattempt Full Test
-                  </button>
-                </div>
-              </div>
-            </section>
+                    {/* Score Title & Context (Right Side: Test Name, Rank, Percentile, Badge) */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      <h2 className="text-base sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white leading-tight break-words">
+                        {result.testTitle || "Test Completed!"}
+                      </h2>
 
-            {/* ── Section 2: Category Cutoff & Benchmarks ── */}
-            <CutoffBenchmarkCard
-              sectionRef={(el) => (sectionRefs.current["cutoff"] = el)}
-              result={result}
-            />
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mt-2">
+                        {/* Performance Badge */}
+                        <div
+                          className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-full ${perfBadge.bg} ${perfBadge.text} text-[10px] sm:text-xs font-black shadow-xs`}
+                        >
+                          <BadgeIcon className="w-3.5 h-3.5" />{" "}
+                          {perfBadge.label}
+                        </div>
 
-            {/* ── Section 3: Subjects & Section Report Card ── */}
-            <SectionWiseScorecard
-              sectionRef={(el) => (sectionRefs.current["subjects"] = el)}
-              subjectBreakdown={subjectBreakdown}
-              subjectAccuracies={subjectAccuracies}
-              formatScoreValue={formatScoreValue}
-              formatTime={formatTime}
-              totalQuestions={totalQuestions}
-              correctCount={correctCount}
-              wrongCount={wrongCount}
-              skippedCount={skippedCount}
-              overallAccuracy={overallAccuracy}
-              result={result}
-              strongestSubject={strongestSubject}
-              weakestSubject={weakestSubject}
-            />
-
-            {/* ── Section 4: Difficulty ── */}
-            <section
-              ref={(el) => (sectionRefs.current["difficulty"] = el)}
-              data-section-id="difficulty"
-              className="scroll-mt-4 space-y-4"
-            >
-              <div className="flex items-center gap-3 pt-2">
-                <div className="flex-1 border-t-2 border-dashed border-amber-200 dark:border-amber-800" />
-                <span className="px-3.5 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs">
-                  <Zap className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />{" "}
-                  Difficulty Analysis
-                </span>
-                <div className="flex-1 border-t-2 border-dashed border-amber-200 dark:border-amber-800" />
-              </div>
-              {/* Scrollable single row on mobile, 3-column grid on desktop */}
-              <div className="flex sm:grid sm:grid-cols-3 gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-1">
-                {["Easy", "Medium", "Hard"].map((difficulty) => {
-                  const data = difficultyBreakdown[difficulty];
-                  const style = difficultyStyles[difficulty];
-                  const pct =
-                    data.total > 0
-                      ? Math.round((data.correct / data.total) * 100)
-                      : 0;
-                  const wrongD = data.total - data.correct;
-                  return (
-                    <div
-                      key={difficulty}
-                      className="min-w-[240px] sm:min-w-0 flex-1 shrink-0 bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-5 shadow-xs border border-gray-200 dark:border-gray-700 relative overflow-hidden flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-3 sm:mb-4">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`w-3 h-3 ${style.dot} rounded-full shadow-xs`}
-                            />
-                            <span className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-white">
-                              {difficulty}
-                            </span>
-                          </div>
+                        {/* Rank Pill/Card */}
+                        {result.rank !== undefined && result.rank !== null && (
                           <span
-                            className={`text-lg sm:text-xl font-black ${style.text}`}
+                            className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-amber-100 dark:bg-amber-400/20 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-400/30 shadow-2xs"
+                            title={
+                              result.totalParticipants
+                                ? `Rank ${result.rank || 1} out of ${result.totalParticipants} test participants`
+                                : `Rank ${result.rank || 1}`
+                            }
                           >
-                            {pct}%
+                            <Trophy className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />{" "}
+                            Rank #{result.rank || 1}
+                            {result.totalParticipants &&
+                            result.totalParticipants > 1
+                              ? ` / ${result.totalParticipants.toLocaleString()}`
+                              : ""}
+                          </span>
+                        )}
+
+                        {/* Category Rank Pill */}
+                        {result.categoryRank && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-blue-100 dark:bg-blue-400/20 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-400/30 shadow-2xs"
+                            title={`Category Rank among ${result.cutoffData?.userCategory || "UR"} candidates`}
+                          >
+                            <Award className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />{" "}
+                            {result.cutoffData?.userCategory || "UR"} Rank #
+                            {result.categoryRank}
+                            {result.categoryParticipants &&
+                            result.categoryParticipants > 1
+                              ? ` / ${result.categoryParticipants.toLocaleString()}`
+                              : ""}
+                          </span>
+                        )}
+
+                        {/* Percentile Pill/Card */}
+                        {result.percentile !== undefined && (
+                          <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-indigo-100 dark:bg-indigo-400/20 text-indigo-900 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-400/30 shadow-2xs">
+                            <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-300" />{" "}
+                            {Number(result.percentile).toFixed(1)}%ile{" "}
+                            {result.isCalibrated ? "(Calibrated)" : ""}
+                          </span>
+                        )}
+
+                        {/* Attempt Delta */}
+                        {attemptDelta !== null && (
+                          <span
+                            className={`inline-flex items-center px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black ${
+                              attemptDelta >= 0
+                                ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30"
+                                : "bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30"
+                            }`}
+                          >
+                            {attemptDelta >= 0 ? "+" : ""}
+                            {attemptDelta}% vs Previous
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Encouraging Copy Banner (Full Width Row) */}
+                  <div className="relative z-10 bg-white/75 dark:bg-slate-800/75 backdrop-blur-md rounded-xl p-3 border border-indigo-100 dark:border-indigo-900/40 flex items-center gap-2.5 shadow-2xs mt-3 sm:mt-4">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                    <p className="text-slate-700 dark:text-emerald-300 text-xs sm:text-sm font-bold leading-snug">
+                      {getEncouragingCopy()}
+                    </p>
+                  </div>
+
+                  {/* 4 KPI Glass Cards (Full Width Row in 1 row on mobile & desktop) */}
+                  <div className="relative z-10 grid grid-cols-4 gap-2 sm:gap-3 mt-3 sm:mt-4">
+                    <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
+                      <p
+                        className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate"
+                        title="Correct"
+                      >
+                        Correct
+                      </p>
+                      <p className="text-sm sm:text-lg md:text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        {correctCount}
+                        <span className="text-[10px] sm:text-xs text-slate-400 font-medium">
+                          /{totalQuestions}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
+                      <p
+                        className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate"
+                        title="Wrong"
+                      >
+                        Wrong
+                      </p>
+                      <p className="text-sm sm:text-lg md:text-xl font-black text-rose-600 dark:text-rose-400 mt-0.5">
+                        {wrongCount}
+                        <span className="text-[10px] sm:text-xs text-slate-400 font-medium">
+                          /{totalQuestions}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
+                      <p
+                        className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate"
+                        title="Accuracy"
+                      >
+                        Accuracy
+                      </p>
+                      <p className="text-sm sm:text-lg md:text-xl font-black text-amber-600 dark:text-amber-400 mt-0.5">
+                        {overallAccuracy.toFixed(1)}%
+                      </p>
+                    </div>
+                    <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
+                      <p
+                        className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate"
+                        title="Time Taken"
+                      >
+                        Time Taken
+                      </p>
+                      <p
+                        className="text-sm sm:text-lg md:text-xl font-black text-blue-600 dark:text-blue-400 mt-0.5 truncate"
+                        title={formatTime(result.timeSpent || result.timeTaken)}
+                      >
+                        {formatTime(result.timeSpent || result.timeTaken)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reattempt & Mistake Re-Practice Actions */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Card 1: 1-Click Mistake Re-Practice */}
+                  <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 rounded-2xl p-4 text-white shadow-md flex flex-col justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-white shrink-0">
+                        <RotateCcw className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-white/30 text-white px-2 py-0.5 rounded">
+                            Mistake Notebook
                           </span>
                         </div>
+                        <h4 className="text-sm font-extrabold text-white">
+                          Re-Practice Incorrect Questions
+                        </h4>
+                        <p className="text-white/90 text-xs mt-0.5">
+                          {wrongCount > 0
+                            ? `Directly re-practice all ${wrongCount} incorrect questions from this test in Practice Lab.`
+                            : "Review all test questions or practice missed questions across previous tests."}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() =>
+                        navigate(`/practice?mode=mistakes&testId=${testId}`)
+                      }
+                      className="w-full py-2.5 bg-white dark:bg-gray-800 text-amber-900 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" /> Re-Practice Mistakes
+                      in Practice Lab →
+                    </button>
+                  </div>
 
-                        {/* Dual Mini Bar Chart */}
-                        <div className="flex gap-2 h-14 sm:h-16 items-end mb-3 bg-gray-50 dark:bg-gray-900 p-2 rounded-xl">
-                          <div className="flex-1 flex flex-col items-center gap-1">
-                            <div
-                              className="w-full bg-emerald-500 rounded-t-md"
-                              style={{
-                                height: `${data.total > 0 ? (data.correct / data.total) * 100 : 0}%`,
-                                minHeight: data.correct > 0 ? "4px" : "0",
-                              }}
-                            />
-                            <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                              {data.correct} Correct
+                  {/* Card 2: Full Test Reattempt */}
+                  <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 rounded-2xl p-4 text-white shadow-md flex flex-col justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-white shrink-0">
+                        <Trophy className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-white/30 text-white px-2 py-0.5 rounded">
+                            Score Improvement
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-extrabold text-white">
+                          Reattempt Full Test
+                        </h4>
+                        <p className="text-white/90 text-xs mt-0.5">
+                          Re-take the complete mock test to build speed and
+                          reinforce test endurance.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleRealReattempt}
+                      className="w-full py-2.5 bg-white dark:bg-gray-800 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm transition-all active:scale-95 cursor-pointer"
+                    >
+                      Reattempt Full Test
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {/* ── Section 2: Category Cutoff & Benchmarks ── */}
+              <CutoffBenchmarkCard
+                sectionRef={(el) => (sectionRefs.current["cutoff"] = el)}
+                result={result}
+              />
+
+              {/* ── Section 3: Subjects & Section Report Card ── */}
+              <SectionWiseScorecard
+                sectionRef={(el) => (sectionRefs.current["subjects"] = el)}
+                subjectBreakdown={subjectBreakdown}
+                subjectAccuracies={subjectAccuracies}
+                formatScoreValue={formatScoreValue}
+                formatTime={formatTime}
+                totalQuestions={totalQuestions}
+                correctCount={correctCount}
+                wrongCount={wrongCount}
+                skippedCount={skippedCount}
+                overallAccuracy={overallAccuracy}
+                result={result}
+                strongestSubject={strongestSubject}
+                weakestSubject={weakestSubject}
+              />
+
+              {/* ── Section 4: Difficulty ── */}
+              <section
+                ref={(el) => (sectionRefs.current["difficulty"] = el)}
+                data-section-id="difficulty"
+                className="scroll-mt-4 space-y-4"
+              >
+                <div className="flex items-center gap-3 pt-2">
+                  <div className="flex-1 border-t-2 border-dashed border-amber-200 dark:border-amber-800" />
+                  <span className="px-3.5 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs">
+                    <Zap className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />{" "}
+                    Difficulty Analysis
+                  </span>
+                  <div className="flex-1 border-t-2 border-dashed border-amber-200 dark:border-amber-800" />
+                </div>
+                {/* Scrollable single row on mobile, 3-column grid on desktop */}
+                <div className="flex sm:grid sm:grid-cols-3 gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-1">
+                  {["Easy", "Medium", "Hard"].map((difficulty) => {
+                    const data = difficultyBreakdown[difficulty];
+                    const style = difficultyStyles[difficulty];
+                    const pct =
+                      data.total > 0
+                        ? Math.round((data.correct / data.total) * 100)
+                        : 0;
+                    const wrongD = data.total - data.correct;
+                    return (
+                      <div
+                        key={difficulty}
+                        className="min-w-[240px] sm:min-w-0 flex-1 shrink-0 bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-5 shadow-xs border border-gray-200 dark:border-gray-700 relative overflow-hidden flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-3 sm:mb-4">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={`w-3 h-3 ${style.dot} rounded-full shadow-xs`}
+                              />
+                              <span className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-white">
+                                {difficulty}
+                              </span>
+                            </div>
+                            <span
+                              className={`text-lg sm:text-xl font-black ${style.text}`}
+                            >
+                              {pct}%
                             </span>
                           </div>
-                          <div className="flex-1 flex flex-col items-center gap-1">
-                            <div
-                              className="w-full bg-rose-500 rounded-t-md"
-                              style={{
-                                height: `${data.total > 0 ? (wrongD / data.total) * 100 : 0}%`,
-                                minHeight: wrongD > 0 ? "4px" : "0",
-                              }}
-                            />
-                            <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300">
-                              {wrongD} Wrong
-                            </span>
+
+                          {/* Dual Mini Bar Chart */}
+                          <div className="flex gap-2 h-14 sm:h-16 items-end mb-3 bg-gray-50 dark:bg-gray-900 p-2 rounded-xl">
+                            <div className="flex-1 flex flex-col items-center gap-1">
+                              <div
+                                className="w-full bg-emerald-500 rounded-t-md"
+                                style={{
+                                  height: `${data.total > 0 ? (data.correct / data.total) * 100 : 0}%`,
+                                  minHeight: data.correct > 0 ? "4px" : "0",
+                                }}
+                              />
+                              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                                {data.correct} Correct
+                              </span>
+                            </div>
+                            <div className="flex-1 flex flex-col items-center gap-1">
+                              <div
+                                className="w-full bg-rose-500 rounded-t-md"
+                                style={{
+                                  height: `${data.total > 0 ? (wrongD / data.total) * 100 : 0}%`,
+                                  minHeight: wrongD > 0 ? "4px" : "0",
+                                }}
+                              />
+                              <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300">
+                                {wrongD} Wrong
+                              </span>
+                            </div>
                           </div>
                         </div>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold text-center">
+                          {data.total} total questions
+                        </p>
                       </div>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold text-center">
-                        {data.total} total questions
+                    );
+                  })}
+                </div>
+              </section>
+
+              {/* ── Section 5: Time Analysis ── */}
+              <section
+                ref={(el) => (sectionRefs.current["time"] = el)}
+                data-section-id="time"
+                className="scroll-mt-4 space-y-4"
+              >
+                <div className="flex items-center gap-3 pt-2">
+                  <div className="flex-1 border-t-2 border-dashed border-blue-200 dark:border-blue-800" />
+                  <span className="px-3.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-200 border border-blue-200 dark:border-blue-800 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs">
+                    <Timer className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />{" "}
+                    Time & Speed Analysis
+                  </span>
+                  <div className="flex-1 border-t-2 border-dashed border-blue-200 dark:border-blue-800" />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-3.5 sm:p-4 shadow-xs border border-gray-200 dark:border-gray-700 text-center flex flex-col justify-between">
+                    <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                      Total Time
+                    </p>
+                    <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-white">
+                      {formatTime(result.timeSpent || result.timeTaken)}
+                    </p>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium mt-1">
+                      Full test session
+                    </p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-3.5 sm:p-4 shadow-xs border border-gray-200 dark:border-gray-700 text-center flex flex-col justify-between">
+                    <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                      Avg Speed / Visited Q
+                    </p>
+                    <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-white">
+                      {avgTimePerVisitedQuestion}s
+                    </p>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium mt-1">
+                      Based on {countForAvg} visited Qs
+                    </p>
+                  </div>
+                  {fastestQ && (
+                    <div className="bg-emerald-50/80 dark:bg-emerald-900/20 rounded-2xl p-3.5 sm:p-4 border border-emerald-200 dark:border-emerald-800 text-center flex flex-col justify-between">
+                      <p className="text-[10px] font-black text-emerald-800 dark:text-emerald-200 uppercase tracking-wider mb-1">
+                        Lowest Time Taken
+                      </p>
+                      <p className="text-base sm:text-xl font-black text-emerald-700 dark:text-emerald-300">
+                        Q{fastestQ.index}{" "}
+                        <span className="text-xs font-semibold text-emerald-600">
+                          ({fastestQ.time}s)
+                        </span>
+                      </p>
+                      <p
+                        className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold truncate mt-1"
+                        title={fastestQ.section || "Fastest"}
+                      >
+                        {fastestQ.section || "Fastest"}
                       </p>
                     </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* ── Section 5: Time Analysis ── */}
-            <section
-              ref={(el) => (sectionRefs.current["time"] = el)}
-              data-section-id="time"
-              className="scroll-mt-4 space-y-4"
-            >
-              <div className="flex items-center gap-3 pt-2">
-                <div className="flex-1 border-t-2 border-dashed border-blue-200 dark:border-blue-800" />
-                <span className="px-3.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-200 border border-blue-200 dark:border-blue-800 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs">
-                  <Timer className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />{" "}
-                  Time & Speed Analysis
-                </span>
-                <div className="flex-1 border-t-2 border-dashed border-blue-200 dark:border-blue-800" />
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl p-3.5 sm:p-4 shadow-xs border border-gray-200 dark:border-gray-700 text-center flex flex-col justify-between">
-                  <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
-                    Total Time
-                  </p>
-                  <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-white">
-                    {formatTime(result.timeSpent || result.timeTaken)}
-                  </p>
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium mt-1">
-                    Full test session
-                  </p>
+                  )}
+                  {slowestQ && (
+                    <div className="bg-rose-50/80 dark:bg-rose-900/20 rounded-2xl p-3.5 sm:p-4 border border-rose-200 dark:border-rose-800 text-center flex flex-col justify-between">
+                      <p className="text-[10px] font-black text-rose-800 dark:text-rose-200 uppercase tracking-wider mb-1">
+                        Max Time Taken
+                      </p>
+                      <p className="text-base sm:text-xl font-black text-rose-700 dark:text-rose-300">
+                        Q{slowestQ.index}{" "}
+                        <span className="text-xs font-semibold text-rose-600">
+                          ({formatTime(slowestQ.time)})
+                        </span>
+                      </p>
+                      <p
+                        className="text-[10px] text-rose-600 dark:text-rose-400 font-bold truncate mt-1"
+                        title={slowestQ.section || "Max Time"}
+                      >
+                        {slowestQ.section || "Max Time"}
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-2xl p-3.5 sm:p-4 shadow-xs border border-gray-200 dark:border-gray-700 text-center flex flex-col justify-between">
-                  <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
-                    Avg Speed / Visited Q
-                  </p>
-                  <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-white">
-                    {avgTimePerVisitedQuestion}s
-                  </p>
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium mt-1">
-                    Based on {countForAvg} visited Qs
-                  </p>
-                </div>
-                {fastestQ && (
-                  <div className="bg-emerald-50/80 dark:bg-emerald-900/20 rounded-2xl p-3.5 sm:p-4 border border-emerald-200 dark:border-emerald-800 text-center flex flex-col justify-between">
-                    <p className="text-[10px] font-black text-emerald-800 dark:text-emerald-200 uppercase tracking-wider mb-1">
-                      Lowest Time Taken
-                    </p>
-                    <p className="text-base sm:text-xl font-black text-emerald-700 dark:text-emerald-300">
-                      Q{fastestQ.index}{" "}
-                      <span className="text-xs font-semibold text-emerald-600">
-                        ({fastestQ.time}s)
-                      </span>
-                    </p>
-                    <p
-                      className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold truncate mt-1"
-                      title={fastestQ.section || "Fastest"}
-                    >
-                      {fastestQ.section || "Fastest"}
-                    </p>
-                  </div>
-                )}
-                {slowestQ && (
-                  <div className="bg-rose-50/80 dark:bg-rose-900/20 rounded-2xl p-3.5 sm:p-4 border border-rose-200 dark:border-rose-800 text-center flex flex-col justify-between">
-                    <p className="text-[10px] font-black text-rose-800 dark:text-rose-200 uppercase tracking-wider mb-1">
-                      Max Time Taken
-                    </p>
-                    <p className="text-base sm:text-xl font-black text-rose-700 dark:text-rose-300">
-                      Q{slowestQ.index}{" "}
-                      <span className="text-xs font-semibold text-rose-600">
-                        ({formatTime(slowestQ.time)})
-                      </span>
-                    </p>
-                    <p
-                      className="text-[10px] text-rose-600 dark:text-rose-400 font-bold truncate mt-1"
-                      title={slowestQ.section || "Max Time"}
-                    >
-                      {slowestQ.section || "Max Time"}
-                    </p>
-                  </div>
-                )}
-              </div>
 
-              {/* Per-question time bar chart */}
-              {questionTimeData.some((q) => q.time > 0) && (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-5 shadow-xs border border-gray-200 dark:border-gray-700">
-                  <p className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4">
-                    Question-by-Question Time Graph
-                  </p>
-                  <div className="flex items-end gap-[2px] h-32 overflow-x-auto">
-                    {questionTimeData.map((q) => {
-                      const maxTime = Math.max(
-                        ...questionTimeData.map((x) => x.time),
-                        1,
-                      );
-                      const h = (q.time / maxTime) * 100;
-                      return (
-                        <div
-                          key={q.index}
-                          className="flex flex-col items-center flex-shrink-0"
-                          style={{
-                            width: `${Math.max(100 / questionTimeData.length, 8)}%`,
-                          }}
-                        >
+                {/* Per-question time bar chart */}
+                {questionTimeData.some((q) => q.time > 0) && (
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-5 shadow-xs border border-gray-200 dark:border-gray-700">
+                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4">
+                      Question-by-Question Time Graph
+                    </p>
+                    <div className="flex items-end gap-[2px] h-32 overflow-x-auto">
+                      {questionTimeData.map((q) => {
+                        const maxTime = Math.max(
+                          ...questionTimeData.map((x) => x.time),
+                          1,
+                        );
+                        const h = (q.time / maxTime) * 100;
+                        return (
                           <div
-                            className={`w-full rounded-t transition-all ${q.skipped ? "bg-slate-300 dark:bg-gray-600" : q.correct ? "bg-emerald-500" : "bg-rose-500"}`}
-                            style={{ height: `${Math.max(h, 3)}%` }}
-                            title={`Q${q.index} (${q.section}): ${q.time}s`}
-                          />
-                        </div>
-                      );
-                    })}
+                            key={q.index}
+                            className="flex flex-col items-center flex-shrink-0"
+                            style={{
+                              width: `${Math.max(100 / questionTimeData.length, 8)}%`,
+                            }}
+                          >
+                            <div
+                              className={`w-full rounded-t transition-all ${q.skipped ? "bg-slate-300 dark:bg-gray-600" : q.correct ? "bg-emerald-500" : "bg-rose-500"}`}
+                              style={{ height: `${Math.max(h, 3)}%` }}
+                              title={`Q${q.index} (${q.section}): ${q.time}s`}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-between mt-2 text-[10px] text-gray-400 dark:text-gray-500 font-bold">
+                      <span>Q1</span>
+                      <span>Q{questionTimeData.length}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-3 text-xs font-bold">
+                      <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />{" "}
+                        Correct
+                      </span>
+                      <span className="flex items-center gap-1.5 text-rose-700 dark:text-rose-300">
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />{" "}
+                        Wrong
+                      </span>
+                      <span className="flex items-center gap-1.5 text-slate-600 dark:text-gray-400">
+                        <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-gray-600 inline-block" />{" "}
+                        Skipped
+                      </span>
+                      <span className="text-gray-400 dark:text-gray-500 ml-auto font-medium">
+                        Avg Visited: {avgTimePerVisitedQuestion}s
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between mt-2 text-[10px] text-gray-400 dark:text-gray-500 font-bold">
-                    <span>Q1</span>
-                    <span>Q{questionTimeData.length}</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-3 text-xs font-bold">
-                    <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />{" "}
-                      Correct
-                    </span>
-                    <span className="flex items-center gap-1.5 text-rose-700 dark:text-rose-300">
-                      <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />{" "}
-                      Wrong
-                    </span>
-                    <span className="flex items-center gap-1.5 text-slate-600 dark:text-gray-400">
-                      <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-gray-600 inline-block" />{" "}
-                      Skipped
-                    </span>
-                    <span className="text-gray-400 dark:text-gray-500 ml-auto font-medium">
-                      Avg Visited: {avgTimePerVisitedQuestion}s
-                    </span>
-                  </div>
-                </div>
-              )}
-            </section>
+                )}
+              </section>
+              {/* Mobile Quick Jump Buttons */}
+              <div className="md:hidden pt-4 pb-2 border-t border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleMobileTabChange("solution")}
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
+                >
+                  <BookOpen className="w-4 h-4" /> View Detailed Solutions (Tab
+                  2)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMobileTabChange("leaderboard")}
+                  className="w-full py-3 px-4 rounded-xl bg-slate-800 dark:bg-gray-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
+                >
+                  <Trophy className="w-4 h-4 text-amber-400" /> View Leaderboard
+                  (Tab 3)
+                </button>
+              </div>
+            </div>
 
-            {/* ── Section 6: Solutions ── */}
-            <TestSolutionsList
-              sectionRef={(el) => (sectionRefs.current["solutions"] = el)}
-              questions={questions}
-              filteredQuestions={getFilteredQuestions()}
-              resultSections={resultSections}
-              solutionSectionFilter={solutionSectionFilter}
-              setSolutionSectionFilter={setSolutionSectionFilter}
-              questionsInActiveSection={questionsInActiveSection}
-              statusCounts={statusCounts}
-              solutionFilter={solutionFilter}
-              setSolutionFilter={setSolutionFilter}
-              handleSolutionMode={handleSolutionMode}
-              language={language}
-              setLanguage={setLanguage}
-              expandedSolutions={expandedSolutions}
-              toggleSolution={toggleSolution}
-              isCorrectQuestion={isCorrectQuestion}
-              isSkippedQuestion={isSkippedQuestion}
-              normalizeResultOption={normalizeResultOption}
-              navigate={navigate}
-            />
+            {/* ── Section 6: Solutions (Solution Tab) ── */}
+            <div className={mobileTab !== "solution" ? "hidden md:block" : ""}>
+              <TestSolutionsList
+                sectionRef={(el) => (sectionRefs.current["solutions"] = el)}
+                questions={questions}
+                filteredQuestions={getFilteredQuestions()}
+                resultSections={resultSections}
+                solutionSectionFilter={solutionSectionFilter}
+                setSolutionSectionFilter={setSolutionSectionFilter}
+                questionsInActiveSection={questionsInActiveSection}
+                statusCounts={statusCounts}
+                solutionFilter={solutionFilter}
+                setSolutionFilter={setSolutionFilter}
+                handleSolutionMode={handleSolutionMode}
+                language={language}
+                setLanguage={setLanguage}
+                expandedSolutions={expandedSolutions}
+                toggleSolution={toggleSolution}
+                isCorrectQuestion={isCorrectQuestion}
+                isSkippedQuestion={isSkippedQuestion}
+                normalizeResultOption={normalizeResultOption}
+                navigate={navigate}
+              />
+            </div>
+
+            {/* ── Section 7: Leaderboard (Leaderboard Tab) ── */}
+            <div
+              className={mobileTab !== "leaderboard" ? "hidden md:block" : ""}
+            >
+              <TestLeaderboardTab
+                sectionRef={(el) => (sectionRefs.current["leaderboard"] = el)}
+                testId={testId}
+                seriesId={seriesId}
+                result={result}
+                isProUser={isProUser}
+              />
+            </div>
           </div>
         </main>
       </div>
@@ -1828,11 +1966,20 @@ function TestResult() {
             <button
               onClick={() => {
                 setShowMobileActions(false);
-                handleSolutionMode();
+                handleMobileTabChange("solution");
               }}
               className="flex items-center gap-2 px-4 py-2.5 bg-sky-600 text-white text-xs font-bold rounded-full shadow-xl border border-sky-400/30 active:scale-95 transition-all"
             >
               <Lightbulb className="w-4 h-4" /> Solutions & Review
+            </button>
+            <button
+              onClick={() => {
+                setShowMobileActions(false);
+                handleMobileTabChange("leaderboard");
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 text-white text-xs font-bold rounded-full shadow-xl border border-amber-400/30 active:scale-95 transition-all"
+            >
+              <Trophy className="w-4 h-4" /> Leaderboard
             </button>
             <button
               onClick={() => {

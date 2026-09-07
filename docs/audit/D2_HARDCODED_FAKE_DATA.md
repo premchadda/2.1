@@ -1,34 +1,35 @@
-# D2 — Hardcoded / Fake / Placeholder Data Inventory (Aug 23, 2026)
+# D2 — Hardcoded / Fake / Placeholder Data Inventory (re-verified 2026-09-06)
 
-Classification: **FAKE** = user-visible fabricated data · **FALLBACK** = acceptable
-degradation but misleading · **LEGIT** = intentional (anonymization etc.)
+Supersedes the Aug-23-2026 pass. Spot-checked against live code today; the Aug-23
+findings are largely FIXED. Classification: **FIXED** = removed/wired to live data ·
+**FAKE** = user-visible fabricated data · **FALLBACK** = acceptable degradation ·
+**LEGIT** = intentional (test-only, anonymization, UI metadata).
+
+Regen: `grep -rn "DEFAULT_PLANS\|pay_\${Date.now()}\|rank:1" apps/frontend/src apps/backend/src` (expect zero hits outside the sandbox branch noted in #7).
 
 ## Backend
 
-| # | Location | What | Class | Impact |
-|---|---|---|---|---|
-| 1 | user.routes.js:798-803 | `subjectWise` fallback: 4 hardcoded subjects (Quantitative Aptitude / Reasoning / English / General Awareness) with emoji icons, accuracy 0, attempted 0 | FALLBACK | Every user without completed attempts (or on SQL failure) sees fake subject rows in analytics; Dashboard "strong/weak subjects" derives from them |
-| 2 | liveMock.routes.js:98-100 | `save-answer` route — returns `{success:true}`, no DB write | FAKE | Live-test answers silently discarded |
-| 3 | liveMock.routes.js:103-110 | `live-rank` fallback `{rank:1, totalParticipants:1}` | FAKE | Every user gets rank #1 on live tests when `live_rankings` empty |
-| 4 | SubscriptionService.js:16 | `SUBSCRIPTION_PLANS` hardcoded constant (Free/Pro Monthly ₹99/Pro Yearly ₹199 etc.) | FALLBACK | Used only when `subscription_plans` table empty; diverges from DB/admin-managed plans |
-| 5 | payments.js:183-194 | Mock Razorpay order `order_${Date.now()}` in non-prod | LEGIT (test) | Non-prod only; but paired with fake client signature (see #7) it masks that real flow is untested |
-| 6 | payments.js:254-258 | Verify bypass for mock orders | LEGIT (test) | Same as #5 |
-| 7 | Pass.jsx:239-245 (frontend) | Fabricated `razorpay_payment_id = pay_${Date.now()}_${userId}` and `razorpay_signature = sig_sandbox_${Date.now()}` sent to `/verify` | FAKE | In production with real keys this guarantees verify failure — purchase impossible |
-| 8 | Pass.jsx:21-89 (frontend) | DEFAULT_PLANS hardcoded (Free ₹0 / Pro Monthly ₹99 orig ₹399 / Pro Yearly ₹199 orig ₹599) | FALLBACK | Plans page never reflects `subscription_plans` DB; pricing edits invisible to users |
-| 9 | leaderboards-public.js:53 | `displayName = Student #${index+1}` anonymization | LEGIT | Intentional PII protection (SEC-08) |
-| 10 | user.routes.js:755 | `title: result.testTitle \|\| \`Test ${index + 1}\`` | FALLBACK | Recent-tests list shows "Test 1..5" when title missing |
+| #   | Location                                    | What                                                    | Status 2026-09-06                        | Impact                                                                                                                                                |
+| --- | ------------------------------------------- | ------------------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `modules/users/user.routes.js:978-1034`     | `subjectWise` analytics                                 | ✅ FIXED (was FALLBACK)                  | Live SQL join across `attempts → questions → subjects` now computes per-subject attempted/correct; on SQL failure returns `[]` — no fake subject rows |
+| 2   | `modules/live/liveMock.routes.js:129-142`   | `save-answer` route                                     | ✅ FIXED (was FAKE)                      | Delegates to `liveMockService.saveAnswer` which persists to `attempts`; no longer a `{success:true}` stub                                             |
+| 3   | `modules/live/liveMock.routes.js:145-163`   | `live-rank`                                             | ✅ FIXED (was FAKE)                      | Returns real computed rank from completed results; 404 until a completed result exists — no more hard `rank:1/total:1`                                |
+| 4   | `services/SubscriptionService.js:30-33`     | `SUBSCRIPTION_PLANS` constant                           | LEGIT enum (reclassified — was FALLBACK) | Now plan-id keys only (`pro_pass_monthly/yearly`); prices come from `subscription_plans` DB (`:246`); no price divergence possible                    |
+| 5   | `api/routes/payments.js:354-355`            | Mock order `order_mock_*`                               | LEGIT test-only (keep)                   | Gated `NODE_ENV !== "production"`; never reachable in prod                                                                                            |
+| 6   | `api/routes/payments.js:441-442`            | Verify bypass for mock orders                           | LEGIT test-only (keep)                   | Same gate as #5; real orders always go through HMAC verification                                                                                      |
+| 7   | `pages/public/Pass.jsx:263-276`             | Fabricated `razorpay_payment_id` / `razorpay_signature` | Narrowed to sandbox FALLBACK (was FAKE)  | Only when `isMock \|\| !keyId \|\| keyId includes mock/sandbox`; real path uses the Razorpay Checkout response (`:278-336`, script `:202`)            |
+| 8   | `pages/public/Pass.jsx:117-152`             | Plans display                                           | ✅ FIXED (was FALLBACK)                  | Zero `DEFAULT_PLANS` hits in the file; plans fetched from `GET /api/subscriptions/plans`, empty state on failure — admin pricing edits reach users    |
+| 9   | `api/routes/leaderboards-public.js:61`      | `displayName = Student #${index+1}` anonymization       | LEGIT (keep)                             | Intentional PII protection                                                                                                                            |
+| 10  | `modules/users/user.routes.js` recent-tests | `title: result.testTitle \|\| \`Test ${index+1}\``      | FALLBACK (keep)                          | Cosmetic label only when title missing                                                                                                                |
 
 ## Frontend (other)
 
-| # | Location | What | Class | Impact |
-|---|---|---|---|---|
-| 11 | TestInstructions.jsx:264-270 | Countdown start logic — verify if hardcoded duration fallback exists (checked: uses test.duration from API) | — | OK |
-| 12 | TestsManager.jsx:32-46 (admin-panel) | 'live-tests' category tab metadata (label/icon only) | LEGIT | UI metadata, not data |
+| #   | Location                           | What                               | Status 2026-09-06 | Impact                                               |
+| --- | ---------------------------------- | ---------------------------------- | ----------------- | ---------------------------------------------------- |
+| 11  | `pages/tests/TestInstructions.jsx` | Duration source                    | OK                | Uses `test.duration` from API; no hardcoded fallback |
+| 12  | `admin-panel/.../TestsManager.jsx` | `live-tests` category tab metadata | LEGIT (keep)      | Label/icon UI metadata, not data                     |
 
 ## Notes
 
-- D2 sweeps of `practice.js`, `intelligence.js`, `series.js`, `questions.js`,
-  `test.routes.js`, `admin-*` routers found **no additional hardcoded user-facing data**
-  (all read live tables).
-- `db_live_inventory.txt` (repo root) is a **failed-run log**, not an inventory —
-  remove or regenerate with a working `pg` script.
+- D2 sweeps of `practice.js`, `intelligence.js`, `series.js`, `questions.js`, `attempt.routes.js`, `admin-*` routers found **no additional hardcoded user-facing data** (all read live tables).
+- If `db_live_inventory.txt` still exists at repo root, treat it as a failed-run log (`ERR_MODULE_NOT_FOUND: Cannot find package 'pg'`) — regenerate with a working script, do not cite row counts from it.

@@ -2,6 +2,12 @@
 
 This document is the **single source of truth** for all business rules, entitlement contracts, state machines, timing constraints, and access permissions across the frontend and backend.
 
+> **As-of:** 2026-09-06 (ABANDONED added as 10th attempt state; enforcement pointers; changelog).
+> Code mirror: `apps/backend/src/constants/lifecycle.constants.js:6-107`.
+> Enforcement: `apps/backend/src/services/core/TestPolicyEngine.js`;
+> tests: `attemptLifecycle` / `testPolicyEngine` / `mockTestEngineSimulation`.
+> Regen check: `grep -n ATTEMPT_STATES apps/backend/src/constants/lifecycle.constants.js`.
+
 ---
 
 ## 1. The Core Lifecycle Principle
@@ -36,25 +42,46 @@ Discovery ➔ Visibility ➔ Access ➔ Eligibility ➔ Start/Resume ➔ In_Prog
 
 ### 2.2 Test States (`TEST_STATES`)
 
-| State       | Public Visibility        | Startable by User              | Admin Preview |
-| :---------- | :----------------------- | :----------------------------- | :------------ |
-| `DRAFT`     | ❌ Hidden                | ❌ No                          | ✅ Yes        |
-| `REVIEW`    | ❌ Hidden                | ❌ No                          | ✅ Yes        |
-| `SCHEDULED` | ✅ Teaser with Countdown | ❌ No (until start time)       | ✅ Yes        |
-| `PUBLISHED` | ✅ Visible               | ✅ Yes (per entitlement)       | ✅ Yes        |
-| `LIVE`      | ✅ Live Contest Badge    | ✅ Yes (during contest window) | ✅ Yes        |
-| `EXPIRED`   | ✅ Past Test Archive     | ❌ No new attempts             | ✅ Yes        |
-| `ARCHIVED`  | ❌ Hidden                | ❌ No                          | ✅ Yes        |
+> **Wire format: lowercase values** (`lifecycle.constants.js:16-24`):
+> `draft`, `review`, `scheduled`, `published`, `live`, `expired`, `archived`.
+> The UPPERCASE keys below are enum keys; always send/compare the lowercase value on the wire.
 
-### 2.3 Attempt States (`ATTEMPT_STATES`)
+| State (key → wire)        | Public Visibility        | Startable by User              | Admin Preview |
+| :------------------------ | :----------------------- | :----------------------------- | :------------ |
+| `DRAFT` → `draft`         | ❌ Hidden                | ❌ No                          | ✅ Yes        |
+| `REVIEW` → `review`       | ❌ Hidden                | ❌ No                          | ✅ Yes        |
+| `SCHEDULED` → `scheduled` | ✅ Teaser with Countdown | ❌ No (until start time)       | ✅ Yes        |
+| `PUBLISHED` → `published` | ✅ Visible               | ✅ Yes (per entitlement)       | ✅ Yes        |
+| `LIVE` → `live`           | ✅ Live Contest Badge    | ✅ Yes (during contest window) | ✅ Yes        |
+| `EXPIRED` → `expired`     | ✅ Past Test Archive     | ❌ No new attempts             | ✅ Yes        |
+| `ARCHIVED` → `archived`   | ❌ Hidden                | ❌ No                          | ✅ Yes        |
+
+### 2.3 Attempt States (`ATTEMPT_STATES`) — 10 states
+
+> `lifecycle.constants.js:26-37`. Wire values are lowercase/`snake_case`.
+> **`ABANDONED` (`"abandoned"`, `:36`) is the 10th state**: terminal marker for an
+> attempt the user walked away from (client heartbeat lost / explicit abandon),
+> distinct from `CANCELLED` (user-initiated cancel) and `EXPIRED` (timer ran out).
 
 ```text
 CREATED ➔ IN_PROGRESS ⇄ PAUSED ➔ SUBMITTING ➔ COMPLETED
                                               ├── AUTO_SUBMITTED
                                               ├── EXPIRED
                                               ├── REVOKED
-                                              └── CANCELLED
+                                              ├── CANCELLED
+                                              └── ABANDONED
 ```
+
+Terminal states (no outgoing transitions, `:101-106`):
+`COMPLETED`, `AUTO_SUBMITTED`, `EXPIRED`, `REVOKED`, `CANCELLED`, **`ABANDONED`**.
+
+Allowed entries (`ATTEMPT_STATE_TRANSITIONS`, `:73-107`):
+
+- `CREATED → { IN_PROGRESS, CANCELLED }`
+- `IN_PROGRESS → { PAUSED, SUBMITTING, COMPLETED, AUTO_SUBMITTED, EXPIRED, REVOKED, ABANDONED }`
+- `PAUSED → { IN_PROGRESS, SUBMITTING, COMPLETED, AUTO_SUBMITTED, EXPIRED, REVOKED, ABANDONED }`
+- `SUBMITTING → { COMPLETED, AUTO_SUBMITTED, IN_PROGRESS }` (last = submit-retry fallback)
+- Validate with `isValidAttemptTransition(from, to)` (`:115-119`).
 
 ### 2.4 Reattempt Types (`REATTEMPT_TYPES`)
 
@@ -115,6 +142,17 @@ CREATED ➔ IN_PROGRESS ⇄ PAUSED ➔ SUBMITTING ➔ COMPLETED
 
 - When a live contest is active (`now < scheduledEnd`), correct answers, explanations, and peer scorecards are strictly redacted from API responses (`code: 'RESULT_LOCKED'`).
 
+### 4.5 Enforcement pointers (code)
+
+- Enums + transitions: `apps/backend/src/constants/lifecycle.constants.js:6-107`
+  (`USER_PLANS`, `TEST_STATES`, `ATTEMPT_STATES` incl. `ABANDONED:36`,
+  `REATTEMPT_TYPES`, `POLICY_ERROR_CODES`, `ATTEMPT_STATE_TRANSITIONS`,
+  `isValidAttemptTransition`).
+- Policy engine: `apps/backend/src/services/core/TestPolicyEngine.js`
+  (entitlement checks → `POLICY_ERROR_CODES`).
+- Tests: `attemptLifecycle`, `testPolicyEngine`, `mockTestEngineSimulation`
+  (under `apps/backend/src/__tests__/` — run before changing any rule above).
+
 ---
 
 ## 5. Standard Error Codes
@@ -144,3 +182,12 @@ NO_QUESTIONS_FOR_REATTEMPT
 RESULT_LOCKED
 REVIEW_LOCKED
 ```
+
+---
+
+## 6. Changelog
+
+- **2026-09-06:** Added `ABANDONED` as 10th attempt state (terminal; reachable from
+  `IN_PROGRESS`/`PAUSED`); documented lowercase `TEST_STATES` wire values; added
+  §4.5 enforcement pointers. Code: `lifecycle.constants.js:36,85,94,106`.
+- Prior contract (plans, matrix, guarantees §§1–5) unchanged.

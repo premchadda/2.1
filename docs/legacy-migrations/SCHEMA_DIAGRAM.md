@@ -1,3 +1,8 @@
+> **HISTORICAL — re-verified 2026-09-06.** Before/after diagrams below describe the 008-era
+> fixes (still accurate as history). For what came after, see §7 "What came after 008" at the
+> end of this file. Current chain: migrations `000→135`; `docs/DATABASE_SCHEMA_AUDIT.md` is
+> authoritative for live schema.
+
 # Database Schema Changes - Visual Guide
 
 ## Before vs After Comparison
@@ -5,6 +10,7 @@
 ### 1. User ID Type Standardization
 
 **BEFORE** ❌
+
 ```
 users
 ├── id (INTEGER)          ← Primary Key
@@ -24,6 +30,7 @@ subscriptions
 ```
 
 **AFTER** ✅
+
 ```
 users
 ├── id (INTEGER)          ← Primary Key
@@ -45,6 +52,7 @@ subscriptions
 ### 2. Array Foreign Key Fix
 
 **BEFORE** ❌
+
 ```
 test_categories
 ├── id (INTEGER)
@@ -58,6 +66,7 @@ test_series
 ```
 
 **AFTER** ✅
+
 ```
 test_categories
 ├── id (INTEGER)
@@ -76,6 +85,7 @@ test_category_series (NEW JUNCTION TABLE)
 ### 3. Missing Foreign Keys
 
 **BEFORE** ❌
+
 ```
 questions
 ├── id (INTEGER)
@@ -90,6 +100,7 @@ tests
 ```
 
 **AFTER** ✅
+
 ```
 questions
 ├── id (INTEGER)
@@ -106,6 +117,7 @@ tests
 ### 4. Soft Delete Implementation
 
 **BEFORE** ❌
+
 ```
 tests
 ├── id (INTEGER)
@@ -119,6 +131,7 @@ questions
 ```
 
 **AFTER** ✅
+
 ```
 tests
 ├── id (INTEGER)
@@ -138,6 +151,7 @@ questions
 ### 5. Index Coverage
 
 **BEFORE** ❌
+
 ```
 questions
 ├── id (PK)
@@ -153,6 +167,7 @@ attempts
 ```
 
 **AFTER** ✅
+
 ```
 questions
 ├── id (PK)
@@ -170,6 +185,7 @@ attempts
 ### 6. Audit Trail
 
 **BEFORE** ❌
+
 ```
 audit_logs (inconsistent)
 ├── id (UUID)
@@ -183,6 +199,7 @@ No validation
 ```
 
 **AFTER** ✅
+
 ```
 audit_logs (standardized)
 ├── id (UUID)
@@ -205,6 +222,7 @@ AuditTrailManager class available
 ## Complete Entity Relationship Diagram
 
 ### Core Tables
+
 ```
 ┌─────────────────────┐
 │      users          │
@@ -292,6 +310,7 @@ AuditTrailManager class available
 ```
 
 ### Junction Tables
+
 ```
 ┌─────────────────────┐
 │  test_category_     │
@@ -318,11 +337,39 @@ AuditTrailManager class available
 
 ## Migration Path
 
-```\nSTART\n  │\n  ├─→ Check user_id types\n  │   ├─ UUID found? → Convert to INTEGER\n  │   └─ Already INTEGER? → Skip\n  │\n  ├─→ Fix array FKs\n  │   ├─ Create junction table\n  │   ├─ Migrate array data\n  │   └─ Drop array column\n  │\n  ├─→ Add missing FKs\n  │   ├─ Check if exists\n  │   ├─ Check for orphans\n  │   └─ Add constraint\n  │\n  ├─→ Add indexes\n  │   ├─ Check existing\n  │   ├─ Add missing\n  │   └─ Remove duplicates\n  │\n  └─→ Verify\n      ├─ Run checks\n      ├─ Fix remaining\n      └─ Complete\n```\n\n## Performance Impact
+`\nSTART\n  │\n  ├─→ Check user_id types\n  │   ├─ UUID found? → Convert to INTEGER\n  │   └─ Already INTEGER? → Skip\n  │\n  ├─→ Fix array FKs\n  │   ├─ Create junction table\n  │   ├─ Migrate array data\n  │   └─ Drop array column\n  │\n  ├─→ Add missing FKs\n  │   ├─ Check if exists\n  │   ├─ Check for orphans\n  │   └─ Add constraint\n  │\n  ├─→ Add indexes\n  │   ├─ Check existing\n  │   ├─ Add missing\n  │   └─ Remove duplicates\n  │\n  └─→ Verify\n      ├─ Run checks\n      ├─ Fix remaining\n      └─ Complete\n`\n\n## Performance Impact
 
 ### Before Migration
-```\nQuery: Get all questions for a test\nTime: ~150ms\nPlan: Seq Scan questions (full table scan)\n```\n\n### After Migration\n```\nQuery: Get all questions for a test\nTime: ~5ms\nPlan: Index Scan using idx_questions_test_id\nImprovement: 30x faster! ⚡\n```\n\n## Data Flow
+
+`\nQuery: Get all questions for a test\nTime: ~150ms\nPlan: Seq Scan questions (full table scan)\n`\n\n### After Migration\n`\nQuery: Get all questions for a test\nTime: ~5ms\nPlan: Index Scan using idx_questions_test_id\nImprovement: 30x faster! ⚡\n`\n\n## Data Flow
 
 ### User Journey Tracking
-```\nUser Action → API Call → Audit Log → Database\n     │\n     ├─→ log_audit_event()\n     │   ├─ user_id (who)\n     │   ├─ action (what)\n     │   ├─ resource (where)\n     │   ├─ resource_id (which)\n     │   ├─ old_values (before)\n     │   ├─ new_values (after)\n     │   └─ timestamp (when)\n     │\n     └─→ Business Logic\n         └─→ Database Operation\n```\n\n## Error Handling Flow\n\n```\nOperation Start\n     │\n     ├─→ Begin Transaction\n     │\n     ├─→ Execute Operation\n     │   ├─ Success?\n     │   │   ├─ Log audit event\n     │   │   └─ Commit transaction\n     │   │\n     │   └─ Failure?\n     │       ├─ Log audit event (failure)\n     │       └─ Rollback transaction\n     │\n     └─→ Return result\n```\n\n---\n\n**Diagram Version**: 1.0  
-**Last Updated**: 2026-08-23
+
+`\nUser Action → API Call → Audit Log → Database\n     │\n     ├─→ log_audit_event()\n     │   ├─ user_id (who)\n     │   ├─ action (what)\n     │   ├─ resource (where)\n     │   ├─ resource_id (which)\n     │   ├─ old_values (before)\n     │   ├─ new_values (after)\n     │   └─ timestamp (when)\n     │\n     └─→ Business Logic\n         └─→ Database Operation\n`\n\n## Error Handling Flow\n\n`\nOperation Start\n     │\n     ├─→ Begin Transaction\n     │\n     ├─→ Execute Operation\n     │   ├─ Success?\n     │   │   ├─ Log audit event\n     │   │   └─ Commit transaction\n     │   │\n     │   └─ Failure?\n     │       ├─ Log audit event (failure)\n     │       └─ Rollback transaction\n     │\n     └─→ Return result\n`\n\n---\n\n## 7. What came after 008 (migrations 094→135 — not in the diagrams above)
+
+Added 2026-09-06. The 008-era diagrams stop at the audit-trail/soft-delete groundwork.
+Later migrations added:
+
+- **Results dual-write**: `attempts` remains the attempt source of truth; submit also
+  `INSERT`s `results` (`modules/attempts/attempt.service.js:346-372`). Leaderboard reads
+  `leaderboards → results → attempts` (`leaderboards-public.js:19-35`).
+  ```
+  attempts (submit UPDATE) ──dual-write──▶ results ──fallback──▶ leaderboards-public
+  ```
+- _*Practice_* separation_*: Practice Lab uses its own tables (`practice_sessions`,
+  `practice_answers`, `practice_streaks`, `question_bookmarks`, `practice_ai_cache`) —
+  deliberately NOT `attempts`/`question_attempts`/`attempt_answers`.
+- **RLS + pgvector**: RLS policies backfilled (`099`, `116`); embeddings + HNSW/cosine
+  indexes for semantic search (`076`, `093`); encryption-at-rest helpers (`088`).
+- **`tests.is_live` vs `live_tests`**: scheduled/live surfacing keys off `tests.is_live`
+  (plus type/tags/schedule filters in `live-tests-public.js`); `live_tests` rows are
+  admin-managed sessions served through the composed `live-tests-public + liveMock`
+  router — not two competing sources.
+- **Payments ledger**: `webhook_events` persisted via `persistWebhookEvent`
+  (`payments.js:750+`, migration `120`); refunds sync both ledgers + gateway.
+
+---
+
+**Diagram Version**: 1.0 (+ §7, 2026-09-06)  
+**Last Updated**: 2026-08-23  
+**Re-verified (historical framing + §7)**: 2026-09-06

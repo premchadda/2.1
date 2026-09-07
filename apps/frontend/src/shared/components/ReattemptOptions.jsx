@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
-import { apiClient } from '../lib/dataService'
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { apiClient } from "../lib/dataService";
 import {
   RefreshCw,
   XCircle,
@@ -10,105 +11,123 @@ import {
   ArrowRight,
   Lock,
   TrendingUp,
-} from 'lucide-react';
-import { Link } from 'react-router-dom'
+} from "lucide-react";
+import { Link } from "react-router-dom";
 
-export function ReattemptOptions({ testId, attemptId, isProUser }) {
-  const [history, setHistory] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [creating, setCreating] = useState(null)
-  const [error, setError] = useState(null)
+export function ReattemptOptions({
+  testId,
+  attemptId,
+  isProUser,
+  seriesId: propSeriesId,
+}) {
+  const navigate = useNavigate();
+  const [history, setHistory] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (attemptId) {
-      fetchAttemptHistory()
+      fetchAttemptHistory();
     }
-  }, [attemptId])
+  }, [attemptId]);
 
   const fetchAttemptHistory = async () => {
     try {
-      const response = await apiClient.get(`/api/subscriptions/attempt-history/${testId}`)
-      setHistory(response.data)
+      const response = await apiClient.get(
+        `/api/subscriptions/attempt-history/${testId}`,
+      );
+      setHistory(response.data);
     } catch (err) {
-      console.error('Error fetching history:', err)
+      console.error("Error fetching history:", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleReattempt = async (type) => {
-    if (!isProUser && type !== 'full') {
-      return // Show upgrade prompt for non-pro users
+    if (!isProUser && type !== "full") {
+      return; // Show upgrade prompt for non-pro users
     }
 
-    setCreating(type)
-    setError(null)
+    setCreating(type);
+    setError(null);
 
     try {
-      const response = await apiClient.post('/api/subscriptions/reattempt', {
+      const response = await apiClient.post("/api/subscriptions/reattempt", {
         attemptId,
-        reattemptType: type
-      })
+        reattemptType: type,
+      });
 
       if (response.data.success) {
         // Route is /test/:seriesId/:testId — the reattempt POST already created
         // the new attempt, and POST /tests/:testId/start resumes the in-progress
-        // attempt, so navigate with the real series + test identifiers. The old
-        // code passed testId as seriesId and attempt.id as testId (both wrong).
-        const attempt = response.data.attempt || {}
-        const seriesId = attempt.seriesId || attempt.seriesSlug || testId
-        window.location.href = `/test/${seriesId}/${testId}`
+        // attempt, so navigate with the real series + test identifiers.
+        const attempt = response.data.attempt || {};
+        const resolvedSeriesId =
+          attempt.seriesId || attempt.seriesSlug || propSeriesId;
+        if (!resolvedSeriesId) {
+          setError(
+            "Series identifier not returned — please navigate manually.",
+          );
+          setCreating(null);
+          return;
+        }
+        const resolvedTestId = attempt.testId || attempt.test_id || testId;
+        navigate(`/test/${resolvedSeriesId}/${resolvedTestId}`, {
+          replace: true,
+        });
       }
     } catch (err) {
-      console.error('Error creating reattempt:', err)
-      setError(err.response?.data?.error || 'Failed to create reattempt')
+      console.error("Error creating reattempt:", err);
+      setError(err.response?.data?.error || "Failed to create reattempt");
     } finally {
-      setCreating(null)
+      setCreating(null);
     }
-  }
+  };
 
   const reattemptOptions = [
     {
-      id: 'full',
-      title: 'Full Test Reattempt',
-      description: 'Take the entire test again with timer reset',
+      id: "full",
+      title: "Full Test Reattempt",
+      description: "Take the entire test again with timer reset",
       icon: RefreshCw,
-      color: 'bg-blue-500',
-      requiresPro: false
+      color: "bg-blue-500",
+      requiresPro: false,
     },
     {
-      id: 'wrong',
-      title: 'Retry Wrong Questions',
-      description: 'Practice only the questions you got wrong',
+      id: "wrong",
+      title: "Retry Wrong Questions",
+      description: "Practice only the questions you got wrong",
       icon: XCircle,
-      color: 'bg-red-500',
-      requiresPro: true
+      color: "bg-red-500",
+      requiresPro: true,
     },
     {
-      id: 'unattempted',
-      title: 'Retry Unattempted',
-      description: 'Practice questions you skipped',
+      id: "unattempted",
+      title: "Retry Unattempted",
+      description: "Practice questions you skipped",
       icon: MinusCircle,
-      color: 'bg-yellow-500',
-      requiresPro: true
+      color: "bg-yellow-500",
+      requiresPro: true,
     },
     {
-      id: 'slow',
-      title: 'Retry Slow Questions',
-      description: 'Focus on questions that took too long',
+      id: "slow",
+      title: "Retry Slow Questions",
+      description: "Focus on questions that took too long",
       icon: Clock,
-      color: 'bg-orange-500',
-      requiresPro: true
+      color: "bg-orange-500",
+      requiresPro: true,
     },
     {
-      id: 'smart_improvement',
-      title: 'Smart Improvement',
-      description: 'AI-generated test from weak areas',
+      id: "smart_improvement",
+      title: "Smart Improvement",
+      description: "AI-generated test from weak areas",
       icon: Brain,
-      color: 'bg-purple-500',
-      requiresPro: true
-    }
-  ]
+      color: "bg-purple-500",
+      requiresPro: true,
+    },
+  ];
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
@@ -127,9 +146,9 @@ export function ReattemptOptions({ testId, attemptId, isProUser }) {
       {/* Reattempt Buttons */}
       <div className="grid grid-cols-1 gap-2">
         {reattemptOptions.map((option) => {
-          const Icon = option.icon
-          const isLocked = option.requiresPro && !isProUser
-          const isLoading = creating === option.id
+          const Icon = option.icon;
+          const isLocked = option.requiresPro && !isProUser;
+          const isLoading = creating === option.id;
 
           return (
             <button
@@ -137,12 +156,14 @@ export function ReattemptOptions({ testId, attemptId, isProUser }) {
               onClick={() => !isLocked && handleReattempt(option.id)}
               disabled={isLocked || isLoading}
               className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                isLocked 
-                  ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed' 
-                  : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                isLocked
+                  ? "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"
+                  : "border-gray-200 hover:border-purple-300 hover:bg-purple-50"
               }`}
             >
-              <div className={`w-10 h-10 rounded-lg ${option.color} flex items-center justify-center flex-shrink-0`}>
+              <div
+                className={`w-10 h-10 rounded-lg ${option.color} flex items-center justify-center flex-shrink-0`}
+              >
                 {isLocked ? (
                   <Lock className="w-5 h-5 text-white" />
                 ) : (
@@ -150,7 +171,9 @@ export function ReattemptOptions({ testId, attemptId, isProUser }) {
                 )}
               </div>
               <div className="flex-1 text-left">
-                <p className="font-medium text-gray-900 text-sm">{option.title}</p>
+                <p className="font-medium text-gray-900 text-sm">
+                  {option.title}
+                </p>
                 <p className="text-xs text-gray-500">{option.description}</p>
               </div>
               {isLoading && (
@@ -160,7 +183,7 @@ export function ReattemptOptions({ testId, attemptId, isProUser }) {
                 <ArrowRight className="w-4 h-4 text-gray-400" />
               )}
             </button>
-          )
+          );
         })}
       </div>
 
@@ -177,18 +200,25 @@ export function ReattemptOptions({ testId, attemptId, isProUser }) {
             <TrendingUp className="w-4 h-4 text-green-600" />
             Your Progress
           </h4>
-          
+
           {/* Trend */}
           {history.trend !== 0 && (
-            <div className={`text-sm mb-3 ${history.trend > 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {history.trend > 0 ? '↑' : '↓'} {Math.abs(history.trend).toFixed(1)}% improvement from first attempt
+            <div
+              className={`text-sm mb-3 ${history.trend > 0 ? "text-green-600" : "text-red-600"}`}
+            >
+              {history.trend > 0 ? "↑" : "↓"}{" "}
+              {Math.abs(history.trend).toFixed(1)}% improvement from first
+              attempt
             </div>
           )}
 
           {/* Attempt History List */}
           <div className="space-y-2">
             {history.history.slice(0, 5).map((attempt, index) => (
-              <div key={attempt.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+              <div
+                key={attempt.id}
+                className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
+              >
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">
                     Attempt {attempt.attempt_number}
@@ -204,7 +234,8 @@ export function ReattemptOptions({ testId, attemptId, isProUser }) {
                     {parseFloat(attempt.percentage || 0).toFixed(0)}%
                   </span>
                   <span className="text-xs text-gray-500">
-                    {parseFloat(attempt.score || 0).toFixed(0)}/{parseFloat(attempt.total_marks || 0).toFixed(0)}
+                    {parseFloat(attempt.score || 0).toFixed(0)}/
+                    {parseFloat(attempt.total_marks || 0).toFixed(0)}
                   </span>
                 </div>
               </div>
@@ -219,29 +250,31 @@ export function ReattemptOptions({ testId, attemptId, isProUser }) {
         </div>
       )}
     </div>
-  )
+  );
 }
 
 export function WeakTopicsList({ testId, isProUser }) {
-  const [weakTopics, setWeakTopics] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [weakTopics, setWeakTopics] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchWeakTopics()
-  }, [testId])
+    fetchWeakTopics();
+  }, [testId]);
 
   const fetchWeakTopics = async () => {
     try {
-      const response = await apiClient.get(`/api/subscriptions/weak-topics/${testId}`)
-      setWeakTopics(response.data.weakTopics || [])
+      const response = await apiClient.get(
+        `/api/subscriptions/weak-topics/${testId}`,
+      );
+      setWeakTopics(response.data.weakTopics || []);
     } catch (err) {
-      console.error('Error fetching weak topics:', err)
+      console.error("Error fetching weak topics:", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  if (loading || weakTopics.length === 0) return null
+  if (loading || weakTopics.length === 0) return null;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
@@ -251,17 +284,27 @@ export function WeakTopicsList({ testId, isProUser }) {
       </h3>
       <div className="space-y-2">
         {weakTopics.slice(0, 5).map((topic, index) => (
-          <div key={index} className="flex items-center justify-between p-2 bg-red-50 rounded-lg">
-            <span className="text-sm text-gray-700">{topic.topic || topic.subject}</span>
-            <span className="text-sm font-medium text-red-600">{topic.wrong_percentage}% wrong</span>
+          <div
+            key={index}
+            className="flex items-center justify-between p-2 bg-red-50 rounded-lg"
+          >
+            <span className="text-sm text-gray-700">
+              {topic.topic || topic.subject}
+            </span>
+            <span className="text-sm font-medium text-red-600">
+              {topic.wrong_percentage}% wrong
+            </span>
           </div>
         ))}
       </div>
       {!isProUser && (
-        <Link to="/pass" className="block text-center text-xs text-purple-600 mt-3">
+        <Link
+          to="/pass"
+          className="block text-center text-xs text-purple-600 mt-3"
+        >
           Upgrade to see detailed analysis
         </Link>
       )}
     </div>
-  )
+  );
 }

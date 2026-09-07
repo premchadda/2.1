@@ -117,7 +117,9 @@ export default function NativePlayer({
     if (!viewRecordedRef.current) {
       viewRecordedRef.current = true;
       import("../../../lib/api").then(({ default: api }) => {
-        api.post(`/api/videos/${videoId}/view`).catch(() => {});
+        api.post(`/api/videos/${videoId}/view`).catch((err) => {
+          console.warn("[NativePlayer] Failed to record view event:", err);
+        });
       });
     }
   }, [isPlaying, videoId]);

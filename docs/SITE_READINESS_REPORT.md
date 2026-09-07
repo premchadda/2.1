@@ -1,5 +1,12 @@
 # Trstprep — Site Readiness & Linkage Audit (fresh, independent)
 
+> **⚠️ HISTORICAL — FROZEN FIRST PASS (2026-08-23). SUPERSEDED.**
+> This report is preserved byte-for-byte below for audit history. **Do not patch
+> its verdicts.** For current status see the living scorecard
+> `docs/FINAL_SITE_READINESS_REPORT.md` (2026-09-06 rescore) and the
+> fix delta in §7 of THIS file. Old counts (966 endpoints / 85 routes /
+> 154 tables / 112 migrations) and old FAIL verdicts describe 2026-08-23 only.
+
 Generated: 2026-08-23. Method: fresh source audit (existing audit docs NOT trusted, docs refreshed Aug 23, 2026 — `README.md`, `ARCHITECTURE.md`, `DEVELOPMENT.md`, `DATABASE_SCHEMA_AUDIT.md` reconciled with live counts). Four
 subsystem deep-dives + manual cross-verification. Entry point: `apps/backend/src/app-port5001.js`
 (port 5001; there is no `app.js`). ~966 backend endpoints across 85 route files (was 81 in Aug 14) + 33 module routes. Live DB 154 tables (was 136), 112 migrations on disk (was 107).
@@ -12,9 +19,11 @@ migration (runtime risk). Auth: PUB / USER / SOFT(optional) / ADMIN.
 ## 1. Database Schema & Tables
 
 ### 1.1 Scale (refreshed Aug 23, 2026)
+
 ~154 tables in live DB; 112 migration files on disk in `apps/backend/src/infrastructure/database/migrations/` (up from 107). Migrations `004–017` are MISSING in file list but **reconstructed in `098_reconstructed_baseline.sql`** (confirmed live).
 
 ### 1.2 🔴 Core tables are NOT created by any migration
+
 `users`, `exams`, `subjects`, `stages`, `test_series`, `exam_categories`, `sections`,
 `units`, `chapters`, `topics`, `subject_parts` receive heavy ALTERs (025,026,032,039,040,047,
 049,056b,061,077,081,082,086,088,096...) but have **zero `CREATE TABLE`** in all 105 files.
@@ -23,6 +32,7 @@ in the live DB. **A fresh DB built purely from migrations is missing the entire 
 existing DB still has them, so prod works — but any fresh deploy does not.
 
 ### 1.3 🔴 24 tables referenced by code but never created by migrations
+
 `users`, `exams`, `exam_categories`, `stages`, `test_series`, `subscription_plans`,
 `subjects`, `subject_chapters`, `subject_topics`, `subject_units`, `subject_subtopics`,
 `faqs`, `testimonials`, `attempt_events`, `question_attempts`, `payments`, `practice_attempts`,
@@ -30,6 +40,7 @@ existing DB still has them, so prod works — but any fresh deploy does not.
 `ui_tag_configs`, `subject_parts`.
 
 Key runtime-fatal references:
+
 - `attempt_events` — `attempt.repository.js:138` INSERT; ALTERed in 032/039/048/056a/085 but never created.
 - `question_attempts` — used by `test.routes submit`, `practice.js`, `topicAnalytics`, `weakArea`.
 - `subscription_plans` — used by `subscriptions.js`, `admin-commerce`, `subscription-plans-public`.
@@ -41,16 +52,18 @@ Key runtime-fatal references:
   (practice.js, study.js, embeddingService, QuestionSearchIndex — ~20 files).
 
 ### 1.4 🔴 Broken SQL (fresh-DB blocking)
-| Migration | Problem |
-|---|---|
-| `095` L236 | `INSERT INTO app_settings (id, site_name, is_active)` — canonical `app_settings` (068) has **no `site_name` column** → fails |
-| `097` L15/L21 | `e.exam_id::text` — `exams` has no `exam_id` column (only id/slug) → "column does not exist" |
+
+| Migration     | Problem                                                                                                                                                              |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `095` L236    | `INSERT INTO app_settings (id, site_name, is_active)` — canonical `app_settings` (068) has **no `site_name` column** → fails                                         |
+| `097` L15/L21 | `e.exam_id::text` — `exams` has no `exam_id` column (only id/slug) → "column does not exist"                                                                         |
 | `105` L12/L16 | `CREATE INDEX ... ON users(...)` and `ON payments(...)` — both tables never created → **migration throws, migrationRunner.js:126 halts backend startup on fresh DB** |
-| `060` L11 | `exam_id VARCHAR NOT NULL REFERENCES exams(id)` — `exams.id` is INTEGER → FK type mismatch |
-| `099` L36+ | RLS `user_id::text = auth.uid()::text` on INTEGER `user_id` → text-cast never equals uuid → **owner access blocked** |
-| `067` L41 | Drops `question_options` (created 061) → net absence; 072/096 still touch it |
+| `060` L11     | `exam_id VARCHAR NOT NULL REFERENCES exams(id)` — `exams.id` is INTEGER → FK type mismatch                                                                           |
+| `099` L36+    | RLS `user_id::text = auth.uid()::text` on INTEGER `user_id` → text-cast never equals uuid → **owner access blocked**                                                 |
+| `067` L41     | Drops `question_options` (created 061) → net absence; 072/096 still touch it                                                                                         |
 
 ### 1.5 🟠 Duplicate / conflicting table definitions
+
 - `user_sessions`: 3 migration shapes (003 SERIAL+UUID, 065 VARCHAR(255), 098 SERIAL+INTEGER) + runtime DDL (`session.controller.js:93`). Net shape depends on apply order.
 - `app_settings`: 046 singleton JSONB vs 060/068 key/value vs 095 seeds `site_name`.
 - `promotions`, `referrals`, `study_groups`: **5 competing definitions each** (018/046/060/068/100).
@@ -58,6 +71,7 @@ Key runtime-fatal references:
 - `test_attempts`: table → **dropped** → recreated as a **VIEW** (039/048/056a).
 
 ### 1.6 🟠 `tables.json` is stale / wrong
+
 `apps/backend/tables.json` lists only 4 tables: `users`, `user_achievements`,
 `user_topic_stats`, `user_recommendations`. `user_recommendations` is **never created
 anywhere** (only INSERT in `recommendationService.js:32`).
@@ -67,11 +81,13 @@ anywhere** (only INSERT in `recommendationService.js:32`).
 ## 2. Backend — Endpoints, Auth, Tables
 
 ### 2.1 Mount overview (app-port5001.js)
+
 Admin chain per `/api/admin/*` request:
 `restrictAdminOrigin → validateAdminApiKey → protect → admin → loadAdminPermissions →
 requireAdminPermission → auditMiddleware` (admin-routes-index.js:64-66) — guard rails intact.
 
 ### 2.2 🔴 Critical backend bugs
+
 1. **Duplicate mount block (verified).** `app-port5001.js:727–739` and `:780–792` are
    byte-identical — 13 routers (`/api/intelligence`, `/api/discussions`, `/api/promotions`,
    `/api/tag-configs`, `/api/pyps`, `/api/leaderboards`, `/api/enrollments`, `/api/community`,
@@ -103,6 +119,7 @@ requireAdminPermission → auditMiddleware` (admin-routes-index.js:64-66) — gu
     `:171` `"liveTests"` (dump would fail).
 
 ### 2.3 🟠 Public/unauthenticated writes (inventory)
+
 - `videos-public.js` `POST /:id/view` (:84), `POST /:id/progress` (:99), `GET /:id/progress` (:121) — all PUBLIC writes.
 - `referrals.js` `POST /` (:95) — create referral, no auth.
 - `examInfo.routes.js` `POST /report-error` (:43) — PUBLIC write.
@@ -110,34 +127,37 @@ requireAdminPermission → auditMiddleware` (admin-routes-index.js:64-66) — gu
 - `testCategories.js` `GET /orphaned/list` + `PUT /orphaned/reassign` — no auth (see 2.2.4).
 
 ### 2.4 🟠 Response-shape inconsistency
+
 Convention `{ success, data }` (887/897 `res.json` include `success`) but global `errorHandler`
 returns `{ success:false, error:{code,message} }` (different key than inline handlers'
 `{ success:false, message }`); health returns `{ status:"ok" }` (206 when Redis down);
 `/metrics` and `/api/admin/analytics/export` return text/CSV.
 
 ### 2.5 Dead / orphaned backend modules
+
 - `modules/test-series/test-series.routes.js` (+controller/service/repository) — never mounted (dead).
 - `api/routes/public-data.routes.js` — monolithic public router, never imported (superseded by public-routes-index split).
 - Shadowed-but-mounted: `leaderboards-public.js`, `current-affairs-public.js`, `exams-public.js` `GET /:examId/compare`, ~120 `admin.js` endpoints.
 
 ### 2.6 🔴 Live-tests: the ENTIRE REST surface is broken except the list
+
 Backend implements live sessions under `/api/live-mock` (`liveMock.routes.js`): `GET /upcoming`,
 `GET /active`, `GET /:id`, `POST /` (admin), `POST /:id/register`, `POST /:id/start`,
 `POST /:id/submit`, `GET /:id/leaderboard`, `GET /:id/results`. `GET /api/live-tests` works
 (list of live-flagged `tests` only). **Frontend calls `/api/live-tests/:id/*` which does not
 exist:**
 
-| Frontend call | Backend reality | Status |
-|---|---|---|
-| `GET /api/live-tests` (LiveTests.jsx:25) | live-tests-public `GET /` | 🟢 |
-| `POST /api/live-tests/:id/register` (LiveTests.jsx:116, LiveTestInterface.jsx:67) | only `/api/live-mock/:id/register` | 🔴 404 |
-| `GET /api/live-tests/:id` (LiveTestInterface.jsx:66) | only `/api/live-mock/:id` | 🔴 404 |
-| `POST /api/live-tests/:id/attempt` (LiveTestInterface.jsx:46) | none | 🔴 404 |
-| `GET /api/live-tests/:id/live-rank` (LiveTestInterface.jsx:31) | none | 🔴 404 |
-| `POST /api/live-tests/:id/save-answer` (LiveTestInterface.jsx:277) | none | 🔴 404 |
-| `GET /api/live-tests/:id/leaderboard` (LiveTestLeaderboard.jsx:20) | only `/api/live-mock/:id/leaderboard` | 🔴 404 |
-| `GET /api/live-tests/:id/result` (LiveTestResults.jsx:19, LiveTestReview.jsx:15) | only `/api/live-mock/:id/results` (singular vs plural) | 🔴 404 |
-| `GET/POST/PUT/DELETE /api/admin/live-tests` + `/bulk` (adminAPI.js:107-111) | no router | 🔴 404 |
+| Frontend call                                                                     | Backend reality                                        | Status |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------ | ------ |
+| `GET /api/live-tests` (LiveTests.jsx:25)                                          | live-tests-public `GET /`                              | 🟢     |
+| `POST /api/live-tests/:id/register` (LiveTests.jsx:116, LiveTestInterface.jsx:67) | only `/api/live-mock/:id/register`                     | 🔴 404 |
+| `GET /api/live-tests/:id` (LiveTestInterface.jsx:66)                              | only `/api/live-mock/:id`                              | 🔴 404 |
+| `POST /api/live-tests/:id/attempt` (LiveTestInterface.jsx:46)                     | none                                                   | 🔴 404 |
+| `GET /api/live-tests/:id/live-rank` (LiveTestInterface.jsx:31)                    | none                                                   | 🔴 404 |
+| `POST /api/live-tests/:id/save-answer` (LiveTestInterface.jsx:277)                | none                                                   | 🔴 404 |
+| `GET /api/live-tests/:id/leaderboard` (LiveTestLeaderboard.jsx:20)                | only `/api/live-mock/:id/leaderboard`                  | 🔴 404 |
+| `GET /api/live-tests/:id/result` (LiveTestResults.jsx:19, LiveTestReview.jsx:15)  | only `/api/live-mock/:id/results` (singular vs plural) | 🔴 404 |
+| `GET/POST/PUT/DELETE /api/admin/live-tests` + `/bulk` (adminAPI.js:107-111)       | no router                                              | 🔴 404 |
 
 Fix options: (a) mount `liveMock.routes.js` at `/api/live-tests` + add aliases
 `/attempt|save-answer|live-rank|result`, or (b) point the frontend at `/api/live-mock`.
@@ -151,37 +171,39 @@ All routes wrapped in `RouteErrorBoundary` (local, App.jsx:130) + global
 PageSkeleton). Auth popup renders as overlay.
 
 ### 3.1 Route → component → guard → endpoints → status
+
 (🟢 = endpoint exists & matches backend · 🔴 = 404 · 🔒 = auth-gated)
 
-| Route | Component | Guard | Status |
-|---|---|---|---|
-| `/` | Home | public | 🟢 |
-| `/login` `/signup` `/forgot-password` `/reset-password` `/verify-email` | auth pages | public | 🟢 |
-| `/dashboard`, `/dashboard/ai-planner`, `/ai-tutor`, `/dashboard/insights`, `/dashboard/rankings` | Dashboard, AIStudyPlanner, PerformanceInsights | 🔒 | 🟢 |
-| `/analysis`, `/attempted-tests`, `/profile`, `/settings`, `/notifications`, `/bookmarks` | Analysis, AttemptedTests, Profile, Settings, Notifications, Bookmarks | 🔒 | 🟢 |
-| `/achievements` (+FeatureGate), `/spaced-repetition` | Achievements, SpacedRepetition | 🔒+FG | 🟢 |
-| `/live-tests/:liveTestId(+/leaderboard|/review)` `/live-test-results/:liveTestId` | LiveTestInterface, LiveTestLeaderboard, LiveTestReview, LiveTestResults | 🔒 | 🔴 (all `/api/live-tests/:id/*` 404, §2.6) |
-| `/pyp/:pypId/test` | PYPTest | 🔒 | 🟢 |
-| `/practice` | PracticeLab | 🔒 | 🟢 |
-| `/test-series` `/test-series/:seriesId(+/tests)` `/my` variants `/test-series/:id/leaderboard` | TestSeries, SeriesLeaderboard | mixed | 🟢 |
-| `/tests` (alias), `/test-series/:seriesId/tests/:testId(+/instructions|/result|/review)` + legacy `/test/...` | TestDetails, TestInstructions, TestInterface, TestResult, TestReview | 🔒 | 🟢 |
-| `/study(+/:subjectId|/:subjectId/:chapterId)` | StudyMaterial, StudyMaterialDetail, StudyMaterialChapter | public | 🟢 |
-| `/exams` `/exams/category/:categoryId(+/exam/:examId|/year/:year)` | Exams, ExamCategory, ExamDetails | public | 🟢 |
-| `/exam/:examId(+/updates|/year/:year|/compare)` | ExamDetails, ExamUpdates, ExamYear, ExamCompare | public | 🟢 |
-| `/tag/:tag` `/tag/pyps|pyq|previous-year-papers` | TagPage | public | 🟢 |
-| `/videos/:subjectSlug/:chapterSlug/:videoId` `/videos/:id` | Videos, VideoDetail, VideoPlayer | FG(videos) | 🟢 (but writes PUBLIC §2.3) |
-| `/pass` | Pass | public | 🟢 |
-| `/about` `/contact` `/terms` `/privacy` `/refund` `/faq` `/blog(+/:id)` | public pages | public | 🟠 Contact broken (§3.3) |
-| `/search` | SearchPage | public | 🟢 |
-| `/current-affairs/:caId` | CurrentAffairs, CurrentAffairsDetail | FG+public | 🟢 |
-| `/previous-year-papers` `/pyps` `/pyps/:examCategory` | PreviousYearPapers, PypsLanding, PypsExam | public | 🟢 |
-| `/leaderboard` | Leaderboard | public | 🟠 (backend `/api/leaderboards` 401, §2.2.2) |
-| `/refer-and-earn` | ReferAndEarn | FG+🔒 | 🟢 |
-| `/community` `/community/groups/:id` | Community | FG | 🟠 messaging broken (§3.3) |
-| `/error-500`, `*`→NotFound | ServerError, NotFound | public | 🟢 |
-| `/admin/*` | — | cross-origin redirect | 🟢 |
+| Route                                                                                            | Component                                                             | Guard                                                                   | Status                                                               |
+| ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `/`                                                                                              | Home                                                                  | public                                                                  | 🟢                                                                   |
+| `/login` `/signup` `/forgot-password` `/reset-password` `/verify-email`                          | auth pages                                                            | public                                                                  | 🟢                                                                   |
+| `/dashboard`, `/dashboard/ai-planner`, `/ai-tutor`, `/dashboard/insights`, `/dashboard/rankings` | Dashboard, AIStudyPlanner, PerformanceInsights                        | 🔒                                                                      | 🟢                                                                   |
+| `/analysis`, `/attempted-tests`, `/profile`, `/settings`, `/notifications`, `/bookmarks`         | Analysis, AttemptedTests, Profile, Settings, Notifications, Bookmarks | 🔒                                                                      | 🟢                                                                   |
+| `/achievements` (+FeatureGate), `/spaced-repetition`                                             | Achievements, SpacedRepetition                                        | 🔒+FG                                                                   | 🟢                                                                   |
+| `/live-tests/:liveTestId(+/leaderboard                                                           | /review)` `/live-test-results/:liveTestId`                            | LiveTestInterface, LiveTestLeaderboard, LiveTestReview, LiveTestResults | 🔒                                                                   | 🔴 (all `/api/live-tests/:id/*` 404, §2.6) |
+| `/pyp/:pypId/test`                                                                               | PYPTest                                                               | 🔒                                                                      | 🟢                                                                   |
+| `/practice`                                                                                      | PracticeLab                                                           | 🔒                                                                      | 🟢                                                                   |
+| `/test-series` `/test-series/:seriesId(+/tests)` `/my` variants `/test-series/:id/leaderboard`   | TestSeries, SeriesLeaderboard                                         | mixed                                                                   | 🟢                                                                   |
+| `/tests` (alias), `/test-series/:seriesId/tests/:testId(+/instructions                           | /result                                                               | /review)`+ legacy`/test/...`                                            | TestDetails, TestInstructions, TestInterface, TestResult, TestReview | 🔒                                         | 🟢  |
+| `/study(+/:subjectId                                                                             | /:subjectId/:chapterId)`                                              | StudyMaterial, StudyMaterialDetail, StudyMaterialChapter                | public                                                               | 🟢                                         |
+| `/exams` `/exams/category/:categoryId(+/exam/:examId                                             | /year/:year)`                                                         | Exams, ExamCategory, ExamDetails                                        | public                                                               | 🟢                                         |
+| `/exam/:examId(+/updates                                                                         | /year/:year                                                           | /compare)`                                                              | ExamDetails, ExamUpdates, ExamYear, ExamCompare                      | public                                     | 🟢  |
+| `/tag/:tag` `/tag/pyps                                                                           | pyq                                                                   | previous-year-papers`                                                   | TagPage                                                              | public                                     | 🟢  |
+| `/videos/:subjectSlug/:chapterSlug/:videoId` `/videos/:id`                                       | Videos, VideoDetail, VideoPlayer                                      | FG(videos)                                                              | 🟢 (but writes PUBLIC §2.3)                                          |
+| `/pass`                                                                                          | Pass                                                                  | public                                                                  | 🟢                                                                   |
+| `/about` `/contact` `/terms` `/privacy` `/refund` `/faq` `/blog(+/:id)`                          | public pages                                                          | public                                                                  | 🟠 Contact broken (§3.3)                                             |
+| `/search`                                                                                        | SearchPage                                                            | public                                                                  | 🟢                                                                   |
+| `/current-affairs/:caId`                                                                         | CurrentAffairs, CurrentAffairsDetail                                  | FG+public                                                               | 🟢                                                                   |
+| `/previous-year-papers` `/pyps` `/pyps/:examCategory`                                            | PreviousYearPapers, PypsLanding, PypsExam                             | public                                                                  | 🟢                                                                   |
+| `/leaderboard`                                                                                   | Leaderboard                                                           | public                                                                  | 🟠 (backend `/api/leaderboards` 401, §2.2.2)                         |
+| `/refer-and-earn`                                                                                | ReferAndEarn                                                          | FG+🔒                                                                   | 🟢                                                                   |
+| `/community` `/community/groups/:id`                                                             | Community                                                             | FG                                                                      | 🟠 messaging broken (§3.3)                                           |
+| `/error-500`, `*`→NotFound                                                                       | ServerError, NotFound                                                 | public                                                                  | 🟢                                                                   |
+| `/admin/*`                                                                                       | —                                                                     | cross-origin redirect                                                   | 🟢                                                                   |
 
 ### 3.2 Forms inventory (per page)
+
 - **Auth**: Login (login + 2FA), Signup, ForgotPassword, ResetPassword, EmailVerification.
 - **Community** (6): askDoubt, createGroup, reply, sendMessage, addComment, createPost.
 - **ExamInfoNew**: report-error form (backed by `POST /api/exam-info/report-error`, PUBLIC write §2.3).
@@ -191,6 +213,7 @@ PageSkeleton). Auth popup renders as overlay.
 - Profile cover/avatar uploads; Settings tabbed forms; SpacedRepetition "Generate AI Plan" button.
 
 ### 3.3 🔴 Frontend → no backend route (404)
+
 1. **Live-test flow** — entire `/api/live-tests/:id/*` surface (§2.6).
 2. `GET /api/faqs` (Faq.jsx) — only admin routes exist.
 3. `POST /api/contact` (Contact.jsx) — no contact route at all.
@@ -199,11 +222,13 @@ PageSkeleton). Auth popup renders as overlay.
 6. Community messaging: `/api/study-groups/:groupId/messages|/posts|/posts/:postId/like|/comments|/pin` — don't exist in studyGroups.js.
 
 ### 3.4 Orphaned frontend components (no route, no import)
+
 `pages/exams/ExamsNew.jsx`, `pages/exams/ExamDetails.jsx`, `pages/dashboard/UserLeaderboard.jsx`
 (exported via pages/index.js only). Confirmed non-orphans (used as sub-components): PypsExam,
 RecentActivity, TopPerformers, ProfilePrimitives, QuestionPalette, SettingsContent.
 
 ### 3.5 🟢 Runtime-hazard screening
+
 All risky renders are guard-protected (PYPTest:232, LiveTestInterface:325, TestInterface:1306/1332,
 CurrentAffairsDetail:81/85, TestInstructions:420/442, TestDetails:1185, BlogDetail:44, TagPage:163,
 SeriesLeaderboard:106, LiveTests:137, PreviousYearPapers:176, TestReview:56, TestResult:199,
@@ -218,30 +243,33 @@ Every page renders real UI (tables/forms/modals/drawers); **no page is a stub**.
 endpoints verified against backend.
 
 ### 4.1 Nav → page → endpoints → status
-| Nav | Component | Verdict |
-|---|---|---|
-| Dashboard, Analytics, Deep Analytics | AdminDashboard, AdminAnalytics, DeepAnalytics | 🟢 |
-| Leaderboards | LeaderboardResultsUnified | 🟢 |
-| Exam Categories, Exam Info, Stages, Categories, Sections, Tag Configs, Test Series | respective managers | 🟢 |
-| Tests, Questions | TestsManager, QuestionsManager | 🟠 (hazards §4.3) |
-| Quizzes | QuizzesManager | 🔴 (AI gen 404 + bulk 404, §4.3) |
-| Practice Questions, Study Materials, Current Affairs, Content Management | respective managers | 🟢 |
-| Email Templates, Notifications, Banners, FAQs, Subscription Plans, Coupons, Promotions | respective managers | 🟢 |
-| Payments, Moderation | PaymentsManager, ModerationManager | 🟢 |
-| Users (+Roles), Enrollments, Sessions | UsersPermissions, EnrollmentsManager, ActiveSessionsManager | 🟢 |
-| Live Monitor, Activity Log, Audit Trail, Recycle Bin | LiveTestMonitor (WebSocket), UserActivityLog, AuditTrailManager, RecycleBin | 🟢 |
-| System Health, Backups, Settings, Navigation, Two-Factor | SystemHealthMonitor, BackupsManager, AdminSettings, NavigationManager, TwoFactorManager | 🟢 |
+
+| Nav                                                                                    | Component                                                                               | Verdict                          |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------- |
+| Dashboard, Analytics, Deep Analytics                                                   | AdminDashboard, AdminAnalytics, DeepAnalytics                                           | 🟢                               |
+| Leaderboards                                                                           | LeaderboardResultsUnified                                                               | 🟢                               |
+| Exam Categories, Exam Info, Stages, Categories, Sections, Tag Configs, Test Series     | respective managers                                                                     | 🟢                               |
+| Tests, Questions                                                                       | TestsManager, QuestionsManager                                                          | 🟠 (hazards §4.3)                |
+| Quizzes                                                                                | QuizzesManager                                                                          | 🔴 (AI gen 404 + bulk 404, §4.3) |
+| Practice Questions, Study Materials, Current Affairs, Content Management               | respective managers                                                                     | 🟢                               |
+| Email Templates, Notifications, Banners, FAQs, Subscription Plans, Coupons, Promotions | respective managers                                                                     | 🟢                               |
+| Payments, Moderation                                                                   | PaymentsManager, ModerationManager                                                      | 🟢                               |
+| Users (+Roles), Enrollments, Sessions                                                  | UsersPermissions, EnrollmentsManager, ActiveSessionsManager                             | 🟢                               |
+| Live Monitor, Activity Log, Audit Trail, Recycle Bin                                   | LiveTestMonitor (WebSocket), UserActivityLog, AuditTrailManager, RecycleBin             | 🟢                               |
+| System Health, Backups, Settings, Navigation, Two-Factor                               | SystemHealthMonitor, BackupsManager, AdminSettings, NavigationManager, TwoFactorManager | 🟢                               |
 
 Read-only pages (intentional): EnrollmentsManager, UserActivityLog, AuditTrailManager,
 SystemHealthMonitor, LiveTestMonitor, AdminDashboard, DeepAnalytics, AdminAnalytics.
 
 ### 4.2 Forms (confirmed `<form onSubmit>`)
+
 ExamInfoManager:435 · PromotionManager:472 · CurriculumBuilder:702 · QuizzesManager:250/278/421 ·
 TestsManager:2140 · QuestionsManager:1048 · RolePermissionsManager · ContentManagement ·
 NotificationsManager · EmailTemplatesManager · Banner/Faq/CurrentAffairs/TagConfigs/Navigation/
 TwoFactor/SubscriptionPlans/Coupons/Moderation/PracticeQuestions/AdminSettings/ComingSoon managers.
 
 ### 4.3 🔴 Admin runtime hazards (4, verified)
+
 1. **TypeError — bulk delete questions** — `QuestionsManager.jsx:1124` calls
    `adminAPI.bulkDeleteQuestions(selectedIds)`; method does NOT exist in `adminAPI.js`
    (backend `DELETE /admin/questions/bulk` exists → fix = add wrapper).
@@ -254,6 +282,7 @@ TwoFactor/SubscriptionPlans/Coupons/Moderation/PracticeQuestions/AdminSettings/C
    backend only has `/quizzes`, `/quizzes/:id`, `/quizzes/:id/duplicate`.
 
 ### 4.4 🟠 Orphan / dead admin code
+
 - Routes in App.jsx with NO nav entry (direct-URL only): `/admin/roles-permissions`,
   `/admin/topics`, `/admin/curriculum`, `/admin/results`, `/admin/coming-soon`.
 - Dead utilities (no consumers): `useGenericCRUD.js`, `useFormManager.js`, `useTests.js`,
@@ -266,18 +295,18 @@ TwoFactor/SubscriptionPlans/Coupons/Moderation/PracticeQuestions/AdminSettings/C
 
 ## 5. Cross-cutting linkage summary (Page → Endpoint → Table)
 
-| Domain | Wired chain | Broken link |
-|---|---|---|
-| Auth (login/register/2FA/reset/me) | auth.routes → users, user_sessions, two_factor_secrets, login_attempts | — |
-| Tests + attempts | test.routes/attempt.routes → tests, attempts, results, question_attempts⚠ | attempt_events⚠ never created |
-| Exams + PYP | exam*.routes, pyp-hierarchy → exams⚠, exam_categories⚠, exam_yearly_data | core exam tables not in migrations |
-| Study/syllabus | study.js, admin-content/curriculum → study_materials, subject_*⚠ | **subject_chapters/topics/units/subtopics never created** |
-| Practice | practice.js → practice_sessions, practice_answers, question_attempts⚠ | practice_attempts⚠ raw SQL (practice.js:420) |
-| **Live tests** | liveMock.routes → live_tests, attempts, tests | **frontend + admin use `/api/live-tests/:id/*` → 404** |
-| Commerce | payments/subscriptions → transactions, coupons, subscription_plans⚠, webhook_events⚠ | subscription_plans/payments/webhook_events not in migrations |
-| Community | doubts/studyGroups/community → doubts, doubt_replies, study_groups, group_posts | **discussions.js camelCase → relation does not exist** |
-| Admin CMS | admin-* routers → content tables | admin live-tests 404; AI-gen 404; bulk quiz 404 |
-| AI/Node engine | aiMentor/aiExplanation/nodeEngine → ai_conversations, nodes, embeddings | — |
+| Domain                             | Wired chain                                                                          | Broken link                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| Auth (login/register/2FA/reset/me) | auth.routes → users, user_sessions, two_factor_secrets, login_attempts               | —                                                            |
+| Tests + attempts                   | test.routes/attempt.routes → tests, attempts, results, question_attempts⚠            | attempt_events⚠ never created                                |
+| Exams + PYP                        | exam*.routes, pyp-hierarchy → exams⚠, exam_categories⚠, exam_yearly_data             | core exam tables not in migrations                           |
+| Study/syllabus                     | study.js, admin-content/curriculum → study_materials, subject_*⚠                     | **subject_chapters/topics/units/subtopics never created**    |
+| Practice                           | practice.js → practice_sessions, practice_answers, question_attempts⚠                | practice_attempts⚠ raw SQL (practice.js:420)                 |
+| **Live tests**                     | liveMock.routes → live_tests, attempts, tests                                        | **frontend + admin use `/api/live-tests/:id/*` → 404**       |
+| Commerce                           | payments/subscriptions → transactions, coupons, subscription_plans⚠, webhook_events⚠ | subscription_plans/payments/webhook_events not in migrations |
+| Community                          | doubts/studyGroups/community → doubts, doubt_replies, study_groups, group_posts      | **discussions.js camelCase → relation does not exist**       |
+| Admin CMS                          | admin-* routers → content tables                                                     | admin live-tests 404; AI-gen 404; bulk quiz 404              |
+| AI/Node engine                     | aiMentor/aiExplanation/nodeEngine → ai_conversations, nodes, embeddings              | —                                                            |
 
 ---
 
@@ -287,16 +316,14 @@ TwoFactor/SubscriptionPlans/Coupons/Moderation/PracticeQuestions/AdminSettings/C
 wired, admin guard chain intact), but these block the "go-live" bar:
 
 **P0 (broken user-facing flows):**
+
 1. Entire Live-Tests REST surface 404 (frontend + admin) — §2.6 / §3.3.1.
 2. Public `/api/leaderboards` 401 for everyone — §2.2.2 (breaks Leaderboard, SeriesLeaderboard, dashboard rankings).
 3. Unauthenticated `PUT /api/test-categories/orphaned/reassign` (security) — §2.2.4.
 4. Admin: AI question-gen 404, bulk quiz upload 404, 2 missing adminAPI wrappers — §4.3.
 5. Discussions camelCase table queries → relation does not exist (doubt/community feature) — §2.2.6.
 
-**P1 (fresh-deploy / data integrity):**
-6. 24 code-referenced tables absent from migrations (core hierarchy + subject_* + payments + faqs + ...) — §1.2/§1.3.
-7. 3 migrations (095, 097, 105) fail on fresh DB; 099 RLS blocks owners — §1.4.
-8. Duplicate mount block + double admin chain (double audit writes) — §2.2.1/§2.2.3.
+**P1 (fresh-deploy / data integrity):** 6. 24 code-referenced tables absent from migrations (core hierarchy + subject_* + payments + faqs + ...) — §1.2/§1.3. 7. 3 migrations (095, 097, 105) fail on fresh DB; 099 RLS blocks owners — §1.4. 8. Duplicate mount block + double admin chain (double audit writes) — §2.2.1/§2.2.3.
 
 **P2 (harden):** unauthenticated public writes (videos, referrals, report-error) — §2.3;
 camelCase tableMap consistency; `tables.json` refresh; response-shape normalization;
@@ -305,3 +332,26 @@ placeholder/orphan cleanup (frontend 3, admin 5); stale backup manifest table na
 Next suggested step: fix P0 items first (smallest surface, highest user impact), then produce a
 migration to create the 24 missing tables + fix 095/097/105 so fresh deploys work, then run
 `scripts/run-database-audit.js` against the live DB to reconcile actual shapes.
+
+---
+
+## 7. Delta 2026-08-23 → 2026-09-06 (what changed since this frozen pass — one page)
+
+> This section is the ONLY post-freeze addition. The verdicts in §§1–6 above still
+> describe 2026-08-23. Current truth: `docs/FINAL_SITE_READINESS_REPORT.md`.
+
+| #   | 2026-08-23 verdict (§)                             | 2026-09-06 status                                                                                                                                                                                                                                      |
+| --- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Live-tests REST 404 except list (§2.6)             | ✅ FIXED — `api/routes/live-tests-public.js:162-163` mounts `liveMockRoutes` as the `/api/live-tests` alias                                                                                                                                            |
+| 2   | Public `/api/leaderboards` 401 (§2.2.2)            | ✅ FIXED — `api/routes/leaderboards-public.js:10` uses `optionalAuth` (public read, personalized when logged in)                                                                                                                                       |
+| 3   | Unauthenticated `PUT …/orphaned/reassign` (§2.2.4) | ✅ FIXED — `api/routes/testCategories.js:140` now `protect, admin`                                                                                                                                                                                     |
+| 4   | Avatar 404 / Vercel prop-types build break         | ✅ FIXED — avatar fallback + prop-types dependency fix shipped                                                                                                                                                                                         |
+| 5   | Intelligence/proctoring/ranking absent             | ✅ SHIPPED (waves 17–20): `services/core/studyRoadmapService.js`, `socraticHintService.js`, `examReadinessService.js` via `api/routes/intelligence.js`; proctoring console; leaderboard queue recompute                                                |
+| 6   | 112 migrations; npm workspaces                     | ➡️ 000–135 on disk (next `136_*`; baseline 003/098/108/121); **pnpm 11.25** + **uv** canonical, `dev-tools/` removed in favour of `scripts/`                                                                                                           |
+| 7   | Admin chain order (§2.1)                           | ➡️ Canonical order confirmed: `normalizeFields → restrictAdminOrigin → validateAdminApiKey → protect → admin → validateCsrfToken → loadAdminPermissions → requireAdminPermission → auditMiddleware` (`api/routes/admin.js:65-80`); `superAdmin` exists |
+| 8   | Node V2+ status                                    | ➡️ V1 implemented (`nodes`, mig. 106), V2 partial (`user_node_skill` only), V3–V6 vision (`docs/vision/`)                                                                                                                                              |
+
+**Remaining unknowns** (carried to the living scorecard, not re-verdicts here):
+community like/pin endpoints, pyp-bulk surface, `insertOne` semantics, RLS `099`/`116`
+owner-access review, D2 payload realism. `docs/ARCHITECTURE.md`, `docs/DEVELOPMENT.md`,
+`docs/AI_PROMPTS.md`, `docs/test-quiz-lifecycle.md` refreshed 2026-09-06.

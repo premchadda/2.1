@@ -401,8 +401,7 @@ export default function StagesManager() {
   };
 
   const handleAssignTestsToStage = (stageId) => {
-    // Use URL params to pre-filter TestsManager by stage
-    window.location.href = `/admin/tests?stageId=${stageId}&assignMode=true`;
+    navigate(`/admin/tests?stageId=${stageId}&assignMode=true`);
   };
 
   // Clear newly created stage after user sees the option
