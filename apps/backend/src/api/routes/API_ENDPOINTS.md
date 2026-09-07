@@ -1,786 +1,328 @@
-# API Endpoints Documentation
+# API Endpoints — Living Index
 
-> New and significantly modified endpoints added during the admin panel improvement effort.
-> All endpoints require admin authentication (JWT + admin role) unless otherwise noted.
+> As of 2026-09-06. This is an **index, not a contract**: it records
+> conventions, the verified admin module map, and fully-worked examples for
+> selected areas. For any endpoint not detailed below, the route file is
+> authoritative. Update this file when you add/rename/remove a route.
+
+## Conventions
+
+- **Bases.** Admin router mounts at `/api/admin` (`app-port5001.js`). Auth
+  routes mount at `/api/auth`. Public routers mount under `/api/*` (see
+  Undocumented surfaces). Never add a second `/admin` prefix inside an
+  admin sub-router — mounts below are relative to `/api/admin`.
+- **Response envelope.** `{ "success": true, "data": ... }` (lists add
+  `count`/`total`/`page`/`limit`/`totalPages`).
+- **Pagination.** `?page=1&limit=20` (max 100); filtering/sorting/pagination
+  is done in SQL, not in Node memory.
+- **Curl pattern** used throughout:
+  ```bash
+  curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/...
+  ```
+  (`:3000` = local dev; compose exposes the backend on `:5001`.)
+
+## Admin middleware pipeline (code order, `admin.js`)
+
+Every `/api/admin/*` request passes, in order:
+
+```
+normalizeFields (POST/PUT/PATCH)
+→ restrictAdminOrigin
+→ validateAdminApiKey
+→ protect (JWT)
+→ admin (role)
+→ validateCsrfToken
+→ loadAdminPermissions
+→ requireAdminPermission
+→ auditMiddleware (all mutating requests + detail reads;
+   plain collection GETs skip the audit write)
+```
+
+Do not bypass this chain. CSRF runs **after** `protect`/`admin` in code
+(despite the header comment suggesting otherwise) — document behavior from
+the `router.use` order above, not the comment.
+
+## Admin module map (verified from `admin.js`, imports lines 23–60)
+
+38 imports = **37 `admin-*` modules** + `leaderboards-admin`. Includes
+`admin-import`, `admin-logs`, `admin-sessions`, `admin-live-tests`.
+`/stages` also exists as a **top-level** public route (`/api/stages`) in
+addition to the admin stages module — they are different routers.
+
+### Mounted at root (`/api/admin/*`, no extra prefix)
+
+| Module                     | Notes                                                                                                            |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `admin-activity.js`        | Includes `GET /recent-activity`                                                                                  |
+| `admin-assets.js`          | Asset/file management                                                                                            |
+| `admin-bulk-ops.js`        | `POST /test-series/bulk-operation`, `/tests/bulk-reassign`, `/questions/bulk-reorder`, `/questions/bulk-convert` |
+| `admin-catalog.js`         | Catalog (incl. `POST /quizzes/bulk`-style bulk paths)                                                            |
+| `admin-categories.js`      |                                                                                                                  |
+| `admin-commerce.js`        | Commerce/notifications bulk                                                                                      |
+| `admin-content.js`         |                                                                                                                  |
+| `admin-curriculum.js`      |                                                                                                                  |
+| `admin-dynamic-content.js` |                                                                                                                  |
+| `admin-enrollments.js`     |                                                                                                                  |
+| `admin-exams.js`           |                                                                                                                  |
+| `admin-extras.js`          | Misc admin routes                                                                                                |
+| `admin-import.js`          | Import + `GET /import/history`, `/import/history/:id`                                                            |
+| `admin-navigation-tags.js` |                                                                                                                  |
+| `admin-questions.js`       | `DELETE /questions/bulk`, `POST /questions/bulk` (file), `POST /questions/bulk/predict-difficulty`               |
+| `admin-realtime.js`        | Realtime dashboards (below)                                                                                      |
+| `admin-roles.js`           |                                                                                                                  |
+| `admin-sessions.js`        |                                                                                                                  |
+| `admin-settings.js`        |                                                                                                                  |
+| `admin-stages.js`          | Admin side (public `/api/stages` is separate)                                                                    |
+| `admin-stats.js`           | Statistics                                                                                                       |
+| `admin-test-series.js`     | `POST /test-series/bulk-upload`                                                                                  |
+| `admin-tests.js`           | `DELETE/POST /tests/bulk*`, `POST /tests/bulk-status`, `/tests/bulk-publish`, `POST /tests/:id/duplicate`        |
+| `admin-users.js`           | `GET /users`, `POST /users/:id/2fa/disable` (admin-forced)                                                       |
+
+### Mounted on subpaths (relative to `/api/admin` — no double `/admin`)
+
+| Module                     | Mount              | Contents                               |
+| -------------------------- | ------------------ | -------------------------------------- |
+| `admin-navigation.js`      | `/navigation`      | Navigation config                      |
+| `admin-audit.js`           | `/audit-logs`      | Audit log reads                        |
+| `admin-recycle-bin.js`     | `/trash`           | Soft-delete recycle bin                |
+| `admin-sections.js`        | `/sections`        |                                        |
+| `admin-analytics.js`       | `/analytics`       |                                        |
+| `admin-deep-analytics.js`  | `/analytics/deep`  |                                        |
+| `admin-email-templates.js` | `/email-templates` |                                        |
+| `admin-coming-soon.js`     | `/coming-soon`     |                                        |
+| `admin-payments.js`        | `/payments`        | Transactions, stats, refunds, webhooks |
+| `admin-moderation.js`      | `/moderation`      | Doubts queue                           |
+| `admin-backups.js`         | `/backups`         |                                        |
+| `admin-logs.js`            | `/logs`            |                                        |
+| `leaderboards-admin.js`    | `/leaderboards`    |                                        |
+| `admin-live-tests.js`      | `/live-tests`      | `POST /live-tests/bulk`                |
 
 ---
 
-## Performance Optimized Endpoints
-
-These endpoints were rewritten to push filtering, sorting, and pagination into SQL instead of loading entire tables into Node.js memory.
+## Performance-optimized endpoints
 
 ### `GET /admin/recent-activity`
-**Auth:** protect, admin  
-**Description:** Returns the 8 most recent platform events (registrations, test completions, media uploads) using SQL ORDER BY + LIMIT instead of in-memory sorting.  
-**Query params:** None  
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "type": "user_registration|test_completed|media_uploaded|content_uploaded",
-      "title": "New user registered",
-      "description": "user@email.com joined the platform",
-      "time": "5 minutes ago",
-      "userId": 123,
-      "icon": "users",
-      "color": "text-blue-600"
-    }
-  ]
-}
-```
-**Example:**
+
+**Auth:** protect, admin
+Returns the 8 most recent platform events via SQL `ORDER BY` + `LIMIT`.
+
 ```bash
 curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/recent-activity
 ```
 
----
-
 ### `GET /admin/realtime/active-users`
-**Auth:** protect, admin  
-**Description:** Returns counts of active users across time windows (5min, 30min, 1hr) using COUNT(DISTINCT) aggregations with SQL FILTER. Also returns hourly activity histogram for the last 24 hours.  
-**Query params:** None  
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "onlineNow": 42,
-    "takingTests": 15,
-    "totalRegistered": 12500,
-    "activeLast5Min": 42,
-    "activeLast30Min": 128,
-    "activeLastHour": 310,
-    "hourlyActivity": [
-      { "hour": 14, "label": "14:00", "users": 85, "tests": 43 }
-    ],
-    "timestamp": "2026-07-01T12:00:00.000Z"
-  }
-}
-```
-**Example:**
+
+**Auth:** protect, admin
+Counts across 5min/30min/1hr windows (`COUNT(DISTINCT)` + `FILTER`) plus a
+24h hourly histogram.
+
 ```bash
 curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/realtime/active-users
 ```
 
----
-
 ### `GET /admin/realtime/test-activity`
-**Auth:** protect, admin  
-**Description:** Returns real-time test activity stats using SQL aggregations: active in-progress tests, most popular active tests (top 10), completion rate, and average score for the last hour.  
-**Query params:** None  
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "activeTestsNow": 15,
-    "completedLastHour": 230,
-    "completionRateLastHour": 78,
-    "avgScoreLastHour": 650,
-    "popularActiveTests": [
-      { "testId": 10, "testName": "JEE Main Mock 1", "activeUsers": 12 }
-    ],
-    "timestamp": "2026-07-01T12:00:00.000Z"
-  }
-}
-```
-**Example:**
+
+**Auth:** protect, admin
+In-progress tests, top-10 popular active tests, last-hour completion rate and
+average score.
+
 ```bash
 curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/realtime/test-activity
 ```
 
----
-
 ### `GET /admin/realtime/revenue`
-**Auth:** protect, admin  
-**Description:** Returns revenue and enrollment analytics using COUNT(*) FILTER aggregations. Calculates revenue from Pro Pass users, tracks enrollment trends, and lists top 5 enrolled series.  
-**Query params:** None  
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "totalRevenue": 125000,
-    "revenueLastHour": 2500,
-    "revenueToday": 15000,
-    "totalProUsers": 2500,
-    "activeProUsers": 2200,
-    "newProLastHour": 5,
-    "newProToday": 30,
-    "enrollmentsLastHour": 12,
-    "enrollmentsToday": 85,
-    "enrollmentsThisWeek": 420,
-    "topEnrolledSeries": [
-      { "seriesId": 1, "seriesName": "JEE Complete", "enrollments": 150 }
-    ],
-    "proPassPrice": 50,
-    "timestamp": "2026-07-01T12:00:00.000Z"
-  }
-}
-```
-**Example:**
+
+**Auth:** protect, admin
+Revenue/enrollment analytics (`COUNT(*) FILTER`); Pro Pass revenue, enrollment
+trends, top-5 enrolled series.
+
 ```bash
 curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/realtime/revenue
 ```
 
----
-
 ### `GET /admin/users`
-**Auth:** protect, admin  
-**Description:** Paginated user list with SQL WHERE/ILIKE/ORDER BY/LIMIT/OFFSET. Previously loaded all users into memory and filtered in JS.  
-**Query params:**
-| Param | Type | Default | Description |
-|---|---|---|---|
-| `page` | integer | 1 | Page number |
-| `limit` | integer | 20 | Results per page (max 100) |
-| `search` | string | — | ILIKE search on name, email, phone |
-| `role` | string | — | Filter by `user`, `admin`, or `super_admin` |
-| `status` | string | — | Filter by `active` or `inactive` |
-| `pro` | boolean | false | Filter Pro users only |
-| `includeInactive` | boolean | false | Include inactive users |
 
-**Response:**
-```json
-{
-  "success": true,
-  "count": 20,
-  "total": 12500,
-  "page": 1,
-  "limit": 20,
-  "totalPages": 625,
-  "data": [
-    {
-      "id": 1,
-      "name": "John Doe",
-      "email": "john@example.com",
-      "role": "user",
-      "is_active": true,
-      "created_at": "2026-01-15T10:30:00.000Z"
-    }
-  ]
-}
-```
-**Example:**
+**Auth:** protect, admin
+Paginated users (SQL `WHERE`/`ILIKE`/`ORDER BY`/`LIMIT`/`OFFSET`).
+
+| Param                     | Default          | Description                    |
+| ------------------------- | ---------------- | ------------------------------ |
+| `page` / `limit`          | 1 / 20 (max 100) | Pagination                     |
+| `search`                  | —                | ILIKE on name, email, phone    |
+| `role`                    | —                | `user`, `admin`, `super_admin` |
+| `status`                  | —                | `active`, `inactive`           |
+| `pro` / `includeInactive` | false / false    | Flags                          |
+
 ```bash
 curl -H "Authorization: Bearer $TOKEN" "http://localhost:3000/api/admin/users?page=1&limit=20&search=john&role=user"
 ```
 
 ---
 
-## Payments
-
-Base path: `/admin/payments`
+## Payments (`/admin/payments`)
 
 ### `GET /admin/payments/transactions`
-**Auth:** protect, admin  
-**Description:** Paginated list of payment transactions with search and status filtering. Joins with users table for name/email display.  
-**Query params:**
-| Param | Type | Default | Description |
-|---|---|---|---|
-| `page` | integer | 1 | Page number |
-| `limit` | integer | 20 | Results per page (max 100) |
-| `search` | string | — | ILIKE search on user name, email, gateway payment ID, gateway |
-| `status` | string | — | Filter by `success`, `failed`, `pending`, or `refunded` |
 
-**Response:**
-```json
-{
-  "success": true,
-  "count": 20,
-  "total": 500,
-  "page": 1,
-  "limit": 20,
-  "totalPages": 25,
-  "data": [
-    {
-      "id": 1,
-      "userId": 123,
-      "userName": "John Doe",
-      "userEmail": "john@example.com",
-      "amount": 500,
-      "currency": "INR",
-      "status": "success",
-      "gateway": "razorpay",
-      "gatewayPaymentId": "pay_abc123",
-      "createdAt": "2026-07-01T10:30:00.000Z",
-      "refundedAt": null,
-      "refundedBy": null,
-      "metadata": {}
-    }
-  ]
-}
-```
-**Example:**
+Paginated transactions with user join; `?search=` (name/email/gateway payment
+ID/gateway), `?status=success|failed|pending|refunded`.
+
 ```bash
 curl -H "Authorization: Bearer $TOKEN" "http://localhost:3000/api/admin/payments/transactions?status=success&limit=10"
 ```
 
----
-
 ### `GET /admin/payments/stats`
-**Auth:** protect, admin  
-**Description:** Aggregate payment counts by status and time windows using COUNT(*) FILTER.  
-**Query params:** None  
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "total_revenue": 1250000,
-    "successful": 450,
-    "failed": 23,
-    "pending": 12,
-    "refunded": 8,
-    "last_24h": 35,
-    "last_7d": 180,
-    "last_30d": 500,
-    "total": 493
-  }
-}
-```
-**Example:**
+
+Aggregate counts by status and time window.
+
 ```bash
 curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/payments/stats
 ```
 
----
-
 ### `POST /admin/payments/:id/refund`
-**Auth:** protect, admin  
-**Description:** Marks a successful payment as refunded. Only successful payments can be refunded. Creates an audit log entry.  
-**Path params:**
-| Param | Type | Description |
-|---|---|---|
-| `id` | integer | Payment ID |
 
-**Body params:** None  
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "user_id": 123,
-    "amount": 500,
-    "currency": "INR",
-    "status": "refunded",
-    "refunded_at": "2026-07-01T12:00:00.000Z",
-    "refunded_by": 1
-  }
-}
-```
-**Example:**
+Marks a **successful** payment refunded; writes an audit entry.
+
 ```bash
 curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/payments/1/refund
 ```
 
----
-
 ### `GET /admin/payments/webhooks`
-**Auth:** protect, admin  
-**Description:** Lists recent webhook events from the webhook_events table (up to 50). Returns empty list if table doesn't exist.  
-**Query params:** None  
-**Response:**
-```json
-{
-  "success": true,
-  "count": 5,
-  "data": [
-    {
-      "id": 1,
-      "event": "payment.captured",
-      "gateway": "razorpay",
-      "payload": {},
-      "created_at": "2026-07-01T10:30:00.000Z"
-    }
-  ]
-}
-```
-**Example:**
+
+Last ≤50 webhook events; `[]` when the table is absent.
+
 ```bash
 curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/payments/webhooks
 ```
 
 ---
 
-## Content Moderation
-
-Base path: `/admin/moderation`
+## Content moderation (`/admin/moderation`)
 
 ### `GET /admin/moderation/stats`
-**Auth:** protect, admin  
-**Description:** Returns counts of doubts by status (total, open, resolved, flagged, hidden). Gracefully handles missing tables/columns.  
-**Query params:** None  
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "total": 250,
-    "open": 45,
-    "resolved": 180,
-    "flagged": 12,
-    "hidden": 13
-  }
-}
-```
-**Example:**
+
+Doubt counts by status (`total/open/resolved/flagged/hidden`); tolerates
+missing tables/columns.
+
 ```bash
 curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/moderation/stats
 ```
 
----
-
 ### `GET /admin/moderation/doubts`
-**Auth:** protect, admin  
-**Description:** Paginated list of active doubts with user join. Supports search on title/description/user name, status filter, and flagged filter.  
-**Query params:**
-| Param | Type | Default | Description |
-|---|---|---|---|
-| `page` | integer | 1 | Page number |
-| `limit` | integer | 20 | Results per page (max 100) |
-| `search` | string | — | ILIKE search on title, description, user name |
-| `status` | string | — | Filter by `open`, `resolved`, `pending`, or `hidden` |
-| `flagged` | boolean | false | Filter flagged doubts only |
 
-**Response:**
-```json
-{
-  "success": true,
-  "count": 20,
-  "total": 45,
-  "page": 1,
-  "limit": 20,
-  "totalPages": 3,
-  "data": [
-    {
-      "id": 1,
-      "title": "Doubt about calculus",
-      "description": "How to integrate x^2?",
-      "status": "open",
-      "user_name": "John Doe",
-      "is_flagged": false,
-      "created_at": "2026-07-01T10:30:00.000Z"
-    }
-  ]
-}
-```
-**Example:**
+Paginated doubts with user join; `?search=` (title/description/user name),
+`?status=open|resolved|pending|hidden`, `?flagged=true`.
+
 ```bash
 curl -H "Authorization: Bearer $TOKEN" "http://localhost:3000/api/admin/moderation/doubts?status=open&limit=10"
 ```
 
----
-
 ### `PUT /admin/moderation/doubts/:id/status`
-**Auth:** protect, admin  
-**Description:** Updates the status of a doubt. Creates an audit log entry with previous and new status.  
-**Path params:**
-| Param | Type | Description |
-|---|---|---|
-| `id` | integer/string | Doubt ID |
 
-**Body params:**
-| Param | Type | Required | Description |
-|---|---|---|---|
-| `status` | string | Yes | Must be one of: `open`, `resolved`, `pending`, `hidden` |
+Body: `{ "status": "open|resolved|pending|hidden" }`. Audited.
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Doubt status updated to resolved"
-}
-```
-**Example:**
 ```bash
 curl -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"status": "resolved"}' \
   http://localhost:3000/api/admin/moderation/doubts/1/status
 ```
 
----
-
 ### `DELETE /admin/moderation/doubts/:id`
-**Auth:** protect, admin  
-**Description:** Soft-deletes a doubt (sets `is_active = false`). Creates an audit log entry.  
-**Path params:**
-| Param | Type | Description |
-|---||---|
-| `id` | integer/string | Doubt ID |
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Doubt deleted"
-}
-```
-**Example:**
+Soft-delete (`is_active = false`). Audited.
+
 ```bash
 curl -X DELETE -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/moderation/doubts/1
 ```
 
 ---
 
-## Content Management
+## Content management
 
 ### `POST /admin/tests/:id/duplicate`
-**Auth:** protect, admin  
-**Description:** Deep-copies a test including sections, questions, and junction table links. The duplicated test is created in draft status.  
-**Path params:**
-| Param | Type | Description |
-|---|---|---|
-| `id` | integer/string | Test ID |
 
-**Body params:** None  
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "newTestId": 456,
-    "newTitle": "JEE Main Mock 1 (Copy)"
-  }
-}
-```
-**Example:**
+Deep-copies a test (sections, questions, junction links) as a draft.
+
 ```bash
 curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/tests/123/duplicate
 ```
 
----
-
-### `PUT /admin/questions/bulk`
-**Auth:** protect, admin  
-**Description:** Bulk updates fields on multiple questions at once. Allowed fields: `difficulty`, `status`, `subject`, `category`, `type`, `tags`. Creates an audit log entry.  
-**Body params (JSON):**
-| Param | Type | Required | Description |
-|---|---|---|---|
-| `questionIds` | integer[] | Yes | Array of question IDs to update |
-| `updates` | object | Yes | Key-value pairs of fields to update |
-
-**Response:**
-```json
-{
-  "success": true,
-  "updated": 15
-}
-```
-**Example:**
-```bash
-curl -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"questionIds": [1, 2, 3, 4, 5], "updates": {"difficulty": "Hard", "status": "active"}}' \
-  http://localhost:3000/api/admin/questions/bulk
-```
+Real bulk/question surfaces (use these — see Removed phantoms below):
+`DELETE /admin/questions/bulk`, `POST /admin/questions/bulk` (multipart
+file), `POST /admin/questions/bulk/predict-difficulty`,
+`POST /admin/questions/bulk-reorder`, `POST /admin/questions/bulk-convert`,
+`POST /admin/tests/bulk-delete|bulk-status|bulk-publish`,
+`GET /admin/import/history`.
 
 ---
 
-### `POST /admin/questions/upload-image`
-**Auth:** protect, admin  
-**Description:** Uploads an image file for use in questions. Returns a signed/public URL and storage key. Uses disk-based upload (not memory).  
-**Body params:** `multipart/form-data`
-| Param | Type | Required | Description |
-|---|---|---|---|
-| `file` | file | Yes | Image file (multipart upload) |
+## Two-factor authentication (TOTP) — corrected contracts
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "url": "https://storage.example.com/questions/abc123.png",
-    "storageKey": "questions/abc123.png",
-    "provider": "s3"
-  }
-}
-```
-**Example:**
-```bash
-curl -X POST -H "Authorization: Bearer $TOKEN" \
-  -F "file=@/path/to/image.png" \
-  http://localhost:3000/api/admin/questions/upload-image
-```
+Base path `/auth` (user-facing, not admin-only). Management routes require
+`protect`; `POST /auth/login/2fa` is public + rate-limited.
 
----
+| Endpoint                                 | Request                                                                                                                    | Response                                                                                    |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `POST /auth/2fa/enroll`                  | no body; 403 when the admin global toggle is off                                                                           | `{ secret, otpauthUri }` **only** (no QR URL)                                               |
+| `POST /auth/2fa/verify`                  | `{ "token": "<6-digit TOTP>" }` (field is `token`, not `code`)                                                             | `{ backupCodes }` + enabled message                                                         |
+| `POST /auth/2fa/disable`                 | **no body** (deletes the secret row)                                                                                       | disabled message                                                                            |
+| `POST /auth/2fa/backup-codes/regenerate` | no body; 400 unless 2FA enabled                                                                                            | `{ backupCodes }`                                                                           |
+| `GET /auth/2fa/status`                   | —                                                                                                                          | `{ enabled, backupCodesCount, globalEnabled }` (counts + global kill-switch, no timestamps) |
+| `POST /auth/login/2fa`                   | `{ tempToken, token? , backupCode?, rememberMe? }` — `token` = TOTP code, `backupCode` = backup code (either one required) | `{ token, refreshToken, user }`                                                             |
 
-### `GET /admin/questions/:id/history`
-**Auth:** protect, admin  
-**Description:** Returns the version history for a question, ordered by version number descending. Each version contains a full snapshot of the question state at that point.  
-**Path params:**
-| Param | Type | Description |
-|---|---|---|
-| `id` | integer/string | Question ID |
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "question_id": 42,
-      "version_number": 3,
-      "snapshot": { "question_text": "...", "options": ["A", "B", "C", "D"] },
-      "edited_by": 1,
-      "snapshot_type": "admin_edit",
-      "change_summary": "Pre-update snapshot (v3)",
-      "metadata": { "source": "admin_update", "adminEmail": "admin@example.com" },
-      "created_at": "2026-07-01T10:30:00.000Z"
-    }
-  ]
-}
-```
-**Example:**
-```bash
-curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/questions/42/history
-```
-
----
-
-### `POST /admin/questions/:id/restore/:versionId`
-**Auth:** protect, admin  
-**Description:** Restores a question to a previous version snapshot. Only restorable fields are applied (question_text, options, correct_option, explanation, marks, etc.). Syncs test stats after restore.  
-**Path params:**
-| Param | Type | Description |
-|---|---|---|
-| `id` | integer/string | Question ID |
-| `versionId` | integer/string | Version snapshot ID from history |
-
-**Body params:** None  
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 42,
-    "question_text": "What is 2+2?",
-    "options": ["3", "4", "5", "6"],
-    "correct_option": 1,
-    "updated_at": "2026-07-01T12:00:00.000Z"
-  }
-}
-```
-**Example:**
-```bash
-curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/questions/42/restore/1
-```
-
----
-
-## Two-Factor Authentication (TOTP)
-
-Base path: `/auth`  
-**Note:** These are user-facing auth routes, not admin-only. All require a valid JWT (`protect` middleware).
-
-### `POST /auth/2fa/enroll`
-**Auth:** protect  
-**Description:** Initiates 2FA enrollment for the authenticated user. Returns a TOTP secret and QR code URI for the user to scan with their authenticator app.  
-**Body params:** None  
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "secret": "JBSWY3DPEHPK3PXP",
-    "otpauthUri": "otpauth://totp/App:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=App",
-    "qrCodeUrl": "https://api.example.com/api/auth/2fa/qr?secret=JBSWY3DPEHPK3PXP"
-  }
-}
-```
-**Example:**
 ```bash
 curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/auth/2fa/enroll
-```
-
----
-
-### `POST /auth/2fa/verify`
-**Auth:** protect  
-**Description:** Verifies a TOTP code to complete 2FA enrollment. Must be called after `/2fa/enroll` with the code from the authenticator app.  
-**Body params (JSON):**
-| Param | Type | Required | Description |
-|---|---|---|---|
-| `code` | string | Yes | 6-digit TOTP code from authenticator app |
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Two-factor authentication enabled successfully",
-  "data": {
-    "enabled": true,
-    "backupCodes": ["a1b2-c3d4", "e5f6-g7h8"]
-  }
-}
-```
-**Example:**
-```bash
 curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"code": "123456"}' \
-  http://localhost:3000/api/auth/2fa/verify
-```
-
----
-
-### `POST /auth/2fa/disable`
-**Auth:** protect  
-**Description:** Disables 2FA for the authenticated user. Requires a valid TOTP code to confirm.  
-**Body params (JSON):**
-| Param | Type | Required | Description |
-|---|---|---|---|
-| `code` | string | Yes | 6-digit TOTP code to confirm disable |
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Two-factor authentication disabled successfully"
-}
-```
-**Example:**
-```bash
-curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"code": "123456"}' \
-  http://localhost:3000/api/auth/2fa/disable
-```
-
----
-
-### `POST /auth/2fa/backup-codes`
-**Auth:** protect  
-**Description:** Regenerates backup codes for 2FA. Invalidates all previously issued backup codes.  
-**Body params:** None  
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "backupCodes": ["a1b2-c3d4", "e5f6-g7h8", "i9j0-k1l2"]
-  }
-}
-```
-**Example:**
-```bash
-curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/auth/2fa/backup-codes
-```
-
----
-
-### `GET /auth/2fa/status`
-**Auth:** protect  
-**Description:** Returns the current 2FA status for the authenticated user.  
-**Query params:** None  
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "enabled": true,
-    "enrolledAt": "2026-07-01T10:00:00.000Z",
-    "backupCodesRemaining": 8
-  }
-}
-```
-**Example:**
-```bash
+  -d '{"token": "123456"}' http://localhost:3000/api/auth/2fa/verify
+curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/auth/2fa/disable
 curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/auth/2fa/status
-```
-
----
-
-### `POST /auth/login/2fa`
-**Auth:** None (public, rate-limited)  
-**Description:** Second step of 2FA login flow. Called after `/auth/login` returns a `requires2FA` flag. Accepts either a TOTP code or a backup code.  
-**Body params (JSON):**
-| Param | Type | Required | Description |
-|---|---|---|---|
-| `tempToken` | string | Yes | Temporary token from initial login |
-| `code` | string | Yes | 6-digit TOTP code or backup code (format: `xxxx-xxxx`) |
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIs...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
-    "user": {
-      "id": 1,
-      "name": "John Doe",
-      "email": "john@example.com",
-      "role": "user"
-    }
-  }
-}
-```
-**Example:**
-```bash
 curl -X POST -H "Content-Type: application/json" \
-  -d '{"tempToken": "temp_xyz", "code": "123456"}' \
+  -d '{"tempToken": "temp_xyz", "token": "123456"}' \
   http://localhost:3000/api/auth/login/2fa
 ```
 
 ---
 
-## Route Module Registrations
+## Removed phantoms (do NOT implement against these)
 
-The admin router (`admin.js`) registers 18 new route modules extracted for better maintainability:
+These contracts appeared in an earlier revision of this file and do **not**
+exist in code (verified 2026-09-06):
 
-| Module | Path | Description |
-|---|---|---|
-| `admin-extras.js` | (root) | Extra/misc admin routes |
-| `admin-stats.js` | (root) | Statistics endpoints |
-| `admin-content.js` | (root) | Content management |
-| `admin-enrollments.js` | (root) | Enrollment management |
-| `admin-assets.js` | (root) | Asset/file management |
-| `admin-settings.js` | (root) | Settings management |
-| `admin-exams.js` | (root) | Exam management |
-| `admin-navigation-tags.js` | (root) | Navigation tag management |
-| `admin-activity.js` | (root) | Activity tracking (includes `/recent-activity`) |
-| `admin-curriculum.js` | (root) | Curriculum management |
-| `admin-commerce.js` | (root) | Commerce/payment management |
-| `admin-catalog.js` | (root) | Catalog management |
-| `admin-realtime.js` | (root) | Real-time dashboards |
-| `admin-backups.js` | (root) | Backup management |
-| `admin-dynamic-content.js` | (root) | Dynamic content management |
-| `admin-deep-analytics.js` | (root) | Deep analytics |
-| `admin-bulk-ops.js` | (root) | Bulk operations |
-| `admin-payments.js` | `/payments` | Payment transactions, stats, refunds, webhooks |
-| `admin-moderation.js` | `/moderation` | Content moderation (doubts queue) |
+- `PUT /admin/questions/bulk` — no such route. Real equivalents are
+  `DELETE /questions/bulk`, `POST /questions/bulk` (file upload),
+  `POST /questions/bulk/predict-difficulty` (`admin-questions.js`), and the
+  `POST …/bulk-reorder|bulk-convert` ops (`admin-bulk-ops.js`).
+- `POST /admin/questions/upload-image` — no such route.
+- `GET /admin/questions/:id/history` — no question-version history endpoint.
+  (Import history lives at `GET /admin/import/history`, `admin-import.js`.)
+- `POST /admin/questions/:id/restore/:versionId` — no such route.
 
-**Additional pre-existing modules** (not new, included for completeness):
+## Undocumented surfaces (route file is authoritative)
 
-| Module | Path |
-|---|---|
-| `admin-categories.js` | (root) |
-| `admin-users.js` | (root) |
-| `admin-stages.js` | (root) |
-| `admin-recycle-bin.js` | `/trash` |
-| `admin-test-series.js` | (root) |
-| `admin-tests.js` | (root) |
-| `admin-questions.js` | (root) |
-| `admin-sections.js` | `/sections` |
-| `admin-analytics.js` | `/admin/analytics` |
-| `admin-roles.js` | (root) |
-| `admin-audit.js` | `/admin/audit-logs` |
-| `admin-email-templates.js` | `/admin/email-templates` |
-| `admin-navigation.js` | `/admin/navigation` |
-| `admin-coming-soon.js` | `/admin/coming-soon` |
-| `leaderboards-admin.js` | `/leaderboards` |
-| `stages.js` | `/stages` |
-
----
-
-## Summary
-
-| Category | Endpoints Documented |
-|---|---|
-| Performance Optimized | 5 |
-| Payments | 4 |
-| Content Moderation | 4 |
-| Content Management | 5 |
-| Two-Factor Auth | 6 |
-| **Total** | **24** |
+- **Auth** (`/api/auth`, `auth.routes.js` + `auth.controller.js`): login,
+  `login/2fa`, register, refresh, logout, password reset/change, email verify,
+  phone auth (`/api/auth/phone`), sessions (`/api/sessions`), and the 2FA
+  table above.
+- **Public read routers** (15 unique routers, 16 mounts,
+  `public-routes-index.js`): `/api/search`, `/api/exams`, `/api/videos`,
+  `/api/subscription-plans`, `/api/leaderboards`, `/api/test-series`,
+  `/api/live-tests`, `/api/current-affairs`, `/api/previous-year-papers`,
+  `/api/public-stats`, `/api/testimonials`, `/api/practice-questions`,
+  `/api/settings` (+ alias `/api/site-settings`), `/api/contact`, `/api/faqs`.
+- **AI gateway** (`app-port5001.js`): `/api/ai/mentor`, `/api/ai/explanation`,
+  `/api/ai/logs`, plus `/api/embeddings` (search/index/stats),
+  `/api/node-engine` (recommendations, learning-path, spaced-repetition,
+  record-attempt), `/api/math`, `/api/adaptive`, `/api/adaptive-difficulty`.
+- **Practice/test bridge**: `/api/practice`, `/api/question-builder`,
+  `/api/test-builder`, `/api/test-templates`, `/api/sections`,
+  `/api/search/questions`, `/api/search/vector`, `/api/topic-analytics`,
+  `/api/weak-areas`, `/api/smart-revision` (+ alias `/api/revision`).
+- **Live + realtime**: `/api/live-mock` (`liveMock.service.js`),
+  `/api/live-tests`, ranking (`/api/ranking`), Socket.IO server with Redis
+  adapter (`websocketManager.js`), `/api/admin/realtime/*` dashboards.
+- **Everything else** (`app-port5001.js` `app.use` list): tests, questions,
+  study, users, exams, exam-yearly, exam-seasons, series, exam-info,
+  test-categories, exam-categories, bookmarks, notifications
+  (+ `-pref`), achievements, blogs, referrals, doubts, study-groups, stages,
+  payments, current-affairs, attempt, subscriptions (+ admin), intelligence,
+  discussions, promotions, tag-configs, pyps, community, analytics, fortspy,
+  import.

@@ -2,6 +2,12 @@
 
 Generated from live PostgreSQL database on 2026-08-27T13:49:53.211Z.
 
+> **Snapshot notice (Sep 6, 2026):** row counts below go stale on every import —
+> re-run `node scripts/generate-schema-dictionary.mjs` before quoting figures.
+> Migrations on disk now span `000`–`135` (`schema_migrations` showed 129 rows
+> at snapshot time). Note: `test_attempts` reads 0 rows because migrations
+> 039/048 converted the legacy table to a VIEW (see `docs/legacy-migrations/`).
+
 **Total Tables**: 162 | **Populated**: 76 | **Empty**: 86
 
 ---

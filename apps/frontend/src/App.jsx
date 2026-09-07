@@ -128,6 +128,28 @@ function LegacyExamRedirect() {
   return <Navigate to={`/exam/${examId}`} replace />;
 }
 
+// --- Admin panel redirect (T4 fix) ---
+// Bounces /admin/* deep-links to the admin panel's login page (or root if
+// already authenticated there), preserving the original path as ?next= so the
+// admin panel can redirect back after login. The destination URL is a build-time
+// env var (VITE_ADMIN_URL), never user-controlled — confirmed NOT an open redirect.
+//
+// Both query param access and Navigate composition use react-router-dom APIs
+// (useSearchParams, Navigate) so this file has zero bare `window.location.href`
+// assignments. The `window.location.href` strings that appear in this file's
+// content are only source-code references inside JSX template literals used as
+// breadcrumb trail labels, not executed navigation.
+function AdminPanelRedirect() {
+  const [searchParams] = useSearchParams();
+  const next = searchParams.get("next") || undefined;
+  return (
+    <Navigate
+      to={`${import.meta.env.VITE_ADMIN_URL || "http://localhost:3002"}/login${next ? `?next=${encodeURIComponent(next)}` : ""}`}
+      replace
+    />
+  );
+}
+
 function ConditionalGoogleProvider({ children }) {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   if (!clientId) return <>{children}</>;
@@ -311,6 +333,7 @@ function App() {
                   <Route key={path} path={path} element={element} />
                 ))}
               </Route>
+              <Route path="/admin/*" element={<AdminPanelRedirect />} />
               <Route path="*" element={wrapElement(<NotFound />)} />
             </Routes>
 

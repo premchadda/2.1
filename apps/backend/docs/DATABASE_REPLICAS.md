@@ -1,150 +1,149 @@
 # Database Read Replicas
 
-This document explains how to configure and use PostgreSQL read replicas with Trstprep V2.1.
+> As of 2026-09-06. Normative config: `apps/backend/config/database-replicas.js`
+> (path is repo-root relative). Read this doc before touching pool code or
+> adding new `dbHelpers` query methods.
 
 ## Overview
 
-Trstprep supports **read/write splitting** using PostgreSQL read replicas. This separates read-heavy operations from write operations, improving performance and reducing load on the primary database.
+The backend uses **read/write splitting** with two `pg` pools:
 
-- **Write Pool (Primary)**: Used for all INSERT, UPDATE, DELETE operations
-- **Read Pool (Replica)**: Used for SELECT operations when configured
+- **Write pool (primary)** — all writes AND all default reads.
+- **Read pool (replica)** — only used when code opts in explicitly via the
+  `*ReadOnly` helpers AND `DATABASE_READ_URL` is configured.
 
-## Supabase Setup
+If `DATABASE_READ_URL` is **not** set, the read pool **is** the write pool
+(`readPool === writePool` in `database-replicas.js`), so `*ReadOnly` calls
+transparently hit the primary. There is no separate fallback query path.
 
-### Enabling Read Replicas
+## Environment variables (all of them)
 
-1. Go to your Supabase Dashboard
-2. Navigate to **Database** → **Replication**
-3. Enable **Read Replicas** (available on Pro plans and above)
-4. Copy the connection string for the read replica
-
-### Connection Strings
-
-Supabase provides two connection strings:
-- **Primary**: `postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres`
-- **Read Replica**: Available in Dashboard → Database → Connection string → Read replica
-
-## Environment Variables
-
-Add these to your `.env` file:
+| Variable                     | Default                                      | Purpose                                                                          |
+| ---------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------- |
+| `DATABASE_URL`               | (required)                                   | Primary connection string (writes + default reads).                              |
+| `DATABASE_READ_URL`          | falls back to `DATABASE_URL`                 | Replica connection string. Unset = no replica.                                   |
+| `PG_POOL_MAX`                | `12`                                         | Max connections, write pool.                                                     |
+| `PG_READ_POOL_MAX`           | `6`                                          | Max connections, read pool (only when `DATABASE_READ_URL` is set).               |
+| `PG_CONNECTION_TIMEOUT_MS`   | `20000`                                      | `connectionTimeoutMillis`, both pools.                                           |
+| `PG_IDLE_TIMEOUT_MS`         | `60000`                                      | `idleTimeoutMillis`, both pools.                                                 |
+| `PG_QUERY_TIMEOUT_MS`        | `30000` dev/test, `15000` otherwise          | `query_timeout`, both pools. `NODE_ENV=development\|test` selects the dev value. |
+| `PG_STATEMENT_TIMEOUT_MS`    | `30000` dev/test, `15000` otherwise          | `statement_timeout`, both pools. Same `NODE_ENV` rule.                           |
+| `PG_SSL_REJECT_UNAUTHORIZED` | `"false"` (i.e. `rejectUnauthorized: false`) | Set to `"true"` only for providers with verifiable certs.                        |
+| `NODE_ENV`                   | —                                            | `development`/`test` = longer query/statement timeouts (see above).              |
 
 ```bash
-# Primary database (read/write)
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DB
+# Primary (required)
+DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<db>
 
-# Read replica (optional - falls back to primary if not set)
-DATABASE_READ_URL=postgresql://USER:PASSWORD@HOST:PORT/DB
+# Replica (optional — omit to serve all reads from the primary)
+DATABASE_READ_URL=postgresql://<user>:<password>@<replica-host>:<port>/<db>
 
-# Read pool configuration (optional)
-PG_READ_POOL_MAX=10
+# Pool sizing (optional — defaults shown)
+PG_POOL_MAX=12
+PG_READ_POOL_MAX=6
 ```
 
-## Configuration
+## Helper taxonomy: default-primary vs replica-explicit
 
-The read replica configuration is in `config/database-replicas.js`:
+`apps/backend/src/infrastructure/database/postgres-helpers.js` wires
+`pool = getWritePool()` and `readPool = getReadPool()` (top of file) and
+imports both getters from `../../../config/database-replicas.js`.
 
-- **Write Pool**: Uses `DATABASE_URL` with `PG_POOL_MAX` connections
-- **Read Pool**: Uses `DATABASE_READ_URL` with `PG_READ_POOL_MAX` connections
-- **Fallback**: If `DATABASE_READ_URL` is not set, the read pool uses the primary database
+### Default-primary (reads served from the PRIMARY)
 
-## API Methods
+Despite the names, these are **not** replica reads — they use `this.pool`
+(the write pool):
 
-### Write Operations (Use Write Pool)
+- `find()` — multi-row read (`this.pool.query`)
+- `findById()` — single-row read by id (`this.pool.query`)
+- `findOne()` — single-row read (`this.pool.query`)
+- `findByPublicId()` — single-row read by public id (`this.pool.query`)
+- All writes: `insertOne`, `insertMany`, `updateById`, `deleteById`,
+  `deleteMany`, transactions (`withTransaction`)
 
-These methods use the primary database:
+**Rule: if you just wrote data and must read it back, use these.**
+They are immune to replication lag by construction.
 
-- `find()` - Find multiple records
-- `findById()` - Find by ID
-- `findOne()` - Find single record
-- `insertOne()` - Insert record
-- `insertMany()` - Insert multiple records
-- `updateById()` - Update by ID
-- `deleteById()` - Delete by ID
-- `deleteMany()` - Delete multiple records
+### Replica-explicit (read pool only)
 
-### Read Operations (Use Read Pool)
+Only these three touch `readPool`:
 
-These methods use the read replica (when configured):
+- `findReadOnly()` — on replica error logs `DB FindReadOnly Error (<collection>)` and returns `[]`
+- `findByIdReadOnly()` — on replica error logs `DB FindByIdReadOnly Error (<collection>)` and returns `null`
+- `findByPublicIdReadOnly()` — on replica error logs `DB findByPublicIdReadOnly Error (<collection>)` and returns `null`
 
-- `findReadOnly()` - Find multiple records (read replica)
-- `findByIdReadOnly()` - Find by ID (read replica)
-- `findByPublicIdReadOnly()` - Find by public ID (read replica)
+> **Empty-on-replica-error:** `*ReadOnly` helpers never throw on query
+> failure — they return an empty result (`[]` / `null`). Callers must treat
+> an empty result as "unknown", not as "confirmed absent", when correctness
+> matters. There is no automatic retry on the primary.
 
-### Example Usage
+### Example usage
 
 ```javascript
-import { dbHelpers } from './infrastructure/database/postgres-helpers.js';
+import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 
-// Write operation (uses primary)
-await dbHelpers.insertOne('users', { email: 'user@example.com' });
+// Write (primary)
+await dbHelpers.insertOne("users", { email: "user@example.com" });
 
-// Read operation (uses read replica when available)
-const user = await dbHelpers.findByIdReadOnly('users', userId);
-const tests = await dbHelpers.findReadOnly('tests', { isActive: true });
+// Read that must be fresh (primary)
+const me = await dbHelpers.findById("users", userId);
+
+// Read that may be slightly stale (replica when configured)
+const tests = await dbHelpers.findReadOnly("tests", { isActive: true });
 ```
 
-## When to Use Read Replicas
+Low-level access (same correct import path from backend `src/`):
 
-### Good Use Cases
-
-- **Listing endpoints**: GET requests for collections (tests, questions, etc.)
-- **Dashboard data**: User stats, progress, achievements
-- **Search operations**: Full-text search queries
-- **Analytics**: Read-heavy aggregation queries
-
-### Do NOT Use For
-
-- **Writes**: Any INSERT, UPDATE, DELETE (use write pool)
-- **Transactions**: Use write pool with `withTransaction()`
-- **Recent writes**: If you just wrote data and need to read it immediately, use write pool to avoid replication lag
-
-## Monitoring
-
-Pool status is logged on startup:
-
-```
-[WritePool] Connected to primary database
-[ReadPool] Connected to read replica (DATABASE_READ_URL configured)
+```javascript
+import {
+  getReadPool,
+  getWritePool,
+  readQuery,
+  writeQuery,
+  checkPoolsHealth,
+  warmPools,
+} from "../../../config/database-replicas.js";
 ```
 
-If no read replica is configured:
+## When to use the replica
+
+Good candidates: collection listings, dashboard aggregates, search, analytics —
+anything where seconds-old data is acceptable.
+
+Do NOT use the replica for: writes, transactions, or read-after-write flows
+(use the default-primary helpers instead).
+
+## Observability (real log lines)
+
+Pool warm-up (`warmPools()`, called at startup):
 
 ```
-[ReadPool] No DATABASE_READ_URL configured - using primary for reads
+[DB] Connection pools warmed successfully.
+[DB] Pool pre-warming encountered an issue (non-fatal): <message>
 ```
 
-## Troubleshooting
+Background pool errors (process survives; surfaced instead of unhandled rejections):
 
-### Replication Lag
+```
+[DB writePool background error]: <message>
+[DB readPool background error]: <message>
+```
 
-If you experience stale reads after writes, it's likely replication lag. Solutions:
+Health: `checkPoolsHealth()` returns `{ writePool: { healthy, latencyMs },
+readPool: { healthy, latencyMs, isReplica } }` (`isReplica` is false when the
+read pool falls back to the primary).
 
-1. Use `findReadOnly()` only for non-critical reads
-2. Use `find()` for reads that must be up-to-date
-3. Consider implementing a cache invalidation strategy
+Provider note: connection strings for direct (non-pooler) managed-Postgres
+hosts may be IPv6-only; the config forces IPv4-first DNS and prints a warning
+recommending the provider's connection pooler host when it detects a direct
+database host. Prefer the pooler host in `DATABASE_URL`.
 
-### Connection Errors
-
-If the read replica is unavailable, the pool will fall back to the primary. Check:
-
-1. `DATABASE_READ_URL` is correctly formatted
-2. Network connectivity to the replica
-3. Supabase read replica is enabled (Pro plan required)
-
-## Performance Tuning
-
-Adjust pool sizes based on your workload:
+## Performance tuning
 
 ```bash
-# Primary pool (for writes + fallback reads)
-PG_POOL_MAX=20
-
-# Read pool (for read-heavy operations)
-PG_READ_POOL_MAX=10
+PG_POOL_MAX=12        # primary: writes + all default reads
+PG_READ_POOL_MAX=6    # replica: only *ReadOnly traffic
 ```
 
-For high-traffic applications, consider:
-
-- Increasing `PG_READ_POOL_MAX` for more concurrent reads
-- Reducing `PG_QUERY_TIMEOUT_MS` for faster query termination
-- Monitoring connection usage via Supabase dashboard
+Size the primary for total traffic (it serves every default read); size the
+replica only for traffic you deliberately route via `*ReadOnly`.

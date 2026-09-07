@@ -2,7 +2,7 @@
 
 Trstprep is a monorepo for an online exam-preparation platform focused on competitive exams such as SSC and Railway. The repository contains the learner-facing web app, a separate admin panel, a Node.js API, shared workspace packages, and supporting docs/scripts.
 
-> **Refresh — August 23, 2026:** Documentation audited against live codebase. Workspace layout, tech stack, ports, env vars, and feature lists verified from `package.json`, `apps/*/package.json`, `apps/backend/src/app-port5001.js`, and `graphify-out/` (16874 nodes, 22184 edges).
+> **Refresh — September 6, 2026:** Documentation re-verified against live codebase (commit `a3651475`). Workspace layout, tech stack, ports, env vars, and feature lists checked from `package.json`, `apps/*/package.json`, `apps/backend/src/app-port5001.js`, and `graphify-out/` (10862 nodes, 20266 edges, 1744 files). Every doc in this repo was rewritten or re-verified in this pass; counts carry as-of dates — re-run the cited commands before treating them as current.
 
 ## Workspace Layout
 
@@ -13,15 +13,15 @@ Trstprep is a monorepo for an online exam-preparation platform focused on compet
 |   |-- frontend/       # Learner React 18 + Vite 6.4 (port 3000)
 |   `-- admin-panel/    # Admin React 18 + Vite 6.4 (port 3002)
 |-- packages/
-|   |-- shared-config/  # Admin nav, coming-soon, constants (single source of truth)
+|   |-- shared-config/  # Constants, formatters, asset helpers (canonical source)
 |   `-- shared-hooks/   # useAuth, useProPass, cross-app hooks
 |-- scripts/            # dev-sequential, DB audit, maintenance scripts
 |-- deploy/             # docker, nginx, logging docs
 |-- docs/               # ARCHITECTURE.md, DEVELOPMENT.md, SECURITY_POSTURE.md, audits
 |-- graphify-out/       # knowledge graph (do NOT deploy)
 |-- archify/            # architecture explorer skill
-|-- turbo.json          # Turborepo 2.10.5 pipeline
-|-- package.json        # npm workspaces: apps/*, packages/*
+|-- turbo.json          # Turborepo ^2.10.12 pipeline
+|-- package.json        # pnpm workspaces: apps/*, packages/* (pnpm-workspace.yaml)
 `-- .husky/             # pre-commit hooks (PII guard, lint)
 ```
 
@@ -29,10 +29,10 @@ Historical `dev-tools/` references removed — canonical scripts live in `script
 
 ## Tech Stack
 
-- **Backend:** Node.js 20 (`.nvmrc`), Express, PostgreSQL (Supabase, RLS), Redis/BullMQ, Socket.IO, Nodemailer/SendGrid, Razorpay, OpenRouter (multi-provider AI)
-- **Frontend / Admin:** React 18, Vite 6.4.2, Tailwind CSS 3.x, React Router v6, TanStack Query, Axios 1.18, Lucide Icons
-- **Monorepo:** npm 10.8.2 workspaces, Turborepo 2.10.5, Prettier 3.5, Husky 9 + lint-staged 16
-- **AI / Search:** pgvector `vector(1536)` + HNSW/ivfflat, Node Engine V1→V4 (Socratic tutor → autonomous OS), Practice↔Test bridge
+- **Backend:** Node.js 22 (`.nvmrc`; engines `>=20`), Express, PostgreSQL (Supabase, RLS), Redis/BullMQ, Socket.IO, Nodemailer/SendGrid, Razorpay, OpenRouter (multi-provider AI via `modules/ai/aiClient.js`)
+- **Frontend / Admin:** React 18, Vite 6.4, Tailwind CSS 3.x, React Router v6, TanStack Query, Axios ^1.20, Lucide Icons, prop-types
+- **Monorepo:** pnpm 11.25 workspaces, Turborepo ^2.10.12, Prettier ^3.5, Husky ^9 + lint-staged
+- **AI / Search:** pgvector `vector(1536)` + HNSW/ivfflat, Node Engine V1 shipped (`nodes` table) + V2 tables (`user_node_skill`); V3–V6 are vision only (`docs/vision/NODE_ENGINE_V4-V6.md`), Practice↔Test bridge
 
 ## Apps And Ports
 
@@ -40,9 +40,9 @@ Historical `dev-tools/` references removed — canonical scripts live in `script
 | ----------- | ------------------ | ------------ | ---------------------------------- |
 | Backend API | `apps/backend`     | `5001`       | `http://localhost:5001/api/health` |
 | Frontend    | `apps/frontend`    | `3000`       | Vite dev server, proxy → backend   |
-| Admin panel | `apps/admin-panel` | `3002`       | Separate Vercel project            |
+| Admin panel | `apps/admin-panel` | `3002`       | Vite dev server                    |
 
-Backend is single entry `apps/backend/src/app-port5001.js` (1022 route defs, admin chain `restrictAdminOrigin → validateAdminApiKey → protect → admin → auditMiddleware`).
+Backend is single entry `apps/backend/src/app-port5001.js` (~80 route files, admin chain `normalizeFields → restrictAdminOrigin → validateAdminApiKey → protect → admin → validateCsrfToken → loadAdminPermissions → requireAdminPermission → auditMiddleware`).
 
 ## Prerequisites
 
@@ -139,9 +139,8 @@ VITE_ADMIN_API_KEY=same-as-backend-ADMIN_API_KEY
 Start everything through Turborepo:
 
 ```bash
-pnpm dev              # turbo dev — all apps in parallel (or: npm run dev)
-pnpm run dev:seq      # sequential start (scripts/dev-sequential.mjs)
-pnpm run dev:ordered  # alias of dev:seq
+pnpm dev              # sequential start (scripts/dev-sequential.mjs)
+pnpm run dev:turbo    # turbo dev --ui=stream — all apps in parallel
 ```
 
 Or run individual apps:
@@ -188,25 +187,20 @@ pnpm load-test:auth    # k6 auth load
 pnpm load-test:realtime # k6 realtime
 ```
 
-Current state (verified Aug 23, 2026):
+Current state (verified Aug 23, 2026; backend suite counts conflict between sources — re-run before quoting):
 
-- Backend: Jest, 20 suites — `128–129 passing` in `apps/backend` (run `npm test` in `apps/backend`)
-- Frontend: Vitest 4.1.0 (matches Vite 6.4.1) + `@vitest/coverage-v8`; test script present but frontend suite is placeholder in root turbo.
-- Admin panel: React + Vite, lint via `eslint@10` / `@eslint/js@10`; no dedicated test script in `package.json`.
-- Lint: `npm run lint` — 0 errors, ~500 warnings (triaged in `docs/REMEDIATION_PLAN.md` Phase 10).
+- Backend: Jest (`apps/backend`, `npm test` / `pnpm --filter trstprep-backend test`) — Aug 23 reports disagree (`128–129` vs `157` passing); treat both as stale, re-run.
+- Frontend: Vitest ^4.1.11 + `@vitest/coverage-v8` (`pnpm --filter trstprep-frontend test`).
+- Admin panel: React + Vite, lint via `eslint`/`@eslint/js`; no dedicated test script in `package.json`.
+- Lint: `pnpm lint` (turbo) — see `docs/REMEDIATION_PLAN.md` for triage status.
 
 ## Useful Scripts
 
-```bash
-# docs
-npm run docs        # if configured in dev-tools/scripts (see scripts/)
-npm run watch-docs
-```
-
-The `scripts/` directory (and `apps/backend/scripts/`, `apps/backend/src/infrastructure/database/scripts/`) contains one-off audit and repair scripts for data maintenance. Key scripts:
+The `scripts/` directory (108 files — see `scripts/README.md` for the inventory) contains audit, seeding, taxonomy, dev, and load tooling. Key scripts:
 
 - `scripts/run-database-audit.js` — schema audit (run before any migration)
-- `scripts/dev-sequential.mjs` — ordered dev start
+- `scripts/dev-sequential.mjs` — ordered dev start (`pnpm dev`)
+- `scripts/reset-admin.js` — admin seeding/reset (`ADMIN_EMAIL`/`ADMIN_PASSWORD`)
 - `deploy/logging.md` — logging setup
 
 ## Notable Features In This Repo
@@ -214,28 +208,31 @@ The `scripts/` directory (and `apps/backend/scripts/`, `apps/backend/src/infrast
 - Separate learner app (`apps/frontend`) and admin panel (`apps/admin-panel`) — 60 admin manager components across 13 categories (verified `apps/admin-panel/src/features/admin/**/*.jsx`)
 - JWT (httpOnly + SameSite=Lax, 30-day absolute / 30-min idle) + CSRF (DB-backed, 5-min cleanup) + fail-closed auth
 - 85 backend route files + 33 module routes; 81+ `/api` mounts, 40+ admin routers (`/api/admin/*` with defense-in-depth)
-- Exam, test-series (112 migrations), practice lab, study-material, current-affairs, leaderboard, community, referrals, subscriptions (Razorpay) routes
+- Exam, test-series (migrations `000`–`135` on disk), practice lab, study-material, current-affairs, leaderboard, community, referrals, subscriptions (Razorpay) routes
 - WebSocket (Socket.IO) with JWT auth + session eviction; Redis adapter + BullMQ queues (analytics, leaderboard, notifications)
-- Shared workspace packages: `shared-config` (adminNavConfig single source) + `shared-hooks` (useAuth, useProPass)
-- AI gateway (OpenRouter), pgvector semantic search, Node Engine V1→V4; Practice↔Test bridge (`practice_ai_cache`)
-- `dbHelpers` god node (131 edges), `protect()`/`admin()` + `useAuth()` — changes ripple across ~70 modules (see `graphify-out/GRAPH_REPORT.md`)
+- Shared workspace packages: `shared-config` (constants/formatters/asset helpers) + `shared-hooks` (useAuth, useProPass). Known duplication: `adminNavConfig` is mirrored in both apps alongside the shared package — verify consumers before editing nav.
+- AI gateway (OpenRouter via `modules/ai/aiClient.js`), pgvector semantic search, Node Engine V1 (+V2 tables); Practice↔Test bridge (`practice_ai_cache`)
+- `PostgresHelpers` god node (283 edges), `DataService` (186), `pool` (143), `dbHelpers` (136), `protect()` (103) — changes ripple across ~70 modules (see `graphify-out/GRAPH_REPORT.md`)
 
 ## Documentation
 
-- **Main docs:** `docs/ARCHITECTURE.md` (quick ref, deployment, structure, workflows, hierarchy — refreshed Aug 23, 2026)
-- **Development:** `docs/DEVELOPMENT.md` (admin panel 60 components, bulk upload, dev notes, evolve plan)
-- **Security:** `docs/SECURITY_POSTURE.md` (CSRF, rate limiting, RLS, admin defense-in-depth — hardened post-audit)
-- **Database:** `docs/DATABASE_SCHEMA_AUDIT.md` (112 migrations on disk, ~80 active tables, 154 with legacy, soft-delete, RLS)
-- **Remediation:** `docs/REMEDIATION_PLAN.md` (16 critical → 46 high → 73 medium — FINAL STATUS Aug 23, 2026)
-- **Site readiness:** `docs/SITE_READINESS_REPORT.md` / `docs/FINAL_SITE_READINESS_REPORT.md` (live-DB verified)
-- **Architecture explorer:** `docs/ARCHITECTURE.html` + `docs/FEATURES.html` (interactive HTML, 60+ components, 100+ endpoints)
+- **Main docs:** `docs/ARCHITECTURE.md` (quick ref, deployment, structure, workflows — rewritten Sep 6, 2026)
+- **Development:** `docs/DEVELOPMENT.md` (admin panel components, bulk upload, pnpm/uv workflow — rewritten Sep 6, 2026)
+- **AI prompts/vision:** `docs/AI_PROMPTS.md` + `docs/vision/NODE_ENGINE_V4-V6.md` (V3–V6 are vision, not shipped)
+- **Test lifecycle:** `docs/test-quiz-lifecycle.md` (authoritative state/transition contract)
+- **Security:** `docs/SECURITY_POSTURE.md` (CSRF, rate limiting, RLS, admin defense-in-depth — refreshed Sep 6, 2026)
+- **Database:** `docs/DATABASE_SCHEMA_AUDIT.md` (migrations `000`–`135`, soft-delete, RLS — refreshed Sep 6, 2026) + `database_schema_dictionary.md` (live-DB snapshot Aug 27, 2026)
+- **Remediation:** `docs/REMEDIATION_PLAN.md` (status tokens per phase + Sep 6, 2026 addendum)
+- **Site readiness:** `docs/SITE_READINESS_REPORT.md` (frozen Aug 23 first pass) / `docs/FINAL_SITE_READINESS_REPORT.md` (living scorecard)
+- **Audits:** `docs/audit/D1_WORKFLOW_VERIFICATION.md`, `D2_HARDCODED_FAKE_DATA.md`, `D3_DEAD_DISCONNECTED.md` (re-verified Sep 6, 2026 — most Aug-23 breaks now fixed)
+- **Architecture explorer:** `docs/ARCHITECTURE.html` + `docs/FEATURES.html` (interactive HTML)
 - **Knowledge graph:** `graphify-out/GRAPH_REPORT.md` — run `/graphify query "<question>"` before grepping
 
 ## Notes
 
-- The repo contains historical audits and archive docs; not all documents reflected the latest code state before the Aug 23, 2026 refresh. This README and `docs/ARCHITECTURE.md`, `docs/DEVELOPMENT.md`, `docs/DATABASE_SCHEMA_AUDIT.md`, `docs/SECURITY_POSTURE.md` have been reconciled with `apps/backend/src/app-port5001.js:1` and live file counts.
-- Docker deploy primary: `docker-compose.yml` + `nginx` (`apps/frontend/nginx.conf` mounted as `/etc/nginx/nginx.conf`). Vercel is vestigial per `docs/REMEDIATION_PLAN.md:3`.
+- Point-in-time reports (`docs/SITE_READINESS_REPORT.md`, `docs/UNIFIED_TRSTPREP_AUDIT.md` body, `docs/audit/archive/`) are frozen historical evidence — check their banners before quoting verdicts.
+- Docker deploy primary: `docker-compose.yml` + `nginx`. Vercel is vestigial.
 
 ---
 
-_Last Updated: August 23, 2026 — content audited against commit `29cc9ed2` + live file counts_
+_Last Updated: September 6, 2026 — content re-verified against commit `a3651475` + live file counts_

@@ -257,14 +257,18 @@ export default function VideoPlayer({
           }
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.warn("[VideoPlayer] Failed to fetch server progress:", err);
+      });
   }, [isOpen, videoId]);
 
   useEffect(() => {
     if (!isPlaying || !videoId) return;
     if (!viewRecordedRef.current) {
       viewRecordedRef.current = true;
-      api.post(`/api/videos/${videoId}/view`).catch(() => {});
+      api.post(`/api/videos/${videoId}/view`).catch((err) => {
+        console.warn("[VideoPlayer] Failed to record view event:", err);
+      });
     }
   }, [isPlaying, videoId]);
 

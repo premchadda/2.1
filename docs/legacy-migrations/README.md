@@ -1,3 +1,13 @@
+> **HISTORICAL — re-verified 2026-09-06.** This directory documents the _original 008-era_
+> schema fixes (INTEGER `user_id`s, `test_category_series` junction, FK/index/soft-delete/audit
+> groundwork — content matches the live schema direction). It is **not** the current migration
+> chain: active migrations are `apps/backend/src/infrastructure/database/migrations/000→135`
+> (124 `.sql` files on disk; `004–017` reconstructed in `098_reconstructed_baseline.sql`;
+> `graphify-out/cache/` inside that folder is tool output, not migrations). For current state see
+> `docs/DATABASE_SCHEMA_AUDIT.md` and always run `scripts/run-database-audit.js` before any DDL.
+> **Not covered here:** migrations 102–135 (attempt_number, practice-engine redesign, Node Engine
+> v2 learning graph, webhook_events, RLS backfills, perf-index waves, test-lifecycle/shuffle seed).
+
 # Database Schema Audit - Index
 
 ## 📚 Documentation Files
@@ -6,20 +16,20 @@ This directory contains comprehensive database schema fixes and documentation.
 
 ### Main Files
 
-| File | Description | When to Use |
-|------|-------------|-------------|
-| **DATABASE_AUDIT_SUMMARY.md** | Executive summary of all issues | Start here |
-| **QUICKSTART.md** | Quick start guide (3 steps) | First-time setup |
-| **README.md** | Detailed technical documentation & Index | Deep dive |
-| **008-standardize-ids-and-fix-relations.sql** | Main migration script | Apply fixes |
-| **maintenance-scripts.sql** | Ongoing maintenance queries | Monthly maintenance |
+| File                                          | Description                              | When to Use         |
+| --------------------------------------------- | ---------------------------------------- | ------------------- |
+| **DATABASE_AUDIT_SUMMARY.md**                 | Executive summary of all issues          | Start here          |
+| **QUICKSTART.md**                             | Quick start guide (3 steps)              | First-time setup    |
+| **README.md**                                 | Detailed technical documentation & Index | Deep dive           |
+| **008-standardize-ids-and-fix-relations.sql** | Main migration script                    | Apply fixes         |
+| **maintenance-scripts.sql**                   | Ongoing maintenance queries              | Monthly maintenance |
 
 ### Code Files
 
-| File | Description | Purpose |
-|------|-------------|---------|
-| `auditTrailManager.js` | Audit trail management class | Log all DB operations |
-| `run-database-audit.js` | Audit verification script | Check database health |
+| File                    | Description                  | Purpose               |
+| ----------------------- | ---------------------------- | --------------------- |
+| `auditTrailManager.js`  | Audit trail management class | Log all DB operations |
+| `run-database-audit.js` | Audit verification script    | Check database health |
 
 ## 🚀 Quick Navigation
 
@@ -36,22 +46,26 @@ This directory contains comprehensive database schema fixes and documentation.
 ## 📋 Issue Categories
 
 ### Data Integrity Issues
+
 1. ✅ User ID type inconsistency
 2. ✅ Array foreign keys
 3. ✅ Missing FK constraints
 4. ✅ Duplicate table definitions
 
 ### Performance Issues
+
 5. ✅ Missing indexes
 6. ✅ Orphaned records
 7. ✅ Type casting overhead
 
 ### Security Issues
+
 8. ✅ No audit trail
 9. ✅ No soft-delete
 10. ✅ No data validation
 
 ### Maintenance Issues
+
 11. ✅ No monitoring functions
 12. ✅ No cleanup procedures
 13. ✅ No quality checks
@@ -59,18 +73,23 @@ This directory contains comprehensive database schema fixes and documentation.
 ## 🔧 Common Tasks
 
 ### First Time Setup
+
 ```bash
 # 1. Run audit
 node scripts/run-database-audit.js
 
-# 2. Apply migration
-psql -d your_database -f src/database/migrations/008-standardize-ids-and-fix-relations.sql
+# 2. Apply migrations in order (append-only; never edit a shipped migration).
+# The historical 008 fix below is preserved in docs/legacy-migrations/008-standardize-ids-and-fix-relations.sql
+# and its content is already incorporated via 098_reconstructed_baseline.sql in the active chain:
+#   apps/backend/src/infrastructure/database/migrations/000 → 135
+# Apply with your migration runner (or psql per file in numeric order).
 
 # 3. Verify
 node scripts/run-database-audit.js
 ```
 
 ### Monthly Maintenance
+
 ```sql
 -- In psql
 ANALYZE;
@@ -80,6 +99,7 @@ SELECT * FROM check_orphaned_records();
 ```
 
 ### Check Health
+
 ```bash
 node scripts/run-database-audit.js
 ```
@@ -87,6 +107,7 @@ node scripts/run-database-audit.js
 ## 📊 What Changed
 
 ### Schema Changes
+
 - All `user_id` columns now INTEGER
 - Junction table `test_category_series` created
 - 20+ new indexes added
@@ -94,6 +115,7 @@ node scripts/run-database-audit.js
 - Soft-delete columns available
 
 ### New Functions
+
 - `log_audit_event()` - Audit logging
 - `check_orphaned_records()` - Data quality
 
@@ -111,7 +133,8 @@ This document describes the comprehensive database schema audit and fixes applie
 
 **Problem**: `user_id` columns had inconsistent types (UUID vs INTEGER)
 
-**Solution**: 
+**Solution**:
+
 - Standardized all `user_id` references to INTEGER (matching `users.id` SERIAL type)
 - Frontend uses UUID `public_id` format, but database relations use INTEGER
 - Created helper functions for conversion:
@@ -123,10 +146,12 @@ This document describes the comprehensive database schema audit and fixes applie
 ### 2. ✅ Duplicate Table Definitions
 
 **Problem**: Tables defined in multiple migration files:
+
 - `permissions`, `roles`, `user_roles`, `role_permissions`
 - `audit_logs`, `navigation_config`, `coming_soon_features`
 
 **Solution**:
+
 - Consolidated all definitions into single schema
 - Used `CREATE TABLE IF NOT EXISTS` pattern
 - Added missing columns via `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
@@ -136,7 +161,9 @@ This document describes the comprehensive database schema audit and fixes applie
 **Problem**: `test_categories.test_series_id` as INTEGER[] cannot enforce FK constraints
 
 **Solution**:
+
 - Created junction table `test_category_series`:
+
 ```sql
 CREATE TABLE test_category_series (
     test_category_id INTEGER NOT NULL,
@@ -146,12 +173,14 @@ CREATE TABLE test_category_series (
     FOREIGN KEY (test_series_id) REFERENCES test_series(id)
 );
 ```
+
 - Migrated existing array data to junction table
 - Added GIN index for efficient array-like queries
 
 ### 4. ✅ Missing Foreign Key Constraints
 
 **Added FKs**:
+
 - `questions.series_id` → `test_series.id`
 - `questions.topic_id` → `topics.id`
 - `tests.stage_id` → `stages.id`
@@ -160,6 +189,7 @@ CREATE TABLE test_category_series (
 - `subtopics.topic_id` → `topics.id`
 
 **Verification**:
+
 ```sql
 SELECT * FROM check_orphaned_records();
 ```
@@ -167,6 +197,7 @@ SELECT * FROM check_orphaned_records();
 ### 5. ✅ Soft Delete Implementation
 
 **Global Pattern**:
+
 ```sql
 -- Add soft-delete columns to any table
 SELECT add_soft_delete_columns('table_name');
@@ -179,6 +210,7 @@ SELECT restore_record('tests', 1);
 ```
 
 **Columns Added**:
+
 - `is_deleted BOOLEAN DEFAULT FALSE`
 - `deleted_by INTEGER REFERENCES users(id)`
 - `deleted_at TIMESTAMP`
@@ -202,9 +234,11 @@ CHECK (progress_percentage >= 0 AND progress_percentage <= 100)
 ### 7. ✅ Index Optimization
 
 **Removed duplicates**:
+
 - `idx_audit_logs_timestamp` vs `idx_audit_logs_created`
 
 **Added missing indexes**:
+
 ```sql
 -- Questions
 idx_questions_category_id
@@ -229,11 +263,13 @@ idx_attempts_user_test ON attempts(user_id, test_id)
 ### 8. ✅ Timestamp Handling
 
 **Issues Fixed**:
+
 - Empty strings converted to NULL
 - Inconsistent TIMESTAMP vs TIMESTAMP WITHOUT TIME ZONE
 - No validation for unrealistic dates
 
 **Solution**:
+
 ```sql
 -- Clean invalid timestamps
 SELECT clean_invalid_timestamps();
@@ -245,6 +281,7 @@ ALTER TABLE tests ALTER COLUMN coming_soon_date DROP DEFAULT;
 ### 9. ✅ Audit Trail Consistency
 
 **New Function**:
+
 ```sql
 SELECT log_audit_event(
   user_id := 1,
@@ -259,75 +296,88 @@ SELECT log_audit_event(
 ```
 
 **Usage in Node.js**:
+
 ```javascript
-import AuditTrailManager from './infrastructure/database/auditTrailManager.js';
+import AuditTrailManager from "./infrastructure/database/auditTrailManager.js";
 
 const auditManager = new AuditTrailManager(pool);
 
 await auditManager.logCreate({
   userId: 1,
-  resource: 'tests',
+  resource: "tests",
   resourceId: 123,
-  data: { name: 'New Test' },
-  ipAddress: '127.0.0.1',
+  data: { name: "New Test" },
+  ipAddress: "127.0.0.1",
 });
 ```
 
 ### 10. ✅ Data Quality Functions
 
 **Orphan Check**:
+
 ```sql
 SELECT * FROM check_orphaned_records();
 ```
 
 **Returns**:
+
 | table_name | column_name | orphan_count |
-|------------|-------------|--------------|
-| questions | chapter_id | 0 |
-| questions | topic_id | 0 |
+| ---------- | ----------- | ------------ |
+| questions  | chapter_id  | 0            |
+| questions  | topic_id    | 0            |
 
 ## How to Apply Fixes
 
 ### Step 1: Backup Database
+
 ```bash
 pg_dump -h your_host -U your_user your_database > backup_$(date +%Y%m%d).sql
 ```
 
 ### Step 2: Run Audit Script
+
 ```bash
 cd apps/backend
 node scripts/run-database-audit.js
 ```
 
 This will:
+
 - Check all schema issues
 - Report problems found
 - Suggest fixes
 
-### Step 3: Apply Migration
+### Step 3: Apply Migration (historical record — the active chain already includes this content via `098_reconstructed_baseline.sql`; apply pending migrations in numeric order with your migration runner, never by editing shipped files)
+
 ```bash
-psql -h your_host -U your_user -d your_database -f src/database/migrations/008-standardize-ids-and-fix-relations.sql
+# Historical 008 file (reference only):
+# docs/legacy-migrations/008-standardize-ids-and-fix-relations.sql
+# Active chain:
+# apps/backend/src/infrastructure/database/migrations/000 → 135
 ```
 
 ### Step 4: Verify Fixes
+
 ```bash
 node scripts/run-database-audit.js
 ```
 
 ### Step 5: Clean Orphaned Records (if any)
+
 ```sql
 -- Review orphans
 SELECT * FROM check_orphaned_records();
 
 -- Fix orphans manually or run cleanup
-UPDATE questions SET chapter_id = NULL 
-WHERE chapter_id IS NOT NULL 
+UPDATE questions SET chapter_id = NULL
+WHERE chapter_id IS NOT NULL
 AND NOT EXISTS (SELECT 1 FROM chapters WHERE id = questions.chapter_id);
 ```
 
 ## Verification Queries
 
 ### Check User ID Consistency
+
 ```sql
 SELECT table_name, data_type
 FROM information_schema.columns
@@ -336,23 +386,25 @@ ORDER BY table_name;
 ```
 
 ### Check All Foreign Keys
+
 ```sql
-SELECT 
+SELECT
   tc.table_name,
   kcu.column_name,
   ccu.table_name AS foreign_table
 FROM information_schema.table_constraints tc
-JOIN information_schema.key_column_usage kcu 
+JOIN information_schema.key_column_usage kcu
   ON tc.constraint_name = kcu.constraint_name
-JOIN information_schema.constraint_column_usage ccu 
+JOIN information_schema.constraint_column_usage ccu
   ON ccu.constraint_name = tc.constraint_name
 WHERE tc.constraint_type = 'FOREIGN KEY'
 ORDER BY tc.table_name;
 ```
 
 ### Check Index Usage
+
 ```sql
-SELECT 
+SELECT
   schemaname,
   tablename,
   indexname,
@@ -366,20 +418,23 @@ ORDER BY idx_scan DESC;
 ## Maintenance Scripts
 
 ### Clean Old Audit Logs
+
 ```sql
 SELECT clean_old_audit_logs(365); -- Keep 1 year
 ```
 
 ### Add Soft Delete to New Table
+
 ```sql
 SELECT add_soft_delete_columns('your_new_table');
 ```
 
 ### Check Migration Status
+
 ```sql
 -- Check if migration ran
 SELECT EXISTS (
-  SELECT 1 FROM information_schema.columns 
+  SELECT 1 FROM information_schema.columns
   WHERE table_name = 'test_category_series'
 );
 ```
@@ -387,6 +442,7 @@ SELECT EXISTS (
 ## Rollback Plan
 
 If issues occur, rollback script available:
+
 ```sql
 -- Drop junction table
 DROP TABLE IF EXISTS test_category_series;
@@ -403,11 +459,13 @@ ALTER TABLE test_categories ADD COLUMN test_series_id_old INTEGER[];
 ## Performance Impact
 
 **Before Migration**:
+
 - Missing indexes on FK columns
 - Orphaned records causing slow queries
 - Inconsistent data types causing cast operations
 
 **After Migration**:
+
 - All FK columns indexed
 - Proper data types (no casts)
 - Composite indexes for common queries
@@ -433,6 +491,7 @@ ALTER TABLE test_categories ADD COLUMN test_series_id_old INTEGER[];
 ## Support
 
 For issues or questions:
+
 - Check migration logs in `pg_stat_statements`
 - Review audit_logs table for errors
 - Contact database administrator
@@ -441,4 +500,5 @@ For issues or questions:
 
 **Created**: 2026-05-02  
 **Last Updated**: 2026-08-23  
+**Re-verified (historical framing + migration-path fixes)**: 2026-09-06  
 **Version**: 1.0

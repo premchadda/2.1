@@ -1,51 +1,56 @@
-# D3 — Dead / Unused / Disconnected Inventory (Aug 23, 2026)
+# D3 — Dead / Unused / Disconnected Inventory (re-verified 2026-09-06)
+
+Supersedes the Aug-23-2026 pass. Spot-checked against live code today; §1 is fully
+FIXED and most of §3 is reconnected. Remaining flags are marked ⏳ (genuine) or LOW.
+
+Regen: `grep -rn "apply-coupon\|admin/live-tests\|analytics/:testId" apps/backend/src apps/frontend/src apps/admin-panel/src`
 
 ## 1. Endpoints called by frontend that DO NOT exist on backend
 
-| Caller | Call | Backend reality |
-|---|---|---|
-| Pass.jsx:197 (user frontend) | `POST /api/payments/apply-coupon` | **404** — only `/api/payments/validate-coupon` exists (payments.js:102) |
-| adminAPI.js:220-224 (admin-panel) | `GET/POST/PUT/DELETE /admin/live-tests` + `/admin/live-tests/bulk` | **404** — no route file matches; only `GET /live-tests` exists at public-data.routes.js:503 (different mount); real admin create is `POST /api/live-tests` (liveMock.routes.js:49) which adminAPI never calls |
-| Admin LiveTestMonitor | socket.io `admin:live-tests:subscribe` (LiveTestMonitor.jsx:72) | Works only if backend socket adapter handles it — verify separately; REST methods are dead regardless |
+| Caller                                | Call                                              | Status 2026-09-06                                                                                                                                                                                     |
+| ------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pages/public/Pass.jsx:176`           | `POST /api/payments/apply-coupon`                 | ✅ FIXED — alias exists (`api/routes/payments.js:235-272`, delegates to the same `validateCouponHelper` as `/validate-coupon`)                                                                        |
+| `admin-panel/.../adminAPI.js:220-224` | `GET/POST/PUT/DELETE /admin/live-tests` + `/bulk` | ✅ FIXED — routable via `api/routes/admin-live-tests.js` (list/create/bulk/get/update/delete + proctoring), mounted at `/admin/live-tests` (`api/routes/admin.js:60,122`) behind the full admin chain |
 
 ## 2. Backend routes/files with no callers (dead or shadowed)
 
-| Item | Evidence |
-|---|---|
-| `test-series-public.js` (`/api/test-series`) | Mounted at public-routes-index.js:30 but **zero frontend callers** — user frontend uses `/api/series` everywhere; candidate for removal |
-| `live-tests-public.js` (`/api/live-tests` GET) | Fully **shadowed**: liveMockRoutes mounted first (app-port5001.js:752-753 vs mountExtractedRoutes :791). Dead code — reads `tests` table, never reachable |
-| `subscriptions.js` `/analytics/:testId?` (:212) | No frontend caller found (attempt-history :121, reattempt :148, weak-topics :197 ARE used — ReattemptOptions.jsx:30/48/230) |
+| Item                                                  | Status 2026-09-06                                                                                                                                                                                                                    |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `test-series-public.js` (`/api/test-series`)          | LOW dedupe candidate, NOT dead — live caller `pages/public/Home.jsx:262` (`fetch("/api/test-series?limit=6")`); long-term consider unifying with `/api/series`                                                                       |
+| `live-tests-public.js` (`/api/live-tests` GET)        | ✅ FIXED via composition — `live-tests-public.js:162-163` does `router.use("/", liveMockRoutes)`; single mount at `app-port5001.js:1022` serves list + session routes together (`/api/live-mock` at `:1021` is the standalone alias) |
+| `subscriptions.js` `/analytics/:testId?` (`:231-232`) | ⏳ UNCLEAR — still no frontend caller found (siblings `attempt-history/:testId` `:129`, `reattempt` `:154`, `weak-topics/:testId?` `:214` ARE used). Keep flagged; either wire a caller or remove                                    |
 
 ## 3. Tables with no writers (orphans) or broken read paths
 
-| Table | Writers | Readers | Impact |
-|---|---|---|---|
-| `webhook_events` | **NONE anywhere in backend** | admin-payments.js:252 (try/catch fallback), API_ENDPOINTS.md:283 | Admin "Webhooks" page permanently empty; payment webhook (payments.js:413) writes only transactions/users/coupons |
-| `results` | **NONE** | test.routes.js:1354, achievements.js:291, leaderboards-public.js:27 | Public leaderboard always `source:'empty'`; achievements/streaks zeroed (see D1-W1) |
-| `test_questions` | testBuilder.service.js:326, test.repository.js:70, questionBuilder.service.js, question.service.js, question.repository.js, importers, admin duplicate path (admin-tests.js:572) | TestAttemptController.js:92, test.routes.js question fetch paths | **No admin-API writer**: admin-questions.js:533 writes only `questions` → 1575 questions vs 1375 junction rows; per-question attempt state missing for admin-created questions |
-| `leaderboards` | leaderboardService.js:200/235 (recalculate on submit via test_submitted event) | leaderboards-public.js:19/122 | Works — written by submit event; only recalc latency matters |
-| `attempt_answers` | attempt.routes.js (save-answer) | Not read by W1 flow (answers live in `attempts.answers` JSONB) | Redundant write path; verify reader or merge |
+| Table             | Writers                                                                                                                              | Readers                                                                                                                                              | Status 2026-09-06                                                                                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `webhook_events`  | ✅ `persistWebhookEvent` (`payments.js:750+`, called on received/delivered/failed paths) + migration `120_create_webhook_events.sql` | `admin-payments.js` webhooks view                                                                                                                    | ✅ FIXED (was orphan)                                                                                                                                                     |
+| `results`         | ✅ dual-write on submit (`modules/attempts/attempt.service.js:346-372`, best-effort inside the submit transaction)                   | `leaderboards-public.js:27` → `results` → `attempts` fallback chain; `achievements.js:302-306`                                                       | ✅ FIXED (was orphan). Caveat: achievements reads with camelCase flags (`userId/isCompleted/isActive`) — verify `dbHelpers` maps them to snake_case or flag stays UNCLEAR |
+| `test_questions`  | ✅ junction sync helper (`admin-questions.js:63-97`) + builder/importer/duplicate-test paths                                         | `TestAttemptController.js:120-130` (junction-only join)                                                                                              | ✅ FIXED for new writes (was admin-API gap). Residual = legacy rows predating the helper; backfill optional                                                               |
+| `leaderboards`    | `leaderboardService.js` (recalculate on submit via `test_submitted` event)                                                           | `leaderboards-public.js`                                                                                                                             | ✅ Connected (recalc latency only)                                                                                                                                        |
+| `attempt_answers` | `attempt.routes.js` save-answer paths + `attempt.repository.js:63`                                                                   | ✅ CONNECTED — readers: `attempt.service.js:465`, `SubscriptionService.js:255-291`, `questionDifficulty.service.js:431`, `attempt.repository.js:105` | ✅ Resolved (was UNCLEAR); no merge needed                                                                                                                                |
 
 ## 4. Admin-panel dead/unused surfaces
 
-| Item | Evidence |
-|---|---|
-| `adminAPI.getLiveTests/createLiveTest/updateLiveTest/deleteLiveTest/bulkUploadLiveTests` | Defined (adminAPI.js:220-224), never called from any component (grep: only LiveTestMonitor socket usage) AND would 404 — fully dead |
+| Item                                                                                     | Status 2026-09-06                                                                                                            |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `adminAPI.getLiveTests/createLiveTest/updateLiveTest/deleteLiveTest/bulkUploadLiveTests` | ✅ Routable — backend `/admin/live-tests` exists (see §1); verify each method is now called from a component on next UI pass |
 
 ## 5. Legacy/ghost data
 
-| Item | Evidence |
-|---|---|
-| `test_attempts` (528 rows) | Read ONLY by admin-stats.js:18 for "Tests Attempted" card → admins see 528 vs 22 real attempts (24x inflation); legacy table from pre-migration era |
-| `db_live_inventory.txt` (repo root) | Failed `pg` run log — not an inventory; misleading artifact |
+| Item                                              | Status 2026-09-06                                                                                                                                                                                                                          |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `test_attempts` (legacy, ~528 rows at last count) | 🟡 PARTIAL — `admin-stats.js:72` primary query now counts `attempts`; `:107` fallback still counts legacy `test_attempts`. Numbers are correct on the primary path; remove the fallback only after confirming no deployment still needs it |
+| `db_live_inventory.txt` (repo root, if present)   | Failed `pg` run log, not an inventory — regenerate or delete                                                                                                                                                                               |
 
-## 6. Verified-CLEAN (checked, no issues)
+## 6. Verified-CLEAN (checked, no issues) + admin-chain note
 
-- `practice.js` (40 routes) — all practiceAPI.js calls matched 1:1 (W5)
-- `intelligence.js` — all routes use live services; no stubs (only `recalculate` is admin-gated, correct)
-- `achievements.js` — no dead routes (broken only via `results` reads, D3-3)
-- user.routes.js — all 13 routes have frontend callers (profile, attempts, analytics, enrolled-series, sessions, incomplete, top-performers)
-- adminAPI.getTestSeries / getTestCategories — used (TestSeriesManager.jsx:253, CategoriesManager.jsx:493, QuestionsManager.jsx:573-575)
-- ReattemptOptions.jsx:30/48/230 → `/api/subscriptions/attempt-history|reattempt|weak-topics` — all exist (subscriptions.js:121/148/197)
-- examCategory.routes.js / examInfo.routes.js — all called by Exams.jsx:229 / ExamInfoManager
-- `subscription-plans-public.js` — mounted; admin panel SubscriptionPlansManager hits `/admin/subscription-plans` which exists in BOTH admin.js:2943 and admin-commerce.js:253 (duplicate route, harmless)
+- `practice.js` (40 routes) — all `practiceAPI.js` calls matched 1:1 (W5 still green).
+- `intelligence.js` — all routes use live services; no stubs (only `recalculate` is admin-gated, correct).
+- `achievements.js` — no dead routes (reads `results`, now written — see §3 caveat).
+- `user.routes.js` — all routes have frontend callers (profile, attempts, analytics, enrolled-series, sessions, incomplete, top-performers).
+- `adminAPI.getTestSeries / getTestCategories` — used (`TestSeriesManager.jsx:253`, `CategoriesManager.jsx:493`, `QuestionsManager.jsx:573-575`).
+- `ReattemptOptions.jsx` → `/api/subscriptions/attempt-history|reattempt|weak-topics` — all exist (`subscriptions.js:129/154/214`).
+- `examCategory.routes.js` / `examInfo.routes.js` — called by `Exams.jsx` / `ExamInfoManager`.
+- `subscription-plans-public.js` — mounted; admin `SubscriptionPlansManager` hits `/admin/subscription-plans` (exists in both `admin.js` and `admin-commerce.js` — duplicate route, harmless).
+- Admin middleware chain (do not bypass): `normalizeFields → restrictAdminOrigin → validateAdminApiKey → protect → admin → validateCsrfToken → loadAdminPermissions → requireAdminPermission → auditMiddleware` (`api/routes/admin.js:65-80`).

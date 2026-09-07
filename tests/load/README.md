@@ -1,151 +1,93 @@
 # Load Testing Suite - Trstprep V2.1
 
-Load testing framework using [Grafana k6](https://k6.io/) for performance testing of the Trstprep platform.
+> As of 2026-09-06. k6-based suite: 3 runnable scripts (`auth.js`, `api.js`,
+> `realtime.js`) + shared `k6.config.js`. Run from the **repo root** so the
+> `summary-*.json` paths below resolve.
 
 ## Prerequisites
 
-1. **Install k6** (choose one):
+1. **Install k6** — Chocolatey (`choco install k6`) / Scoop
+   (`scoop install k6`) on Windows, `brew install k6` on macOS, the k6 apt
+   repo on Debian/Ubuntu, or `docker pull grafana/k6`.
+2. **Backend running.** Local dev listens on `http://localhost:3000`
+   (k6 default); the compose stack exposes the backend on `:5001` — override
+   with `BASE_URL` (below).
 
-   **Windows (Chocolatey):**
-   ```bash
-   choco install k6
-   ```
+## Test files
 
-   **Windows (Scoop):**
-   ```bash
-   scoop install k6
-   ```
+| File           | Description                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `auth.js`      | Register / login / refresh. **Ignores `TEST_EMAIL`/`TEST_PASSWORD`** — registers a fresh `loadtest_<timestamp>` user per run |
+| `api.js`       | Authenticated API endpoints; needs `TEST_PASSWORD` (+ optional `TEST_EMAIL`) to mint a token                                 |
+| `realtime.js`  | WebSocket flows; **overrides stages** (5 → 20 → 20 → 0 VUs, ~7 min) instead of using `k6.config.js` stages                   |
+| `k6.config.js` | Shared base URL, stages (10 → 50 → 100 → sustain → 0, ~11 min), thresholds, headers                                          |
 
-   **macOS (Homebrew):**
-   ```bash
-   brew install k6
-   ```
+`package.json` wires `test:auth`, `test:api`, `test:realtime`, `test:all`.
 
-   **Linux (Debian/Ubuntu):**
-   ```bash
-   sudo gpg -k
-   sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D68
-   echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-   sudo apt-get update
-   sudo apt-get install k6
-   ```
-
-   **Docker:**
-   ```bash
-   docker pull grafana/k6
-   ```
-
-2. **Ensure the backend is running** on `http://localhost:3000` (or set `BASE_URL` env var).
-
-## Test Files
-
-| File | Description |
-|------|-------------|
-| `auth.js` | Tests login, register, and token refresh endpoints |
-| `api.js` | Tests main API endpoints (test series, questions, dashboard, etc.) |
-| `realtime.js` | Tests WebSocket connections and real-time messaging |
-| `k6.config.js` | Shared configuration (stages, thresholds, base URL) |
-
-## Running Tests
-
-### From project root (npm scripts):
+## Running tests
 
 ```bash
-# Run all load tests
-npm run load-test
-
-# Run auth-specific tests only
-npm run load-test:auth
-
-# Run API-specific tests only
-npm run load-test:api
-```
-
-### Directly with k6:
-
-```bash
-# Run specific test
+# From the repo root
 k6 run tests/load/auth.js
 k6 run tests/load/api.js
 k6 run tests/load/realtime.js
 
-# With custom base URL
-k6 run --env BASE_URL=https://api.trstprep.com tests/load/api.js
+# Against compose (:5001) or any host
+k6 run --env BASE_URL=http://localhost:5001 tests/load/api.js
 
-# With custom test credentials
-k6 run --env TEST_EMAIL=user@example.com --env TEST_PASSWORD=pass123 tests/load/api.js
+# Authenticated suites (api.js / realtime.js)
+k6 run --env TEST_EMAIL=user@example.com --env TEST_PASSWORD=secret tests/load/api.js
 
-# With detailed HTTP debug output
+# Verbose HTTP logging
 k6 run --env HTTP_DEBUG=true tests/load/api.js
 ```
 
-### Docker:
+### Docker (volume-mount form — required)
+
+`api.js`/`auth.js`/`realtime.js` import `./k6.config.js`, so piping a file
+over **stdin breaks the imports**. Mount the directory instead:
 
 ```bash
-docker run --rm -i grafana/k6 run - < tests/load/api.js
+docker run --rm -v "%CD%/tests/load:/scripts" -w /scripts grafana/k6 run /scripts/api.js
+docker run --rm -v "%CD%/tests/load:/scripts" -w /scripts -e BASE_URL=http://host.docker.internal:5001 grafana/k6 run /scripts/api.js
 ```
 
 ## Configuration
 
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `BASE_URL` | `http://localhost:3000` | Backend API base URL |
-| `TEST_EMAIL` | `admin@trstprep.com` | Test user email for authenticated endpoints |
-| `TEST_PASSWORD` | `admin123` | Test user password |
-| `HTTP_DEBUG` | (empty) | Set to `true` for verbose HTTP logging |
-
-### Load Stages
-
-Default load pattern in `k6.config.js`:
-
-```
-1 min  → 10 users   (ramp up)
-2 min  → 50 users   (ramp up)
-2 min  → 100 users  (ramp up)
-5 min  → 100 users  (sustain)
-1 min  → 0 users    (ramp down)
-Total: ~11 minutes
-```
+| Variable        | Default                 | Description                                                                                                                                               |
+| --------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BASE_URL`      | `http://localhost:3000` | Backend base URL (`:5001` under compose)                                                                                                                  |
+| `TEST_EMAIL`    | `admin@trstprep.com`    | Login email for `api.js` / `realtime.js` (**ignored by `auth.js`**, which generates its own user)                                                         |
+| `TEST_PASSWORD` | **(none — required)**   | No default. Unset = login fails and authenticated checks fail; `api.js`/`realtime.js` warn `TEST_PASSWORD environment variable is not set for load test.` |
+| `HTTP_DEBUG`    | (empty)                 | Set to `true` for verbose HTTP logging                                                                                                                    |
 
 ### Thresholds
 
-- **Response Time**: p95 < 500ms
-- **Error Rate**: < 1%
-- **Throughput**: > 50 requests/sec
-- **Login Success Rate**: > 99%
-- **WebSocket Success Rate**: > 95%
+p95 < 500ms · error rate < 1% · throughput > 50 rps · login success > 99%
+(`auth.js` adds register p95 < 800ms) · WebSocket success > 95%, p95 connect
+< 2000ms (`realtime.js`).
 
-## Interpreting Results
+## Results
 
-### Key Metrics
+Summaries (repo-root relative): `tests/load/summary-auth.json`,
+`tests/load/summary-api.json`, `tests/load/summary-realtime.json`.
 
-- **http_req_duration**: Response time (avg, med, p90, p95, p99)
-- **http_req_failed**: Percentage of failed requests
-- **http_reqs**: Total requests and requests per second
-- **iter_duration**: Time per full iteration
-
-### Output Files
-
-Test summaries are saved to:
-- `tests/load/summary-auth.json`
-- `tests/load/summary-api.json`
-- `tests/load/summary-realtime.json`
-
-### Pass/Fail Criteria
-
-Tests pass when:
-- p95 response time < 500ms
-- Error rate < 1%
-- Success rates meet individual thresholds
+Key metrics: `http_req_duration` (avg/med/p90/p95/p99), `http_req_failed`,
+`http_reqs`, `iter_duration`, plus per-suite rates (`login_success_rate`,
+`register_success_rate`, `api_success_rate`, `ws_success_rate`).
 
 ## Troubleshooting
 
-**Connection refused**: Ensure the backend server is running.
+- **Connection refused** — backend not running, or wrong port (`:3000` dev
+  vs `:5001` compose).
+- **Auth-suite failures with no `TEST_PASSWORD`** — expected; export it first.
+- **High error rates** — check server logs, pool saturation, Redis.
+- **Memory pressure** — fewer VUs / shorter stages.
 
-**High error rates**: Check server logs, database connections, and resource limits.
+## Known bug: `realtime.js` token fetch is dead code
 
-**Timeout issues**: Increase the timeout in `k6.config.js` or check network latency.
-
-**Memory issues**: Reduce the number of virtual users or test duration.
+`realtime.js:38` gates the login call on `__ENV.HTTP`, which is never set or
+documented — the condition is always falsy, so `getAuthToken()` always
+returns `""` and every WebSocket scenario runs **unauthenticated**. Until
+fixed, realtime results only cover anonymous connections. (Fix: use the
+`k6/http` login from `api.js` instead of the `__ENV.HTTP` branch.)

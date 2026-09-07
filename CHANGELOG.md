@@ -1,10 +1,31 @@
 # Changelog
 
+## 2026-09-06 - Full Documentation Rewrite (all 35 repo docs re-verified)
+
+### Toolchain + history since Aug 23
+
+- pnpm 11.25 / uv switch (`cd9d9ebd`), turbo `^2.10.12`, Node 22 (`.nvmrc`, engines `>=20`)
+- Waves 17-20: candidate intelligence (`studyRoadmap`/`socraticHint`/`examReadiness`), live proctoring console, ranking service, modular QA audit, system stabilization
+- Migrations `102`–`135` on disk (attempt numbering, Node Engine V2 tables, practice redesign, junction ensure, webhook events, RLS waves, lifecycle/shuffle seed, perf backfills); next is `136_*`
+- Fixes: avatar uploads 404, `prop-types` Vercel build failure (`a3651475`), results dual-write, coupon alias, live-tests composition, junction sync, admin live-tests router
+- Knowledge graph rebuilt: 10862 nodes / 20266 edges / 1744 files (was 16874/22184)
+
+### Docs — every file rewritten or re-verified
+
+- Living docs rewritten: `ARCHITECTURE.md` (~250 lines, pnpm/uv, P0 closure log), `DEVELOPMENT.md` (correct admin paths, shipped-status inversion), `AI_PROMPTS.md` (V1✅/V2 partial/V3–V6 vision quarantine → `docs/vision/NODE_ENGINE_V4-V6.md`), `test-quiz-lifecycle.md` (+ABANDONED state, wire-format note)
+- Reports: `SITE_READINESS_REPORT.md` frozen as historical; `FINAL_SITE_READINESS_REPORT.md` promoted to living scorecard (~6/10 rescore)
+- Audits re-verified: D1/D2/D3 findings mostly FIXED (results writes, Checkout, live rank/persist, junction sync); `UNIFIED`/`DATABASE_SCHEMA_AUDIT`/`REMEDIATION` (status tokens)/`SECURITY_POSTURE` refreshed; `legacy-migrations` reframed historical
+- Backend/deploy docs: `API_ENDPOINTS.md` (phantom contracts removed, 2FA corrected), `DATABASE_REPLICAS.md` (real defaults), `database/README.md`, `scripts/README.md` (108-file inventory), `tests/load/README.md`, `deploy/logging.md` (normative Loki)
+- Frontend/admin docs: AI gateway live-status, versioned integration arch, config READMEs, `routingUpdates.md` replaced with live route map
+- Root: README/AGENTS refreshed; CONTRIBUTING rewritten (Node 22, territories, DB/secret/graph guards); `walkthrough.md` sanitized → `docs/walkthroughs/`; schema dictionary header (snapshot disclaimer)
+- Open items carried forward: test-suite count conflict (128–129 vs 157 — re-run), achievements `results` field-mapping check, `git filter-repo` history scrub, fresh-DB boot proof
+
 ## 2026-08-23 - Documentation Content Refresh (real content, not just dates)
 
 ### Documentation — content audited against live codebase (`ls`, `package.json`, `app-port5001.js`, `graphify-out`)
 
 #### `README.md` (complete rewrite of core sections)
+
 - Workspace layout: `dev-tools/` → `scripts/` + `deploy/` + `graphify-out/`/`archify/`; added `packages/shared-config` + `shared-hooks` truth, `turbo.json` 2.10.5, `.husky`
 - Tech stack: pinned versions — Node 20, Vite 6.4.2, Axios 1.18, Turborepo 2.10.5, Nodemailer 9.x, Tailwind 3.x; added pgvector HNSW, OpenRouter, BullMQ 5.x
 - Backend env: documented `JWT_REFRESH_SECRET`, `ADMIN_API_KEY`, `PGCRYPTO_KEY`, `DB_ENCRYPTION_KEY` + secret rotation pre-flight
@@ -13,6 +34,7 @@
 - Features: 60 admin components (was 43), 85 route files + 33 module routes (was 40+), 112 migrations, god nodes `dbHelpers`/`protect()`/`useAuth()`
 
 #### `docs/ARCHITECTURE.md` (5 sections rewired)
+
 - **Stack:** Vite 6.4.2, Turborepo 2.10.5, BullMQ, pgvector `vector(1536)` HNSW, per-user AI rate limiter
 - **Repo layout:** corrected tree (87 frontend pages, 60 admin components, 112 migrations, scripts canonical)
 - **Backend layers:** 1022 route defs, duplicate mount block noted, `migrationRunner.js` advisory lock, `initTables()` legacy duplicate flagged
@@ -24,26 +46,31 @@
 - **Deployment:** Docker Compose + nginx primary (pinned `1.27-alpine`, HEALTHCHECK), Vercel vestigial
 
 #### `docs/DEVELOPMENT.md`
+
 - Admin components 43 → 60 (full 13-category breakdown, `dir /s /b` verified)
 - Technology stack: added Vite 6.4.2, `shared-hooks`, `shared-config` single source, Husky
 - Status `✅ Implemented` retained, dates `Mar 22` → `Aug 23`
 
 #### `docs/DATABASE_SCHEMA_AUDIT.md`
+
 - Header: 000–093 (94 files) → 000–112 (112 files), ~75-80 → ~80/154 tables
 - Migration inventory: added row `102–112 | 11 | Recent fixes`
 - Audit date `2026-07-25` → `2026-08-23`
 
 #### `docs/SECURITY_POSTURE.md`
+
 - Header: added verification sources (`app-port5001.js`, `auth.middleware.js`), prior audit `2026-08-23`
 - Summary: added defense-in-depth chain + rate limiters + `responseCache` bypass note
 - Appendix: titled prior auth/dashboard/exam audit dumps as retained Aug 23 appendix
 
 #### `docs/SITE_READINESS_REPORT.md` / `docs/FINAL_SITE_READINESS_REPORT.md`
+
 - Generated `2026-08-14` → `2026-08-23` + docs-refresh provenance
 - Scale: 136→154 tables, 107→112 migrations, 81→85 route files
 - Added `Last Updated: 2026-08-23` to FINAL report
 
 #### Other docs
+
 - `docs/legacy-migrations/README.md`, `SCHEMA_DIAGRAM.md`, `QUICKSTART.md`: added `Last Updated: 2026-08-23`
 - `apps/backend/src/infrastructure/database/README.md`: `2026-06-15` → `2026-08-23`
 - `docs/UNIFIED_TRSTPREP_AUDIT.md` (and root copy): `2026-07-25/26` → `2026-08-23` (verification, backend audit, npm view check, remediation complete)
@@ -56,6 +83,7 @@
 ## 2026-03-31 - Repository Audit Fixes
 
 ### Critical Fixes
+
 - Fixed adminApi.js localStorage authentication contradiction
 - Fixed missing ActivityOrderReport export
 - Deleted duplicate insecure AuthContext
@@ -66,6 +94,7 @@
 - Fixed localStorage fallback in ComingSoonManager
 
 ### High Severity Fixes
+
 - Removed mock response fallback in ContentManagement
 - Added environment variable validation
 - Removed password output from seed files
@@ -76,6 +105,7 @@
 - Deleted seedData.js duplicate
 
 ### Medium Severity Fixes
+
 - Created docker-compose.yml
 - Created .env.example files
 - Removed debug logging from dataService
