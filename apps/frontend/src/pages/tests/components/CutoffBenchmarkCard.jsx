@@ -20,9 +20,9 @@ export default function CutoffBenchmarkCard({ sectionRef, result }) {
         </span>
         <div className="flex-1 border-t-2 border-dashed border-blue-200 dark:border-blue-800" />
       </div>
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200 dark:border-gray-700 p-5 sm:p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200 dark:border-gray-700 p-3 sm:p-5 md:p-6">
         {/* Top Banner: Status + User Category */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-gray-100 dark:border-gray-700">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 sm:pb-5 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-3.5">
             <div
               className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-sm shrink-0 ${

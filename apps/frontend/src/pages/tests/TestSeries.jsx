@@ -22,6 +22,8 @@ import {
   HelpCircle,
   BarChart2,
   Target,
+  BookOpen,
+  Compass,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
@@ -182,6 +184,22 @@ function TestSeries() {
     staleTime: 1000 * 60,
   });
 
+  const { data: userEnrolledSeries = [], isLoading: loadingEnrolled } =
+    useQuery({
+      queryKey: ["user-enrolled-series", user?.id],
+      queryFn: async () => {
+        try {
+          const res = await userAPI.getEnrolledSeries();
+          const data = res.data?.data || res.data || [];
+          return Array.isArray(data) ? data : [];
+        } catch {
+          return [];
+        }
+      },
+      enabled: !!user,
+      staleTime: 1000 * 60 * 2,
+    });
+
   // Real-time updates via WebSocket
   useEffect(() => {
     if (!socket) return;
@@ -260,6 +278,19 @@ function TestSeries() {
     [attemptCountBySeries, user],
   );
 
+  // Helper to check whether the current user is enrolled or has progress in a series
+  const isEnrolled = useCallback(
+    (series) => {
+      if (!user || !series) return false;
+      return (
+        isSeriesEnrolled(user, series) ||
+        isSeriesEnrolled(userEnrolledSeries, series) ||
+        getSeriesAttemptCount(series) > 0
+      );
+    },
+    [user, userEnrolledSeries, getSeriesAttemptCount],
+  );
+
   // Handle enrollment in a series
   const handleEnrollSeries = async (series) => {
     if (!user) {
@@ -287,7 +318,7 @@ function TestSeries() {
     }
 
     // Check if already enrolled BEFORE making API call
-    const alreadyEnrolled = isSeriesEnrolled(user, series);
+    const alreadyEnrolled = isEnrolled(series);
     if (alreadyEnrolled) {
       // Already enrolled, just navigate to the series
       navigate(`/test-series/${series.slug || series.id}`);
@@ -303,6 +334,9 @@ function TestSeries() {
 
       if (response.data.success) {
         await refreshUser();
+        await queryClient.invalidateQueries({
+          queryKey: ["user-enrolled-series", user?.id],
+        });
         navigate(`/test-series/${series.slug || series.id}`);
       }
     } catch (error) {
@@ -315,6 +349,10 @@ function TestSeries() {
         message.includes("Already enrolled") ||
         message.includes("already enrolled")
       ) {
+        await refreshUser();
+        await queryClient.invalidateQueries({
+          queryKey: ["user-enrolled-series", user?.id],
+        });
         navigate(`/test-series/${series.slug || series.id}`);
       } else {
         // Show error to user instead of silently redirecting
@@ -334,20 +372,43 @@ function TestSeries() {
     }));
   }, [allSeries]);
 
-  // Get enrolled series for logged-in users - check actual enrollment
+  // Get enrolled series for logged-in users - check actual enrollment & attempts
   const enrolledSeries = useMemo(() => {
     if (!user) return [];
-    return seriesWithStats.filter((series) => isSeriesEnrolled(user, series));
-  }, [user, seriesWithStats]);
+
+    const enrolledFromAll = seriesWithStats.filter((series) =>
+      isEnrolled(series),
+    );
+
+    // Also include any series objects from userEnrolledSeries that might not be in seriesWithStats
+    const knownKeys = new Set(
+      enrolledFromAll.flatMap((s) =>
+        [s.id, s._id, s.dbId, s.slug].filter(Boolean).map(String),
+      ),
+    );
+
+    const additionalEnrolled = (
+      Array.isArray(userEnrolledSeries) ? userEnrolledSeries : []
+    )
+      .filter((s) => {
+        const keys = [s.id, s._id, s.dbId, s.slug].filter(Boolean).map(String);
+        return !keys.some((k) => knownKeys.has(k));
+      })
+      .map((series) => ({
+        ...series,
+        totalTests: Number(series.totalTests || series.total_tests || 0),
+        freeTests: Number(series.freeTests || series.free_tests || 0),
+      }));
+
+    return [...enrolledFromAll, ...additionalEnrolled];
+  }, [user, seriesWithStats, userEnrolledSeries, isEnrolled]);
 
   // Get new/recent series for recommendations (logged-in users)
   const newSeriesForYou = useMemo(() => {
     if (!user) return [];
     // Filter out enrolled series and return newest ones
-    return seriesWithStats
-      .filter((series) => !isSeriesEnrolled(user, series))
-      .slice(0, 4);
-  }, [user, seriesWithStats]);
+    return seriesWithStats.filter((series) => !isEnrolled(series)).slice(0, 4);
+  }, [user, seriesWithStats, isEnrolled]);
 
   // Get popular series (sorted by admin order, respecting pinning)
   const _popularSeries = useMemo(() => {
@@ -370,7 +431,7 @@ function TestSeries() {
 
     // If user is logged in, filter out enrolled test series from this section
     if (user) {
-      result = result.filter((series) => !isSeriesEnrolled(user, series));
+      result = result.filter((series) => !isEnrolled(series));
     }
 
     // Filter by search
@@ -550,8 +611,8 @@ function TestSeries() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
           {/* MAIN CONTENT */}
           <div className="space-y-6 sm:space-y-8 min-w-0">
-            {/* LOGGED-IN USER: Enrolled Test Series - Dashboard Style */}
-            {user && enrolledSeries.length > 0 && (
+            {/* LOGGED-IN USER: Enrolled Test Series - Always visible for authenticated users */}
+            {user && (
               <section className="fade-in relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-blue-100 dark:border-indigo-900/40 shadow-sm">
                 {/* Full-width Section Header Banner (Responsive) */}
                 <div className="bg-gradient-to-r from-slate-800 via-slate-800 to-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 px-4 sm:px-5 py-3.5 sm:py-4 text-white flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 sm:gap-3 shadow-sm">
@@ -561,10 +622,10 @@ function TestSeries() {
                     </div>
                     <div className="min-w-0">
                       <h2 className="text-sm sm:text-base md:text-lg font-bold text-white leading-tight truncate">
-                        My Series
+                        Enrolled Test Series
                       </h2>
                       <p className="text-[11px] sm:text-xs text-slate-300 truncate">
-                        Enrolled tests & progress tracker
+                        Your active test series & progress tracker
                       </p>
                     </div>
                     <span className="bg-white/20 text-white text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 rounded-full whitespace-nowrap backdrop-blur-sm shrink-0">
@@ -581,133 +642,213 @@ function TestSeries() {
                 </div>
 
                 <div className="p-4 sm:p-5 md:p-6">
-                  <div className="relative z-10 flex gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                    {enrolledSeries.map((series) => {
-                      const userAttemptedTests = getSeriesAttemptCount(series);
-                      const progress =
-                        series.totalTests > 0
-                          ? Math.round(
-                              (userAttemptedTests / series.totalTests) * 100,
-                            )
-                          : 0;
-                      const styles = getCategoryStyles(
-                        series.categoryName || series.category,
-                      );
-
-                      return (
-                        <Link
-                          key={series._id}
-                          to={`/test-series/${series.slug || series.id || series._id}`}
-                          className="group relative bg-slate-50/70 dark:bg-gray-900/50 hover:bg-white dark:hover:bg-gray-700/80 rounded-2xl border border-gray-200 dark:border-gray-700 p-3.5 sm:p-4 cursor-pointer hover:shadow-xl hover:border-indigo-400 dark:hover:border-indigo-500 hover:-translate-y-0.5 transition-all duration-300 flex-shrink-0 w-64 sm:w-72 max-w-[80vw] overflow-hidden flex flex-col justify-between"
+                  {loadingEnrolled && enrolledSeries.length === 0 ? (
+                    /* Loading skeleton */
+                    <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                      {[1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className="bg-slate-50/70 dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 w-64 sm:w-72 shrink-0 animate-pulse space-y-3"
                         >
-                          {/* Top Accent Gradient Line */}
-                          <div
-                            className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${styles.gradient}`}
-                          />
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gray-200 dark:bg-gray-700" />
+                            <div className="flex-1 space-y-1.5">
+                              <div className="h-3.5 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+                              <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+                            </div>
+                          </div>
+                          <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded-xl" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : enrolledSeries.length > 0 ? (
+                    <div className="relative z-10 flex gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                      {enrolledSeries.map((series) => {
+                        const userAttemptedTests =
+                          getSeriesAttemptCount(series);
+                        const progress =
+                          series.totalTests > 0
+                            ? Math.round(
+                                (userAttemptedTests / series.totalTests) * 100,
+                              )
+                            : 0;
+                        const styles = getCategoryStyles(
+                          series.categoryName || series.category,
+                        );
 
-                          <div>
-                            {/* Header details */}
-                            <div className="flex items-center gap-2.5 sm:gap-3 mb-3">
-                              <div
-                                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-lg sm:text-xl transition-all duration-300 group-hover:scale-110 ${styles.bgLight.split(" ")[0]} ${styles.bgLight.split(" ")[1]}`}
-                              >
-                                {series.icon ||
-                                  getCategoryEmoji(
-                                    series.categoryName || series.category,
-                                  )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h3
-                                  className="font-extrabold text-gray-900 dark:text-white text-xs sm:text-sm truncate group-hover:text-indigo-600 transition-colors"
-                                  title={series.title}
+                        return (
+                          <Link
+                            key={series._id || series.id}
+                            to={`/test-series/${series.slug || series.id || series._id}`}
+                            className="group relative bg-slate-50/70 dark:bg-gray-900/50 hover:bg-white dark:hover:bg-gray-700/80 rounded-2xl border border-gray-200 dark:border-gray-700 p-3.5 sm:p-4 cursor-pointer hover:shadow-xl hover:border-indigo-400 dark:hover:border-indigo-500 hover:-translate-y-0.5 transition-all duration-300 flex-shrink-0 w-64 sm:w-72 max-w-[80vw] overflow-hidden flex flex-col justify-between"
+                          >
+                            {/* Top Accent Gradient Line */}
+                            <div
+                              className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${styles.gradient}`}
+                            />
+
+                            <div>
+                              {/* Header details */}
+                              <div className="flex items-center gap-2.5 sm:gap-3 mb-3">
+                                <div
+                                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-lg sm:text-xl transition-all duration-300 group-hover:scale-110 ${styles.bgLight.split(" ")[0]} ${styles.bgLight.split(" ")[1]}`}
                                 >
-                                  {series.title}
-                                </h3>
-                                <p
-                                  className="text-[10px] sm:text-[11px] text-gray-400 font-semibold truncate capitalize"
-                                  title={
-                                    series.categoryName || series.category || ""
-                                  }
-                                >
-                                  {String(
-                                    series.categoryName ||
+                                  {series.icon ||
+                                    getCategoryEmoji(
+                                      series.categoryName || series.category,
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h3
+                                    className="font-extrabold text-gray-900 dark:text-white text-xs sm:text-sm truncate group-hover:text-indigo-600 transition-colors"
+                                    title={series.title}
+                                  >
+                                    {series.title}
+                                  </h3>
+                                  <p
+                                    className="text-[10px] sm:text-[11px] text-gray-400 font-semibold truncate capitalize"
+                                    title={
+                                      series.categoryName ||
                                       series.category ||
-                                      "",
-                                  ).toLowerCase() === "railways" ||
-                                  String(
-                                    series.categoryName ||
-                                      series.category ||
-                                      "",
-                                  ).toLowerCase() === "railway"
-                                    ? "Railway"
-                                    : series.categoryName ||
-                                      series.category}{" "}
-                                  • {series.totalTests || 0} Tests
-                                </p>
+                                      ""
+                                    }
+                                  >
+                                    {String(
+                                      series.categoryName ||
+                                        series.category ||
+                                        "",
+                                    ).toLowerCase() === "railways" ||
+                                    String(
+                                      series.categoryName ||
+                                        series.category ||
+                                        "",
+                                    ).toLowerCase() === "railway"
+                                      ? "Railway"
+                                      : series.categoryName ||
+                                        series.category}{" "}
+                                    • {series.totalTests || 0} Tests
+                                  </p>
+                                </div>
                               </div>
-                            </div>
 
-                            {/* Progress Badge */}
-                            <div className="flex justify-between items-center mb-1.5">
-                              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                                Progress
-                              </span>
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  progress >= 70
-                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400"
-                                    : progress >= 40
-                                      ? "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/20 dark:text-amber-400"
-                                      : "bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/20 dark:text-indigo-400"
-                                }`}
-                              >
-                                {progress}% Done
-                              </span>
-                            </div>
-
-                            {/* Progress Line */}
-                            <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
-                              <div
-                                className={`h-full rounded-full transition-all duration-500 ${
-                                  progress >= 70
-                                    ? "bg-gradient-to-r from-emerald-400 to-teal-500"
-                                    : progress >= 40
-                                      ? "bg-gradient-to-r from-amber-400 to-orange-500"
-                                      : "bg-gradient-to-r from-indigo-400 to-blue-500"
-                                }`}
-                                style={{ width: `${progress}%` }}
-                              />
-                            </div>
-
-                            {/* Completed label text */}
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="text-gray-400 dark:text-gray-500 font-semibold text-[10px] sm:text-[11px]">
-                                {userAttemptedTests} of {series.totalTests || 0}{" "}
-                                completed
-                              </span>
-                              {progress === 100 && (
-                                <span className="text-indigo-600 dark:text-indigo-400 font-bold text-[10px] tracking-wide uppercase">
-                                  Finished!
+                              {/* Progress Badge */}
+                              <div className="flex justify-between items-center mb-1.5">
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                                  Progress
                                 </span>
-                              )}
-                            </div>
-                          </div>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    progress >= 70
+                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400"
+                                      : progress >= 40
+                                        ? "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/20 dark:text-amber-400"
+                                        : "bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/20 dark:text-indigo-400"
+                                  }`}
+                                >
+                                  {progress}% Done
+                                </span>
+                              </div>
 
-                          {/* Card Action Button */}
-                          <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700/60">
-                            <button className="w-full py-1.5 sm:py-2 px-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer">
-                              <span>
-                                {progress > 0
-                                  ? "Continue Series"
-                                  : "Start Practice"}
-                              </span>
-                              <ArrowRight className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </Link>
-                      );
-                    })}
+                              {/* Progress Line */}
+                              <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    progress >= 70
+                                      ? "bg-gradient-to-r from-emerald-400 to-teal-500"
+                                      : progress >= 40
+                                        ? "bg-gradient-to-r from-amber-400 to-orange-500"
+                                        : "bg-gradient-to-r from-indigo-400 to-blue-500"
+                                  }`}
+                                  style={{ width: `${progress}%` }}
+                                />
+                              </div>
+
+                              {/* Completed label text */}
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-gray-400 dark:text-gray-500 font-semibold text-[10px] sm:text-[11px]">
+                                  {userAttemptedTests} of{" "}
+                                  {series.totalTests || 0} completed
+                                </span>
+                                {progress === 100 && (
+                                  <span className="text-indigo-600 dark:text-indigo-400 font-bold text-[10px] tracking-wide uppercase">
+                                    Finished!
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Card Action Button */}
+                            <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700/60">
+                              <div className="w-full py-1.5 sm:py-2 px-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer">
+                                <span>
+                                  {progress > 0
+                                    ? "Continue Series"
+                                    : "Start Practice"}
+                                </span>
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </div>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* Empty State when user has 0 enrolled series */
+                    <div className="text-center py-7 sm:py-9 px-4 max-w-md mx-auto">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center mb-3 shadow-xs border border-indigo-100 dark:border-indigo-900/50">
+                        <BookOpen className="w-6 h-6" />
+                      </div>
+                      <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white mb-1">
+                        No Enrolled Test Series Yet
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 leading-relaxed">
+                        Enroll in any test series below to unlock full-length
+                        tests, track topic-wise progress, and benchmark your
+                        rank.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const el = document.getElementById("all-series-grid");
+                          if (el) el.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 shadow-sm hover:shadow transition-all cursor-pointer"
+                      >
+                        <Compass className="w-3.5 h-3.5" />
+                        <span>Explore Test Series</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Guest Promo Banner: Enrolled Test Series & Progress Tracker */}
+            {!user && (
+              <section className="fade-in relative overflow-hidden bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-violet-50/80 dark:from-slate-900 dark:via-indigo-950/20 dark:to-slate-900 rounded-2xl sm:rounded-3xl border border-blue-200/80 dark:border-indigo-900/40 p-4 sm:p-5 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start sm:items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-500/20">
+                      <CheckCircle className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white leading-tight">
+                        Enrolled Test Series & Progress Tracker
+                      </h3>
+                      <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
+                        Sign in to enroll in test series, track completion
+                        percentage, and resume where you left off.
+                      </p>
+                    </div>
                   </div>
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 shadow-xs transition-all shrink-0 cursor-pointer"
+                  >
+                    <span>Sign In to Track</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
               </section>
             )}
@@ -715,6 +856,7 @@ function TestSeries() {
             {/* Popular Test Series for GUEST / NOT LOGGED IN USERS (First in list) */}
             {!user && filteredSeries.length > 0 && (
               <section
+                id="all-series-grid"
                 className="fade-in relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-amber-100 dark:border-amber-900/30 shadow-sm"
                 style={{ animationDelay: "0.1s" }}
               >
@@ -989,6 +1131,7 @@ function TestSeries() {
             {/* Popular Test Series for LOGGED-IN USERS */}
             {user && filteredSeries.length > 0 && (
               <section
+                id="all-series-grid"
                 className="fade-in relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-amber-100 dark:border-amber-900/30 shadow-sm"
                 style={{ animationDelay: "0.3s" }}
               >

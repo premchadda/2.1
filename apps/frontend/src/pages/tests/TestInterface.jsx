@@ -386,6 +386,7 @@ function TestInterface() {
     return 0;
   });
   const [showPalette, setShowPalette] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState(["all"]);
   const [language, setLanguage] = useState(() => {
     const saved = localStorage.getItem("trstprep_language");
     const lang = saved === "hi" ? "hi" : "en";
@@ -399,10 +400,20 @@ function TestInterface() {
     () => preloadedAttemptData?.attemptId || null,
   );
   const [showPauseModal, setShowPauseModal] = useState(false);
-  const [interactiveReviewEnabled, _setInteractiveReviewEnabled] =
-    useState(false);
+  const [reattemptMode, setReattemptMode] = useState(false);
+  const toggleReattemptMode = useCallback(() => {
+    setReattemptMode((prev) => !prev);
+  }, []);
   const [showReviewExplanation, setShowReviewExplanation] = useState(true);
   const [reviewComparisons, setReviewComparisons] = useState({});
+
+  const clearCurrentReattempt = useCallback(() => {
+    setReviewComparisons((prev) => {
+      const copy = { ...prev };
+      delete copy[currentQuestion];
+      return copy;
+    });
+  }, [currentQuestion]);
   const [showImageZoom, setShowImageZoom] = useState(false);
   const [showSubmitSummary, setShowSubmitSummary] = useState(false);
   const pauseDialogRef = useRef(null);
@@ -1815,6 +1826,113 @@ function TestInterface() {
     }
   };
 
+  const isReviewFilterActive = useCallback((filter) => {
+    if (!filter) return false;
+    if (Array.isArray(filter)) {
+      return !filter.includes("all") && filter.some((f) => f && f !== "all");
+    }
+    return filter !== "all";
+  }, []);
+
+  const isQuestionMatchingFilter = useCallback(
+    (idx, filterKey) => {
+      const activeFilters = Array.isArray(filterKey)
+        ? filterKey
+        : [filterKey || "all"];
+      if (
+        activeFilters.length === 0 ||
+        activeFilters.includes("all") ||
+        activeFilters.every((f) => !f || f === "all")
+      ) {
+        return true;
+      }
+      const ans = answers[idx];
+      const isAnswered = ans !== undefined && ans !== null && ans !== "";
+      const isReview =
+        markedForReview.has(idx) || Boolean(questions[idx]?.isMarked);
+      const isCorrect =
+        isAnswered && isReviewAnswerCorrect(questions[idx], ans);
+      const isWrong = isAnswered && !isCorrect;
+      const isSkipped = !isAnswered;
+
+      return activeFilters.some((f) => {
+        if (f === "all") return true;
+        if (f === "attempted") return isAnswered;
+        if (f === "correct") return isCorrect;
+        if (f === "wrong") return isWrong;
+        if (f === "skipped" || f === "unattempted") return isSkipped;
+        if (f === "marked") return isReview;
+        return false;
+      });
+    },
+    [answers, markedForReview, questions],
+  );
+
+  const reviewFilterCounts = useMemo(() => {
+    let attempted = 0;
+    let correct = 0;
+    let wrong = 0;
+    let skipped = 0;
+    let marked = 0;
+
+    questions.forEach((q, idx) => {
+      const ans = answers[idx];
+      const isAnswered = ans !== undefined && ans !== null && ans !== "";
+      const isRev = markedForReview.has(idx) || Boolean(q?.isMarked);
+      if (isAnswered) {
+        attempted++;
+        if (isReviewAnswerCorrect(q, ans)) {
+          correct++;
+        } else {
+          wrong++;
+        }
+      } else {
+        skipped++;
+      }
+      if (isRev) marked++;
+    });
+
+    return {
+      all: questions.length,
+      attempted,
+      correct,
+      wrong,
+      skipped,
+      marked,
+    };
+  }, [questions, answers, markedForReview]);
+
+  const handleSetReviewFilter = useCallback(
+    (newFilter) => {
+      setReviewFilter(newFilter);
+      if (isReviewFilterActive(newFilter) && questions.length > 0) {
+        if (!isQuestionMatchingFilter(currentQuestion, newFilter)) {
+          let firstMatch = questions.findIndex(
+            (q, idx) =>
+              (q.section || q.subject || "General") === currentSection &&
+              isQuestionMatchingFilter(idx, newFilter),
+          );
+          if (firstMatch === -1) {
+            firstMatch = questions.findIndex((_, idx) =>
+              isQuestionMatchingFilter(idx, newFilter),
+            );
+          }
+          if (firstMatch !== -1) {
+            goToQuestion(firstMatch);
+          }
+        }
+      }
+    },
+    [
+      currentQuestion,
+      currentSection,
+      isQuestionMatchingFilter,
+      isReviewFilterActive,
+      questions,
+      goToQuestion,
+    ],
+  );
+
   const changeSection = (section) => {
     const targetRemaining = getSectionTimeRemaining(section);
     if (targetRemaining !== null && targetRemaining <= 0) {
@@ -1822,10 +1940,22 @@ function TestInterface() {
       return;
     }
     setCurrentSection(section);
-    // Find first question of this section
-    const firstIdx = questions.findIndex((q) => q.section === section);
-    if (firstIdx !== -1) {
-      goToQuestion(firstIdx);
+    // Find first question of this section (prefer matching filter in review mode)
+    let targetIdx = -1;
+    if (reviewMode && isReviewFilterActive(reviewFilter)) {
+      targetIdx = questions.findIndex(
+        (q, idx) =>
+          (q.section || q.subject || "General") === section &&
+          isQuestionMatchingFilter(idx, reviewFilter),
+      );
+    }
+    if (targetIdx === -1) {
+      targetIdx = questions.findIndex(
+        (q) => (q.section || q.subject || "General") === section,
+      );
+    }
+    if (targetIdx !== -1) {
+      goToQuestion(targetIdx);
     }
   };
 
@@ -1835,6 +1965,9 @@ function TestInterface() {
     notAnswered: visitedQuestions.size - Object.keys(answers).length,
     notVisited: questions.length - visitedQuestions.size,
     review: markedForReview.size,
+    correct: reviewFilterCounts.correct,
+    wrong: reviewFilterCounts.wrong,
+    skipped: reviewFilterCounts.skipped,
   };
 
   const getSectionTimeRemaining = (section) => {
@@ -1871,7 +2004,7 @@ function TestInterface() {
   // Handlers
   const handleAnswer = (optionIndex) => {
     if (reviewMode) {
-      if (!interactiveReviewEnabled) return;
+      if (!reattemptMode) return;
       setReviewComparisons((prev) => ({
         ...prev,
         [currentQuestion]: optionIndex,
@@ -1904,12 +2037,35 @@ function TestInterface() {
   };
 
   const nextQuestion = () => {
+    if (reviewMode && isReviewFilterActive(reviewFilter)) {
+      const nextIdx = questions.findIndex(
+        (_, idx) =>
+          idx > currentQuestion && isQuestionMatchingFilter(idx, reviewFilter),
+      );
+      if (nextIdx !== -1) {
+        goToQuestion(nextIdx);
+      }
+      return;
+    }
     if (currentQuestion < questions.length - 1) {
       goToQuestion(currentQuestion + 1);
     }
   };
 
   const prevQuestion = () => {
+    if (reviewMode && isReviewFilterActive(reviewFilter)) {
+      let prevIdx = -1;
+      for (let i = currentQuestion - 1; i >= 0; i--) {
+        if (isQuestionMatchingFilter(i, reviewFilter)) {
+          prevIdx = i;
+          break;
+        }
+      }
+      if (prevIdx !== -1) {
+        goToQuestion(prevIdx);
+      }
+      return;
+    }
     if (currentQuestion > 0) {
       goToQuestion(currentQuestion - 1);
     }
@@ -2221,22 +2377,50 @@ function TestInterface() {
           answers={answers}
           questions={questions}
           formatTime={formatTime}
+          reattemptMode={reattemptMode}
+          toggleReattemptMode={toggleReattemptMode}
         />
 
         {/* Main Question Area */}
         <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-gray-50 dark:bg-gray-900">
+          {/* Section Tabs in Review Mode: Edge-to-edge subheader bar with ZERO gap to screen edges */}
+          {reviewMode && (
+            <SectionTabs
+              sections={sections}
+              currentSection={currentSection}
+              changeSection={changeSection}
+              getSectionTimeRemaining={getSectionTimeRemaining}
+              getSectionTimeColor={getSectionTimeColor}
+              formatSectionTime={formatSectionTime}
+              reviewMode={reviewMode}
+              reviewFilter={reviewFilter}
+              setReviewFilter={handleSetReviewFilter}
+              reviewFilterCounts={reviewFilterCounts}
+            />
+          )}
+
           {/* Scrollable Content */}
-          <div className="flex-1 p-3 pb-24 md:pb-3 scroll-smooth overflow-y-auto overscroll-contain">
-            <div className="mx-auto flex flex-col min-h-full">
-              {/* Section Tabs */}
-              <SectionTabs
-                sections={sections}
-                currentSection={currentSection}
-                changeSection={changeSection}
-                getSectionTimeRemaining={getSectionTimeRemaining}
-                getSectionTimeColor={getSectionTimeColor}
-                formatSectionTime={formatSectionTime}
-              />
+          <div
+            className={`flex-1 ${
+              reviewMode ? "p-2 sm:p-3" : "p-3"
+            } pb-24 md:pb-3 scroll-smooth overflow-y-auto overscroll-contain`}
+          >
+            <div className="w-full max-w-none flex flex-col min-h-full">
+              {/* Section Tabs (only in test-taking mode) */}
+              {!reviewMode && (
+                <SectionTabs
+                  sections={sections}
+                  currentSection={currentSection}
+                  changeSection={changeSection}
+                  getSectionTimeRemaining={getSectionTimeRemaining}
+                  getSectionTimeColor={getSectionTimeColor}
+                  formatSectionTime={formatSectionTime}
+                  reviewMode={reviewMode}
+                  reviewFilter={reviewFilter}
+                  setReviewFilter={handleSetReviewFilter}
+                  reviewFilterCounts={reviewFilterCounts}
+                />
+              )}
 
               {/* Question Card */}
               <QuestionViewer
@@ -2246,7 +2430,10 @@ function TestInterface() {
                 adaptiveScore={adaptiveScore}
                 test={test}
                 reviewMode={reviewMode}
-                interactiveReviewEnabled={interactiveReviewEnabled}
+                interactiveReviewEnabled={reattemptMode}
+                reattemptMode={reattemptMode}
+                toggleReattemptMode={toggleReattemptMode}
+                clearCurrentReattempt={clearCurrentReattempt}
                 reviewCurrentResponse={reviewCurrentResponse}
                 totalReviewTime={totalReviewTime}
                 questionTimers={questionTimers}
@@ -2305,6 +2492,7 @@ function TestInterface() {
         currentQuestion={currentQuestion}
         goToQuestion={goToQuestion}
         reviewMode={reviewMode}
+        reviewFilter={reviewFilter}
         confirmSubmit={confirmSubmit}
         isSubmitting={isSubmitting}
         navigate={navigate}

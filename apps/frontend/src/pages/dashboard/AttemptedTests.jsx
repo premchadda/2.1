@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../../shared/providers/AuthContext";
@@ -22,9 +22,11 @@ import {
   X,
   Zap,
   ArrowRight,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   checkIsLive,
+  checkIsQuiz,
   checkIsSolutionExpired,
 } from "../../shared/utils/testClassification";
 
@@ -41,15 +43,33 @@ export default function AttemptedTests() {
   // Filter & view states
   const [searchQuery, setSearchQuery] = useState("");
   const [filterSeries, setFilterSeries] = useState("all");
-  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'mock' | 'quiz'
+  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'mock' | 'quiz' | 'live'
   const [sortBy, setSortBy] = useState("recent"); // 'recent' | 'score_desc' | 'accuracy_desc' | 'time_asc'
   const [viewMode, setViewMode] = useState(
     () => localStorage.getItem("trstprep_attempts_view") || "grid",
   );
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterRef = useRef(null);
 
   useEffect(() => {
     localStorage.setItem("trstprep_attempts_view", viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (filterRef.current && !filterRef.current.contains(event.target)) {
+        setIsFilterOpen(false);
+      }
+    };
+    if (isFilterOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [isFilterOpen]);
 
   // Fetch attempts and series
   useEffect(() => {
@@ -104,14 +124,20 @@ export default function AttemptedTests() {
         total: 0,
         mocks: 0,
         quizzes: 0,
+        live: 0,
         avgAccuracy: 0,
         avgScorePct: 0,
         bestRank: "-",
       };
     }
 
-    const mocks = attemptedTests.filter((t) => t.type !== "quiz").length;
-    const quizzes = attemptedTests.filter((t) => t.type === "quiz").length;
+    const live = attemptedTests.filter((t) => checkIsLive(t)).length;
+    const quizzes = attemptedTests.filter(
+      (t) => checkIsQuiz(t) && !checkIsLive(t),
+    ).length;
+    const mocks = attemptedTests.filter(
+      (t) => !checkIsQuiz(t) && !checkIsLive(t),
+    ).length;
 
     const avgAccuracy = Math.round(
       attemptedTests.reduce((sum, t) => sum + (Number(t.accuracy) || 0), 0) /
@@ -131,7 +157,7 @@ export default function AttemptedTests() {
       .filter((r) => !isNaN(r) && r > 0 && r !== 999999);
     const bestRank = ranks.length > 0 ? Math.min(...ranks) : "-";
 
-    return { total, mocks, quizzes, avgAccuracy, avgScorePct, bestRank };
+    return { total, mocks, quizzes, live, avgAccuracy, avgScorePct, bestRank };
   }, [attemptedTests]);
 
   // Filter and sort attempts
@@ -169,8 +195,11 @@ export default function AttemptedTests() {
       }
 
       // Tab filter
-      if (activeTab === "mock" && test.type === "quiz") return false;
-      if (activeTab === "quiz" && test.type !== "quiz") return false;
+      if (activeTab === "mock" && (checkIsQuiz(test) || checkIsLive(test)))
+        return false;
+      if (activeTab === "quiz" && (!checkIsQuiz(test) || checkIsLive(test)))
+        return false;
+      if (activeTab === "live" && !checkIsLive(test)) return false;
 
       return true;
     });
@@ -338,6 +367,7 @@ export default function AttemptedTests() {
                 </div>
                 <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">
                   {stats.mocks} Mocks · {stats.quizzes} Quizzes
+                  {stats.live > 0 ? ` · ${stats.live} Live` : ""}
                 </div>
               </div>
             </div>
@@ -413,26 +443,34 @@ export default function AttemptedTests() {
         )}
 
         {/* Filter Toolbar */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800/80 shadow-sm mb-6 space-y-3.5">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            {/* Left: Type Filter Tabs */}
-            <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl self-start">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 sm:p-4 border border-slate-200/80 dark:border-slate-800/80 shadow-sm mb-6 space-y-3">
+          {/* Row 1: Type Filter Tabs */}
+          <div className="flex items-center justify-between gap-3 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl shrink-0">
               {[
                 { id: "all", label: "All", count: stats.total },
                 { id: "mock", label: "Mock Tests", count: stats.mocks },
                 { id: "quiz", label: "Quizzes", count: stats.quizzes },
+                { id: "live", label: "Live Tests/Quizzes", count: stats.live },
               ].map((tab) => {
                 const isActive = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all shrink-0 cursor-pointer ${
                       isActive
                         ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                     }`}
                   >
+                    {tab.id === "live" && (
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          isActive ? "bg-rose-500 animate-pulse" : "bg-rose-400"
+                        }`}
+                      />
+                    )}
                     <span>{tab.label}</span>
                     <span
                       className={`px-1.5 py-0.25 rounded-md text-[10px] sm:text-xs font-bold ${
@@ -447,99 +485,163 @@ export default function AttemptedTests() {
                 );
               })}
             </div>
+          </div>
 
-            {/* Right: Search & View Toggles */}
-            <div className="flex items-center gap-2.5 flex-1 sm:flex-initial justify-end">
-              {/* Search Box */}
-              <div className="relative flex-1 sm:w-64">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search test or series..."
-                  className="w-full pl-9 pr-8 py-2 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
+          {/* Row 2: Search Box, Filter Toggle Button & View Toggles */}
+          <div className="flex items-center gap-2 w-full pt-2.5 border-t border-slate-100 dark:border-slate-800/80">
+            {/* Search Box - gets flexible space so other details can be seen clearly */}
+            <div className="relative flex-1 min-w-[140px]">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search test or series..."
+                className="w-full pl-8 pr-7 py-1.5 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
 
-              {/* View Mode Toggle */}
-              <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl shrink-0">
+            {/* Filter Toggle Button */}
+            {(() => {
+              const activeFilterCount =
+                (filterSeries !== "all" ? 1 : 0) +
+                (sortBy !== "recent" ? 1 : 0);
+              return (
                 <button
-                  onClick={() => setViewMode("grid")}
-                  className={`p-1.5 rounded-lg transition-all ${
-                    viewMode === "grid"
-                      ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                      : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  type="button"
+                  onClick={() => setIsFilterOpen(!isFilterOpen)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all border cursor-pointer shrink-0 ${
+                    isFilterOpen || activeFilterCount > 0
+                      ? "bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 shadow-xs"
+                      : "bg-slate-50 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800"
                   }`}
-                  title="Grid Cards"
+                  title="Filter by series and sort tests"
+                  aria-expanded={isFilterOpen}
                 >
-                  <LayoutGrid className="w-4 h-4" />
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span>Filter</span>
+                  {activeFilterCount > 0 && (
+                    <span className="w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-xs">
+                      {activeFilterCount}
+                    </span>
+                  )}
                 </button>
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`p-1.5 rounded-lg transition-all ${
-                    viewMode === "list"
-                      ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                      : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                  }`}
-                  title="Compact Table List"
-                >
-                  <ListFilter className="w-4 h-4" />
-                </button>
-              </div>
+              );
+            })()}
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center p-0.5 bg-slate-100 dark:bg-slate-800 rounded-xl shrink-0 sm:ml-auto">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-1.5 rounded-lg transition-all ${
+                  viewMode === "grid"
+                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                    : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                }`}
+                title="Grid Cards"
+              >
+                <LayoutGrid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-1.5 rounded-lg transition-all ${
+                  viewMode === "list"
+                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                    : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                }`}
+                title="Compact Table List"
+              >
+                <ListFilter className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
             </div>
           </div>
 
-          {/* Secondary Filter Row: Series and Sort */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800/80">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Series:
-              </span>
+          {/* Row 3: Responsive In-Flow Filter Drawer - Series & Sort in ONE row */}
+          {isFilterOpen && (
+            <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 animate-in fade-in-50 duration-150">
+              <div className="p-3 bg-slate-50/90 dark:bg-slate-850/70 rounded-xl border border-slate-200/70 dark:border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900 dark:text-white">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span>Filter Options</span>
+                  </div>
+                  {(filterSeries !== "all" ? 1 : 0) +
+                    (sortBy !== "recent" ? 1 : 0) >
+                    0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilterSeries("all");
+                        setSortBy("recent");
+                      }}
+                      className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                    >
+                      Reset All
+                    </button>
+                  )}
+                </div>
 
-              {/* Series Filter Dropdown */}
-              <select
-                value={filterSeries}
-                onChange={(e) => setFilterSeries(e.target.value)}
-                className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer max-w-[220px] truncate"
-              >
-                <option value="all">All Series ({seriesOptions.length})</option>
-                {seriesOptions.map((s) => (
-                  <option key={s._id || s.id} value={s._id || s.id}>
-                    {s.title}
-                  </option>
-                ))}
-              </select>
+                {/* Series & Sort in ONE row */}
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  {/* Series Select */}
+                  <div className="space-y-1 min-w-0">
+                    <label
+                      htmlFor="filter-series-select"
+                      className="text-[10.5px] sm:text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block truncate"
+                    >
+                      Series:
+                    </label>
+                    <select
+                      id="filter-series-select"
+                      value={filterSeries}
+                      onChange={(e) => setFilterSeries(e.target.value)}
+                      className="w-full px-2 sm:px-2.5 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer truncate"
+                    >
+                      <option value="all">
+                        All Series ({seriesOptions.length})
+                      </option>
+                      {seriesOptions.map((s) => (
+                        <option key={s._id || s.id} value={s._id || s.id}>
+                          {s.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              {/* Sort Dropdown */}
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
-              >
-                <option value="recent">Sort: Most Recent</option>
-                <option value="score_desc">Sort: Highest Score</option>
-                <option value="accuracy_desc">Sort: Highest Accuracy</option>
-                <option value="time_asc">Sort: Fastest Time</option>
-              </select>
+                  {/* Sort By Select */}
+                  <div className="space-y-1 min-w-0">
+                    <label
+                      htmlFor="filter-sort-select"
+                      className="text-[10.5px] sm:text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block truncate"
+                    >
+                      Sort:
+                    </label>
+                    <select
+                      id="filter-sort-select"
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="w-full px-2 sm:px-2.5 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer truncate"
+                    >
+                      <option value="recent">Sort: Most Recent</option>
+                      <option value="score_desc">Sort: Highest Score</option>
+                      <option value="accuracy_desc">
+                        Sort: Highest Accuracy
+                      </option>
+                      <option value="time_asc">Sort: Fastest Time</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
-
-            <div className="text-xs sm:text-sm font-bold text-slate-400">
-              Showing{" "}
-              <span className="text-slate-900 dark:text-white font-black">
-                {filteredTests.length}
-              </span>{" "}
-              tests
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Loading State */}
@@ -559,7 +661,7 @@ export default function AttemptedTests() {
           <>
             {viewMode === "grid" ? (
               /* Bento Grid */
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 lg:gap-5">
                 {filteredTests.map((test) => {
                   const testId = test.testSlug || test.testId || test.id;
                   const seriesId = test.seriesSlug || test.seriesId || "all";
@@ -580,68 +682,145 @@ export default function AttemptedTests() {
                     0,
                   );
 
+                  const isLiveTestItem = checkIsLive(test);
+                  const isQuizTestItem =
+                    !isLiveTestItem &&
+                    (test.type === "quiz" || checkIsQuiz(test));
+
                   return (
                     <div
                       key={test.id || test._id}
-                      className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800/80 shadow-sm hover:border-indigo-500/50 hover:shadow-lg transition-all duration-200 flex flex-col justify-between"
+                      className={`group relative overflow-hidden rounded-xl sm:rounded-2xl p-3.5 sm:p-4 bg-white/95 dark:bg-slate-900/90 backdrop-blur-md border shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between ${
+                        isLiveTestItem
+                          ? "border-slate-200/80 dark:border-slate-800/80 hover:border-rose-400/60 dark:hover:border-rose-500/60 hover:shadow-rose-500/10 dark:hover:shadow-rose-950/40"
+                          : isQuizTestItem
+                            ? "border-slate-200/80 dark:border-slate-800/80 hover:border-purple-400/60 dark:hover:border-purple-500/60 hover:shadow-purple-500/10 dark:hover:shadow-purple-950/40"
+                            : "border-slate-200/80 dark:border-slate-800/80 hover:border-indigo-400/60 dark:hover:border-indigo-500/60 hover:shadow-indigo-500/10 dark:hover:shadow-indigo-950/40"
+                      }`}
                     >
-                      <div>
-                        {/* Header Badge Row */}
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-1.5 min-w-0">
+                      {/* Glowing Top Accent Rim */}
+                      <div
+                        className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-current to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none ${
+                          isLiveTestItem
+                            ? "text-rose-500"
+                            : isQuizTestItem
+                              ? "text-purple-500"
+                              : "text-indigo-500"
+                        }`}
+                      />
+
+                      {/* Primary Ambient Glowing Orb (Top-Right) */}
+                      <div
+                        className={`absolute -top-14 -right-14 w-36 h-36 rounded-full blur-2xl pointer-events-none transition-all duration-700 group-hover:scale-150 group-hover:opacity-100 ${
+                          isLiveTestItem
+                            ? "bg-rose-500/10 dark:bg-rose-500/20 group-hover:bg-rose-500/25"
+                            : isQuizTestItem
+                              ? "bg-purple-500/10 dark:bg-purple-500/20 group-hover:bg-purple-500/25"
+                              : "bg-indigo-500/10 dark:bg-indigo-500/20 group-hover:bg-indigo-500/25"
+                        }`}
+                      />
+
+                      {/* Secondary Subtle Ambient Orb (Bottom-Left) */}
+                      <div
+                        className={`absolute -bottom-10 -left-10 w-28 h-28 rounded-full blur-2xl pointer-events-none opacity-0 group-hover:opacity-70 transition-all duration-700 ${
+                          isLiveTestItem
+                            ? "bg-orange-500/10 dark:bg-rose-600/15"
+                            : isQuizTestItem
+                              ? "bg-pink-500/10 dark:bg-purple-600/15"
+                              : "bg-sky-500/10 dark:bg-cyan-500/15"
+                        }`}
+                      />
+
+                      {/* Subtle Glass Diagonal Sheen */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent dark:from-white/[0.03] dark:via-transparent dark:to-transparent opacity-60 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+                      {/* Subtle Watermark Icon in bottom-right background */}
+                      <div className="absolute -bottom-6 -right-6 pointer-events-none opacity-[0.03] dark:opacity-[0.05] group-hover:opacity-[0.09] dark:group-hover:opacity-[0.12] transition-all duration-500 transform group-hover:scale-110 group-hover:-rotate-6 text-slate-900 dark:text-white">
+                        {isLiveTestItem ? (
+                          <Zap className="w-32 h-32" />
+                        ) : isQuizTestItem ? (
+                          <Target className="w-32 h-32" />
+                        ) : (
+                          <Trophy className="w-32 h-32" />
+                        )}
+                      </div>
+
+                      <div className="relative z-10">
+                        {/* Header Details Row: Type Badge + Series Title + Date in ONE row */}
+                        <div className="flex items-center justify-between gap-1.5 mb-2 min-w-0">
+                          <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                            {/* Type Badge */}
                             <span
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                                test.type === "quiz"
-                                  ? "bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800"
-                                  : "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800"
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-2xs shrink-0 ${
+                                isLiveTestItem
+                                  ? "bg-rose-50 dark:bg-rose-950/80 text-rose-600 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800/80"
+                                  : isQuizTestItem
+                                    ? "bg-purple-50 dark:bg-purple-950/80 text-purple-600 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/80"
+                                    : "bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80"
                               }`}
                             >
-                              {test.type === "quiz" ? "Quiz" : "Mock"}
+                              {isLiveTestItem && (
+                                <span className="relative flex h-1.5 w-1.5">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
+                                </span>
+                              )}
+                              <span>
+                                {isLiveTestItem
+                                  ? "Live"
+                                  : isQuizTestItem
+                                    ? "Quiz"
+                                    : "Mock"}
+                              </span>
                             </span>
+
+                            {/* Reattempt Badge */}
                             {test.isReattempt && (
-                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800">
+                              <span className="px-1.5 py-0.5 rounded-full text-[9.5px] font-bold bg-amber-50 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80 shadow-2xs shrink-0">
                                 Reattempt
                               </span>
                             )}
+
+                            {/* Series Title Pill with distinct color */}
+                            <span
+                              className="text-[10px] sm:text-[11px] font-bold text-sky-700 dark:text-sky-300 bg-sky-50/90 dark:bg-sky-950/70 border border-sky-200/70 dark:border-sky-800/70 px-2 py-0.5 rounded-md truncate max-w-[130px] sm:max-w-[180px]"
+                              title={test.seriesTitle || "General Practice"}
+                            >
+                              {test.seriesTitle || "General Practice"}
+                            </span>
                           </div>
 
-                          <span className="text-xs font-bold text-slate-400 shrink-0">
+                          {/* Date Pill with distinct color */}
+                          <span className="text-[10px] sm:text-[11px] font-semibold text-slate-600 dark:text-slate-300 shrink-0 flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-200/70 dark:border-slate-700/70">
+                            <Clock className="w-3 h-3 text-slate-400 dark:text-slate-400" />
                             {formatDate(test.date || test.submittedAt)}
                           </span>
                         </div>
-
-                        {/* Series & Test Title */}
-                        <div
-                          className="text-xs font-bold text-indigo-600 dark:text-indigo-400 truncate mb-1"
-                          title={test.seriesTitle || "General Practice"}
-                        >
-                          {test.seriesTitle || "General Practice"}
-                        </div>
                         <h3
-                          className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-snug line-clamp-2 mb-3.5 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                          className="text-sm sm:text-[15px] font-bold text-slate-900 dark:text-white leading-snug line-clamp-2 mb-2.5 min-h-[2.5rem] flex items-center group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors"
                           title={test.title || test.testTitle}
                         >
                           {test.title || test.testTitle}
                         </h3>
 
                         {/* 3 Metric Badges */}
-                        <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200/60 dark:border-slate-800 mb-3.5 text-center">
+                        <div className="grid grid-cols-3 gap-1.5 py-2 px-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-850/70 border border-slate-200/60 dark:border-slate-800 mb-2.5 text-center shadow-inner group-hover:border-slate-300/80 dark:group-hover:border-slate-700/80 transition-colors">
                           <div>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                            <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block">
                               Score
                             </span>
-                            <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                            <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
                               {test.type === "quiz"
                                 ? totalMarks
                                 : `${score}/${totalMarks}`}
                             </span>
                           </div>
                           <div className="border-x border-slate-200/80 dark:border-slate-800">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                            <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block">
                               Accuracy
                             </span>
                             <span
-                              className={`text-sm sm:text-base font-black ${
+                              className={`text-xs sm:text-sm font-black ${
                                 accuracy >= 80
                                   ? "text-emerald-600 dark:text-emerald-400"
                                   : accuracy >= 60
@@ -653,34 +832,44 @@ export default function AttemptedTests() {
                             </span>
                           </div>
                           <div>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                            <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block">
                               Time
                             </span>
-                            <span className="text-sm sm:text-base font-black text-slate-700 dark:text-slate-300">
+                            <span className="text-xs sm:text-sm font-black text-slate-700 dark:text-slate-300">
                               {formatTime(test.timeSpent || test.timeTaken)}
                             </span>
                           </div>
                         </div>
 
                         {/* Mini Multi-Color Accuracy Bar */}
-                        <div className="space-y-1 mb-4">
-                          <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
-                            <span>Question Breakdown</span>
+                        <div className="space-y-1 mb-3">
+                          <div className="flex items-center justify-between text-[10.5px] font-semibold text-slate-400">
+                            <span>Breakdown</span>
                             <span>
-                              {correct}C · {wrong}W · {skipped}S
+                              <strong className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                {correct}C
+                              </strong>{" "}
+                              ·{" "}
+                              <strong className="text-rose-600 dark:text-rose-400 font-bold">
+                                {wrong}W
+                              </strong>{" "}
+                              ·{" "}
+                              <strong className="text-slate-400 font-bold">
+                                {skipped}S
+                              </strong>
                             </span>
                           </div>
-                          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
+                          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex shadow-inner">
                             {Number(correctPct) > 0 && (
                               <div
-                                className="h-full bg-emerald-500"
+                                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400"
                                 style={{ width: `${correctPct}%` }}
                                 title={`Correct: ${correct}`}
                               />
                             )}
                             {Number(wrongPct) > 0 && (
                               <div
-                                className="h-full bg-rose-500"
+                                className="h-full bg-gradient-to-r from-rose-500 to-pink-500"
                                 style={{ width: `${wrongPct}%` }}
                                 title={`Wrong: ${wrong}`}
                               />
@@ -699,20 +888,21 @@ export default function AttemptedTests() {
                       {/* Card Action CTAs */}
                       {(() => {
                         const isLiveItem =
-                          checkIsLive(test) ||
-                          test.isLive ||
+                          isLiveTestItem ||
                           test.type === "live-tests" ||
                           test.type === "live" ||
                           test.category === "live-tests";
                         const isSolExpired =
                           isLiveItem && checkIsSolutionExpired(test);
                         return (
-                          <div className="flex items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+                          <div className="relative z-10 flex items-center gap-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/80">
                             <Link
                               to={`/test-result/${seriesId}/${testId}`}
-                              className="flex-1 py-2 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-600 text-indigo-700 dark:text-indigo-300 hover:text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all border border-indigo-200 dark:border-indigo-800 hover:border-indigo-600 shadow-sm"
+                              className="relative overflow-hidden group/btn flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-xs hover:shadow-md hover:shadow-indigo-500/25 active:scale-[0.98]"
                             >
-                              <Eye className="w-4 h-4" />
+                              {/* Shimmer sweep on hover */}
+                              <span className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover/btn:translate-x-[300%] transition-transform duration-700 ease-out pointer-events-none" />
+                              <Eye className="w-3.5 h-3.5 transition-transform duration-200 group-hover/btn:scale-110" />
                               <span>View Report</span>
                             </Link>
                             {isSolExpired ? (
@@ -725,11 +915,11 @@ export default function AttemptedTests() {
                             ) : !isLiveItem ? (
                               <Link
                                 to={`/test/${seriesId}/${testId}/instructions`}
-                                className="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-colors"
+                                className="group/retake py-2 px-3 rounded-xl bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200/90 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all border border-slate-200/70 dark:border-slate-700/70 hover:border-slate-300 dark:hover:border-slate-600 active:scale-[0.98]"
                                 title="Reattempt this test"
                               >
-                                <RotateCcw className="w-4 h-4" />
-                                <span className="hidden sm:inline">Retake</span>
+                                <RotateCcw className="w-3.5 h-3.5 transition-transform duration-500 group-hover/retake:-rotate-180" />
+                                <span>Retake</span>
                               </Link>
                             ) : null}
                           </div>
@@ -771,12 +961,19 @@ export default function AttemptedTests() {
                               <div className="flex items-center gap-1.5 mb-0.5">
                                 <span
                                   className={`px-1.5 py-0.25 rounded text-[9px] font-black uppercase ${
-                                    test.type === "quiz"
-                                      ? "bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
-                                      : "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
+                                    checkIsLive(test)
+                                      ? "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                                      : test.type === "quiz" ||
+                                          checkIsQuiz(test)
+                                        ? "bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
+                                        : "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
                                   }`}
                                 >
-                                  {test.type === "quiz" ? "Quiz" : "Mock"}
+                                  {checkIsLive(test)
+                                    ? "Live"
+                                    : test.type === "quiz" || checkIsQuiz(test)
+                                      ? "Quiz"
+                                      : "Mock"}
                                 </span>
                                 {test.isReattempt && (
                                   <span className="text-[10px] font-bold text-amber-600">
@@ -857,10 +1054,11 @@ export default function AttemptedTests() {
                                   <div className="inline-flex items-center gap-1.5">
                                     <Link
                                       to={`/test-result/${seriesId}/${testId}`}
-                                      className="px-3 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-600 hover:text-white font-bold text-xs transition-colors"
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-600 hover:text-white font-bold text-xs transition-colors shadow-xs"
                                       title="View Result Report"
                                     >
-                                      View
+                                      <Eye className="w-3.5 h-3.5" />
+                                      <span>View Report</span>
                                     </Link>
                                     {isSolExpired ? (
                                       <span
@@ -872,10 +1070,11 @@ export default function AttemptedTests() {
                                     ) : !isLiveItem ? (
                                       <Link
                                         to={`/test/${seriesId}/${testId}/instructions`}
-                                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs transition-colors"
                                         title="Reattempt Test"
                                       >
                                         <RotateCcw className="w-3.5 h-3.5" />
+                                        <span>Retake</span>
                                       </Link>
                                     ) : null}
                                   </div>

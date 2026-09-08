@@ -19,6 +19,11 @@ import { botProtectionMiddleware } from "../../middleware/botProtection.middlewa
 import { isFeatureEnabled } from "../../services/SettingsService.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import {
+  getEnrolledSeriesIds,
+  getEnrolledExamIds,
+  getEnrolledStudyMaterialIds,
+} from "../../services/EnrollmentService.js";
 
 const router = Router();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -280,16 +285,42 @@ router.get("/me", protect, responseCache("auth-me", 120), async (req, res) => {
       await storeCsrfToken(req.authToken, csrfToken);
     }
 
+    let enrolledSeries = [];
+    let enrolledExams = [];
+    let enrolledStudyMaterials = [];
+
+    try {
+      [enrolledSeries, enrolledExams, enrolledStudyMaterials] =
+        await Promise.all([
+          getEnrolledSeriesIds(dbHelpers, user.id).catch(() => []),
+          getEnrolledExamIds(dbHelpers, user.id).catch(() => []),
+          getEnrolledStudyMaterialIds(dbHelpers, user.id).catch(() => []),
+        ]);
+    } catch {
+      // Fall back to user record properties
+      enrolledSeries =
+        safeUser.enrolledSeries ?? safeUser.enrolled_series ?? [];
+      enrolledExams = safeUser.enrolledExams ?? safeUser.enrolled_exams ?? [];
+      enrolledStudyMaterials =
+        safeUser.enrolledStudyMaterials ??
+        safeUser.enrolled_study_materials ??
+        [];
+    }
+
     res.json({
       success: true,
       data: {
         ...safeUser,
         permissions,
-        enrolledSeries: [],
-        enrolledExams: [],
-        enrolledStudyMaterials: [],
-        attemptedTests: {},
-        attemptedTestIds: [],
+        enrolledSeries: Array.isArray(enrolledSeries) ? enrolledSeries : [],
+        enrolledExams: Array.isArray(enrolledExams) ? enrolledExams : [],
+        enrolledStudyMaterials: Array.isArray(enrolledStudyMaterials)
+          ? enrolledStudyMaterials
+          : [],
+        attemptedTests:
+          safeUser.attemptedTests ?? safeUser.attempted_tests ?? {},
+        attemptedTestIds:
+          safeUser.attemptedTestIds ?? safeUser.attempted_test_ids ?? [],
         csrfToken,
       },
     });

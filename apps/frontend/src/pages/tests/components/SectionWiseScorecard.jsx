@@ -36,7 +36,7 @@ export default function SectionWiseScorecard({
       </div>
       {/* Section Performance Report Card Table */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-2">
+        <div className="p-3 sm:p-4 md:p-5 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-base font-extrabold text-gray-900 dark:text-white">
               Section-Wise Scorecard
@@ -54,21 +54,33 @@ export default function SectionWiseScorecard({
           <table className="w-full text-left border-collapse text-xs sm:text-sm">
             <thead>
               <tr className="bg-slate-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-700 text-[11px] sm:text-xs font-black text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                <th className="py-3 px-3 sm:px-4">Section / Subject</th>
-                <th className="py-3 px-2 sm:px-3 text-center">Total Qs</th>
-                <th className="py-3 px-2 sm:px-3 text-center">Attempted</th>
-                <th className="py-3 px-2 sm:px-3 text-center text-emerald-600 dark:text-emerald-400">
+                <th className="py-2.5 px-2.5 sm:py-3 sm:px-4">
+                  Section / Subject
+                </th>
+                <th className="py-2.5 px-1.5 sm:py-3 sm:px-3 text-center">
+                  Total Qs
+                </th>
+                <th className="py-2.5 px-1.5 sm:py-3 sm:px-3 text-center">
+                  Attempted
+                </th>
+                <th className="py-2.5 px-1.5 sm:py-3 sm:px-3 text-center text-emerald-600 dark:text-emerald-400">
                   Correct
                 </th>
-                <th className="py-3 px-2 sm:px-3 text-center text-rose-600 dark:text-rose-400">
+                <th className="py-2.5 px-1.5 sm:py-3 sm:px-3 text-center text-rose-600 dark:text-rose-400">
                   Incorrect
                 </th>
-                <th className="py-3 px-2 sm:px-3 text-center text-slate-500">
+                <th className="py-2.5 px-1.5 sm:py-3 sm:px-3 text-center text-slate-500">
                   Skipped
                 </th>
-                <th className="py-3 px-3 sm:px-4 text-center">Accuracy</th>
-                <th className="py-3 px-2 sm:px-3 text-center">Score</th>
-                <th className="py-3 px-3 sm:px-4 text-right">Time Spent</th>
+                <th className="py-2.5 px-2 sm:py-3 sm:px-4 text-center">
+                  Accuracy
+                </th>
+                <th className="py-2.5 px-1.5 sm:py-3 sm:px-3 text-center">
+                  Score
+                </th>
+                <th className="py-2.5 px-2 sm:py-3 sm:px-4 text-right">
+                  Time Spent
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700 font-medium">

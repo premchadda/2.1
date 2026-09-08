@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import PropTypes from "prop-types";
 import {
   BookOpen,
@@ -11,6 +11,8 @@ import {
   CheckCircle,
   XCircle,
   Lightbulb,
+  Filter,
+  Check,
 } from "lucide-react";
 import MathRenderer from "../../../shared/components/MathRenderer";
 import sanitizeHtml from "../../../shared/lib/sanitizeHtml";
@@ -25,6 +27,7 @@ export default function TestSolutionsList({
   setSolutionSectionFilter,
   questionsInActiveSection = [],
   statusCounts = {},
+  globalStatusCounts = {},
   solutionFilter = "all",
   setSolutionFilter,
   handleSolutionMode,
@@ -37,164 +40,354 @@ export default function TestSolutionsList({
   normalizeResultOption,
   navigate,
 }) {
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const filterMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!filterMenuOpen) return;
+    const handleClickOutside = (e) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(e.target)) {
+        setFilterMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [filterMenuOpen]);
+
+  const counts =
+    globalStatusCounts && Object.keys(globalStatusCounts).length > 0
+      ? globalStatusCounts
+      : statusCounts;
+
+  const attemptedCount =
+    counts.attempted ?? questions.filter((q) => !isSkippedQuestion?.(q)).length;
+  const correctCount = counts.correct ?? 0;
+  const wrongCount = counts.wrong ?? 0;
+  const skippedCount = counts.skipped ?? 0;
+  const markedCount = counts.marked ?? 0;
+
+  const filterOptions = [
+    {
+      key: "all",
+      label: "All Questions",
+      shortLabel: "All",
+      count: questions.length,
+      emoji: "🎛️",
+    },
+    {
+      key: "attempted",
+      label: "Attempted",
+      shortLabel: "Attempted",
+      count: attemptedCount,
+      emoji: "⚡",
+    },
+    {
+      key: "wrong",
+      label: "Wrong",
+      shortLabel: "Wrong",
+      count: wrongCount,
+      emoji: "❌",
+    },
+    {
+      key: "unattempted",
+      label: "Skipped",
+      shortLabel: "Skipped",
+      count: skippedCount,
+      emoji: "⏸️",
+    },
+    {
+      key: "marked",
+      label: "Marked",
+      shortLabel: "Marked",
+      count: markedCount,
+      emoji: "⭐",
+    },
+    {
+      key: "correct",
+      label: "Correct",
+      shortLabel: "Correct",
+      count: correctCount,
+      emoji: "✅",
+    },
+  ];
+
+  // Normalize solutionFilter into an array of active keys
+  const activeFilterKeys = useMemo(() => {
+    if (Array.isArray(solutionFilter)) {
+      return solutionFilter.length === 0 ? ["all"] : solutionFilter;
+    }
+    if (
+      typeof solutionFilter === "string" &&
+      solutionFilter &&
+      solutionFilter !== "all"
+    ) {
+      if (solutionFilter === "skipped" || solutionFilter === "skip") {
+        return ["unattempted"];
+      }
+      return [solutionFilter];
+    }
+    return ["all"];
+  }, [solutionFilter]);
+
+  const isAllSelected = activeFilterKeys.includes("all");
+  const isFilterActive = !isAllSelected && activeFilterKeys.length > 0;
+
+  const handleToggleFilter = (key) => {
+    setSolutionSectionFilter?.("all");
+
+    if (key === "all") {
+      setSolutionFilter?.(["all"]);
+      return;
+    }
+
+    let updated;
+    if (activeFilterKeys.includes(key)) {
+      updated = activeFilterKeys.filter((k) => k !== key && k !== "all");
+      if (updated.length === 0) {
+        updated = ["all"];
+      }
+    } else {
+      updated = [...activeFilterKeys.filter((k) => k !== "all"), key];
+    }
+    setSolutionFilter?.(updated);
+  };
+
   return (
     <section
       ref={sectionRef}
       data-section-id="solutions"
-      className="scroll-mt-4 pb-12 space-y-4"
+      className="scroll-mt-2 pb-12"
     >
-      <div className="flex items-center gap-3 pt-2">
-        <div className="flex-1 border-t-2 border-dashed border-emerald-200 dark:border-emerald-800" />
-        <span className="px-3.5 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs">
-          <BookOpen className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />{" "}
-          Solutions & Review
-        </span>
-        <div className="flex-1 border-t-2 border-dashed border-emerald-200 dark:border-emerald-800" />
-      </div>
-
       {questions.length > 0 ? (
         <>
-          <div className="sticky top-0 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-md space-y-2.5 mb-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold shrink-0">
-                  <BookOpen className="w-4 h-4" />
+          {/* Sticky Header: Edge-to-Edge flush with zero top/side gap and opaque background */}
+          <div className="sticky top-0 z-20 w-full bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-xs">
+            <div className="max-w-5xl mx-auto px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 space-y-2">
+              {/* Header in ONE clean row: Solutions & Explanations, Showing X of Y questions, Interactive Review button */}
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold shrink-0">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-xs sm:text-base font-extrabold text-gray-900 dark:text-white leading-tight truncate">
+                      Solutions & Explanations
+                    </h3>
+                    <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-semibold truncate">
+                      Showing {filteredQuestions.length} of {questions.length}{" "}
+                      questions
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-white leading-tight">
-                    Solutions & Explanations
-                  </h3>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold">
-                    Showing {filteredQuestions.length} of {questions.length}{" "}
-                    questions
-                  </p>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    data-testid="interactive-review-btn"
+                    onClick={handleSolutionMode}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                    title="Interactive Review"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />{" "}
+                    <span className="hidden xs:inline">Interactive </span>Review
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 ml-auto">
-                <button
-                  onClick={handleSolutionMode}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />{" "}
-                  <span className="hidden xs:inline">Interactive</span> Review
-                </button>
-                <button
-                  onClick={() =>
-                    setLanguage?.((lang) => {
-                      const next = lang === "en" ? "hi" : "en";
-                      localStorage.setItem("trstprep_language", next);
-                      document.documentElement.lang = next;
-                      return next;
-                    })
-                  }
-                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-slate-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 shadow-2xs font-bold text-xs transition-colors cursor-pointer"
-                >
-                  <Globe className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
-                  <span className="uppercase">{language}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Section-Wise Filter Pills */}
-            {resultSections.length > 1 && (
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 pt-0.5 -mx-1 px-1">
-                <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500 shrink-0">
-                  Section:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSolutionSectionFilter?.("all")}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 border cursor-pointer whitespace-nowrap ${
-                    solutionSectionFilter === "all"
-                      ? "bg-indigo-600 border-indigo-600 text-white shadow-xs"
-                      : "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  }`}
-                >
-                  All Sections ({questions.length})
-                </button>
-                {resultSections.map((sec) => {
-                  const secCount = questions.filter(
-                    (q) => (q.section || q.subject || "General") === sec,
-                  ).length;
-                  const isSecActive = solutionSectionFilter === sec;
-                  return (
+              {/* Single Row: Scrollable Sections on Left + Fixed Filter Emoji Button on Right */}
+              <div className="flex items-center gap-1.5 pt-1 pb-0.5 min-w-0">
+                {/* Scrollable Section Pills */}
+                <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar py-0.5">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
-                      key={sec}
                       type="button"
-                      onClick={() => setSolutionSectionFilter?.(sec)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 border cursor-pointer whitespace-nowrap ${
-                        isSecActive
+                      data-testid="section-pill-all"
+                      onClick={() => setSolutionSectionFilter?.("all")}
+                      className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border cursor-pointer whitespace-nowrap ${
+                        solutionSectionFilter === "all"
                           ? "bg-indigo-600 border-indigo-600 text-white shadow-xs"
                           : "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
                       }`}
                     >
-                      {sec} ({secCount})
+                      All Sections ({questions.length})
                     </button>
-                  );
-                })}
-              </div>
-            )}
+                    {resultSections.map((sec) => {
+                      const secCount = questions.filter(
+                        (q) => (q.section || q.subject || "General") === sec,
+                      ).length;
+                      const isSecActive = solutionSectionFilter === sec;
+                      return (
+                        <button
+                          key={sec}
+                          type="button"
+                          data-testid={`section-pill-${sec}`}
+                          onClick={() => setSolutionSectionFilter?.(sec)}
+                          className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border cursor-pointer whitespace-nowrap ${
+                            isSecActive
+                              ? "bg-indigo-600 border-indigo-600 text-white shadow-xs"
+                              : "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          {sec} ({secCount})
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-            {/* Status Filter Buttons */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2 border-t border-gray-100 dark:border-gray-700 -mx-1 px-1">
-              {[
-                {
-                  key: "all",
-                  label: `All (${questionsInActiveSection.length})`,
-                },
-                {
-                  key: "correct",
-                  label: `✓ Correct (${statusCounts.correct || 0})`,
-                  color:
-                    "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800",
-                },
-                {
-                  key: "wrong",
-                  label: `✗ Wrong (${statusCounts.wrong || 0})`,
-                  color:
-                    "text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800",
-                },
-                {
-                  key: "unattempted",
-                  label: `— Skipped (${statusCounts.skipped || 0})`,
-                  color:
-                    "text-slate-700 dark:text-gray-200 bg-slate-50 dark:bg-gray-900 border-slate-200 dark:border-gray-700",
-                },
-                ...(statusCounts.marked > 0
-                  ? [
-                      {
-                        key: "marked",
-                        label: `★ Marked (${statusCounts.marked})`,
-                        color:
-                          "text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800",
-                      },
-                    ]
-                  : []),
-              ].map((filter) => {
-                const isActive = solutionFilter === filter.key;
-                const baseClass =
-                  filter.color ||
-                  "text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700";
-                return (
+                {/* Fixed Filter Emoji on Right */}
+                <div
+                  className="relative shrink-0 pl-1.5 border-l border-gray-200 dark:border-gray-700 flex items-center"
+                  ref={filterMenuRef}
+                >
                   <button
-                    key={filter.key}
-                    onClick={() => setSolutionFilter?.(filter.key)}
-                    className={`px-3 py-1 rounded-xl border text-xs font-bold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
-                      isActive
-                        ? "bg-slate-900 border-slate-900 text-white shadow-sm"
-                        : `hover:shadow-xs ${baseClass}`
+                    type="button"
+                    data-testid="solutions-filter-btn"
+                    onClick={() => setFilterMenuOpen((prev) => !prev)}
+                    className={`relative w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl text-sm sm:text-base border transition-all cursor-pointer shadow-xs ${
+                      isFilterActive
+                        ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
+                        : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-750 text-gray-700 dark:text-gray-200"
                     }`}
+                    aria-label="Filter"
+                    title={
+                      isFilterActive
+                        ? `Filtered by: ${activeFilterKeys.join(", ")}`
+                        : "Filter Questions"
+                    }
+                    aria-expanded={filterMenuOpen}
+                    aria-haspopup="true"
                   >
-                    {filter.label}
+                    <Filter
+                      className={`w-4 h-4 transition-colors ${
+                        isFilterActive
+                          ? "text-white"
+                          : "text-indigo-600 dark:text-indigo-400"
+                      }`}
+                    />
+                    {isFilterActive && (
+                      <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-rose-500 text-white text-[10px] font-black rounded-full flex items-center justify-center ring-2 ring-white dark:ring-gray-900 leading-none">
+                        {activeFilterKeys.length}
+                      </span>
+                    )}
                   </button>
-                );
-              })}
+
+                  {/* Backdrop */}
+                  {filterMenuOpen && (
+                    <div
+                      className="fixed inset-0 bg-slate-900/30 backdrop-blur-2xs z-40 animate-in fade-in duration-150"
+                      onClick={() => setFilterMenuOpen(false)}
+                    />
+                  )}
+
+                  {/* Filter Dropdown Popover (Opens downwards below filter button) */}
+                  {filterMenuOpen && (
+                    <div
+                      data-testid="solutions-filter-menu"
+                      className="absolute right-0 top-full mt-1.5 w-[calc(100vw-32px)] max-w-[270px] sm:w-64 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 py-2 sm:py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                      style={{ maxHeight: "min(75vh, 480px)" }}
+                    >
+                      <div className="px-3.5 py-2 sm:py-1.5 border-b border-gray-100 dark:border-gray-700/80 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Filter className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                          <span className="text-xs sm:text-[10px] font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                            Filter Status (All Sections)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isFilterActive && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleFilter("all")}
+                              className="text-xs sm:text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                            >
+                              Reset
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setFilterMenuOpen(false)}
+                            className="sm:hidden text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 cursor-pointer"
+                            aria-label="Close"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                      {/* Multi-select options with checkboxes */}
+                      <div className="py-1 max-h-[55vh] sm:max-h-none overflow-y-auto">
+                        {filterOptions.map((opt) => {
+                          const isSelected =
+                            opt.key === "all"
+                              ? isAllSelected
+                              : activeFilterKeys.includes(opt.key);
+                          return (
+                            <button
+                              key={opt.key}
+                              type="button"
+                              data-testid={`filter-option-${opt.key}`}
+                              onClick={() => handleToggleFilter(opt.key)}
+                              className={`w-full flex items-center justify-between px-3 sm:px-3 py-2 sm:py-1.5 text-xs font-bold transition-colors cursor-pointer text-left ${
+                                isSelected
+                                  ? "bg-indigo-50/80 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-extrabold"
+                                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750"
+                              }`}
+                            >
+                              <span className="flex items-center gap-2 min-w-0">
+                                {/* Checkbox */}
+                                <span
+                                  className={`w-4 h-4 rounded-md border flex items-center justify-center transition-colors shrink-0 ${
+                                    isSelected
+                                      ? "bg-indigo-600 border-indigo-600 text-white"
+                                      : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                                  }`}
+                                >
+                                  {isSelected && (
+                                    <Check className="w-3 h-3 stroke-[3]" />
+                                  )}
+                                </span>
+                                <span className="w-4 text-center leading-none text-sm shrink-0">
+                                  {opt.emoji}
+                                </span>
+                                <span className="truncate">{opt.label}</span>
+                              </span>
+                              <span
+                                className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ml-1.5 ${
+                                  isSelected
+                                    ? "bg-indigo-600 text-white"
+                                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                                }`}
+                              >
+                                {opt.count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Done button */}
+                      <div className="px-3 pt-1.5 pb-1 border-t border-gray-100 dark:border-gray-700/80 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setFilterMenuOpen(false)}
+                          className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Question Cards List */}
-          <div className="space-y-3.5">
+          <div className="max-w-5xl mx-auto px-3 sm:px-4 md:px-6 pt-3 space-y-3.5">
             {filteredQuestions.map((q, idx) => {
               const isCorrect = isCorrectQuestion?.(q);
               const isSkipped = isSkippedQuestion?.(q);
@@ -448,11 +641,13 @@ export default function TestSolutionsList({
           </div>
         </>
       ) : (
-        <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 border-dashed">
-          <BookOpen className="w-12 h-12 text-gray-300 dark:text-gray-500 mx-auto mb-3" />
-          <p className="text-sm font-bold text-gray-500 dark:text-gray-400">
-            No questions available for analysis.
-          </p>
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 md:px-6 py-8">
+          <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 border-dashed">
+            <BookOpen className="w-12 h-12 text-gray-300 dark:text-gray-500 mx-auto mb-3" />
+            <p className="text-sm font-bold text-gray-500 dark:text-gray-400">
+              No questions available for analysis.
+            </p>
+          </div>
         </div>
       )}
     </section>
@@ -468,7 +663,11 @@ TestSolutionsList.propTypes = {
   setSolutionSectionFilter: PropTypes.func,
   questionsInActiveSection: PropTypes.array,
   statusCounts: PropTypes.object,
-  solutionFilter: PropTypes.string,
+  globalStatusCounts: PropTypes.object,
+  solutionFilter: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.arrayOf(PropTypes.string),
+  ]),
   setSolutionFilter: PropTypes.func,
   handleSolutionMode: PropTypes.func,
   language: PropTypes.string,
