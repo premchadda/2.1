@@ -9,6 +9,9 @@ import {
   Eye,
   EyeOff,
   Sparkles,
+  RotateCcw,
+  Check,
+  X,
 } from "lucide-react";
 import MathRenderer from "../../../shared/components/MathRenderer";
 import DifficultyBadge from "../../../shared/components/common/DifficultyBadge";
@@ -27,6 +30,9 @@ export default function QuestionViewer({
   test,
   reviewMode,
   interactiveReviewEnabled,
+  reattemptMode = false,
+  toggleReattemptMode,
+  clearCurrentReattempt,
   reviewCurrentResponse,
   totalReviewTime,
   questionTimers = {},
@@ -48,6 +54,11 @@ export default function QuestionViewer({
   const [showSocraticHint, setShowSocraticHint] = useState(false);
   const currentQId = currentQ?.id || currentQ?._id || currentQuestion;
   const isQuestionSaved = savedQuestions.has(String(currentQId));
+  const isReattemptActive = Boolean(
+    reviewMode && (reattemptMode || interactiveReviewEnabled),
+  );
+  const hasReattemptedCurrentQ =
+    reviewCurrentResponse !== undefined && reviewCurrentResponse !== null;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 md:p-5 mb-3 border border-gray-100 dark:border-gray-700 flex-1">
@@ -298,7 +309,8 @@ export default function QuestionViewer({
       {currentQ?.type === "true-false" && (
         <div className="flex gap-4">
           {[true, false].map((val) => {
-            const isSelected = answers[currentQuestion] === val;
+            const isOriginalSelected = answers[currentQuestion] === val;
+            const isReattemptSelected = reviewCurrentResponse === val;
             const rawCorrect =
               currentQ.correctOption ??
               currentQ.correct_option ??
@@ -312,22 +324,38 @@ export default function QuestionViewer({
             let btnClass =
               "border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700";
             if (reviewMode) {
-              if (isCorrectOption)
+              if (isReattemptActive && !hasReattemptedCurrentQ) {
+                btnClass =
+                  "border-gray-200 dark:border-gray-600 hover:border-indigo-400 hover:bg-indigo-50/50 text-gray-700 dark:text-gray-300 cursor-pointer";
+              } else if (isCorrectOption) {
                 btnClass =
                   "border-green-500 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200";
-              else if (isSelected && !isCorrectOption)
+              } else if (
+                (isReattemptActive
+                  ? isReattemptSelected
+                  : isOriginalSelected) &&
+                !isCorrectOption
+              ) {
                 btnClass =
                   "border-red-500 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200";
-            } else if (isSelected) {
+              }
+            } else if (isOriginalSelected) {
               btnClass =
                 "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 shadow-sm ring-1 ring-indigo-600";
             }
             return (
               <button
                 key={String(val)}
-                onClick={() => !reviewMode && handleAnswer(val)}
-                disabled={reviewMode}
-                className={`flex-1 border-2 rounded-xl font-bold transition-all ${btnClass} ${reviewMode ? "cursor-default p-2.5 sm:p-3 text-xs sm:text-sm" : "p-3 sm:p-3.5 text-sm sm:text-base cursor-pointer"}`}
+                onClick={() => {
+                  if (reviewMode && !isReattemptActive) return;
+                  handleAnswer(val);
+                }}
+                disabled={reviewMode && !isReattemptActive}
+                className={`flex-1 border-2 rounded-xl font-bold transition-all ${btnClass} ${
+                  reviewMode && !isReattemptActive
+                    ? "cursor-default p-2.5 sm:p-3 text-xs sm:text-sm"
+                    : "p-3 sm:p-3.5 text-sm sm:text-base cursor-pointer"
+                }`}
               >
                 {val ? "True" : "False"}
               </button>
@@ -346,135 +374,236 @@ export default function QuestionViewer({
               (() => {
                 const resolvedCorrectIdx = resolveCorrectIndex(currentQ);
                 const originalResponse = answers[currentQuestion];
-                const isSelected = originalResponse === idx;
-                const isCurrentCompared = reviewCurrentResponse === idx;
+                const isOriginalChosen = originalResponse === idx;
+                const isReattemptChosen = reviewCurrentResponse === idx;
                 const isCorrectOption =
                   resolvedCorrectIdx !== null && idx === resolvedCorrectIdx;
-                const hasReviewAttempt =
-                  reviewCurrentResponse !== undefined &&
-                  reviewCurrentResponse !== null;
+
+                // When reattempt is active, answers are revealed only AFTER user reattempts
                 const revealReviewAnswers =
-                  !interactiveReviewEnabled || hasReviewAttempt;
-                const isDifferentReviewAttempt =
-                  interactiveReviewEnabled &&
-                  isCurrentCompared &&
-                  originalResponse !== idx;
-                const isSameReviewAttempt =
-                  interactiveReviewEnabled &&
-                  isCurrentCompared &&
-                  originalResponse === idx;
-                const optionButtonClass = reviewMode
-                  ? isCorrectOption && revealReviewAnswers
-                    ? "border-green-500 bg-green-50 dark:bg-green-900/20"
-                    : isDifferentReviewAttempt
-                      ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-                      : isSameReviewAttempt
-                        ? "border-sky-500 bg-sky-50 dark:bg-sky-900/20"
-                        : revealReviewAnswers && isSelected
-                          ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20"
-                          : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700"
-                  : isSelected
-                    ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 shadow-sm ring-1 ring-indigo-600"
-                    : "border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700";
-                const optionIndicatorClass = reviewMode
-                  ? isCorrectOption && revealReviewAnswers
-                    ? "border-green-600 bg-white dark:bg-gray-800"
-                    : isDifferentReviewAttempt
-                      ? "border-red-500 bg-white dark:bg-gray-800"
-                      : isSameReviewAttempt
-                        ? "border-sky-500 bg-white dark:bg-gray-800"
-                        : revealReviewAnswers && isSelected
-                          ? "border-amber-500 bg-white dark:bg-gray-800"
-                          : "border-gray-300 dark:border-gray-500"
-                  : isSelected
-                    ? "border-indigo-600 bg-white dark:bg-gray-800"
-                    : "border-gray-300 dark:border-gray-500 group-hover:border-indigo-400 dark:group-hover:border-indigo-500";
-                const optionTextClass = reviewMode
-                  ? isCorrectOption && revealReviewAnswers
-                    ? "text-green-900 dark:text-green-200 font-medium"
-                    : isDifferentReviewAttempt
-                      ? "text-red-900 dark:text-red-200 font-medium"
-                      : isSameReviewAttempt
-                        ? "text-sky-900 dark:text-sky-200 font-medium"
-                        : revealReviewAnswers && isSelected
-                          ? "text-amber-900 dark:text-amber-200 font-medium"
-                          : "text-gray-700 dark:text-gray-300"
-                  : isSelected
-                    ? "text-indigo-900 dark:text-indigo-200 font-medium"
-                    : "text-gray-700 dark:text-gray-300";
+                  !isReattemptActive || hasReattemptedCurrentQ;
+
+                let optionButtonClass = "";
+                let optionIndicatorClass = "";
+                let optionTextClass = "";
+
+                if (reviewMode) {
+                  if (isReattemptActive && !hasReattemptedCurrentQ) {
+                    // Fresh reattempt state: completely neutral and clickable
+                    optionButtonClass =
+                      "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 cursor-pointer";
+                    optionIndicatorClass =
+                      "border-gray-300 dark:border-gray-500 group-hover:border-indigo-400";
+                    optionTextClass = "text-gray-700 dark:text-gray-300";
+                  } else if (isReattemptActive && hasReattemptedCurrentQ) {
+                    // Reattempted feedback state
+                    if (isCorrectOption) {
+                      optionButtonClass =
+                        "border-green-500 bg-green-50 dark:bg-green-900/20 ring-1 ring-green-500/40";
+                      optionIndicatorClass =
+                        "border-green-600 bg-white dark:bg-gray-800 text-green-600";
+                      optionTextClass =
+                        "text-green-900 dark:text-green-200 font-medium";
+                    } else if (isReattemptChosen && !isCorrectOption) {
+                      optionButtonClass =
+                        "border-red-500 bg-red-50 dark:bg-red-900/20 ring-1 ring-red-400/40";
+                      optionIndicatorClass =
+                        "border-red-500 bg-white dark:bg-gray-800 text-red-500";
+                      optionTextClass =
+                        "text-red-900 dark:text-red-200 font-medium";
+                    } else if (isOriginalChosen && !isReattemptChosen) {
+                      optionButtonClass =
+                        "border-amber-400 dark:border-amber-600 bg-amber-50/70 dark:bg-amber-900/20";
+                      optionIndicatorClass =
+                        "border-amber-500 bg-white dark:bg-gray-800 text-amber-500";
+                      optionTextClass =
+                        "text-amber-900 dark:text-amber-200 font-medium";
+                    } else {
+                      optionButtonClass =
+                        "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700";
+                      optionIndicatorClass =
+                        "border-gray-300 dark:border-gray-500";
+                      optionTextClass = "text-gray-700 dark:text-gray-300";
+                    }
+                  } else {
+                    // Standard review mode (not reattempt mode)
+                    if (isCorrectOption) {
+                      optionButtonClass =
+                        "border-green-500 bg-green-50 dark:bg-green-900/20";
+                      optionIndicatorClass =
+                        "border-green-600 bg-white dark:bg-gray-800";
+                      optionTextClass =
+                        "text-green-900 dark:text-green-200 font-medium";
+                    } else if (isOriginalChosen && !isCorrectOption) {
+                      optionButtonClass =
+                        "border-red-500 bg-red-50 dark:bg-red-900/20";
+                      optionIndicatorClass =
+                        "border-red-500 bg-white dark:bg-gray-800";
+                      optionTextClass =
+                        "text-red-900 dark:text-red-200 font-medium";
+                    } else {
+                      optionButtonClass =
+                        "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700";
+                      optionIndicatorClass =
+                        "border-gray-300 dark:border-gray-500";
+                      optionTextClass = "text-gray-700 dark:text-gray-300";
+                    }
+                  }
+                } else {
+                  // Test taking mode
+                  if (isOriginalChosen) {
+                    optionButtonClass =
+                      "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 shadow-sm ring-1 ring-indigo-600";
+                    optionIndicatorClass =
+                      "border-indigo-600 bg-white dark:bg-gray-800";
+                    optionTextClass =
+                      "text-indigo-900 dark:text-indigo-200 font-medium";
+                  } else {
+                    optionButtonClass =
+                      "border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700";
+                    optionIndicatorClass =
+                      "border-gray-300 dark:border-gray-500 group-hover:border-indigo-400 dark:group-hover:border-indigo-500";
+                    optionTextClass = "text-gray-700 dark:text-gray-300";
+                  }
+                }
 
                 return (
                   <button
                     key={`option-${idx}`}
-                    onClick={() => handleAnswer(idx)}
-                    className={`group flex items-start text-left w-full border-2 rounded-xl transition-all duration-200 select-none cursor-pointer ${optionButtonClass} ${reviewMode ? "p-2 sm:p-2.5 cursor-default" : "p-2.5 sm:p-3"}`}
+                    data-testid={`option-${idx}`}
+                    onClick={() => {
+                      if (reviewMode && !isReattemptActive) return;
+                      handleAnswer(idx);
+                    }}
+                    className={`group flex items-start text-left w-full border-2 rounded-xl transition-all duration-200 select-none ${
+                      reviewMode && !isReattemptActive
+                        ? "cursor-default"
+                        : "cursor-pointer"
+                    } ${optionButtonClass} ${reviewMode ? "p-2 sm:p-2.5" : "p-2.5 sm:p-3"}`}
                   >
                     <div
-                      className={`mt-0.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${reviewMode ? "w-5 h-5 mr-2.5" : "w-5.5 h-5.5 mr-3"} ${optionIndicatorClass}`}
+                      className={`mt-0.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                        reviewMode ? "w-5 h-5 mr-2.5" : "w-5.5 h-5.5 mr-3"
+                      } ${optionIndicatorClass}`}
                     >
-                      {(reviewMode
-                        ? (revealReviewAnswers && isCorrectOption) ||
-                          isCurrentCompared ||
-                          (revealReviewAnswers && isSelected)
-                        : isSelected) && (
-                        <div
-                          className={`rounded-full ${reviewMode ? "w-2 h-2" : "w-2.5 h-2.5"} ${
-                            reviewMode
-                              ? revealReviewAnswers && isCorrectOption
-                                ? "bg-green-600"
-                                : isDifferentReviewAttempt
-                                  ? "bg-red-500"
-                                  : isSameReviewAttempt
-                                    ? "bg-sky-500"
-                                    : "bg-amber-500"
-                              : "bg-indigo-600"
-                          }`}
-                        />
-                      )}
-                      {!(reviewMode
-                        ? (revealReviewAnswers && isCorrectOption) ||
-                          isCurrentCompared ||
-                          (revealReviewAnswers && isSelected)
-                        : isSelected) && (
-                        <span
-                          className={`${reviewMode ? "text-[11px]" : "text-xs"} font-bold text-gray-400 dark:text-gray-500 group-hover:text-indigo-400 dark:group-hover:text-indigo-400`}
-                        >
-                          {String.fromCharCode(65 + idx)}
-                        </span>
-                      )}
+                      {(() => {
+                        if (isReattemptActive && !hasReattemptedCurrentQ) {
+                          return (
+                            <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 group-hover:text-indigo-500">
+                              {String.fromCharCode(65 + idx)}
+                            </span>
+                          );
+                        }
+                        if (isReattemptActive && hasReattemptedCurrentQ) {
+                          if (isCorrectOption) {
+                            return <Check className="w-3 h-3 text-green-600" />;
+                          }
+                          if (isReattemptChosen) {
+                            return <X className="w-3 h-3 text-red-500" />;
+                          }
+                          if (isOriginalChosen) {
+                            return (
+                              <div className="w-2 h-2 rounded-full bg-amber-500" />
+                            );
+                          }
+                          return (
+                            <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500">
+                              {String.fromCharCode(65 + idx)}
+                            </span>
+                          );
+                        }
+                        if (reviewMode) {
+                          if (isCorrectOption) {
+                            return (
+                              <div className="w-2 h-2 rounded-full bg-green-600" />
+                            );
+                          }
+                          if (isOriginalChosen) {
+                            return (
+                              <div className="w-2 h-2 rounded-full bg-red-500" />
+                            );
+                          }
+                          return (
+                            <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500">
+                              {String.fromCharCode(65 + idx)}
+                            </span>
+                          );
+                        }
+                        if (isOriginalChosen) {
+                          return (
+                            <div className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
+                          );
+                        }
+                        return (
+                          <span className="text-xs font-bold text-gray-400 dark:text-gray-500 group-hover:text-indigo-400">
+                            {String.fromCharCode(65 + idx)}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <span
-                      className={`leading-relaxed break-words min-w-0 flex-1 ${reviewMode ? "text-xs sm:text-sm font-medium pt-0.5" : "text-sm sm:text-base font-normal pt-0.5"} ${optionTextClass}`}
+                      className={`leading-relaxed break-words min-w-0 flex-1 ${
+                        reviewMode
+                          ? "text-xs sm:text-sm font-medium pt-0.5"
+                          : "text-sm sm:text-base font-normal pt-0.5"
+                      } ${optionTextClass}`}
                     >
                       <MathRenderer
                         text={sanitizeHtml(getLocalizedField(option, language))}
                       />
                     </span>
 
-                    {reviewMode && (
-                      <div className="ml-2 flex gap-1">
-                        {revealReviewAnswers && isSelected && (
-                          <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
-                            Attempt
-                          </span>
-                        )}
-                        {isSameReviewAttempt && (
-                          <span className="px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 text-[10px] font-bold">
-                            Same
-                          </span>
-                        )}
-                        {isDifferentReviewAttempt && (
-                          <span className="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-[10px] font-bold">
-                            New
-                          </span>
-                        )}
-                        {revealReviewAnswers && isCorrectOption && (
-                          <span className="px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-[10px] font-bold">
-                            Correct
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    {/* Helpful status tags on options when answers are revealed */}
+                    {reviewMode &&
+                      (revealReviewAnswers || hasReattemptedCurrentQ) && (
+                        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 ml-2 shrink-0 self-center">
+                          {isCorrectOption && (
+                            <span
+                              data-testid={`badge-correct-${idx}`}
+                              className="text-[10px] sm:text-xs font-extrabold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-300 flex items-center gap-1 shadow-2xs"
+                            >
+                              <Check className="w-3 h-3 text-green-600" />{" "}
+                              Correct
+                            </span>
+                          )}
+                          {isReattemptActive &&
+                            hasReattemptedCurrentQ &&
+                            isReattemptChosen && (
+                              <span
+                                data-testid={`badge-reattempt-${idx}`}
+                                className={`text-[10px] sm:text-xs font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs ${
+                                  isCorrectOption
+                                    ? "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200"
+                                    : "bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300"
+                                }`}
+                              >
+                                {isCorrectOption ? (
+                                  <Check className="w-3 h-3 text-emerald-600" />
+                                ) : (
+                                  <X className="w-3 h-3 text-red-500" />
+                                )}
+                                Reattempt{" "}
+                                {isCorrectOption ? "(Right)" : "(Wrong)"}
+                              </span>
+                            )}
+                          {isOriginalChosen && (
+                            <span
+                              data-testid={`badge-attempt-${idx}`}
+                              className={`text-[10px] sm:text-xs font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs ${
+                                isReattemptActive && isReattemptChosen
+                                  ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
+                                  : isCorrectOption
+                                    ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"
+                                    : "bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200"
+                              }`}
+                            >
+                              {isReattemptActive && isReattemptChosen
+                                ? "Same as 1st Attempt"
+                                : "1st Attempt"}
+                            </span>
+                          )}
+                        </div>
+                      )}
                   </button>
                 );
               })(),
@@ -483,28 +612,34 @@ export default function QuestionViewer({
       )}
 
       {/* Solution / Explanation Toggle */}
-      {reviewMode && currentQ?.explanation && (
-        <div className="mt-3 flex justify-center">
-          <button
-            onClick={() => setShowReviewExplanation((prev) => !prev)}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-800/40 text-amber-700 dark:text-amber-300 text-xs font-bold transition-colors cursor-pointer"
-          >
-            {showReviewExplanation ? (
-              <EyeOff className="w-4 h-4" />
-            ) : (
-              <Eye className="w-4 h-4" />
-            )}
-            {showReviewExplanation ? "Explanation On" : "Explanation Off"}
-          </button>
-        </div>
-      )}
+      {reviewMode &&
+        currentQ?.explanation &&
+        (!isReattemptActive || hasReattemptedCurrentQ) && (
+          <div className="mt-3 flex justify-center">
+            <button
+              onClick={() => setShowReviewExplanation((prev) => !prev)}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-800/40 text-amber-700 dark:text-amber-300 text-xs font-bold transition-colors cursor-pointer"
+            >
+              {showReviewExplanation ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
+              {showReviewExplanation ? "Explanation On" : "Explanation Off"}
+            </button>
+          </div>
+        )}
 
       {/* Solution / Explanation Content */}
       {reviewMode &&
         currentQ?.explanation &&
         getLocalizedField(currentQ.explanation, language) &&
-        showReviewExplanation && (
-          <div className="mt-4 rounded-lg border border-sky-100 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/20 p-4">
+        showReviewExplanation &&
+        (!isReattemptActive || hasReattemptedCurrentQ) && (
+          <div
+            data-testid="question-explanation-box"
+            className="mt-4 rounded-lg border border-sky-100 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/20 p-4"
+          >
             <div className="text-xs font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300 mb-2">
               Explanation
             </div>
@@ -518,87 +653,179 @@ export default function QuestionViewer({
           </div>
         )}
 
-      {/* Dual Response Comparison (Interactive Review) */}
-      {reviewMode &&
-        interactiveReviewEnabled &&
-        reviewCurrentResponse !== undefined &&
-        reviewCurrentResponse !== null && (
-          <div className="mt-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <div>
-                <div className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Dual Response Comparison
-                </div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  First response vs current response
-                </div>
+      {/* Dual Response Comparison (Interactive Review / Reattempt Mode) */}
+      {reviewMode && isReattemptActive && hasReattemptedCurrentQ && (
+        <div
+          data-testid="reattempt-comparison-card"
+          className="mt-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-xs animate-in fade-in duration-200"
+        >
+          <div className="flex items-center justify-between gap-3 mb-3 border-b border-gray-100 dark:border-gray-700 pb-2.5">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Reattempt Comparison
               </div>
-              <div className="text-[11px] text-gray-500 dark:text-gray-400">
-                {(() => {
-                  const correctOption =
-                    currentQ.correctOption ??
-                    currentQ.correctAnswer ??
-                    currentQ.correct;
-                  const firstWasCorrect =
-                    answers[currentQuestion] === correctOption;
-                  const currentIsCorrect =
-                    reviewCurrentResponse === correctOption;
-                  if (firstWasCorrect || currentIsCorrect)
-                    return "Correct option chosen at some point";
-                  return "No correct option chosen in comparison";
-                })()}
+              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                1st Attempt vs New Reattempt
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3">
-                <div className="text-[11px] font-bold uppercase tracking-wide text-red-700 dark:text-red-300 mb-1">
-                  First Response
-                </div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  {answers[currentQuestion] !== undefined &&
-                  answers[currentQuestion] !== null
-                    ? `${String.fromCharCode(65 + answers[currentQuestion])}. ${(getLocalizedField(currentQ.options, language) || [])[answers[currentQuestion]] || "Option selected"}`
-                    : "No answer selected"}
-                </div>
-                <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                  {(() => {
-                    const correctOption =
-                      currentQ.correctOption ??
-                      currentQ.correctAnswer ??
-                      currentQ.correct;
-                    if (
-                      answers[currentQuestion] === undefined ||
-                      answers[currentQuestion] === null
-                    )
-                      return "Initially skipped";
-                    return answers[currentQuestion] === correctOption
-                      ? "Initial choice was correct"
-                      : "Initial choice was wrong";
-                  })()}
-                </div>
-              </div>
-              <div className="rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/20 p-3">
-                <div className="text-[11px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300 mb-1">
-                  Current Response
-                </div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  {`${String.fromCharCode(65 + reviewCurrentResponse)}. ${(getLocalizedField(currentQ.options, language) || [])[reviewCurrentResponse] || "Option selected"}`}
-                </div>
-                <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                  {(() => {
-                    const correctOption =
-                      currentQ.correctOption ??
-                      currentQ.correctAnswer ??
-                      currentQ.correct;
-                    return reviewCurrentResponse === correctOption
-                      ? "Current compared choice is correct"
-                      : "Current compared choice is wrong";
-                  })()}
-                </div>
-              </div>
-            </div>
+            {clearCurrentReattempt && (
+              <button
+                type="button"
+                data-testid="clear-reattempt-btn"
+                onClick={clearCurrentReattempt}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                title="Try answering this question again"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
+                <span>Try Again</span>
+              </button>
+            )}
           </div>
-        )}
+
+          {/* Comparison summary alert */}
+          <div className="mb-3">
+            {(() => {
+              const correctOption = resolveCorrectIndex(currentQ);
+              const firstAns = answers[currentQuestion];
+              const newAns = reviewCurrentResponse;
+              const firstWasSkipped =
+                firstAns === undefined || firstAns === null || firstAns === -1;
+              const firstWasCorrect =
+                !firstWasSkipped && firstAns === correctOption;
+              const newIsCorrect = newAns === correctOption;
+
+              if (firstWasSkipped) {
+                return (
+                  <div
+                    className={`text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${
+                      newIsCorrect
+                        ? "bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800"
+                        : "bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800"
+                    }`}
+                  >
+                    {newIsCorrect
+                      ? "🎉 Great Job!"
+                      : "⚡ Skipped Question Attempted:"}{" "}
+                    {newIsCorrect
+                      ? "You successfully answered a question you previously skipped!"
+                      : "You gave this question a shot on reattempt, but the correct answer is different."}
+                  </div>
+                );
+              }
+              if (!firstWasCorrect && newIsCorrect) {
+                return (
+                  <div className="text-xs font-bold px-3 py-1.5 rounded-lg bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800 flex items-center gap-1.5">
+                    🎉 Improved! Changed from Wrong (1st Attempt) ➔ Correct
+                    (Reattempt)!
+                  </div>
+                );
+              }
+              if (firstWasCorrect && !newIsCorrect) {
+                return (
+                  <div className="text-xs font-bold px-3 py-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800 flex items-center gap-1.5">
+                    ⚠️ Attention: Your 1st attempt was correct, but this
+                    reattempt was incorrect.
+                  </div>
+                );
+              }
+              if (firstWasCorrect && newIsCorrect) {
+                return (
+                  <div className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5">
+                    🌟 Consistent Master: Correct on both attempts!
+                  </div>
+                );
+              }
+              return (
+                <div className="text-xs font-bold px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800 flex items-center gap-1.5">
+                  ❌ Still Incorrect: Review the explanation below to master
+                  this concept.
+                </div>
+              );
+            })()}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* First Response Card */}
+            {(() => {
+              const correctOption = resolveCorrectIndex(currentQ);
+              const firstAns = answers[currentQuestion];
+              const isSkipped =
+                firstAns === undefined || firstAns === null || firstAns === -1;
+              const isCorrect = !isSkipped && firstAns === correctOption;
+              return (
+                <div
+                  className={`rounded-lg border p-3 ${
+                    isSkipped
+                      ? "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-750"
+                      : isCorrect
+                        ? "border-green-200 dark:border-green-800 bg-green-50/70 dark:bg-green-900/20"
+                        : "border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-900/20"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                      1st Attempt
+                    </span>
+                    <span
+                      className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                        isSkipped
+                          ? "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                          : isCorrect
+                            ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
+                            : "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300"
+                      }`}
+                    >
+                      {isSkipped
+                        ? "Skipped"
+                        : isCorrect
+                          ? "Correct ✓"
+                          : "Wrong ✗"}
+                    </span>
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                    {!isSkipped
+                      ? `${String.fromCharCode(65 + firstAns)}. ${(getLocalizedField(currentQ.options, language) || [])[firstAns] || "Option selected"}`
+                      : "No option was selected (Skipped)"}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Reattempt Response Card */}
+            {(() => {
+              const correctOption = resolveCorrectIndex(currentQ);
+              const isCorrect = reviewCurrentResponse === correctOption;
+              return (
+                <div
+                  className={`rounded-lg border p-3 ${
+                    isCorrect
+                      ? "border-green-200 dark:border-green-800 bg-green-50/70 dark:bg-green-900/20"
+                      : "border-red-200 dark:border-red-800 bg-red-50/70 dark:bg-red-900/20"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                      New Reattempt
+                    </span>
+                    <span
+                      className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                        isCorrect
+                          ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
+                          : "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300"
+                      }`}
+                    >
+                      {isCorrect ? "Correct ✓" : "Wrong ✗"}
+                    </span>
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                    {`${String.fromCharCode(65 + reviewCurrentResponse)}. ${(getLocalizedField(currentQ.options, language) || [])[reviewCurrentResponse] || "Option selected"}`}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* Socratic Hint & Clue Guidance Drawer */}
       <SocraticHintModal
@@ -623,6 +850,9 @@ QuestionViewer.propTypes = {
   test: PropTypes.object,
   reviewMode: PropTypes.bool,
   interactiveReviewEnabled: PropTypes.bool,
+  reattemptMode: PropTypes.bool,
+  toggleReattemptMode: PropTypes.func,
+  clearCurrentReattempt: PropTypes.func,
   reviewCurrentResponse: PropTypes.any,
   totalReviewTime: PropTypes.number,
   questionTimers: PropTypes.object,

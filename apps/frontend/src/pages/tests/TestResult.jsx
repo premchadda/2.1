@@ -700,15 +700,28 @@ function TestResult() {
       );
     }
 
-    // 2. Filter by Status
-    if (solutionFilter === "correct")
-      return list.filter((q) => isCorrectQuestion(q));
-    if (solutionFilter === "wrong")
-      return list.filter((q) => isWrongQuestion(q));
-    if (solutionFilter === "unattempted" || solutionFilter === "skip")
-      return list.filter((q) => isSkippedQuestion(q));
-    if (solutionFilter === "marked")
-      return list.filter((q) => q.isMarked || q.is_marked);
+    // 2. Filter by Status (supports multi-select)
+    const activeFilters = Array.isArray(solutionFilter)
+      ? solutionFilter
+      : [solutionFilter || "all"];
+    const isAll =
+      activeFilters.length === 0 ||
+      activeFilters.includes("all") ||
+      activeFilters.every((f) => !f || f === "all");
+
+    if (!isAll) {
+      return list.filter((q) => {
+        return activeFilters.some((f) => {
+          if (f === "attempted") return !isSkippedQuestion(q);
+          if (f === "correct") return isCorrectQuestion(q);
+          if (f === "wrong") return isWrongQuestion(q);
+          if (f === "unattempted" || f === "skip" || f === "skipped")
+            return isSkippedQuestion(q);
+          if (f === "marked") return Boolean(q.isMarked || q.is_marked);
+          return false;
+        });
+      });
+    }
     return list;
   };
 
@@ -952,7 +965,19 @@ function TestResult() {
             (q.section || q.subject || "General") === solutionSectionFilter,
         );
 
+  const globalStatusCounts = {
+    all: questions.length,
+    attempted: questions.filter((q) => !isSkippedQuestion(q)).length,
+    correct: questions.filter((q) => isCorrectQuestion(q)).length,
+    wrong: questions.filter((q) => isWrongQuestion(q)).length,
+    skipped: questions.filter((q) => isSkippedQuestion(q)).length,
+    marked: questions.filter((q) => q.isMarked || q.is_marked).length,
+  };
+
   const statusCounts = {
+    all: questionsInActiveSection.length,
+    attempted: questionsInActiveSection.filter((q) => !isSkippedQuestion(q))
+      .length,
     correct: questionsInActiveSection.filter((q) => isCorrectQuestion(q))
       .length,
     wrong: questionsInActiveSection.filter((q) => isWrongQuestion(q)).length,
@@ -1093,11 +1118,47 @@ function TestResult() {
             </div>
           </div>
           <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+            {mobileTab === "solution" && (
+              <button
+                type="button"
+                data-testid="topbar-language-btn"
+                onClick={() =>
+                  setLanguage((lang) => {
+                    const next = lang === "en" ? "hi" : "en";
+                    localStorage.setItem("trstprep_language", next);
+                    document.documentElement.lang = next;
+                    return next;
+                  })
+                }
+                className="flex items-center gap-1.5 h-8 md:h-9 px-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white shadow-xs font-bold text-xs transition-colors cursor-pointer"
+                title={`Switch Language (Current: ${language.toUpperCase()})`}
+                aria-label="Switch Language"
+              >
+                <Globe className="w-3.5 h-3.5 text-slate-400" />
+                <span className="uppercase">{language}</span>
+              </button>
+            )}
             <Link
               to={seriesBackLink}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs md:text-sm font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-all shadow-sm"
+              data-testid="back-to-series-btn"
+              aria-label="Back to Series"
+              title="Back to Series"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs md:text-sm font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-all shadow-sm"
             >
-              <ArrowLeft className="w-3.5 h-3.5" /> Back to Series
+              {mobileTab === "solution" ? (
+                <span
+                  className="text-base leading-none"
+                  role="img"
+                  aria-label="Back"
+                >
+                  🔙
+                </span>
+              ) : (
+                <>
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span className="hidden xs:inline">Back to Series</span>
+                </>
+              )}
             </Link>
             <button
               onClick={handleSolutionMode}
@@ -1309,12 +1370,22 @@ function TestResult() {
         {/* ═══ MAIN CONTENT (Independently Scrollable Right Column) ═══ */}
         <main
           ref={mainScrollRef}
-          className="flex-1 min-w-0 h-full overflow-y-auto scroll-smooth px-4 md:px-8 py-6"
+          className={`flex-1 min-w-0 h-full overflow-y-auto scroll-smooth ${
+            mobileTab === "solution"
+              ? "p-0"
+              : "px-2 sm:px-4 md:px-8 py-2.5 sm:py-4 md:py-6"
+          }`}
         >
-          <div className="max-w-5xl mx-auto space-y-8 pb-16">
+          <div
+            className={`pb-16 ${
+              mobileTab === "solution"
+                ? "w-full space-y-0"
+                : "max-w-5xl mx-auto space-y-4 sm:space-y-6 md:space-y-8"
+            }`}
+          >
             {/* ── Analysis Tab (Sections 1 to 5) ── */}
             <div
-              className={`space-y-8 ${
+              className={`space-y-4 sm:space-y-6 md:space-y-8 ${
                 mobileTab !== "analysis" ? "hidden md:block" : ""
               }`}
             >
@@ -1322,9 +1393,9 @@ function TestResult() {
               <section
                 ref={(el) => (sectionRefs.current["score"] = el)}
                 data-section-id="score"
-                className="scroll-mt-4 space-y-4"
+                className="scroll-mt-4 space-y-3 sm:space-y-4"
               >
-                <div className="relative bg-gradient-to-br from-indigo-50 via-slate-50 to-indigo-100 dark:from-slate-900 dark:via-indigo-950 dark:to-slate-950 rounded-2xl sm:rounded-3xl border border-indigo-100 dark:border-indigo-950/40 p-4 sm:p-6 md:p-8 overflow-hidden shadow-card dark:shadow-2xl transition-all duration-300">
+                <div className="relative bg-gradient-to-br from-indigo-50 via-slate-50 to-indigo-100 dark:from-slate-900 dark:via-indigo-950 dark:to-slate-950 rounded-2xl sm:rounded-3xl border border-indigo-100 dark:border-indigo-950/40 p-3 sm:p-5 md:p-8 overflow-hidden shadow-card dark:shadow-2xl transition-all duration-300">
                   {/* Animated Glow Background Effects */}
                   <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
                     <div className="absolute -top-32 -left-32 w-80 h-80 bg-indigo-400/15 dark:bg-indigo-500/15 rounded-full blur-3xl animate-pulse duration-[8000ms]" />
@@ -1333,9 +1404,9 @@ function TestResult() {
                   </div>
 
                   {/* Top Row: Left Marks Dial + Right Test Name, Rank, Percentile, Badge */}
-                  <div className="relative z-10 flex flex-row items-center gap-3.5 sm:gap-6 text-left">
+                  <div className="relative z-10 flex flex-row items-center gap-2.5 sm:gap-6 text-left">
                     {/* Score Dial / Marks Display (Left Side) */}
-                    <div className="relative w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 flex-shrink-0 bg-white dark:bg-slate-900 rounded-full p-2.5 shadow-md border-2 border-indigo-200 dark:border-indigo-800/80">
+                    <div className="relative w-24 h-24 sm:w-36 sm:h-36 md:w-40 md:h-40 flex-shrink-0 bg-white dark:bg-slate-900 rounded-full p-2 sm:p-2.5 shadow-md border-2 border-indigo-200 dark:border-indigo-800/80">
                       <svg
                         viewBox="0 0 100 100"
                         className="w-full h-full transform -rotate-90"
@@ -1383,57 +1454,42 @@ function TestResult() {
                         >
                           {formatScoreValue(result.score || 0)}
                         </span>
-                        <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-wider">
-                          Out of {maxScore}
+                        <span className="text-[9px] sm:text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">
+                          / {result.maxScore || totalQuestions * 2}
                         </span>
                       </div>
                     </div>
 
-                    {/* Score Title & Context (Right Side: Test Name, Rank, Percentile, Badge) */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                      <h2 className="text-base sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white leading-tight break-words">
+                    {/* Right Side: Title + Performance Badge + Rank/Percentile */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center space-y-1.5 sm:space-y-2">
+                      <h2 className="text-sm sm:text-lg md:text-xl font-black text-slate-900 dark:text-white leading-tight truncate">
                         {result.testTitle || "Test Completed!"}
                       </h2>
 
-                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mt-2">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                         {/* Performance Badge */}
                         <div
-                          className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-full ${perfBadge.bg} ${perfBadge.text} text-[10px] sm:text-xs font-black shadow-xs`}
+                          className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full ${perfBadge.bg} ${perfBadge.text} text-[10px] sm:text-xs font-black shadow-2xs`}
                         >
-                          <BadgeIcon className="w-3.5 h-3.5" />{" "}
+                          <BadgeIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />{" "}
                           {perfBadge.label}
                         </div>
 
-                        {/* Rank Pill/Card */}
-                        {result.rank !== undefined && result.rank !== null && (
-                          <span
-                            className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-amber-100 dark:bg-amber-400/20 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-400/30 shadow-2xs"
-                            title={
-                              result.totalParticipants
-                                ? `Rank ${result.rank || 1} out of ${result.totalParticipants} test participants`
-                                : `Rank ${result.rank || 1}`
-                            }
-                          >
-                            <Trophy className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />{" "}
-                            Rank #{result.rank || 1}
-                            {result.totalParticipants &&
-                            result.totalParticipants > 1
-                              ? ` / ${result.totalParticipants.toLocaleString()}`
-                              : ""}
-                          </span>
-                        )}
+                        {/* Rank Badge */}
+                        <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-black bg-amber-400/20 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-600 shadow-2xs">
+                          <Trophy className="w-3.5 h-3.5 text-amber-500" /> Rank{" "}
+                          {result.rank || 1}
+                          {result.totalParticipants
+                            ? ` / ${result.totalParticipants.toLocaleString()}`
+                            : ""}
+                        </span>
 
-                        {/* Category Rank Pill */}
+                        {/* Category Rank */}
                         {result.categoryRank && (
-                          <span
-                            className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-blue-100 dark:bg-blue-400/20 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-400/30 shadow-2xs"
-                            title={`Category Rank among ${result.cutoffData?.userCategory || "UR"} candidates`}
-                          >
-                            <Award className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />{" "}
-                            {result.cutoffData?.userCategory || "UR"} Rank #
-                            {result.categoryRank}
-                            {result.categoryParticipants &&
-                            result.categoryParticipants > 1
+                          <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-black bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-200 border border-purple-200 dark:border-purple-800 shadow-2xs">
+                            <Award className="w-3.5 h-3.5 text-purple-600 dark:text-purple-300" />{" "}
+                            Cat. Rank {result.categoryRank}
+                            {result.categoryParticipants
                               ? ` / ${result.categoryParticipants.toLocaleString()}`
                               : ""}
                           </span>
@@ -1441,7 +1497,7 @@ function TestResult() {
 
                         {/* Percentile Pill/Card */}
                         {result.percentile !== undefined && (
-                          <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-indigo-100 dark:bg-indigo-400/20 text-indigo-900 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-400/30 shadow-2xs">
+                          <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-black bg-indigo-100 dark:bg-indigo-400/20 text-indigo-900 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-400/30 shadow-2xs">
                             <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-300" />{" "}
                             {Number(result.percentile).toFixed(1)}%ile{" "}
                             {result.isCalibrated ? "(Calibrated)" : ""}
@@ -1451,7 +1507,7 @@ function TestResult() {
                         {/* Attempt Delta */}
                         {attemptDelta !== null && (
                           <span
-                            className={`inline-flex items-center px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black ${
+                            className={`inline-flex items-center px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-black ${
                               attemptDelta >= 0
                                 ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30"
                                 : "bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30"
@@ -1466,7 +1522,7 @@ function TestResult() {
                   </div>
 
                   {/* Encouraging Copy Banner (Full Width Row) */}
-                  <div className="relative z-10 bg-white/75 dark:bg-slate-800/75 backdrop-blur-md rounded-xl p-3 border border-indigo-100 dark:border-indigo-900/40 flex items-center gap-2.5 shadow-2xs mt-3 sm:mt-4">
+                  <div className="relative z-10 bg-white/75 dark:bg-slate-800/75 backdrop-blur-md rounded-xl p-2.5 sm:p-3 border border-indigo-100 dark:border-indigo-900/40 flex items-center gap-2 shadow-2xs mt-2.5 sm:mt-4">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                     <p className="text-slate-700 dark:text-emerald-300 text-xs sm:text-sm font-bold leading-snug">
                       {getEncouragingCopy()}
@@ -1474,8 +1530,8 @@ function TestResult() {
                   </div>
 
                   {/* 4 KPI Glass Cards (Full Width Row in 1 row on mobile & desktop) */}
-                  <div className="relative z-10 grid grid-cols-4 gap-2 sm:gap-3 mt-3 sm:mt-4">
-                    <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
+                  <div className="relative z-10 grid grid-cols-4 gap-1.5 sm:gap-3 mt-2.5 sm:mt-4">
+                    <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
                       <p
                         className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate"
                         title="Correct"
@@ -1489,7 +1545,7 @@ function TestResult() {
                         </span>
                       </p>
                     </div>
-                    <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
+                    <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
                       <p
                         className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate"
                         title="Wrong"
@@ -1503,7 +1559,7 @@ function TestResult() {
                         </span>
                       </p>
                     </div>
-                    <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
+                    <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
                       <p
                         className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate"
                         title="Accuracy"
@@ -1514,7 +1570,7 @@ function TestResult() {
                         {overallAccuracy.toFixed(1)}%
                       </p>
                     </div>
-                    <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
+                    <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
                       <p
                         className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate"
                         title="Time Taken"
@@ -1532,9 +1588,9 @@ function TestResult() {
                 </div>
 
                 {/* Reattempt & Mistake Re-Practice Actions */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                   {/* Card 1: 1-Click Mistake Re-Practice */}
-                  <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 rounded-2xl p-4 text-white shadow-md flex flex-col justify-between gap-3">
+                  <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 rounded-2xl p-3 sm:p-4 text-white shadow-md flex flex-col justify-between gap-3">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-white shrink-0">
                         <RotateCcw className="w-5 h-5" />
@@ -1567,7 +1623,7 @@ function TestResult() {
                   </div>
 
                   {/* Card 2: Full Test Reattempt */}
-                  <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 rounded-2xl p-4 text-white shadow-md flex flex-col justify-between gap-3">
+                  <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 rounded-2xl p-3 sm:p-4 text-white shadow-md flex flex-col justify-between gap-3">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-white shrink-0">
                         <Trophy className="w-5 h-5" />
@@ -1635,7 +1691,7 @@ function TestResult() {
                   <div className="flex-1 border-t-2 border-dashed border-amber-200 dark:border-amber-800" />
                 </div>
                 {/* Scrollable single row on mobile, 3-column grid on desktop */}
-                <div className="flex sm:grid sm:grid-cols-3 gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-1">
+                <div className="flex sm:grid sm:grid-cols-3 gap-2.5 sm:gap-4 overflow-x-auto no-scrollbar pb-1">
                   {["Easy", "Medium", "Hard"].map((difficulty) => {
                     const data = difficultyBreakdown[difficulty];
                     const style = difficultyStyles[difficulty];
@@ -1647,7 +1703,7 @@ function TestResult() {
                     return (
                       <div
                         key={difficulty}
-                        className="min-w-[240px] sm:min-w-0 flex-1 shrink-0 bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-5 shadow-xs border border-gray-200 dark:border-gray-700 relative overflow-hidden flex flex-col justify-between"
+                        className="min-w-[200px] sm:min-w-0 flex-1 shrink-0 bg-white dark:bg-gray-800 rounded-2xl p-3 sm:p-5 shadow-xs border border-gray-200 dark:border-gray-700 relative overflow-hidden flex flex-col justify-between"
                       >
                         <div>
                           <div className="flex items-center justify-between mb-3 sm:mb-4">
@@ -1717,8 +1773,8 @@ function TestResult() {
                   </span>
                   <div className="flex-1 border-t-2 border-dashed border-blue-200 dark:border-blue-800" />
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-3.5 sm:p-4 shadow-xs border border-gray-200 dark:border-gray-700 text-center flex flex-col justify-between">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-2.5 sm:p-4 shadow-xs border border-gray-200 dark:border-gray-700 text-center flex flex-col justify-between">
                     <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
                       Total Time
                     </p>
@@ -1729,7 +1785,7 @@ function TestResult() {
                       Full test session
                     </p>
                   </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-3.5 sm:p-4 shadow-xs border border-gray-200 dark:border-gray-700 text-center flex flex-col justify-between">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-2.5 sm:p-4 shadow-xs border border-gray-200 dark:border-gray-700 text-center flex flex-col justify-between">
                     <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
                       Avg Speed / Visited Q
                     </p>
@@ -1741,7 +1797,7 @@ function TestResult() {
                     </p>
                   </div>
                   {fastestQ && (
-                    <div className="bg-emerald-50/80 dark:bg-emerald-900/20 rounded-2xl p-3.5 sm:p-4 border border-emerald-200 dark:border-emerald-800 text-center flex flex-col justify-between">
+                    <div className="bg-emerald-50/80 dark:bg-emerald-900/20 rounded-2xl p-2.5 sm:p-4 border border-emerald-200 dark:border-emerald-800 text-center flex flex-col justify-between">
                       <p className="text-[10px] font-black text-emerald-800 dark:text-emerald-200 uppercase tracking-wider mb-1">
                         Lowest Time Taken
                       </p>
@@ -1760,7 +1816,7 @@ function TestResult() {
                     </div>
                   )}
                   {slowestQ && (
-                    <div className="bg-rose-50/80 dark:bg-rose-900/20 rounded-2xl p-3.5 sm:p-4 border border-rose-200 dark:border-rose-800 text-center flex flex-col justify-between">
+                    <div className="bg-rose-50/80 dark:bg-rose-900/20 rounded-2xl p-2.5 sm:p-4 border border-rose-200 dark:border-rose-800 text-center flex flex-col justify-between">
                       <p className="text-[10px] font-black text-rose-800 dark:text-rose-200 uppercase tracking-wider mb-1">
                         Max Time Taken
                       </p>
@@ -1782,7 +1838,7 @@ function TestResult() {
 
                 {/* Per-question time bar chart */}
                 {questionTimeData.some((q) => q.time > 0) && (
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-5 shadow-xs border border-gray-200 dark:border-gray-700">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 sm:p-5 shadow-xs border border-gray-200 dark:border-gray-700">
                     <p className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4">
                       Question-by-Question Time Graph
                     </p>
@@ -1866,6 +1922,7 @@ function TestResult() {
                 setSolutionSectionFilter={setSolutionSectionFilter}
                 questionsInActiveSection={questionsInActiveSection}
                 statusCounts={statusCounts}
+                globalStatusCounts={globalStatusCounts}
                 solutionFilter={solutionFilter}
                 setSolutionFilter={setSolutionFilter}
                 handleSolutionMode={handleSolutionMode}

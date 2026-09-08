@@ -1131,18 +1131,18 @@ function Dashboard() {
               </div>
 
               {loading ? (
-                <div className="flex gap-2.5 sm:gap-4 overflow-x-auto pb-3 -mx-3.5 pl-4 pr-3.5 sm:mx-0 sm:px-0 snap-x">
+                <div className="flex gap-2.5 sm:gap-3.5 overflow-x-auto pb-2.5 pt-0.5 pl-2 pr-3 sm:pl-2.5 sm:pr-4 snap-x">
                   {[1, 2, 3].map((i) => (
                     <div
                       key={i}
-                      className="animate-pulse bg-gray-100 dark:bg-gray-700/60 rounded-2xl h-36 w-[85vw] max-w-[300px] min-w-[240px] sm:w-[300px] shrink-0 snap-start"
+                      className="animate-pulse bg-gray-100 dark:bg-gray-700/60 rounded-2xl h-32 w-[70vw] min-w-[215px] max-w-[255px] sm:w-[280px] shrink-0 snap-start"
                     />
                   ))}
                 </div>
               ) : enrolledTestSeries.length > 0 ? (
                 <div
                   ref={scrollContainerRef}
-                  className="flex gap-2.5 sm:gap-4 overflow-x-auto pb-3 -mx-3.5 pl-4 pr-3.5 sm:mx-0 sm:px-0 scroll-smooth snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] cursor-grab active:cursor-grabbing hover:shadow-inner rounded-xl"
+                  className="flex gap-2.5 sm:gap-3.5 overflow-x-auto pb-2.5 pt-0.5 pl-2 pr-3 sm:pl-2.5 sm:pr-4 scroll-smooth snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] cursor-grab active:cursor-grabbing hover:shadow-inner rounded-xl"
                   style={{ WebkitOverflowScrolling: "touch" }}
                 >
                   {enrolledTestSeries.slice(0, 10).map((series) => {
@@ -1162,35 +1162,39 @@ function Dashboard() {
                       <Link
                         key={series.id}
                         to={`/test-series/${series.id}`}
-                        className="group bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 p-3.5 sm:p-4 cursor-pointer hover:shadow-lg hover:border-brand-start dark:hover:border-indigo-500 transition-all flex-shrink-0 w-[85vw] max-w-[300px] min-w-[260px] sm:w-[300px] snap-start"
+                        className={`group bg-gray-50 dark:bg-gray-700/80 rounded-2xl border border-gray-200 dark:border-gray-600 p-3 sm:p-3.5 md:p-4 cursor-pointer hover:shadow-lg hover:border-brand-start dark:hover:border-indigo-500 transition-all snap-start flex-shrink-0 ${
+                          enrolledTestSeries.length === 1
+                            ? "w-[85vw] max-w-[320px] sm:w-[340px] sm:max-w-[380px]"
+                            : "w-[70vw] min-w-[215px] max-w-[255px] sm:w-[280px] sm:max-w-[310px]"
+                        }`}
                       >
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="text-2xl group-hover:scale-110 transition-transform">
+                        <div className="flex items-center gap-2.5 sm:gap-3 mb-2 sm:mb-2.5">
+                          <div className="text-xl sm:text-2xl group-hover:scale-110 transition-transform shrink-0">
                             {series.icon}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-gray-800 dark:text-white text-sm line-clamp-1 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors">
+                            <h3 className="font-bold text-gray-800 dark:text-white text-xs sm:text-sm line-clamp-1 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors">
                               {series.title}
                             </h3>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                            <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
                               {series.category}
                             </p>
                           </div>
                           <span
-                            className={`px-2 py-1 text-xs font-bold rounded-full ${progressColor === "green" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : progressColor === "yellow" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400" : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"}`}
+                            className={`px-1.5 py-0.5 text-[10px] sm:text-xs font-bold rounded-full shrink-0 ${progressColor === "green" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : progressColor === "yellow" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400" : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"}`}
                           >
                             {progress}%
                           </span>
                         </div>
 
-                        <div className="mb-2">
-                          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-                            <span>
+                        <div className="mb-2 sm:mb-2.5">
+                          <div className="flex justify-between text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-1">
+                            <span className="truncate">
                               {total > 0
                                 ? `${attempted}/${total} tests`
                                 : `${attempted} tests`}
                             </span>
-                            <span>
+                            <span className="shrink-0 text-[10px]">
                               {progress >= 70
                                 ? "🎯 Almost done!"
                                 : progress >= 40
@@ -1200,7 +1204,7 @@ function Dashboard() {
                                     : "🚀 Just started"}
                             </span>
                           </div>
-                          <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                          <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                             <div
                               className={`h-full rounded-full transition-all duration-500 ${progressColor === "green" ? "bg-gradient-to-r from-green-400 to-green-600" : progressColor === "yellow" ? "bg-gradient-to-r from-yellow-400 to-yellow-600" : "bg-gradient-to-r from-blue-400 to-blue-600"}`}
                               style={{ width: `${progress}%` }}
@@ -1208,7 +1212,7 @@ function Dashboard() {
                           </div>
                         </div>
 
-                        <span className="block w-full py-2.5 bg-gradient-to-r from-brand-start to-brand-end text-white text-xs font-semibold rounded-lg text-center group-hover:opacity-90">
+                        <span className="block w-full py-1.5 sm:py-2 bg-gradient-to-r from-brand-start to-brand-end text-white text-[11px] sm:text-xs font-semibold rounded-lg text-center group-hover:opacity-90 transition shadow-xs">
                           Continue Learning
                         </span>
                       </Link>
@@ -1489,28 +1493,36 @@ function Dashboard() {
               {enrolledExams.length > 0 ? (
                 <div
                   ref={examsScrollRef}
-                  className="flex gap-2.5 sm:gap-4 overflow-x-auto pb-2 -mx-3.5 pl-4 pr-3.5 sm:mx-0 sm:px-0 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                  className={`flex gap-3 sm:gap-4 overflow-x-auto pb-2 pt-1 px-1 sm:px-1.5 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${
+                    enrolledExams.length <= 2 ? "w-full" : ""
+                  }`}
                 >
                   {enrolledExams.map((exam) => (
                     <Link
                       key={exam.examId || exam.id}
                       to={`/exam/${exam.examId || exam.id}`}
-                      className="p-3.5 sm:p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800 cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all group flex-shrink-0 w-[240px] sm:w-[290px] snap-start"
+                      className={`p-4 sm:p-4.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800 cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all group snap-start ${
+                        enrolledExams.length === 1
+                          ? "w-full max-w-full"
+                          : enrolledExams.length === 2
+                            ? "w-[80vw] sm:w-auto sm:flex-1 sm:min-w-[260px] shrink-0 sm:shrink"
+                            : "w-[80vw] sm:w-[280px] sm:flex-1 sm:min-w-[240px] sm:max-w-[340px] shrink-0"
+                      }`}
                     >
                       <div className="flex items-center gap-3 mb-3">
                         <div className="text-2xl group-hover:scale-110 transition-transform">
                           {exam.icon}
                         </div>
-                        <div>
-                          <h3 className="font-bold text-gray-800 dark:text-white text-sm">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-gray-800 dark:text-white text-sm truncate">
                             {exam.name}
                           </h3>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
                             {exam.description || "View details"}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-indigo-100/60 dark:border-indigo-800/60">
                         <span className="text-indigo-600 dark:text-indigo-400 font-medium">
                           View Details
                         </span>

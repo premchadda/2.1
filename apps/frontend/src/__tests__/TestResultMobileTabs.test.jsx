@@ -209,4 +209,188 @@ describe("TestResult Mobile Tabs", () => {
     fireEvent.click(jumpToSolutionsBtn);
     expect(tabSolution.className).toContain("text-indigo-600");
   });
+
+  it("only displays language button when solution tab is active and toggles language", async () => {
+    render(
+      <HelmetProvider>
+        <MemoryRouter initialEntries={["/ssc-cgl/tests/test-123/result"]}>
+          <Routes>
+            <Route
+              path="/:seriesSlug/tests/:testId/result"
+              element={<TestResult />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("tab-solution")).toBeInTheDocument();
+    });
+
+    // On initial analysis tab, language button should NOT be present
+    expect(screen.queryByTestId("topbar-language-btn")).not.toBeInTheDocument();
+
+    // Switch to solution tab
+    fireEvent.click(screen.getByTestId("tab-solution"));
+
+    // Language button should now be visible
+    const langBtn = screen.getByTestId("topbar-language-btn");
+    expect(langBtn).toBeInTheDocument();
+
+    const backBtn = screen.getByTestId("back-to-series-btn");
+
+    // Language button appears before back button in DOM order
+    expect(
+      langBtn.compareDocumentPosition(backBtn) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    // Toggling language
+    expect(langBtn).toHaveTextContent(/EN/i);
+    fireEvent.click(langBtn);
+    expect(langBtn).toHaveTextContent(/HI/i);
+    fireEvent.click(langBtn);
+    expect(langBtn).toHaveTextContent(/EN/i);
+
+    // Switch to leaderboard tab - language button should be hidden again
+    fireEvent.click(screen.getByTestId("tab-leaderboard"));
+    expect(screen.queryByTestId("topbar-language-btn")).not.toBeInTheDocument();
+
+    // Switch to analysis tab - language button should stay hidden
+    fireEvent.click(screen.getByTestId("tab-analysis"));
+    expect(screen.queryByTestId("topbar-language-btn")).not.toBeInTheDocument();
+  });
+
+  it("renders back to series as emoji on solution tab and text on other tabs", async () => {
+    render(
+      <HelmetProvider>
+        <MemoryRouter initialEntries={["/ssc-cgl/tests/test-123/result"]}>
+          <Routes>
+            <Route
+              path="/:seriesSlug/tests/:testId/result"
+              element={<TestResult />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("back-to-series-btn")).toBeInTheDocument();
+    });
+
+    const backBtn = screen.getByTestId("back-to-series-btn");
+    const tabSolution = screen.getByTestId("tab-solution");
+    const tabAnalysis = screen.getByTestId("tab-analysis");
+
+    // On Analysis tab: has text "Back to Series"
+    expect(backBtn).toHaveTextContent("Back to Series");
+
+    // Switch to Solution tab
+    fireEvent.click(tabSolution);
+    expect(backBtn).toHaveTextContent("🔙");
+    expect(backBtn).not.toHaveTextContent("Back to Series");
+
+    // Switch back to Analysis tab
+    fireEvent.click(tabAnalysis);
+    expect(backBtn).toHaveTextContent("Back to Series");
+  });
+
+  it("renders solution tab with one row of section filter and a filter button that applies across all sections", async () => {
+    render(
+      <HelmetProvider>
+        <MemoryRouter initialEntries={["/ssc-cgl/tests/test-123/result"]}>
+          <Routes>
+            <Route
+              path="/:seriesSlug/tests/:testId/result"
+              element={<TestResult />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("tab-solution")).toBeInTheDocument();
+    });
+
+    // Switch to Solution tab
+    fireEvent.click(screen.getByTestId("tab-solution"));
+
+    // Check header row: Solutions & Explanations, count, and Review button (no duplicate banner)
+    expect(screen.getByText("Solutions & Explanations")).toBeInTheDocument();
+    expect(screen.getByText(/Showing 1 of 1 questions/i)).toBeInTheDocument();
+    expect(screen.getByTestId("interactive-review-btn")).toBeInTheDocument();
+    expect(screen.getByTestId("interactive-review-btn")).toHaveTextContent(
+      "Review",
+    );
+
+    // Check filter button shows filter-like icon only (not text) and section pill in same row
+    const filterBtn = screen.getByTestId("solutions-filter-btn");
+    expect(filterBtn).toBeInTheDocument();
+    expect(filterBtn.querySelector("svg")).toBeInTheDocument();
+    expect(filterBtn).not.toHaveTextContent("Filter");
+    expect(screen.getByTestId("section-pill-all")).toBeInTheDocument();
+
+    // Open filter button dropdown / responsive window
+    fireEvent.click(filterBtn);
+    expect(screen.getByTestId("solutions-filter-menu")).toBeInTheDocument();
+
+    // Check filter options are present
+    expect(screen.getByTestId("filter-option-all")).toHaveTextContent(
+      "All Questions",
+    );
+    expect(screen.getByTestId("filter-option-attempted")).toHaveTextContent(
+      "Attempted",
+    );
+    expect(screen.getByTestId("filter-option-wrong")).toHaveTextContent(
+      "Wrong",
+    );
+    expect(screen.getByTestId("filter-option-unattempted")).toHaveTextContent(
+      "Skipped",
+    );
+    expect(screen.getByTestId("filter-option-marked")).toHaveTextContent(
+      "Marked",
+    );
+    expect(screen.getByTestId("filter-option-correct")).toHaveTextContent(
+      "Correct",
+    );
+
+    // Select Wrong filter option (multi-select allows multiple, clicking Done closes)
+    fireEvent.click(screen.getByTestId("filter-option-wrong"));
+    fireEvent.click(screen.getByText("Done"));
+
+    // Window closes
+    expect(
+      screen.queryByTestId("solutions-filter-menu"),
+    ).not.toBeInTheDocument();
+
+    // Filter button now reflects active filter with icon only, NOT text "Wrong"
+    expect(screen.getByTestId("solutions-filter-btn")).not.toHaveTextContent(
+      "Wrong",
+    );
+    expect(screen.getByTestId("solutions-filter-btn").className).toContain(
+      "bg-indigo-600",
+    );
+
+    // Section filter remains on All Sections ("when this filter apply it apply on all sections")
+    const allSectionPill = screen.getByTestId("section-pill-all");
+    expect(allSectionPill.className).toContain("bg-indigo-600");
+
+    // Verify sticky header stretches edge-to-edge flush with zero top/side gap and opaque bg
+    const solutionsTitle = screen.getByText("Solutions & Explanations");
+    const stickyHeader = solutionsTitle.closest(".sticky");
+    expect(stickyHeader).toBeInTheDocument();
+    expect(stickyHeader.className).toContain("top-0");
+    expect(stickyHeader.className).toContain("w-full");
+    expect(stickyHeader.className).toContain("bg-white");
+    expect(stickyHeader.className).toContain("border-b");
+    expect(stickyHeader.className).not.toContain("rounded-2xl");
+    expect(stickyHeader.className).not.toContain("backdrop-blur-md");
+
+    // Verify main container has zero padding in solution tab so questions scroll inside seamlessly
+    const mainContainer = screen.getByRole("main");
+    expect(mainContainer.className).toContain("p-0");
+  });
 });

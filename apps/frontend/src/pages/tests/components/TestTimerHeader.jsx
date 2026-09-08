@@ -7,6 +7,7 @@ import {
   ZoomIn,
   LayoutDashboard,
   Menu,
+  RotateCcw,
 } from "lucide-react";
 
 export default function TestTimerHeader({
@@ -30,6 +31,8 @@ export default function TestTimerHeader({
   answers = {},
   questions = [],
   formatTime,
+  reattemptMode = false,
+  toggleReattemptMode,
 }) {
   return (
     <>
@@ -98,6 +101,44 @@ export default function TestTimerHeader({
                   {formatTime(timeLeft)}
                 </span>
               </div>
+            )}
+
+            {/* Reattempt Mode Toggle Button in Review Mode */}
+            {reviewMode && toggleReattemptMode && (
+              <button
+                type="button"
+                data-testid="reattempt-mode-toggle"
+                onClick={toggleReattemptMode}
+                title={
+                  reattemptMode
+                    ? "Exit Reattempt Mode (Show all answers & explanations)"
+                    : "Enter Reattempt Mode (Practice questions without seeing answers/explanations)"
+                }
+                className={`flex items-center gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-2.5 rounded-lg border text-[11px] sm:text-xs font-bold transition-all cursor-pointer shadow-2xs ${
+                  reattemptMode
+                    ? "bg-amber-500 border-amber-600 text-white shadow-xs ring-2 ring-amber-400/30"
+                    : "bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:border-amber-300 dark:hover:border-amber-700 hover:text-amber-700 dark:hover:text-amber-300"
+                }`}
+              >
+                <RotateCcw
+                  className={`w-3.5 h-3.5 ${
+                    reattemptMode
+                      ? "text-white"
+                      : "text-amber-600 dark:text-amber-400"
+                  }`}
+                />
+                <span className="hidden xs:inline">Reattempt</span>
+                <span className="xs:hidden">Re-try</span>
+                <span
+                  className={`text-[9px] font-black px-1 sm:px-1.5 py-0.2 rounded-full leading-tight uppercase ${
+                    reattemptMode
+                      ? "bg-white text-amber-700"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                  }`}
+                >
+                  {reattemptMode ? "ON" : "OFF"}
+                </span>
+              </button>
             )}
 
             {/* Language Switcher Button */}
@@ -233,4 +274,6 @@ TestTimerHeader.propTypes = {
   answers: PropTypes.object,
   questions: PropTypes.array,
   formatTime: PropTypes.func.isRequired,
+  reattemptMode: PropTypes.bool,
+  toggleReattemptMode: PropTypes.func,
 };

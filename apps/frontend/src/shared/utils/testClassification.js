@@ -29,8 +29,23 @@ export const checkIsLive = (test) => {
     (Array.isArray(test.tags) &&
       test.tags.some((t) => {
         const tag = String(t).toLowerCase();
-        return tag === "live" || tag === "live-tests";
-      }))
+        return (
+          tag === "live" ||
+          tag === "live-tests" ||
+          tag === "live-quiz" ||
+          tag === "live-quizzes"
+        );
+      })) ||
+    test.source === "live-tests" ||
+    String(test.seriesTitle || "")
+      .toLowerCase()
+      .includes("live") ||
+    String(test.title || test.testTitle || "")
+      .toLowerCase()
+      .includes("live test") ||
+    String(test.title || test.testTitle || "")
+      .toLowerCase()
+      .includes("live quiz")
   );
 };
 

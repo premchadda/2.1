@@ -1,5 +1,5 @@
-import { useState, useRef, memo } from "react";
-import { X } from "lucide-react";
+import { useState, useRef, useMemo, memo } from "react";
+import { X, Filter } from "lucide-react";
 
 function QuestionPalette({
   showPalette,
@@ -20,6 +20,7 @@ function QuestionPalette({
   currentQuestion,
   goToQuestion,
   reviewMode,
+  reviewFilter = "all",
   confirmSubmit,
   isSubmitting,
   navigate,
@@ -70,6 +71,47 @@ function QuestionPalette({
       : Array.from(
           new Set(questions.map((q) => q.section || q.subject || "General")),
         );
+
+  const activeReviewFilters = useMemo(() => {
+    if (!reviewMode || !reviewFilter) return ["all"];
+    if (Array.isArray(reviewFilter)) {
+      return reviewFilter.length === 0 ? ["all"] : reviewFilter;
+    }
+    return [reviewFilter];
+  }, [reviewMode, reviewFilter]);
+
+  const isFilterActive = !activeReviewFilters.includes("all");
+
+  const matchesReviewFilter = (status) => {
+    if (!reviewMode || !isFilterActive) return true;
+    return activeReviewFilters.some((filter) => {
+      if (filter === "all") return true;
+      if (filter === "correct")
+        return status === "p-correct" || status === "p-correct-review";
+      if (filter === "wrong")
+        return status === "p-wrong" || status === "p-wrong-review";
+      if (filter === "skipped" || filter === "unattempted")
+        return status === "p-skipped" || status === "p-skipped-review";
+      if (filter === "marked")
+        return (
+          status === "p-review" ||
+          status === "p-ans-review" ||
+          status === "p-correct-review" ||
+          status === "p-wrong-review" ||
+          status === "p-skipped-review"
+        );
+      if (filter === "attempted")
+        return (
+          status === "p-correct" ||
+          status === "p-correct-review" ||
+          status === "p-wrong" ||
+          status === "p-wrong-review" ||
+          status === "p-answered" ||
+          status === "p-ans-review"
+        );
+      return false;
+    });
+  };
 
   return (
     <>
@@ -145,8 +187,19 @@ function QuestionPalette({
 
             {/* Metric / Status Legend Bar */}
             <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 shrink-0">
+              {reviewMode && isFilterActive && (
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-100 dark:border-gray-700 text-xs">
+                  <span className="font-extrabold text-indigo-600 dark:text-indigo-400 capitalize flex items-center gap-1.5 truncate mr-1">
+                    <Filter className="w-3 h-3 shrink-0" /> Filtered:{" "}
+                    {activeReviewFilters.join(", ")}
+                  </span>
+                  <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded shrink-0">
+                    ({activeReviewFilters.length})
+                  </span>
+                </div>
+              )}
               {reviewMode ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
                   <div className="flex items-center gap-1.5">
                     <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-green-500 px-1 font-bold text-white shadow-sm">
                       {stats.correct}
@@ -182,7 +235,7 @@ function QuestionPalette({
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
                   <div className="flex items-center gap-1.5">
                     <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-white dark:bg-gray-700 border border-gray-400 px-1 font-bold text-black dark:text-white shadow-sm">
                       {stats.notVisited}
@@ -330,6 +383,8 @@ function QuestionPalette({
                                     ? "bg-red-500 border-red-600 text-white"
                                     : "bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-500 text-gray-900 dark:text-white hover:border-indigo-500";
 
+                        const isMatch = matchesReviewFilter(status);
+
                         return (
                           <button
                             key={index}
@@ -346,6 +401,8 @@ function QuestionPalette({
                             disabled={isSecExpired}
                             aria-label={`Question ${index + 1}, ${statusLabel}`}
                             className={`relative w-9 h-9 sm:w-10 sm:h-10 mx-auto rounded-full border flex items-center justify-center text-xs sm:text-sm font-bold transition-all shadow-sm cursor-pointer ${statusClass} ${
+                              !isMatch ? "opacity-30 hover:opacity-100" : ""
+                            } ${
                               currentQuestion === index
                                 ? "ring-2 ring-blue-600 ring-offset-1 border-blue-600 scale-105 z-10"
                                 : ""

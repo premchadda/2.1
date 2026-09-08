@@ -1686,6 +1686,55 @@ router.get(
           submittedAt: attempt.submittedAt || attempt.createdAt,
           isReattempt: !!(attempt.isReattempt || attempt.is_reattempt),
           is_reattempt: !!(attempt.isReattempt || attempt.is_reattempt),
+          isLive: Boolean(
+            test.isLive ||
+            test.is_live ||
+            attempt.isLive ||
+            attempt.is_live ||
+            attempt.source === "live-tests" ||
+            test.source === "live-tests" ||
+            (Array.isArray(test.tags) &&
+              (test.tags.includes("live-tests") ||
+                test.tags.includes("live") ||
+                test.tags.includes("live-quizzes"))) ||
+            test.category === "live-tests" ||
+            String(test.title || attempt.testTitle || "")
+              .toLowerCase()
+              .includes("live test") ||
+            String(test.title || attempt.testTitle || "")
+              .toLowerCase()
+              .includes("live quiz"),
+          ),
+          is_live: Boolean(
+            test.isLive ||
+            test.is_live ||
+            attempt.isLive ||
+            attempt.is_live ||
+            attempt.source === "live-tests" ||
+            test.source === "live-tests" ||
+            (Array.isArray(test.tags) &&
+              (test.tags.includes("live-tests") ||
+                test.tags.includes("live") ||
+                test.tags.includes("live-quizzes"))) ||
+            test.category === "live-tests" ||
+            String(test.title || attempt.testTitle || "")
+              .toLowerCase()
+              .includes("live test") ||
+            String(test.title || attempt.testTitle || "")
+              .toLowerCase()
+              .includes("live quiz"),
+          ),
+          type:
+            attempt.type ||
+            test.type ||
+            (test.category === "quiz" ||
+            String(test.title || "")
+              .toLowerCase()
+              .includes("quiz")
+              ? "quiz"
+              : test.is_live || test.isLive
+                ? "live"
+                : "mock"),
         };
         return formatted;
       });
