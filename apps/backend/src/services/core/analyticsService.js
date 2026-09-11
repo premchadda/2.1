@@ -957,21 +957,14 @@ export const recordPracticeAnalytics = async (
         await pool.query(
           `INSERT INTO revision_queue
              (user_id, question_id, source_attempt_id, schedule_day, due_at, status, priority, metadata, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, 'pending', $6, '{}'::jsonb, NOW(), NOW())
-           ON CONFLICT (user_id, question_id, source_attempt_id, schedule_day)
+           VALUES ($1, $2, NULL, $3, $4, 'pending', $5, '{}'::jsonb, NOW(), NOW())
+           ON CONFLICT (user_id, question_id, schedule_day) WHERE source_attempt_id IS NULL
            DO UPDATE SET
              due_at = EXCLUDED.due_at,
              status = 'pending',
              priority = EXCLUDED.priority,
              updated_at = NOW()`,
-          [
-            userId,
-            row.question_id,
-            `practice:${sessionId}`,
-            day,
-            dueAt.toISOString(),
-            day <= 3 ? 2 : 1,
-          ],
+          [userId, row.question_id, day, dueAt.toISOString(), day <= 3 ? 2 : 1],
         );
       }
     }

@@ -987,6 +987,11 @@ export const authController = {
           [req.user.id],
         );
       }
+      // Evict the SWR-cached /me body for this user so a logged-out browser
+      // never receives a stale authenticated payload (defense in depth —
+      // protect() would already 401 the next /me without a valid token).
+      invalidateResponseCache("auth-me").catch(() => {});
+
       auditAuth(req, {
         action: AUDIT_ACTIONS.LOGOUT,
         detail: { sessionId, revokedAllDevices: !sessionId },
@@ -1946,24 +1951,60 @@ export const authController = {
       }
 
       try {
-        const activeResult = await pool.query(
-          `SELECT session_id FROM user_sessions
-           WHERE user_id = $1 AND is_active = true
-           ORDER BY last_active DESC`,
-          [String(userId)],
-        );
-        const twoFaLimitNum = Number(sessionLimit);
-        if (
-          Number.isFinite(twoFaLimitNum) &&
-          activeResult.rows.length >= twoFaLimitNum
-        ) {
-          const keepCount = twoFaLimitNum - 1;
-          const sessionsToRevoke = activeResult.rows.slice(
-            Math.max(0, keepCount),
+        const client = await pool.connect();
+        try {
+          await client.query("BEGIN");
+          // Lock user sessions to prevent TOCTOU race (same as standard login)
+          await client.query(
+            `SELECT 1 FROM user_sessions WHERE user_id = $1 FOR UPDATE`,
+            [String(userId)],
           );
-          for (const row of sessionsToRevoke) {
-            await invalidateSession(row.session_id, "system:limit-enforcement");
+          const activeResult = await client.query(
+            `SELECT session_id FROM user_sessions
+             WHERE user_id = $1 AND is_active = true
+             ORDER BY last_active DESC`,
+            [String(userId)],
+          );
+          const twoFaLimitNum = Number(sessionLimit);
+          if (
+            Number.isFinite(twoFaLimitNum) &&
+            activeResult.rows.length >= twoFaLimitNum
+          ) {
+            const keepCount = twoFaLimitNum - 1;
+            const sessionsToRevoke = activeResult.rows.slice(
+              Math.max(0, keepCount),
+            );
+            if (sessionsToRevoke.length > 0) {
+              const revokeIds = sessionsToRevoke.map((s) => s.session_id);
+              // Revoke on THIS client, then COMMIT — invalidateSession()
+              // must run AFTER the commit because it issues its own UPDATE
+              // on the pool; calling it inside the open transaction would
+              // deadlock on the FOR UPDATE row locks held here.
+              await client.query(
+                `UPDATE user_sessions SET is_active = false WHERE session_id = ANY($1)`,
+                [revokeIds],
+              );
+              await client.query("COMMIT");
+              for (const row of sessionsToRevoke) {
+                await invalidateSession(
+                  row.session_id,
+                  "system:limit-enforcement",
+                );
+              }
+              console.log(
+                `[Auth 2FA] Evicted ${sessionsToRevoke.length} session(s) for user ${userId} (limit: ${sessionLimit})`,
+              );
+            } else {
+              await client.query("COMMIT");
+            }
+          } else {
+            await client.query("COMMIT");
           }
+        } catch (txErr) {
+          await client.query("ROLLBACK").catch(() => {});
+          throw txErr;
+        } finally {
+          client.release();
         }
       } catch (limitErr) {
         console.error(

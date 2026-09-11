@@ -40,6 +40,16 @@ function ProfilePersonalTab({
 }) {
   const navigate = useNavigate();
   const { confirm, ConfirmDialog } = useConfirm();
+  const [showFullBio, setShowFullBio] = useState(false);
+
+  const handleRefreshProfile = async () => {
+    try {
+      await refreshUser?.();
+      toast.success("Profile refreshed");
+    } catch {
+      toast.error("Failed to refresh profile");
+    }
+  };
 
   if (isEditing) {
     return (
@@ -212,9 +222,19 @@ function ProfilePersonalTab({
                   <p className="text-xs text-gray-500">Your personal bio</p>
                 </div>
               </div>
-              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed pl-1">
+              <p
+                className={`text-sm text-gray-700 dark:text-gray-300 leading-relaxed pl-1 ${showFullBio ? "" : "line-clamp-3"}`}
+              >
                 {personalInfo.bio}
               </p>
+              {personalInfo.bio.length > 140 && (
+                <button
+                  onClick={() => setShowFullBio((v) => !v)}
+                  className="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline pl-1"
+                >
+                  {showFullBio ? "Show less" : "Show more"}
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -235,12 +255,21 @@ function ProfilePersonalTab({
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsEditing(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
-              >
-                <Edit2 className="w-3.5 h-3.5" /> Edit
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
+                >
+                  <Edit2 className="w-3.5 h-3.5" /> Edit
+                </button>
+                <button
+                  onClick={handleRefreshProfile}
+                  className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs font-semibold rounded-lg transition-colors"
+                  title="Reload latest profile data"
+                >
+                  Refresh
+                </button>
+              </div>
             </div>
           </div>
           <div className="p-5">

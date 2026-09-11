@@ -34,35 +34,14 @@ import { toast } from "react-hot-toast";
 import { useConfirm } from "../../shared/components/common/ConfirmModal.jsx";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
+import { formatTimeAgo } from "../../shared/lib/format.js";
+import { getAvatarGradient } from "@trstprep/shared-config";
 
-// Avatar Gradient generator
-const AVATAR_GRADIENTS = [
-  "from-indigo-600 to-purple-600",
-  "from-blue-600 to-cyan-600",
-  "from-emerald-600 to-teal-600",
-  "from-amber-600 to-orange-600",
-  "from-rose-600 to-pink-600",
-  "from-violet-600 to-fuchsia-600",
-];
+// Avatar gradients delegate to canonical `getAvatarGradient`
+// (@trstprep/shared-config) — local fork removed to avoid drift.
 
-const getAvatarGradient = (name) => {
-  if (!name) return AVATAR_GRADIENTS[0];
-  const sum = String(name)
-    .split("")
-    .reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  return AVATAR_GRADIENTS[sum % AVATAR_GRADIENTS.length];
-};
-
-const formatTime = (dateStr) => {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diff = now - d;
-  if (diff < 60000) return "Just now";
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
-};
+// Relative timestamps ("5m ago") — centralized in shared/lib/format.js
+// (previously a local formatTime copy with en-US date fallback).
 
 /* =========================================================================
    COMMUNITY HUB (DOUBTS & STUDY GROUPS)
@@ -278,7 +257,7 @@ function CommunityHubView() {
   const categories = activeTab === "doubts" ? doubtCategories : groupCategories;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 pb-16">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 pb-10">
       <Helmet>
         <title>Community Hub & Study Circles | Trstprep</title>
         <meta
@@ -486,6 +465,11 @@ function CommunityHubView() {
             <div className="relative flex-1 sm:w-72">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
+                aria-label={
+                  activeTab === "doubts"
+                    ? "Search doubts and questions"
+                    : "Search study circles"
+                }
                 type="text"
                 placeholder={
                   activeTab === "doubts"
@@ -500,6 +484,7 @@ function CommunityHubView() {
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
+                  aria-label="Clear search"
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -554,16 +539,61 @@ function CommunityHubView() {
               )}
             </div>
 
-            <div className="text-xs sm:text-sm font-bold text-slate-400">
-              Showing{" "}
-              <span className="text-slate-900 dark:text-white font-black">
-                {activeTab === "doubts"
-                  ? filteredDoubts.length
-                  : activeTab === "groups"
-                    ? groupsData.length
-                    : myGroups.length}
-              </span>{" "}
-              {activeTab === "doubts" ? "questions" : "circles"}
+            <div className="flex items-center gap-2">
+              <div className="text-xs sm:text-sm font-bold text-slate-400">
+                Showing{" "}
+                <span className="text-slate-900 dark:text-white font-black">
+                  {activeTab === "doubts"
+                    ? filteredDoubts.length
+                    : activeTab === "groups"
+                      ? groupsData.length
+                      : myGroups.length}
+                </span>{" "}
+                {activeTab === "doubts" ? "questions" : "circles"}
+              </div>
+              {activeTab === "doubts" ? (
+                <button
+                  type="button"
+                  onClick={() => refetchDoubts()}
+                  disabled={loadingDoubts}
+                  aria-label="Refresh questions"
+                  title="Refresh questions"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-all disabled:opacity-50"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={
+                      loadingDoubts
+                        ? "animate-spin inline-block"
+                        : "inline-block"
+                    }
+                  >
+                    &#8635;
+                  </span>
+                  Refresh
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => refetchGroups()}
+                  disabled={loadingGroups}
+                  aria-label="Refresh study circles"
+                  title="Refresh study circles"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-all disabled:opacity-50"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={
+                      loadingGroups
+                        ? "animate-spin inline-block"
+                        : "inline-block"
+                    }
+                  >
+                    &#8635;
+                  </span>
+                  Refresh
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -581,7 +611,7 @@ function CommunityHubView() {
                 ))}
               </div>
             ) : filteredDoubts.length === 0 ? (
-              <div className="text-center py-14 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm max-w-md mx-auto">
+              <div className="text-center py-8 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm max-w-md mx-auto">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 border border-indigo-200/60 dark:border-indigo-800/60">
                   <MessageCircle className="w-6 h-6" />
                 </div>
@@ -606,7 +636,12 @@ function CommunityHubView() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                <div
+                  role="feed"
+                  aria-live="polite"
+                  aria-label="Community questions"
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5"
+                >
                   {visibleDoubts.map((doubt) => {
                     const catObj = doubtCategories.find(
                       (c) => c.id === doubt.category,
@@ -635,7 +670,7 @@ function CommunityHubView() {
                                   {doubt.userName || "Aspirant"}
                                 </div>
                                 <div className="text-[10px] text-slate-400">
-                                  {formatTime(doubt.createdAt)}
+                                  {formatTimeAgo(doubt.createdAt)}
                                 </div>
                               </div>
                             </div>
@@ -721,7 +756,7 @@ function CommunityHubView() {
                 ))}
               </div>
             ) : groupsData.length === 0 ? (
-              <div className="text-center py-14 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm max-w-md mx-auto">
+              <div className="text-center py-8 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm max-w-md mx-auto">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 border border-indigo-200/60 dark:border-indigo-800/60">
                   <Users className="w-6 h-6" />
                 </div>
@@ -853,7 +888,7 @@ function CommunityHubView() {
         {activeTab === "my-groups" && (
           <>
             {!user ? (
-              <div className="text-center py-14 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm max-w-md mx-auto">
+              <div className="text-center py-8 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm max-w-md mx-auto">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 border border-indigo-200/60 dark:border-indigo-800/60">
                   <Crown className="w-6 h-6" />
                 </div>
@@ -882,7 +917,7 @@ function CommunityHubView() {
                 ))}
               </div>
             ) : myGroups.length === 0 ? (
-              <div className="text-center py-14 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm max-w-md mx-auto">
+              <div className="text-center py-8 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm max-w-md mx-auto">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 border border-indigo-200/60 dark:border-indigo-800/60">
                   <Crown className="w-6 h-6" />
                 </div>
@@ -1119,6 +1154,7 @@ function CommunityHubView() {
                 </div>
               </div>
               <input
+                aria-label="Private circle toggle"
                 type="checkbox"
                 checked={newGroup.isPrivate}
                 onChange={(e) =>
@@ -1276,7 +1312,7 @@ function DoubtDetailModal({ doubt, onClose, categories }) {
                 {currentDoubt.userName || "Aspirant"}
               </div>
               <div className="text-[10px] text-slate-400">
-                Posted {formatTime(currentDoubt.createdAt)}
+                Posted {formatTimeAgo(currentDoubt.createdAt)}
               </div>
             </div>
           </div>
@@ -1349,7 +1385,7 @@ function DoubtDetailModal({ doubt, onClose, categories }) {
                             {reply.userName || "Aspirant"}
                           </div>
                           <div className="text-[9px] text-slate-400">
-                            {formatTime(reply.createdAt)}
+                            {formatTimeAgo(reply.createdAt)}
                           </div>
                         </div>
                       </div>
@@ -1587,7 +1623,7 @@ function GroupDetailView({ groupId, onBack }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors pb-16">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors pb-10">
       {ConfirmDialog}
       <Helmet>
         <title>{group.name} | Trstprep Study Circle</title>
@@ -1599,6 +1635,7 @@ function GroupDetailView({ groupId, onBack }) {
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={onBack}
+              aria-label="Back to Community"
               className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition shrink-0"
               title="Back to Community"
             >
@@ -1692,7 +1729,7 @@ function GroupDetailView({ groupId, onBack }) {
           (isMember ? (
             <ChatTab groupId={groupId} socket={socket} user={user} />
           ) : (
-            <div className="text-center py-16 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm max-w-md mx-auto">
+            <div className="text-center py-8 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm max-w-md mx-auto">
               <LockIcon className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
               <h3 className="text-base font-black text-slate-900 dark:text-white mb-1.5">
                 Members-Only Chat
@@ -1714,7 +1751,7 @@ function GroupDetailView({ groupId, onBack }) {
           (isMember ? (
             <DiscussionsTab groupId={groupId} user={user} isAdmin={isAdmin} />
           ) : (
-            <div className="text-center py-16 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm max-w-md mx-auto">
+            <div className="text-center py-8 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm max-w-md mx-auto">
               <LockIcon className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
               <h3 className="text-base font-black text-slate-900 dark:text-white mb-1.5">
                 Members-Only Discussions
@@ -1822,7 +1859,7 @@ function ChatTab({ groupId, socket, user }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
+      <div className="flex items-center justify-center py-8">
         <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
       </div>
     );
@@ -1833,7 +1870,7 @@ function ChatTab({ groupId, socket, user }) {
       {/* Messages Scroll Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {allMessages.length === 0 ? (
-          <div className="text-center py-16">
+          <div className="text-center py-8">
             <MessageSquare className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
             <p className="text-xs text-slate-400">
               No messages yet. Start the conversation!
@@ -1869,7 +1906,7 @@ function ChatTab({ groupId, socket, user }) {
                       isMe ? "text-right mr-1" : "ml-1"
                     }`}
                   >
-                    {formatTime(msg.createdAt)}
+                    {formatTimeAgo(msg.createdAt)}
                     {msg.isEdited && " (edited)"}
                   </p>
                 </div>
@@ -1884,6 +1921,7 @@ function ChatTab({ groupId, socket, user }) {
       <div className="border-t border-slate-100 dark:border-slate-800 p-3 bg-white dark:bg-slate-900">
         <form onSubmit={sendMessage} className="flex items-center gap-2">
           <input
+            aria-label="Type a message to circle members"
             ref={inputRef}
             type="text"
             value={newMessage}
@@ -2056,7 +2094,7 @@ function DiscussionsTab({ groupId, user, isAdmin }) {
                   {selectedPost.userName || "Aspirant"}
                 </span>
                 <span className="text-[10px] text-slate-400">
-                  {formatTime(selectedPost.createdAt)}
+                  {formatTimeAgo(selectedPost.createdAt)}
                 </span>
                 {selectedPost.isPinned && (
                   <span className="inline-flex items-center gap-0.5 text-[9px] text-amber-600 bg-amber-50 dark:bg-amber-950 px-1.5 py-0.5 rounded-md font-bold">
@@ -2124,7 +2162,7 @@ function DiscussionsTab({ groupId, user, isAdmin }) {
                       {c.userName}
                     </span>
                     <span className="text-[9px] text-slate-400">
-                      {formatTime(c.createdAt)}
+                      {formatTimeAgo(c.createdAt)}
                     </span>
                   </div>
                   <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
@@ -2139,6 +2177,7 @@ function DiscussionsTab({ groupId, user, isAdmin }) {
         {/* Comment Composer */}
         <form onSubmit={handleAddComment} className="flex gap-2">
           <input
+            aria-label="Write a comment"
             type="text"
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
@@ -2159,10 +2198,17 @@ function DiscussionsTab({ groupId, user, isAdmin }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-black text-slate-900 dark:text-white text-base">
-          Discussion Threads
-        </h3>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="font-black text-slate-900 dark:text-white text-base">
+            Discussion Threads
+          </h3>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">
+            {user
+              ? `Posting as ${user.name || user.userName || user.email || "member"}`
+              : "Log in to start a discussion"}
+          </p>
+        </div>
         <button
           onClick={() => setShowCreate(true)}
           className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition"
@@ -2175,6 +2221,7 @@ function DiscussionsTab({ groupId, user, isAdmin }) {
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm">
           <form onSubmit={handleCreatePost} className="space-y-3">
             <input
+              aria-label="Topic or question title"
               type="text"
               value={newPost.title}
               onChange={(e) =>
@@ -2214,9 +2261,16 @@ function DiscussionsTab({ groupId, user, isAdmin }) {
       )}
 
       {/* Posts List */}
-      <div className="space-y-3">
-        {posts.length === 0 ? (
-          <div className="text-center py-14 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+      <div className="space-y-3" aria-live="polite">
+        {isLoading ? (
+          <div className="flex items-center justify-center gap-2 py-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+            <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              Loading discussions...
+            </span>
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="text-center py-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800">
             <FileText className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
             <p className="text-xs text-slate-400">
               No discussions yet. Start one for your group!
@@ -2255,7 +2309,7 @@ function DiscussionsTab({ groupId, user, isAdmin }) {
                       {post.userName || "Aspirant"}
                     </span>
                     <span className="text-[10px] text-slate-400">
-                      {formatTime(post.createdAt)}
+                      {formatTimeAgo(post.createdAt)}
                     </span>
                   </div>
                 </div>

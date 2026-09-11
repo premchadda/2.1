@@ -475,6 +475,7 @@ export default function RecycleBin() {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 shrink-0" />
             <input
               type="text"
+              aria-label="Search title, type"
               placeholder="Search title, type..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -604,7 +605,7 @@ export default function RecycleBin() {
 
       {/* Items */}
       {filteredItems.length === 0 ? (
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs p-8 sm:p-12 text-center">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs p-8 sm:p-6 sm:p-8 text-center">
           <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-3">
             <Trash2 className="w-6 h-6 text-gray-400" />
           </div>
@@ -646,6 +647,7 @@ export default function RecycleBin() {
                   {isSelectMode ? (
                     <input
                       type="checkbox"
+                      aria-label={`Select item ${item.title || id}`}
                       checked={isSelected}
                       onChange={() => toggleSelect(id)}
                       onClick={(e) => e.stopPropagation()}

@@ -162,7 +162,7 @@ export default function BlogDetail() {
               <div className="flex items-center justify-between">
                 <span className="text-gray-600">Share this article:</span>
                 <div className="flex gap-2">
-                  <button className="p-2 hover:bg-gray-100 rounded-lg">
+                  <button className="p-2 hover:bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     <Share2 className="w-5 h-5 text-gray-600" />
                   </button>
                 </div>

@@ -97,14 +97,16 @@ export default function IosInstallGuideModal({ isOpen, onClose }) {
 
         {/* Benefits checklist */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6 text-xs text-gray-600 dark:text-gray-400">
-          <div className="flex items-center gap-1.5">
-            <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-            <span>Full-screen experience</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-            <span>Faster loading speed</span>
-          </div>
+          <React.Fragment>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+              <span>Full-screen experience</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+              <span>Faster loading speed</span>
+            </div>
+          </React.Fragment>
         </div>
 
         {/* Action Button */}

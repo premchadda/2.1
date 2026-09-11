@@ -96,6 +96,7 @@ export default function PracticeTopicTree({
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
+                aria-label="Search practice topics"
                 type="text"
                 placeholder="Search topics (e.g. Percentage, Syllogism, Algebra)..."
                 value={searchQuery}
@@ -257,7 +258,7 @@ export default function PracticeTopicTree({
           ))}
         </div>
       ) : (
-        <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700">
+        <div className="text-center py-8 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700">
           <BookOpen className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
           <h3 className="text-base font-bold text-slate-800 dark:text-white mb-1">
             No matching topics found

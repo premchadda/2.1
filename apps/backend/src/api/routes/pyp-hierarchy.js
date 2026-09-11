@@ -1,6 +1,9 @@
-import express from 'express';
-import { pool, dbHelpers } from '../../infrastructure/database/postgres-helpers.js';
-import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
+import express from "express";
+import {
+  pool,
+  dbHelpers,
+} from "../../infrastructure/database/postgres-helpers.js";
+import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
 
@@ -32,7 +35,8 @@ function parseDateFromTitle(title) {
 function extractYear(test) {
   if (test.pyqYear) return test.pyqYear;
   if (test.year) return test.year;
-  if (test.subCategory && /^\d{4}$/.test(String(test.subCategory))) return parseInt(test.subCategory, 10);
+  if (test.subCategory && /^\d{4}$/.test(String(test.subCategory)))
+    return parseInt(test.subCategory, 10);
   if (test.title) {
     const m = test.title.match(/\b(20\d{2})\b/);
     if (m) return parseInt(m[1], 10);
@@ -85,7 +89,8 @@ const getPypCategoriesHandler = async (req, res) => {
       icon: r.icon,
       description: r.description,
       paperCount: parseInt(r.paper_count, 10) || 0,
-      yearRange: r.min_year && r.max_year ? `${r.min_year}–${r.max_year}` : null,
+      yearRange:
+        r.min_year && r.max_year ? `${r.min_year}–${r.max_year}` : null,
       totalAttempts: parseInt(r.total_attempts, 10) || 0,
       totalAttemptsFormatted: formatAttemptCount(r.total_attempts),
     }));
@@ -101,13 +106,15 @@ const getPypCategoriesHandler = async (req, res) => {
       totalAttemptsFormatted: formatAttemptCount(totalAttempts),
     });
   } catch (error) {
-    console.error('PYP categories error:', error);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    console.error("PYP categories error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
-router.get('/', getPypCategoriesHandler);
-router.get('/categories', getPypCategoriesHandler);
+router.get("/", getPypCategoriesHandler);
+router.get("/categories", getPypCategoriesHandler);
 
 // ============================================================
 // L2: GET /api/pyps/categories/:catSlug/exams
@@ -115,10 +122,11 @@ router.get('/categories', getPypCategoriesHandler);
 // Matches by exam_categories.slug, exam_categories.category_id,
 // or exams.category_id
 // ============================================================
-router.get('/categories/:catSlug/exams', async (req, res) => {
+router.get("/categories/:catSlug/exams", async (req, res) => {
   try {
     const { catSlug } = req.params;
-    const examsRes = await pool.query(`
+    const examsRes = await pool.query(
+      `
       SELECT e.id, e.slug, e.title, e.full_name, e.category_id,
              COUNT(t.id) AS paper_count,
              MIN(t.pyq_year) AS min_year,
@@ -134,13 +142,22 @@ router.get('/categories/:catSlug/exams', async (req, res) => {
         AND (e.is_active = true OR e.is_active IS NULL)
       GROUP BY e.id, e.slug, e.title, e.full_name, e.category_id
       ORDER BY COUNT(t.id) DESC, e.title ASC
-    `, [catSlug]);
+    `,
+      [catSlug],
+    );
 
     // Compute new_count (papers from the latest year) per exam in JS
     const exams = examsRes.rows.map((r) => {
       const latestYear = r.latest_year;
       // Generate slug from title if null (e.g. "SSC CGL" -> "ssc-cgl")
-      const slug = r.slug || (r.title ? r.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : String(r.id));
+      const slug =
+        r.slug ||
+        (r.title
+          ? r.title
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-|-$/g, "")
+          : String(r.id));
       return {
         id: r.id,
         slug,
@@ -148,7 +165,8 @@ router.get('/categories/:catSlug/exams', async (req, res) => {
         fullName: r.full_name,
         categoryId: r.category_id,
         paperCount: parseInt(r.paper_count, 10) || 0,
-        yearRange: r.min_year && r.max_year ? `${r.min_year}–${r.max_year}` : null,
+        yearRange:
+          r.min_year && r.max_year ? `${r.min_year}–${r.max_year}` : null,
         totalAttempts: parseInt(r.total_attempts, 10) || 0,
         totalAttemptsFormatted: formatAttemptCount(r.total_attempts),
         stageCount: parseInt(r.stage_count, 10) || 0,
@@ -160,7 +178,8 @@ router.get('/categories/:catSlug/exams', async (req, res) => {
     // Fill newCount via a second lightweight query
     if (exams.length > 0) {
       const examIds = exams.map((e) => e.id);
-      const newCountRes = await pool.query(`
+      const newCountRes = await pool.query(
+        `
         SELECT t.exam_id::int AS exam_id, COUNT(*) AS new_count
         FROM tests t
         WHERE t.is_active = true
@@ -168,7 +187,9 @@ router.get('/categories/:catSlug/exams', async (req, res) => {
           AND t.exam_id::int = ANY($1::int[])
           AND t.pyq_year = (SELECT MAX(pyq_year) FROM tests WHERE exam_id::int = t.exam_id::int AND is_active = true AND (is_pyq = true OR category = 'PYPs' OR 'pyp' = ANY(tags) OR 'previous-year' = ANY(tags)))
         GROUP BY t.exam_id::int
-      `, [examIds]);
+      `,
+        [examIds],
+      );
       const newCountMap = {};
       for (const r of newCountRes.rows) {
         newCountMap[parseInt(r.exam_id, 10)] = parseInt(r.new_count, 10) || 0;
@@ -184,8 +205,10 @@ router.get('/categories/:catSlug/exams', async (req, res) => {
       count: exams.length,
     });
   } catch (error) {
-    console.error('PYP category exams error:', error);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    console.error("PYP category exams error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -194,12 +217,21 @@ router.get('/categories/:catSlug/exams', async (req, res) => {
 // Returns year-grouped PYPs for a specific exam
 // examSlug can be: exam id (e.g. "1"), exam slug, or exam public_id
 // ============================================================
-router.get('/exams/:examSlug', async (req, res) => {
+router.get("/exams/:examSlug", async (req, res) => {
   try {
     const { examSlug } = req.params;
-    const { tier, year, testCategoryId, page = 1, limit = 50 } = req.query;
+    const {
+      tier,
+      year,
+      testCategoryId,
+      page = 1,
+      limit = 50,
+      q,
+      search,
+    } = req.query;
     const parsedLimit = parseInt(limit, 10) || 50;
     const offset = ((parseInt(page, 10) || 1) - 1) * parsedLimit;
+    const queryTerm = (q || search || "").trim();
 
     // Build exam match condition — examSlug could be:
     // numeric id, DB slug, generated title-slug (e.g. "ssc-cgl"), or public_id
@@ -215,34 +247,38 @@ router.get('/exams/:examSlug', async (req, res) => {
     )`;
 
     const conditions = [
-      't.is_active = true',
-      '(t.is_pyq = true OR t.category = \'PYPs\' OR \'pyp\' = ANY(t.tags) OR \'previous-year\' = ANY(t.tags))',
+      "t.is_active = true",
+      "(t.is_pyq = true OR t.category = 'PYPs' OR 'pyp' = ANY(t.tags) OR 'previous-year' = ANY(t.tags))",
       examMatch,
     ];
     const params = [examSlug];
     let paramIndex = 2;
 
-    if (year && year !== 'all') {
+    if (year && year !== "all") {
       conditions.push(`t.pyq_year = $${paramIndex}`);
       params.push(parseInt(year, 10));
       paramIndex++;
     }
 
-    if (tier && tier !== 'all') {
+    if (tier && tier !== "all") {
       if (/^\d+$/.test(tier)) {
         // Match either the single stage_id column OR the stage_ids array
-        conditions.push(`(t.stage_id = $${paramIndex} OR $${paramIndex} = ANY(t.stage_ids))`);
+        conditions.push(
+          `(t.stage_id = $${paramIndex} OR $${paramIndex} = ANY(t.stage_ids))`,
+        );
         params.push(parseInt(tier, 10));
         paramIndex++;
       } else {
-        conditions.push(`(LOWER(t.sub_category) LIKE LOWER('%' || $${paramIndex} || '%') OR EXISTS (SELECT 1 FROM stages s WHERE s.id = t.stage_id AND LOWER(s.name) LIKE LOWER('%' || $${paramIndex} || '%')))`);
+        conditions.push(
+          `(LOWER(t.sub_category) LIKE LOWER('%' || $${paramIndex} || '%') OR EXISTS (SELECT 1 FROM stages s WHERE s.id = t.stage_id AND LOWER(s.name) LIKE LOWER('%' || $${paramIndex} || '%')))`,
+        );
         params.push(tier);
         paramIndex++;
       }
     }
 
     // Filter by test_category_id — matches the category OR any descendant (for hierarchy filtering)
-    if (testCategoryId && testCategoryId !== 'all') {
+    if (testCategoryId && testCategoryId !== "all") {
       const catId = parseInt(testCategoryId, 10);
       // Match tests where test_category_id = $N OR test_category_id is a descendant of $N
       conditions.push(`(
@@ -262,7 +298,15 @@ router.get('/exams/:examSlug', async (req, res) => {
       paramIndex++;
     }
 
-    const whereClause = conditions.join(' AND ');
+    if (queryTerm) {
+      conditions.push(
+        `(t.title ILIKE $${paramIndex} OR t.short_title ILIKE $${paramIndex} OR t.shift ILIKE $${paramIndex})`,
+      );
+      params.push(`%${queryTerm}%`);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.join(" AND ");
 
     // Total count
     const countRes = await pool.query(
@@ -284,23 +328,30 @@ router.get('/exams/:examSlug', async (req, res) => {
 
     const papers = testsRes.rows.map(normalizePyp);
 
-    // Available years for this exam
-    const yearsRes = await pool.query(`
-      SELECT DISTINCT t.pyq_year
+    // Available years & paper counts for this exam and active filters
+    const yearsRes = await pool.query(
+      `
+      SELECT t.pyq_year, COUNT(*) AS count
       FROM tests t
-      WHERE t.is_active = true
-        AND (t.is_pyq = true OR t.category = 'PYPs' OR 'pyp' = ANY(t.tags) OR 'previous-year' = ANY(t.tags))
-        AND ${examMatch}
+      WHERE ${whereClause}
         AND t.pyq_year IS NOT NULL
+      GROUP BY t.pyq_year
       ORDER BY t.pyq_year DESC
-    `, [examSlug]);
+    `,
+      params,
+    );
+    const yearCountsMap = {};
+    for (const r of yearsRes.rows) {
+      yearCountsMap[String(r.pyq_year)] = parseInt(r.count, 10);
+    }
     const availableYears = yearsRes.rows.map((r) => r.pyq_year).filter(Boolean);
 
     // Available tiers (stages) for this exam.
     // Show ALL tiers linked to the exam (via stages.exam_ids), even if a tier
     // currently has no papers. Also include any tier that has papers here.
-    const examIdSub = `(SELECT id FROM exams WHERE id::text = $1::text OR slug = $1::text OR public_id = $1::text OR LOWER(REPLACE(title, ' ', '-')) = $1::text LIMIT 1)`
-    const tiersRes = await pool.query(`
+    const examIdSub = `(SELECT id FROM exams WHERE id::text = $1::text OR slug = $1::text OR public_id = $1::text OR LOWER(REPLACE(title, ' ', '-')) = $1::text LIMIT 1)`;
+    const tiersRes = await pool.query(
+      `
       SELECT DISTINCT s.id, s.name
       FROM stages s
       WHERE s.is_active = true
@@ -316,40 +367,50 @@ router.get('/exams/:examSlug', async (req, res) => {
           )
         )
       ORDER BY s.name ASC
-    `, [examSlug]);
-    const availableTiers = tiersRes.rows.map((r) => ({ id: r.id, name: r.name }));
+    `,
+      [examSlug],
+    );
+    const availableTiers = tiersRes.rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+    }));
 
     // Available test categories (PYP subcategories: Full PYP, Year Based, Sectional, Chapter-wise, etc.)
     // Counts are scoped to the selected stage/year so the UI can default to a path that actually has papers.
     const testCatConditions = [
-      't.is_active = true',
-      PYP_WHERE.replace(/\b(is_pyq|category|tags)\b/g, 't.$1'),
+      "t.is_active = true",
+      PYP_WHERE.replace(/\b(is_pyq|category|tags)\b/g, "t.$1"),
       examMatch,
     ];
     const testCatParams = [examSlug];
     let testCatParamIndex = 2;
 
-    if (year && year !== 'all') {
+    if (year && year !== "all") {
       testCatConditions.push(`t.pyq_year = $${testCatParamIndex}`);
       testCatParams.push(parseInt(year, 10));
       testCatParamIndex++;
     }
 
-    if (tier && tier !== 'all') {
+    if (tier && tier !== "all") {
       if (/^\d+$/.test(tier)) {
-        testCatConditions.push(`(t.stage_id = $${testCatParamIndex} OR $${testCatParamIndex} = ANY(t.stage_ids))`);
+        testCatConditions.push(
+          `(t.stage_id = $${testCatParamIndex} OR $${testCatParamIndex} = ANY(t.stage_ids))`,
+        );
         testCatParams.push(parseInt(tier, 10));
         testCatParamIndex++;
       } else {
-        testCatConditions.push(`(LOWER(t.sub_category) LIKE LOWER('%' || $${testCatParamIndex} || '%') OR EXISTS (SELECT 1 FROM stages s WHERE s.id = t.stage_id AND LOWER(s.name) LIKE LOWER('%' || $${testCatParamIndex} || '%')))`);
+        testCatConditions.push(
+          `(LOWER(t.sub_category) LIKE LOWER('%' || $${testCatParamIndex} || '%') OR EXISTS (SELECT 1 FROM stages s WHERE s.id = t.stage_id AND LOWER(s.name) LIKE LOWER('%' || $${testCatParamIndex} || '%')))`,
+        );
         testCatParams.push(tier);
         testCatParamIndex++;
       }
     }
 
-    const testCatWhereClause = testCatConditions.join(' AND ');
+    const testCatWhereClause = testCatConditions.join(" AND ");
 
-    const testCatsRes = await pool.query(`
+    const testCatsRes = await pool.query(
+      `
       WITH RECURSIVE pyp_tree AS (
         -- Find the PYPs root category (slug = 'pyps')
         SELECT id, name, slug, parent_id, 0 AS depth FROM test_categories WHERE slug = 'pyps' AND (is_active = true OR is_active IS NULL)
@@ -369,7 +430,9 @@ router.get('/exams/:examSlug', async (req, res) => {
         AND ${testCatWhereClause}
       GROUP BY pt.id, pt.name, pt.slug, pt.parent_id, pt.depth
       ORDER BY pt.depth, pt.name
-    `, testCatParams);
+    `,
+      testCatParams,
+    );
     const availableTestCategories = testCatsRes.rows.map((r) => ({
       id: r.id,
       name: r.name,
@@ -382,7 +445,7 @@ router.get('/exams/:examSlug', async (req, res) => {
     // Group papers by year
     const grouped = {};
     for (const p of papers) {
-      const y = p.pyqYear || 'Unknown';
+      const y = p.pyqYear || "Unknown";
       if (!grouped[y]) grouped[y] = [];
       grouped[y].push(p);
     }
@@ -395,7 +458,13 @@ router.get('/exams/:examSlug', async (req, res) => {
         if (isNaN(bn)) return -1;
         return bn - an;
       })
-      .map((y) => ({ year: y, papers: grouped[y], count: grouped[y].length }));
+      .map((y) => ({
+        year: y,
+        papers: grouped[y],
+        count: yearCountsMap[String(y)] || grouped[y].length,
+        total: yearCountsMap[String(y)] || grouped[y].length,
+        pageCount: grouped[y].length,
+      }));
 
     // Exam metadata — match by id, slug, public_id, or title-derived slug
     let examMeta = null;
@@ -408,7 +477,12 @@ router.get('/exams/:examSlug', async (req, res) => {
         examMeta = toCamel(examRes.rows[0]);
         // Generate slug if null
         if (!examMeta.slug) {
-          examMeta.slug = examMeta.title ? examMeta.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : String(examMeta.id);
+          examMeta.slug = examMeta.title
+            ? examMeta.title
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/^-|-$/g, "")
+            : String(examMeta.id);
         }
       }
     } catch {} // eslint-disable-line no-empty -- best-effort metadata enrichment
@@ -423,7 +497,9 @@ router.get('/exams/:examSlug', async (req, res) => {
         availableTiers,
         availableTestCategories,
         total,
-        totalFormatted: formatAttemptCount(papers.reduce((s, p) => s + (p.attemptCount || 0), 0)),
+        totalFormatted: formatAttemptCount(
+          papers.reduce((s, p) => s + (p.attemptCount || 0), 0),
+        ),
       },
       pagination: {
         page: parseInt(page, 10) || 1,
@@ -433,8 +509,10 @@ router.get('/exams/:examSlug', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('PYP exam papers error:', error);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    console.error("PYP exam papers error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -442,28 +520,35 @@ router.get('/exams/:examSlug', async (req, res) => {
 // GET /api/pyps/exams/:examSlug/insights
 // Topic weightage + cutoff trend (best-effort; returns empty if data missing)
 // ============================================================
-router.get('/exams/:examSlug/insights', async (req, res) => {
+router.get("/exams/:examSlug/insights", async (req, res) => {
   try {
     const { examSlug } = req.params;
 
     // Cutoff trend from exam_yearly_data if available
     let cutoffTrend = [];
     try {
-      const cutoffRes = await pool.query(`
+      const cutoffRes = await pool.query(
+        `
         SELECT e.year, e.cutoff_marks
         FROM exam_yearly_data e
         WHERE e.exam_id = (SELECT id FROM exams WHERE id::text = $1 OR slug = $1 OR public_id = $1 LIMIT 1)
           AND e.cutoff_marks IS NOT NULL
         ORDER BY e.year DESC
         LIMIT 10
-      `, [examSlug]);
-      cutoffTrend = cutoffRes.rows.map((r) => ({ year: r.year, cutoff: r.cutoff_marks }));
+      `,
+        [examSlug],
+      );
+      cutoffTrend = cutoffRes.rows.map((r) => ({
+        year: r.year,
+        cutoff: r.cutoff_marks,
+      }));
     } catch {} // eslint-disable-line no-empty -- best-effort analytics
 
     // Topic weightage from question tags (best-effort)
     let topicWeightage = [];
     try {
-      const weightRes = await pool.query(`
+      const weightRes = await pool.query(
+        `
         SELECT tag, COUNT(*) AS question_count
         FROM questions q
         WHERE q.source_config->>'examId' = $1
@@ -471,8 +556,13 @@ router.get('/exams/:examSlug/insights', async (req, res) => {
         GROUP BY tag
         ORDER BY question_count DESC
         LIMIT 10
-      `, [examSlug]);
-      topicWeightage = weightRes.rows.map((r) => ({ topic: r.tag, count: parseInt(r.question_count, 10) }));
+      `,
+        [examSlug],
+      );
+      topicWeightage = weightRes.rows.map((r) => ({
+        topic: r.tag,
+        count: parseInt(r.question_count, 10),
+      }));
     } catch {} // eslint-disable-line no-empty -- best-effort analytics
 
     res.json({
@@ -483,8 +573,10 @@ router.get('/exams/:examSlug/insights', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('PYP insights error:', error);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    console.error("PYP insights error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 

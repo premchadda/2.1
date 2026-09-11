@@ -76,7 +76,12 @@ function PypPaperCard({ test, user, examSlug }) {
   const yearLabel = test.pyqYear || test.subCategory || test.examDate || "";
   const titleDisplay = test.shortTitle || test.title;
 
-  const testId = test._id || test.id || test.publicId;
+  const testId =
+    test.public_id ||
+    test.publicId ||
+    test.public_id_uuid ||
+    test._id ||
+    test.id;
   const attemptHref = test.seriesId
     ? `/test/${test.seriesId}/${testId}/instructions`
     : `/pyp/${testId}/test`;
@@ -200,6 +205,15 @@ function PypPaperCard({ test, user, examSlug }) {
             <span className="flex items-center gap-1 text-gray-600">
               <span className="text-sm">👥</span>
               {test.attemptCountFormatted || test.attemptCount} attempted
+            </span>
+          )}
+          {isTestPro && isUserPro && !isComingSoon && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold border border-emerald-200 dark:border-emerald-800"
+              title="Your Pro Pass unlocks this paper"
+            >
+              <Crown className="w-3 h-3" aria-hidden="true" />
+              Pro unlocked
             </span>
           )}
         </div>

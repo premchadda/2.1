@@ -94,11 +94,17 @@ flowchart TB
   `dir /b apps\backend\src\api\routes\*.js`). Admin is **split routers**
   (`admin-questions.js`, `admin-tests.js`, `admin-test-series.js`, …) aggregated by
   `admin.js` — there is no monolith admin route file.
-- **Migrations:** `000`–`135` on disk
-  (`apps/backend/src/infrastructure/database/migrations/`), next is `136_*`.
+- **Migrations:** `000`–`137` on disk (126 `.sql` files; re-verified 2026-09-09 —
+  includes `136_audit_remediation_followup` + `137_rename_subject_topics_index`)
+  (`apps/backend/src/infrastructure/database/migrations/`), next is `138_*`.
   Files `004`–`017` are absent as standalone files; the baseline is reconstructed via
   `003_baseline_harmonization.sql` + `098_reconstructed_baseline.sql` +
   `108_ensure_complete_baseline.sql` + `121_ensure_test_category_series_junction.sql`.
+  Numbering exceptions are intentional: no bare `056_*`/`057_*` files (canonical slots
+  are `056a_*`, `056b_*`, `057b_*`) and `042_placeholder_retired.sql` is a no-op for a
+  retired slot. Index waves `131`/`133` use plain (non-`CONCURRENTLY`)
+  `CREATE INDEX IF NOT EXISTS` — transaction-safe but briefly lock writes (the
+  "CONCURRENTLY" wording in `131`'s header comment describes intent, not the executed DDL).
   Always run `scripts/run-database-audit.js` before any migration/DDL; never assume a
   table/index exists.
 - **Tables:** ~154 in live DB (regen: database audit script). Key junctions:

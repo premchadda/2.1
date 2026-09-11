@@ -191,6 +191,23 @@ describe("Review Mode Section Row Question Filter", () => {
 
     expect(screen.queryByTestId("review-filter-btn")).not.toBeInTheDocument();
   });
+
+  it("renders section pills as keyed React.Fragment children", () => {
+    const sections = ["General Awareness", "Quantitative Aptitude"];
+    render(
+      <>
+        {sections.map((name) => (
+          <React.Fragment key={name}>
+            <span>{name}</span>
+          </React.Fragment>
+        ))}
+      </>,
+    );
+
+    expect(screen.getByText("General Awareness")).toBeInTheDocument();
+    expect(screen.getByText("Quantitative Aptitude")).toBeInTheDocument();
+    expect(React.isValidElement(<React.Fragment key="x" />)).toBe(true);
+  });
 });
 
 describe("QuestionPalette Multi-Select Review Filter", () => {

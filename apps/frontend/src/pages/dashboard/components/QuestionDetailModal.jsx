@@ -87,6 +87,7 @@ export default function QuestionDetailModal({
   // Extract Question Text
   const extractText = (val) => {
     if (!val) return "";
+    if (React.isValidElement(val)) return "";
     if (typeof val === "string") {
       if (val === "[object Object]") return "";
       if (val.trim().startsWith("{") && val.trim().endsWith("}")) {

@@ -193,7 +193,7 @@ describe('Error Middleware', () => {
 
   describe('asyncHandler', () => {
     it('should catch async errors and pass to next', async () => {
-      const { asyncHandler } = await import('../src/middleware/error.middleware.js')
+      const { asyncHandler } = await import('../src/middleware/asyncHandler.js')
       const asyncFn = jest.fn().mockRejectedValue(new Error('Async error'))
       const handler = asyncFn
       

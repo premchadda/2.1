@@ -465,6 +465,7 @@ export default function NotificationsManager() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
           <input
             type="text"
+            aria-label="Search notifications"
             placeholder="Search notifications..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -544,7 +545,7 @@ export default function NotificationsManager() {
               </div>
 
               {isExpanded && (
-                <div className="px-4 pb-4 pl-16 bg-gray-50 dark:bg-gray-900">
+                <div className="px-4 pb-4 pl-8 bg-gray-50 dark:bg-gray-900">
                   <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
                     {notification.message}
                   </p>

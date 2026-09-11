@@ -31,12 +31,19 @@ export function TrstprepLoading({
       ? "w-10 h-10 sm:w-12 sm:h-12"
       : "w-7 h-7 sm:w-8 sm:h-8";
 
+  // message/subtext accept strings or React nodes — render nodes as-is.
+  const renderStatusText = (content, className) => {
+    if (!content) return null;
+    if (React.isValidElement(content)) return content;
+    return <p className={className}>{content}</p>;
+  };
+
   return (
     <div
       className={`flex flex-col items-center justify-center transition-all duration-300 ${
         fullscreen
           ? "fixed inset-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md"
-          : "w-full py-12"
+          : "w-full py-8"
       } ${className}`}
       role="status"
       aria-label={message}
@@ -89,15 +96,13 @@ export function TrstprepLoading({
       </div>
 
       {/* Status Message */}
-      {message && (
-        <p className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">
-          {message}
-        </p>
+      {renderStatusText(
+        message,
+        "text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300",
       )}
-      {subtext && (
-        <p className="text-[11px] sm:text-xs text-gray-400 dark:text-gray-500 mt-0.5 max-w-xs text-center">
-          {subtext}
-        </p>
+      {renderStatusText(
+        subtext,
+        "text-[11px] sm:text-xs text-gray-400 dark:text-gray-500 mt-0.5 max-w-xs text-center",
       )}
     </div>
   );

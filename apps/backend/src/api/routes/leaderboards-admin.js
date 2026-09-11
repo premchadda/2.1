@@ -14,9 +14,11 @@ import {
 } from "../../middleware/admin-permission.middleware.js";
 import { auditMiddleware } from "../../middleware/audit.middleware.js";
 import { validateCsrfToken } from "../../middleware/csrf.middleware.js";
+import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
+const leaderboardResetLimiter = createRateLimiter("strict");
 
 // Apply full admin security chain to all leaderboard admin routes
 router.use(restrictAdminOrigin);
@@ -470,7 +472,7 @@ router.post("/:id/recalculate", async (req, res) => {
 // @route   POST /api/leaderboards/:id/reset
 // @desc    Reset leaderboard rankings - Admin
 // @access  Private/Admin
-router.post("/:id/reset", async (req, res) => {
+router.post("/:id/reset", leaderboardResetLimiter, async (req, res) => {
   try {
     const { id } = req.params;
 

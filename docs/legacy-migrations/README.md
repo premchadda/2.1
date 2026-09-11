@@ -3,6 +3,10 @@
 > groundwork — content matches the live schema direction). It is **not** the current migration
 > chain: active migrations are `apps/backend/src/infrastructure/database/migrations/000→135`
 > (124 `.sql` files on disk; `004–017` reconstructed in `098_reconstructed_baseline.sql`;
+> numbering exceptions are intentional — there are no bare `056_*`/`057_*` files (canonical
+> slots are `056a_*`, `056b_*`, `057b_*`; do NOT add colliding `056_*`/`057_*` files),
+> `042_placeholder_retired.sql` is an intentional no-op preserving a retired slot (do NOT
+> "fill the gap" with a new `042_*` file), and `000a_*` is an additive RLS suffix.
 > `graphify-out/cache/` inside that folder is tool output, not migrations). For current state see
 > `docs/DATABASE_SCHEMA_AUDIT.md` and always run `scripts/run-database-audit.js` before any DDL.
 > **Not covered here:** migrations 102–135 (attempt_number, practice-engine redesign, Node Engine

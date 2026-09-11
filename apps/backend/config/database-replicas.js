@@ -29,7 +29,7 @@ function sanitizeDatabaseUrl(rawUrl) {
     console.warn(
       "⚠️ Notice: Supabase Direct Connection (db.<ref>.supabase.co) is IPv6-only. " +
         "If you see connect ENETUNREACH, switch DATABASE_URL to Supabase Connection Pooler: " +
-        "postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres",
+        "e.g. postgresql://postgres.<project-ref>:<placeholder-password>@aws-0-<region>.pooler.supabase.com:6543/postgres",
     );
   }
   return rawUrl;

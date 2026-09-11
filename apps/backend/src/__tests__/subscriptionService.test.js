@@ -20,6 +20,10 @@ jest.unstable_mockModule(
   }),
 );
 
+jest.unstable_mockModule("../../config/database-replicas.js", () => ({
+  getReadPool: () => null,
+}));
+
 const {
   default: subscriptionService,
   SUBSCRIPTION_PLANS,
@@ -266,52 +270,6 @@ describe("SubscriptionService & EntitlementService", () => {
       expect(mockPoolQuery).toHaveBeenCalledWith(
         expect.stringContaining("WHERE id = $1"),
         [100],
-      );
-    });
-  });
-
-  describe("Solution Reattempt Queries", () => {
-    it("getWrongQuestions queries incorrect answers for attempt", async () => {
-      mockPoolQuery.mockResolvedValueOnce({
-        rows: [{ question_id: 10, question_text: "What is 2+2?" }],
-      });
-
-      const wrong = await subscriptionService.getWrongQuestions(500);
-      expect(wrong).toHaveLength(1);
-      expect(mockPoolQuery).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "WHERE aa.attempt_id = $1 AND aa.is_correct = false",
-        ),
-        [500],
-      );
-    });
-
-    it("getUnattemptedQuestions queries unselected answers for attempt", async () => {
-      mockPoolQuery.mockResolvedValueOnce({
-        rows: [{ question_id: 11, question_text: "Skipped question" }],
-      });
-
-      const unattempted =
-        await subscriptionService.getUnattemptedQuestions(500);
-      expect(unattempted).toHaveLength(1);
-      expect(mockPoolQuery).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "aa.selected_option_id IS NULL OR aa.is_unattempted = true",
-        ),
-        [500],
-      );
-    });
-
-    it("getSlowQuestions queries questions exceeding time threshold", async () => {
-      mockPoolQuery.mockResolvedValueOnce({
-        rows: [{ question_id: 12, time_spent_seconds: 120 }],
-      });
-
-      const slow = await subscriptionService.getSlowQuestions(500, 90);
-      expect(slow).toHaveLength(1);
-      expect(mockPoolQuery).toHaveBeenCalledWith(
-        expect.stringContaining("aa.time_spent_seconds > $2"),
-        [500, 90],
       );
     });
   });

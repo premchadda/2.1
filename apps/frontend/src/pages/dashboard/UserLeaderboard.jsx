@@ -21,6 +21,19 @@ import {
   Play,
   CheckCircle2,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  Radar,
+} from "recharts";
 
 import { useAuth } from "../../shared/providers/AuthContext";
 import {
@@ -181,6 +194,12 @@ export default function UserLeaderboard() {
       const globalLeaderboard = results[2];
       const overallEntries = results[3];
 
+      if (results.every((r) => r.status === "rejected")) {
+        setError("Failed to load leaderboard data. Please retry.");
+        setLoading(false);
+        return;
+      }
+
       // Set current user profile from real analytics
       if (analytics) {
         const rank = analytics.rank ?? null;
@@ -235,6 +254,35 @@ export default function UserLeaderboard() {
         setTestHistory(recent);
       }
 
+      // Rank progress from real attempt ranks (supports both
+      // allSettled-wrapped and plain attempt lists without touching
+      // the existing history processing above)
+      const attemptList = Array.isArray(attempts)
+        ? attempts
+        : (attempts?.value ?? []);
+      if (attemptList.length > 0) {
+        const recentRanked = attemptList
+          .filter((a) => Number.isFinite(Number(a?.rank)) && Number(a.rank) > 0)
+          .slice(0, 8)
+          .reverse();
+        if (recentRanked.length > 0) {
+          setRankHistory(
+            recentRanked.map((a, i) => ({
+              label: `T${i + 1}`,
+              rank: Number(a.rank),
+            })),
+          );
+        }
+      }
+
+      // Video watch history from analytics when the backend provides it
+      const analyticsValue = analytics?.value ?? analytics;
+      if (
+        Array.isArray(analyticsValue?.videosWatched) &&
+        analyticsValue.videosWatched.length > 0
+      ) {
+        setVideosWatched(analyticsValue.videosWatched);
+      }
       // Process practice subjects from analytics subjectWise or fallback
       const practiceData = analytics?.subjectWise || [];
       if (practiceData && practiceData.length > 0) {
@@ -281,6 +329,17 @@ export default function UserLeaderboard() {
       setLoading(false);
     });
   }, [user]);
+
+  // Tests filtered by the selected period pill (week / month / all time)
+  const filteredTestHistory = useMemo(() => {
+    if (period === "all") return testHistory;
+    const windowMs = period === "week" ? 7 * 86400000 : 30 * 86400000;
+    const now = Date.now();
+    return testHistory.filter((t) => {
+      const ts = new Date(t.date).getTime();
+      return !Number.isNaN(ts) && now - ts <= windowMs;
+    });
+  }, [testHistory, period]);
 
   // Helper: format time ago for videos (no real endpoint, use date from attempt)
   const formatDate = (dateStr) => {
@@ -512,8 +571,12 @@ export default function UserLeaderboard() {
                 <StatCard
                   icon={Video}
                   label="Videos Watched"
-                  value={"—"}
-                  sub="Video progress tracking coming soon"
+                  value={videosWatched.length > 0 ? videosWatched.length : "—"}
+                  sub={
+                    videosWatched.length > 0
+                      ? "Videos in your watch history"
+                      : "Video progress tracking coming soon"
+                  }
                   trend={0}
                 />
                 <StatCard
@@ -548,8 +611,12 @@ export default function UserLeaderboard() {
                 <StatCard
                   icon={Video}
                   label="Videos Watched"
-                  value="—"
-                  sub="—"
+                  value={videosWatched.length > 0 ? videosWatched.length : "—"}
+                  sub={
+                    videosWatched.length > 0
+                      ? "Videos in your watch history"
+                      : "Video progress tracking coming soon"
+                  }
                   trend={0}
                 />
                 <StatCard
@@ -770,6 +837,7 @@ export default function UserLeaderboard() {
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
                   />
                   <input
+                    aria-label="Search tests"
                     value=""
                     onChange={() => {}}
                     placeholder="Search tests..."
@@ -777,7 +845,7 @@ export default function UserLeaderboard() {
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-slate-300 text-xs hover:bg-white/10">
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-slate-300 text-xs hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-cyan-500">
                     <Filter size={13} /> Filter
                   </button>
                   <ExportMenu label="Export Tests" />
@@ -798,8 +866,8 @@ export default function UserLeaderboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {testHistory.length > 0 ? (
-                      testHistory.map((t) => (
+                    {filteredTestHistory.length > 0 ? (
+                      filteredTestHistory.map((t) => (
                         <tr
                           key={t.id}
                           className="border-b border-white/[0.05] hover:bg-white/[0.03]"
@@ -811,7 +879,7 @@ export default function UserLeaderboard() {
                             <p className="text-xs text-slate-500">{t.id}</p>
                           </td>
                           <td className="py-3 text-slate-400 text-xs">
-                            {t.date}
+                            {formatDate(t.date)}
                           </td>
                           <td
                             className="py-3 font-medium text-white"
@@ -972,7 +1040,7 @@ export default function UserLeaderboard() {
                         </p>
                         <p className="text-xs text-slate-500">
                           {v.topic} · watched {v.watched} of {v.duration} ·{" "}
-                          {v.watchedOn}
+                          {formatDate(v.watchedOn) || v.watchedOn}
                         </p>
                       </div>
                       <div className="w-28 hidden sm:block">

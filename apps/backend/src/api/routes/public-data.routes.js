@@ -4,6 +4,7 @@ import {
   pool,
   dbHelpers,
 } from "../../infrastructure/database/postgres-helpers.js";
+import { responseCache } from "../../middleware/responseCache.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 function fisherYatesShuffle(arr) {
@@ -338,12 +339,20 @@ router.get("/subscription-plans", async (req, res) => {
 // @route   GET /api/leaderboards
 router.get("/leaderboards", async (req, res) => {
   try {
-    const { testId, seriesId, examId, limit = 50 } = req.query;
+    const { testId, seriesId, examId, limit = 50, timeFilter } = req.query;
     const query = { isActive: true };
 
     if (testId) query.testId = testId;
     if (seriesId) query.seriesId = seriesId;
     if (examId) query.examId = examId;
+
+    // Optional time window for the generated-from-results path:
+    // "today" | "week" | "month" (anything else, incl. "all", = no filter).
+    const FILTER_WINDOWS = { today: 1, week: 7, month: 30 };
+    const windowDays = FILTER_WINDOWS[String(timeFilter || "").toLowerCase()];
+    const windowStart = windowDays
+      ? new Date(Date.now() - windowDays * 86400000)
+      : null;
 
     const leaderboards = await dbHelpers.find("leaderboards", query);
 
@@ -353,7 +362,15 @@ router.get("/leaderboards", async (req, res) => {
       if (seriesId) resultsQuery.seriesId = seriesId;
       if (testId) resultsQuery.testId = testId;
 
-      const results = await dbHelpers.find("results", resultsQuery);
+      let results = await dbHelpers.find("results", resultsQuery);
+
+      // Apply the time window, if any, on the completion timestamp.
+      if (windowStart) {
+        results = results.filter((r) => {
+          const ts = new Date(r.completedAt || r.createdAt || 0);
+          return !Number.isNaN(ts.getTime()) && ts >= windowStart;
+        });
+      }
 
       if (!results || results.length === 0) {
         return res.json({
@@ -709,63 +726,75 @@ router.get("/previous-year-papers", async (req, res) => {
 });
 
 // @route   GET /api/public-stats
-router.get("/public-stats", async (req, res) => {
-  try {
-    const userCount = await dbHelpers.count("users");
-    const testSeriesCount = await dbHelpers.count("testSeries");
-    const testCount = await dbHelpers.count("tests");
-    const questionCount = await dbHelpers.count("questions");
-    const examCatCount = await dbHelpers.count("examCategories");
+router.get(
+  "/public-stats",
+  responseCache("public-stats-alt", 120),
+  async (req, res) => {
+    try {
+      const [
+        userCount,
+        testSeriesCount,
+        testCount,
+        questionCount,
+        examCatCount,
+        attemptRes,
+      ] = await Promise.all([
+        dbHelpers.count("users"),
+        dbHelpers.count("testSeries"),
+        dbHelpers.count("tests"),
+        dbHelpers.count("questions"),
+        dbHelpers.count("examCategories"),
+        pool.query(
+          "SELECT COALESCE(SUM(total_attempts), 0) as count FROM test_series",
+        ),
+      ]);
 
-    // Get real total attempts from test_series
-    const attemptRes = await pool.query(
-      "SELECT SUM(total_attempts) as count FROM test_series",
-    );
-    const totalAttempts = parseInt(attemptRes.rows[0].count) || 0;
+      const totalAttempts = parseInt(attemptRes.rows[0]?.count) || 0;
 
-    // Calculate real stats (no hardcoded minimums)
-    const activeLearners = userCount + totalAttempts;
-    const successStories = Math.floor(activeLearners / 50);
+      // Calculate real stats (no hardcoded minimums)
+      const activeLearners = userCount + totalAttempts;
+      const successStories = Math.floor(activeLearners / 50);
 
-    // Import validation utility
-    const { validateStats } =
-      await import("../../shared/utils/stats-validation.js");
+      // Import validation utility
+      const { validateStats } =
+        await import("../../shared/utils/stats-validation.js");
 
-    // Validate stats before returning
-    const validatedStats = validateStats({
-      users: userCount,
-      testSeries: testSeriesCount,
-      tests: testCount,
-      questions: questionCount,
-      examCategories: examCatCount,
-      activeLearners: activeLearners || 0,
-      mockTests: testCount || 0,
-      practiceQuestions: questionCount || 0,
-      successStories: successStories || 0,
-      examsCovered: examCatCount || 0,
-      satisfaction: null,
-    });
-
-    res.json({
-      success: true,
-      data: {
-        ...validatedStats,
-        // Keep original counts for admin use
+      // Validate stats before returning
+      const validatedStats = validateStats({
         users: userCount,
         testSeries: testSeriesCount,
         tests: testCount,
         questions: questionCount,
         examCategories: examCatCount,
-      },
-    });
-  } catch (error) {
-    console.error("Get public stats error:", error);
-    res.status(500).json({
-      success: false,
-      message: sanitizeErrorMessage(error),
-    });
-  }
-});
+        activeLearners: activeLearners || 0,
+        mockTests: testCount || 0,
+        practiceQuestions: questionCount || 0,
+        successStories: successStories || 0,
+        examsCovered: examCatCount || 0,
+        satisfaction: null,
+      });
+
+      res.json({
+        success: true,
+        data: {
+          ...validatedStats,
+          // Keep original counts for admin use
+          users: userCount,
+          testSeries: testSeriesCount,
+          tests: testCount,
+          questions: questionCount,
+          examCategories: examCatCount,
+        },
+      });
+    } catch (error) {
+      console.error("Get public stats error:", error);
+      res.status(500).json({
+        success: false,
+        message: sanitizeErrorMessage(error),
+      });
+    }
+  },
+);
 
 // @route   GET /api/testimonials
 router.get("/testimonials", async (req, res) => {

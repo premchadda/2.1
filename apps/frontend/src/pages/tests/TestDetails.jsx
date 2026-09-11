@@ -54,6 +54,7 @@ import {
 import {
   checkIsArchivedLive,
   checkIsLive,
+  checkIsLiveExpired,
   checkIsQuiz,
   checkIsPermanentTest,
 } from "../../shared/utils/testClassification";
@@ -1162,7 +1163,12 @@ function TestDetails() {
     );
 
     const isAvailable = (t) =>
-      t.status !== "archived" && !t.isComingSoon && t.isActive !== false;
+      t.status !== "archived" &&
+      !t.isComingSoon &&
+      t.isActive !== false &&
+      // Expired live tests/quizzes (end date in the past) are joinable no
+      // more — never recommend them.
+      !checkIsLiveExpired(t);
 
     const next = [...tests]
       .filter(isAvailable)
@@ -1190,7 +1196,12 @@ function TestDetails() {
       });
 
     if (next) {
-      return { test: next, series, isQuiz: false };
+      return {
+        test: next,
+        series,
+        isQuiz: checkIsQuiz(next),
+        isLive: checkIsLive(next),
+      };
     }
     return null;
   }, [
@@ -1920,6 +1931,15 @@ function TestDetails() {
                     0}{" "}
                   Free Tests
                 </span>
+                {hasProPass && (
+                  <span
+                    title="Pro Pass is active on your account"
+                    className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-500/30 px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                  >
+                    <Crown className="w-3.5 h-3.5" />
+                    Pro Pass Active
+                  </span>
+                )}
               </div>
 
               {/* Description */}
@@ -2134,7 +2154,23 @@ function TestDetails() {
                   <div className="hidden md:block w-full min-w-[200px] mt-1">
                     <div className="bg-slate-100/50 border border-slate-150 dark:bg-white/5 dark:border-white/10 rounded-2xl p-3">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-semibold text-slate-600 dark:text-indigo-200">
+                        <span className="text-xs font-semibold text-slate-600 dark:text-indigo-200 flex items-center gap-1.5">
+                          {progressPercentage >= 100 ? (
+                            <Trophy
+                              className="w-3.5 h-3.5 text-amber-500"
+                              aria-label="Series completed"
+                            />
+                          ) : progressPercentage >= 50 ? (
+                            <Medal
+                              className="w-3.5 h-3.5 text-indigo-500"
+                              aria-label="Halfway there"
+                            />
+                          ) : (
+                            <Flame
+                              className="w-3.5 h-3.5 text-orange-500"
+                              aria-label="Keep going"
+                            />
+                          )}
                           Your Progress
                         </span>
                         <span className="text-xs font-black text-slate-950 dark:text-indigo-300">
@@ -2223,7 +2259,10 @@ function TestDetails() {
                           <span className="flex items-center gap-1">
                             <span className="text-sm">❓</span>
                             {categoryResumeTest.answeredQuestions || 0}/
-                            {categoryResumeTest.totalQuestions || 0} Qs Answered
+                            {categoryResumeTest.totalQuestions ||
+                              categoryResumeTest.testDetails?.totalQuestions ||
+                              0}{" "}
+                            Qs Answered
                           </span>
                           <span className="text-gray-300 dark:text-gray-500">
                             |
@@ -2457,7 +2496,7 @@ function TestDetails() {
                       (() => {
                         // Calculate 3-page window around currentPage
                         let startPage = Math.max(1, currentPage - 1);
-                        let endPage = Math.min(totalTestPages, startPage + 2);
+                        const endPage = Math.min(totalTestPages, startPage + 2);
                         if (endPage - startPage < 2) {
                           startPage = Math.max(1, endPage - 2);
                         }

@@ -352,8 +352,11 @@ describe("attemptService", () => {
     });
 
     it("creates reattempt with only wrong questions in 'wrong' mode", async () => {
-      mockPool.query
-        // 1st call: SELECT * FROM attempts WHERE id = $1
+      // Transactional flow: queries run via the connected client.
+      mockPoolClient.query
+        // BEGIN
+        .mockResolvedValueOnce({ rows: [] })
+        // SELECT * FROM attempts WHERE id = $1 FOR UPDATE
         .mockResolvedValueOnce({
           rows: [
             {
@@ -362,17 +365,19 @@ describe("attemptService", () => {
               test_id: 10,
               test_title: "SSC CGL Prelims",
               attempt_number: 1,
+              is_completed: true,
+              status: "completed",
             },
           ],
         })
-        // 2nd call: SELECT * FROM attempt_answers WHERE attempt_id = $1
+        // SELECT * FROM attempt_answers WHERE attempt_id = $1
         .mockResolvedValueOnce({
           rows: [
             { question_id: 101, is_correct: true },
             { question_id: 102, is_correct: false },
           ],
         })
-        // 3rd call: INSERT INTO attempts RETURNING *
+        // INSERT INTO attempts RETURNING *
         .mockResolvedValueOnce({
           rows: [
             {
@@ -384,7 +389,9 @@ describe("attemptService", () => {
               reattempt_type: "wrong",
             },
           ],
-        });
+        })
+        // COMMIT
+        .mockResolvedValueOnce({ rows: [] });
 
       mockTestRepo.getQuestions.mockResolvedValue([
         { id: 101, text: "Q1" },
@@ -396,7 +403,7 @@ describe("attemptService", () => {
       expect(reattempt.attempt.is_reattempt).toBe(true);
       expect(reattempt.questions).toHaveLength(1);
       expect(reattempt.questions[0].id).toBe(102);
-      expect(mockPool.query).toHaveBeenCalledWith(
+      expect(mockPoolClient.query).toHaveBeenCalledWith(
         expect.stringContaining("INSERT INTO attempts"),
         expect.arrayContaining([
           1,
@@ -407,12 +414,24 @@ describe("attemptService", () => {
     });
 
     it("throws NO_QUESTIONS_FOR_REATTEMPT if no questions qualify", async () => {
-      mockPool.query
+      mockPoolClient.query
+        // BEGIN
+        .mockResolvedValueOnce({ rows: [] })
+        // SELECT parent attempt FOR UPDATE
         .mockResolvedValueOnce({
-          rows: [{ id: 100, user_id: 1, test_id: 10 }],
+          rows: [
+            {
+              id: 100,
+              user_id: 1,
+              test_id: 10,
+              is_completed: true,
+              status: "completed",
+            },
+          ],
         })
+        // SELECT attempt_answers — all correct!
         .mockResolvedValueOnce({
-          rows: [{ question_id: 101, is_correct: true }], // All correct!
+          rows: [{ question_id: 101, is_correct: true }],
         });
 
       mockTestRepo.getQuestions.mockResolvedValue([{ id: 101, text: "Q1" }]);
@@ -422,6 +441,30 @@ describe("attemptService", () => {
       ).rejects.toThrow(
         "No eligible questions available for this reattempt mode.",
       );
+    });
+
+    it("rejects reattempt of an in-progress attempt", async () => {
+      mockPoolClient.query
+        // BEGIN
+        .mockResolvedValueOnce({ rows: [] })
+        // SELECT parent attempt FOR UPDATE — not completed
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 100,
+              user_id: 1,
+              test_id: 10,
+              is_completed: false,
+              status: "in_progress",
+            },
+          ],
+        })
+        // ROLLBACK
+        .mockResolvedValueOnce({ rows: [] });
+
+      await expect(
+        attemptService.createReattempt(1, 100, "full"),
+      ).rejects.toThrow("Cannot reattempt an in-progress attempt");
     });
   });
 });

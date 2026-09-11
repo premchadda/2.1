@@ -134,8 +134,14 @@ function TestSeriesCard({
               ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-amber-500/15"
               : "bg-gradient-to-r from-brand-start to-brand-end hover:opacity-95"
           }`}
+          aria-label={
+            requiresPro && !hasProPass
+              ? "View series, Pro pass required for locked tests"
+              : undefined
+          }
         >
           {showProgress ? "Continue" : "View"}
+          <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
         </Link>
       );
     }
@@ -169,6 +175,7 @@ function TestSeriesCard({
         >
           <Crown className="w-3.5 h-3.5" />
           <span>View Pro Series</span>
+          <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
         </Link>
       );
     }
@@ -178,6 +185,7 @@ function TestSeriesCard({
         className="w-full py-2 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1 bg-gradient-to-r from-brand-start to-brand-end hover:opacity-95 shadow-sm transition-all"
       >
         View
+        <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
       </Link>
     );
   };
@@ -189,7 +197,7 @@ function TestSeriesCard({
 
   return (
     <div
-      className={`test-series-card h-full flex flex-col self-stretch ${className || "flex-shrink-0 w-[280px] sm:w-[310px] md:w-[320px] max-w-full"}`}
+      className={`test-series-card h-full flex flex-col self-stretch ${className || "flex-shrink-0 w-[250px] sm:w-[270px] md:w-[280px] max-w-full"}`}
     >
       <Card
         variant="default"
@@ -221,6 +229,11 @@ function TestSeriesCard({
                   variant="pro"
                   size="xs"
                   className="flex items-center gap-1"
+                  title={
+                    requiresPro
+                      ? "Pro pass required to enroll"
+                      : "Pro series · includes free tests"
+                  }
                 >
                   <Crown className="w-3 h-3" />
                   PRO
@@ -259,7 +272,10 @@ function TestSeriesCard({
             <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
               {freeTests || 0} Free
             </span>
-            <span className="text-cyan-500 dark:text-cyan-400 font-medium">
+            <span
+              className="text-cyan-500 dark:text-cyan-400 font-medium truncate max-w-[100px] text-right"
+              title={parsedLanguages.join(", ")}
+            >
               {parsedLanguages.join(", ")}
             </span>
           </div>

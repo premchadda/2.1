@@ -40,11 +40,41 @@ describe("NodeEngine Spaced Repetition & Recommendation Service", () => {
       expect(service.getTimeDecay(justNow)).toBeLessThanOrEqual(0.01);
     });
 
-    it("returns 1.0 for attempts completed 30 or more days ago", () => {
-      const thirtyDaysAgo = new Date(
+    it("returns near-maximum decay for attempts completed 30 or more days ago", () => {
+      const thirtyOneDaysAgo = new Date(
         Date.now() - 31 * 24 * 60 * 60 * 1000,
       ).toISOString();
-      expect(service.getTimeDecay(thirtyDaysAgo)).toBe(1.0);
+      // Exponential forgetting curve: staleness asymptotically approaches 1.0.
+      expect(service.getTimeDecay(thirtyOneDaysAgo)).toBeGreaterThanOrEqual(
+        0.99,
+      );
+      expect(service.getTimeDecay(thirtyOneDaysAgo)).toBeLessThanOrEqual(1.0);
+
+      const twoYearsAgo = new Date(
+        Date.now() - 730 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      expect(service.getTimeDecay(twoYearsAgo)).toBe(1.0);
+    });
+
+    it("decays slower for items with higher ease factor", () => {
+      const tenDaysAgo = new Date(
+        Date.now() - 10 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      const lowEase = service.getTimeDecay(tenDaysAgo, null, 1.3);
+      const highEase = service.getTimeDecay(tenDaysAgo, null, 3.0);
+      expect(highEase).toBeLessThan(lowEase);
+    });
+
+    it("dampens staleness when next review date is in the future", () => {
+      const tenDaysAgo = new Date(
+        Date.now() - 10 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      const inFiveDays = new Date(
+        Date.now() + 5 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      const dueLater = service.getTimeDecay(tenDaysAgo, inFiveDays);
+      const dueNow = service.getTimeDecay(tenDaysAgo, null);
+      expect(dueLater).toBeLessThan(dueNow);
     });
   });
 

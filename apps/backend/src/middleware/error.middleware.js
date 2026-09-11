@@ -236,14 +236,6 @@ export const notFoundHandler = (req, res, next) => {
   next(error);
 };
 
-/**
- * Async Handler Wrapper
- * Wraps async route handlers to catch errors and pass to error middleware
- */
-export const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
-};
-
 export default {
   AppError,
   ValidationError,
@@ -254,5 +246,4 @@ export default {
   RateLimitError,
   errorHandler,
   notFoundHandler,
-  asyncHandler,
 };

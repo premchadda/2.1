@@ -1,156 +1,1158 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trstprep V2.1 — Repo Brain (Updated 5 Sep 2026)</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a28;--border:rgba(255,255,255,0.08);--text:#e8e8f0;--text2:#a0a0b8;--text3:#606078;--accent:#6366f1;--green:#10b981;--yellow:#f59e0b;--red:#ef4444;--blue:#3b82f6;--radius:8px}
-*{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
-a{color:var(--accent);text-decoration:none}
-a:hover{text-decoration:underline}
-code{font-family:'JetBrains Mono',monospace;font-size:0.85em;background:var(--surface2);padding:0.15em 0.4em;border-radius:4px;color:#c4b5fd}
-pre{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--text2)}
-table{width:100%;border-collapse:collapse;font-size:0.8rem;margin:1rem 0}
-th{background:var(--surface2);color:var(--text3);font-weight:600;text-transform:uppercase;font-size:0.7rem;letter-spacing:0.5px;padding:0.625rem 0.75rem;text-align:left;position:sticky;top:0;z-index:1}
-td{padding:0.5rem 0.75rem;border-bottom:1px solid var(--border);color:var(--text2)}
-tr:hover td{background:rgba(99,102,241,0.05)}
+<title>Trstprep V2.1 — Repo Brain (Updated 8 Sep 2026)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Three.js r128 for 3D Knowledge Graph WebGL Visualizer -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- Chart.js 4 for Data Visualizations -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-/* Layout */
-.sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;z-index:100;padding:1rem 0}
-.sidebar h3{font-size:0.7rem;text-transform:uppercase;color:var(--text3);letter-spacing:1px;padding:0.5rem 1.5rem;margin-top:1rem}
-.sidebar a{display:block;padding:0.5rem 1.5rem;color:var(--text2);font-size:0.85rem;font-weight:500;border-left:2px solid transparent;transition:all 0.2s}
-.sidebar a:hover{color:var(--text);background:rgba(255,255,255,0.03);border-left-color:var(--accent)}
-.sidebar a.active{color:var(--accent);border-left-color:var(--accent);background:rgba(99,102,241,0.08)}
-.main{margin-left:240px;padding:2rem 2.5rem;max-width:1400px}
+<style>
+:root {
+  --bg: #070b14;
+  --surface: rgba(13, 20, 36, 0.78);
+  --surface2: rgba(22, 33, 58, 0.85);
+  --surface-card: rgba(16, 25, 46, 0.7);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-glow: rgba(0, 245, 212, 0.3);
+  --text: #f1f5f9;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --cyan: #00f5d4;
+  --purple: #8b5cf6;
+  --blue: #38bdf8;
+  --emerald: #10b981;
+  --amber: #f59e0b;
+  --rose: #f43f5e;
+  --accent: #00f5d4;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; background: var(--bg); }
+body {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Custom Cyber Scrollbar */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: #050811; }
+::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); }
+::-webkit-scrollbar-thumb:hover { background: var(--cyan); }
+
+/* Typography */
+a { color: var(--blue); text-decoration: none; transition: color 0.2s; }
+a:hover { color: var(--cyan); text-decoration: underline; }
+code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.84em;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.18em 0.45em;
+  border-radius: 5px;
+  color: #c4b5fd;
+}
+pre {
+  background: rgba(10, 15, 28, 0.95);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.82rem;
+  margin: 1.25rem 0;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface-card);
+  backdrop-filter: blur(12px);
+}
+th {
+  background: rgba(18, 27, 49, 0.95);
+  color: var(--text);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.8px;
+  padding: 0.8rem 1rem;
+  text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+td {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text2);
+  vertical-align: middle;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(0, 245, 212, 0.04); color: var(--text); }
+
+/* Layout Shell */
+.app-shell { display: flex; min-height: 100vh; position: relative; }
+
+/* Floating Cyber Topbar */
+.top-hud {
+  position: fixed;
+  top: 0;
+  left: 260px;
+  right: 0;
+  height: 64px;
+  background: rgba(7, 11, 20, 0.85);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  gap: 1.5rem;
+}
+.hud-title-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.repo-logo-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #00f5d4, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 15px rgba(0, 245, 212, 0.4);
+}
+.hud-search-bar {
+  flex: 1;
+  max-width: 480px;
+  position: relative;
+}
+.hud-search-input {
+  width: 100%;
+  padding: 0.5rem 1rem 0.5rem 2.5rem;
+  background: rgba(18, 26, 47, 0.7);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.82rem;
+  transition: all 0.2s;
+}
+.hud-search-input:focus {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow: 0 0 15px rgba(0, 245, 212, 0.25);
+  background: rgba(22, 33, 58, 0.9);
+}
+.search-icon-svg {
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text3);
+  pointer-events: none;
+}
+.search-kbd {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.68rem;
+  padding: 0.15rem 0.4rem;
+  background: rgba(255,255,255,0.08);
+  border-radius: 4px;
+  color: var(--text3);
+  font-family: 'JetBrains Mono', monospace;
+}
+.hud-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 260px;
+  background: rgba(10, 15, 28, 0.95);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  z-index: 100;
+  padding: 1.25rem 0;
+  display: flex;
+  flex-direction: column;
+}
+.sidebar-brand {
+  padding: 0.5rem 1.5rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+.brand-name {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #f1f5f9, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.brand-badge {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--cyan);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+.sidebar h3 {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  color: var(--text3);
+  letter-spacing: 1.2px;
+  padding: 0.5rem 1.5rem;
+  margin-top: 0.75rem;
+}
+.sidebar a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 1.5rem;
+  color: var(--text2);
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.sidebar a:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+  border-left-color: var(--blue);
+  transform: translateX(2px);
+}
+.sidebar a.active {
+  color: var(--cyan);
+  border-left-color: var(--cyan);
+  background: linear-gradient(90deg, rgba(0, 245, 212, 0.1), transparent);
+  font-weight: 600;
+}
+.nav-counter {
+  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.05);
+  color: var(--text3);
+}
+
+/* Main Content */
+.main {
+  margin-left: 260px;
+  padding: 84px 2.5rem 4rem;
+  max-width: 1440px;
+  width: calc(100% - 260px);
+}
 
 /* Sections */
-.section{margin-bottom:3rem}
-.section-title{font-size:1.75rem;font-weight:800;margin-bottom:0.5rem;padding-bottom:0.75rem;border-bottom:1px solid var(--border)}
-.section-desc{color:var(--text3);font-size:0.9rem;margin-bottom:1.5rem}
-.subsection{margin-bottom:2rem}
-.subsection-title{font-size:1.15rem;font-weight:700;margin-bottom:1rem;color:var(--text)}
+.section {
+  margin-bottom: 4rem;
+  position: relative;
+}
+.section-title {
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, #ffffff, #cbd5e1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.section-desc {
+  color: var(--text2);
+  font-size: 0.92rem;
+  line-height: 1.7;
+  margin-bottom: 1.75rem;
+}
+.subsection { margin-bottom: 2.25rem; }
+.subsection-title {
+  font-size: 1.18rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
 
-/* Tabs */
-.tabs{display:flex;gap:0.25rem;border-bottom:1px solid var(--border);margin-bottom:1.5rem;overflow-x:auto}
-.tab{padding:0.625rem 1rem;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text2);font-family:inherit;font-size:0.8rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all 0.2s}
-.tab:hover{color:var(--text)}
-.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
-.panel{display:none}
-.panel.active{display:block}
+/* 3D Hero Section */
+.hero-3d-wrapper {
+  background: linear-gradient(180deg, rgba(13, 20, 36, 0.95), rgba(7, 11, 20, 0.98));
+  border: 1px solid rgba(0, 245, 212, 0.2);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 245, 212, 0.08);
+  overflow: hidden;
+  margin-bottom: 2rem;
+  position: relative;
+}
+.hero-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.5rem 1.75rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(18, 27, 49, 0.6);
+  backdrop-filter: blur(12px);
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.hero-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--cyan);
+  background: rgba(0, 245, 212, 0.1);
+  border: 1px solid rgba(0, 245, 212, 0.3);
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  margin-bottom: 0.6rem;
+}
+.live-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+.hero-headline {
+  font-size: 1.95rem;
+  font-weight: 800;
+  letter-spacing: -0.75px;
+  background: linear-gradient(135deg, #ffffff 30%, #00f5d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero-subtext {
+  font-size: 0.88rem;
+  color: var(--text2);
+  margin-top: 0.25rem;
+}
+.hero-hud-badges {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.hud-pill {
+  background: rgba(10, 15, 28, 0.85);
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 84px;
+}
+.hud-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text3);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+.hud-val {
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+.text-cyan { color: var(--cyan); }
+.text-purple { color: var(--purple); }
+.text-emerald { color: var(--emerald); }
+.text-amber { color: var(--amber); }
+
+/* 3D WebGL Canvas Box */
+.canvas-3d-box {
+  width: 100%;
+  height: 480px;
+  position: relative;
+  background: radial-gradient(circle at 50% 50%, rgba(13, 27, 54, 0.6) 0%, rgba(7, 11, 20, 0.95) 100%);
+  cursor: grab;
+}
+.canvas-3d-box:active { cursor: grabbing; }
+#hero-3d-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.canvas-3d-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+}
+.canvas-legend {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: rgba(10, 15, 28, 0.75);
+  backdrop-filter: blur(8px);
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  align-self: flex-start;
+  pointer-events: auto;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--text2);
+}
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.canvas-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-self: flex-end;
+  pointer-events: auto;
+}
+.c3d-btn {
+  background: rgba(18, 27, 49, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.c3d-btn:hover {
+  background: rgba(0, 245, 212, 0.15);
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: 0 0 15px rgba(0, 245, 212, 0.2);
+}
+.canvas-active-node-panel {
+  position: absolute;
+  bottom: 1rem;
+  left: 1.25rem;
+  background: rgba(13, 20, 36, 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glow);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  max-width: 320px;
+  pointer-events: auto;
+  transition: all 0.3s;
+}
+.node-info-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: 1px;
+}
+.node-info-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-top: 0.15rem;
+}
+.node-info-metric {
+  font-size: 0.75rem;
+  color: #38bdf8;
+  margin-top: 0.2rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+.node-info-desc {
+  font-size: 0.7rem;
+  color: var(--text3);
+  margin-top: 0.25rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Stat Grid */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.75rem;
+}
+.stat {
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.15rem 1rem;
+  text-align: center;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+.stat:hover {
+  transform: translateY(-3px);
+  border-color: rgba(0, 245, 212, 0.35);
+  box-shadow: 0 10px 25px rgba(0, 245, 212, 0.1);
+}
+.stat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.stat:hover::before { opacity: 1; }
+.stat-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ffffff, #cbd5e1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.stat-label {
+  font-size: 0.72rem;
+  color: var(--text3);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 0.35rem;
+}
+
+/* Cards & Glassmorphism */
+.card {
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.25s;
+}
+.card:hover { border-color: rgba(255, 255, 255, 0.14); }
+.card-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin-bottom: 0.85rem;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.card-body {
+  font-size: 0.88rem;
+  color: var(--text2);
+  line-height: 1.75;
+}
+
+/* 3D Tilt Card Effect */
+.tilt-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.15s ease-out, box-shadow 0.25s ease, border-color 0.25s ease;
+  will-change: transform;
+}
+.tilt-3d:hover {
+  border-color: rgba(0, 245, 212, 0.35) !important;
+  box-shadow: 0 12px 35px -5px rgba(0, 245, 212, 0.15) !important;
+}
+
+/* Interactive Chart.js Dashboard */
+.chart-dashboard-wrapper {
+  margin: 2rem 0;
+  background: linear-gradient(180deg, rgba(13, 20, 36, 0.8), rgba(9, 14, 26, 0.9));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.75rem;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+}
+.chart-dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.chart-dashboard-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+.chart-dashboard-subtitle {
+  font-size: 0.82rem;
+  color: var(--text3);
+  margin-top: 0.2rem;
+}
+.chart-filter-pills {
+  display: flex;
+  gap: 0.4rem;
+  background: rgba(10, 15, 28, 0.8);
+  padding: 0.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.pill-btn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text2);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.pill-btn:hover { color: var(--text); }
+.pill-btn.active {
+  background: rgba(0, 245, 212, 0.15);
+  color: var(--cyan);
+  border: 1px solid rgba(0, 245, 212, 0.3);
+}
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+.chart-card {
+  background: rgba(16, 25, 46, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+}
+.chart-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.chart-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chart-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+.chart-subtitle {
+  font-size: 0.74rem;
+  color: var(--text3);
+}
+.chart-container-box {
+  position: relative;
+  height: 220px;
+  width: 100%;
+}
+.chart-legend-row {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  font-size: 0.74rem;
+  color: var(--text2);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Snapshot Grid */
+.snapshot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.snapshot-item {
+  background: var(--surface-card);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  transition: all 0.2s;
+}
+.snapshot-item:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+.snapshot-item h3 {
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.snapshot-item p {
+  font-size: 0.82rem;
+  color: var(--text2);
+  line-height: 1.65;
+}
+
+/* Architecture Flows */
+.flow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.25rem;
+}
+.flow-card {
+  background: linear-gradient(160deg, rgba(16, 25, 46, 0.9), rgba(10, 16, 30, 0.95));
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.35rem;
+  position: relative;
+  overflow: hidden;
+}
+.flow-card h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.flow-card p {
+  font-size: 0.84rem;
+  color: var(--text2);
+  line-height: 1.7;
+}
+.flow-step {
+  display: inline-block;
+  background: rgba(30, 41, 59, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 0.2rem 0.45rem;
+  margin: 0.15rem 0;
+  color: #f8fafc;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.74rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.flow-step:hover {
+  background: rgba(0, 245, 212, 0.15);
+  border-color: var(--cyan);
+  color: var(--cyan);
+  transform: translateY(-1px);
+}
+.flow-arrow {
+  color: var(--cyan);
+  font-weight: 700;
+  padding: 0 0.25rem;
+  animation: arrowPulse 1.5s infinite;
+}
+@keyframes arrowPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; text-shadow: 0 0 8px var(--cyan); }
+}
 
 /* Badges */
-.badge{display:inline-block;padding:0.2rem 0.6rem;border-radius:4px;font-size:0.7rem;font-weight:700;text-transform:uppercase}
-.badge-green{background:rgba(16,185,129,0.15);color:#34d399}
-.badge-yellow{background:rgba(245,158,11,0.15);color:#fbbf24}
-.badge-red{background:rgba(239,68,68,0.15);color:#f87171}
-.badge-blue{background:rgba(59,130,246,0.15);color:#60a5fa}
-.badge-purple{background:rgba(168,85,247,0.15);color:#c084fc}
+.badge {
+  display: inline-block;
+  padding: 0.22rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.badge-green { background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+.badge-yellow { background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+.badge-red { background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+.badge-blue { background: rgba(59, 130, 246, 0.18); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+.badge-purple { background: rgba(168, 85, 247, 0.18); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
 
-/* Search */
-.search-box{width:100%;padding:0.625rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:inherit;font-size:0.85rem;margin-bottom:1rem}
-.search-box:focus{outline:none;border-color:var(--accent)}
+/* HTTP Method Badges */
+.method {
+  display: inline-block;
+  padding: 0.18rem 0.55rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  min-width: 52px;
+  text-align: center;
+}
+.m-get { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+.m-post { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.4); }
+.m-put { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.4); }
+.m-del { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+.tab {
+  padding: 0.65rem 1.15rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text2);
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  border-radius: 6px 6px 0 0;
+}
+.tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+.tab.active {
+  color: var(--cyan);
+  border-bottom-color: var(--cyan);
+  background: rgba(0, 245, 212, 0.08);
+}
+.panel { display: none; }
+.panel.active { display: block; animation: fadeIn 0.25s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
 /* Collapsible */
-.collapse{cursor:pointer;padding:0.75rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:0.5rem;font-weight:600;font-size:0.85rem;display:flex;justify-content:space-between;align-items:center}
-.collapse:hover{background:var(--surface2)}
-.collapse::after{content:'▾';color:var(--text3);transition:transform 0.2s}
-.collapse.open::after{transform:rotate(180deg)}
-.collapse-content{display:none;padding:1rem 0}
-.collapse-content.open{display:block}
+.collapse {
+  cursor: pointer;
+  padding: 0.85rem 1.15rem;
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.6rem;
+  font-weight: 600;
+  font-size: 0.88rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s;
+}
+.collapse:hover {
+  background: var(--surface2);
+  border-color: rgba(255,255,255,0.15);
+}
+.collapse::after {
+  content: '▾';
+  color: var(--text3);
+  transition: transform 0.2s;
+  font-size: 1.1rem;
+}
+.collapse.open::after { transform: rotate(180deg); color: var(--cyan); }
+.collapse-content { display: none; padding: 1rem 0; }
+.collapse-content.open { display: block; }
 
-/* Cards */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem}
-.card-title{font-weight:700;font-size:0.9rem;margin-bottom:0.5rem}
-.card-body{font-size:0.85rem;color:var(--text2)}
-.snapshot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0.75rem;margin-bottom:1.25rem}
-.snapshot-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem}
-.snapshot-item h3{font-size:0.85rem;margin-bottom:0.35rem;color:var(--text)}
-.snapshot-item p{font-size:0.78rem;color:var(--text2)}
-.snapshot-item code{font-size:0.78rem}
-.flow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0.75rem}
-.flow-card{background:linear-gradient(145deg,var(--surface),rgba(99,102,241,0.08));border:1px solid var(--border);border-radius:var(--radius);padding:1rem}
-.flow-card h3{font-size:0.9rem;margin-bottom:0.5rem}
-.flow-card p{font-size:0.8rem;color:var(--text2)}
-.flow-step{display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:0.2rem 0.4rem;margin:0.12rem 0;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:0.72rem}
-.flow-arrow{color:var(--accent);font-weight:700;padding:0 0.15rem}
-.source-list{display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.75rem}
-.source-list a{display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:0.25rem 0.5rem;font-family:'JetBrains Mono',monospace;font-size:0.72rem}
-.callout{border-left:3px solid var(--accent);background:rgba(99,102,241,0.08);padding:0.75rem 1rem;border-radius:0 var(--radius) var(--radius) 0;color:var(--text2);font-size:0.82rem;margin:1rem 0}
+/* Callout */
+.callout {
+  border-left: 4px solid var(--cyan);
+  background: linear-gradient(90deg, rgba(0, 245, 212, 0.08), rgba(13, 20, 36, 0.6));
+  padding: 1rem 1.25rem;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: var(--text2);
+  font-size: 0.88rem;
+  margin: 1.25rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
 
-/* Stats */
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.75rem;margin-bottom:1.5rem}
-.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;text-align:center}
-.stat-value{font-size:1.5rem;font-weight:800}
-.stat-label{font-size:0.7rem;color:var(--text3);margin-top:0.25rem}
+/* Source Lists */
+.source-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+.source-list a {
+  display: inline-block;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.74rem;
+  color: #cbd5e1;
+  transition: all 0.2s;
+}
+.source-list a:hover {
+  background: rgba(0, 245, 212, 0.15);
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
 
-/* Method badges */
-.method{display:inline-block;padding:0.15rem 0.5rem;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:700;min-width:45px;text-align:center}
-.m-get{background:rgba(16,185,129,0.15);color:#34d399}
-.m-post{background:rgba(99,102,241,0.15);color:#a5b4fc}
-.m-put{background:rgba(245,158,11,0.15);color:#fbbf24}
-.m-del{background:rgba(239,68,68,0.15);color:#f87171}
+/* Search input inside sections */
+.search-box {
+  width: 100%;
+  padding: 0.75rem 1.15rem;
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.88rem;
+  margin-bottom: 1.25rem;
+  transition: all 0.2s;
+}
+.search-box:focus {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow: 0 0 15px rgba(0, 245, 212, 0.2);
+}
 
-/* Tree */
-.tree{font-family:'JetBrains Mono',monospace;font-size:0.8rem;line-height:1.8;color:var(--text2);white-space:pre}
-.tree-dir{color:var(--accent);font-weight:600}
+/* Tree view */
+.tree {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  line-height: 1.9;
+  color: var(--text2);
+  white-space: pre;
+}
+.tree-dir {
+  color: var(--cyan);
+  font-weight: 700;
+}
 
-/* Mobile */
-.mobile-toggle{display:none;position:fixed;top:1rem;left:1rem;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.75rem;color:var(--text);cursor:pointer;font-size:0.8rem}
-@media(max-width:768px){
-.sidebar{transform:translateX(-100%);transition:transform 0.3s}
-.sidebar.open{transform:translateX(0)}
-.main{margin-left:0;padding:1rem}
-.mobile-toggle{display:block}
+/* Responsive */
+.mobile-toggle {
+  display: none;
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 200;
+  background: linear-gradient(135deg, #00f5d4, #38bdf8);
+  border: none;
+  border-radius: 999px;
+  padding: 0.75rem 1.25rem;
+  color: #050811;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 25px rgba(0, 245, 212, 0.4);
+}
+
+@media (max-width: 960px) {
+  .top-hud { left: 0; }
+  .sidebar { transform: translateX(-100%); transition: transform 0.3s; }
+  .sidebar.open { transform: translateX(0); }
+  .main { margin-left: 0; width: 100%; padding: 80px 1.25rem 3rem; }
+  .mobile-toggle { display: block; }
 }
 </style>
 </head>
 <body>
 
-<button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰ Menu</button>
+<div class="app-shell">
 
-<nav class="sidebar">
-<h3>Repo Brain</h3>
-<a href="#overview" class="active">1. Overview</a>
-<a href="#snapshot">Live snapshot</a>
-<a href="#flows">Architecture &amp; flows</a>
-<a href="#runtime">Runtime watchlist</a>
-<a href="#structure">2. Repository Structure</a>
-<a href="#backend">3. Backend</a>
-<a href="#frontend">4. Frontend</a>
-<a href="#admin">5. Admin Panel</a>
-<a href="#database">6. Database</a>
-<a href="#packages">7. Packages</a>
-<a href="#scripts">8. Scripts</a>
-<a href="#docs">9. Docs</a>
-<a href="#cicd">10. CI/CD & Infra</a>
-<a href="#testing">11. Testing</a>
-<a href="#status">12. Implementation Status</a>
-<a href="#autosync">Auto-sync (graphify)</a>
-</nav>
+  <!-- Top Floating HUD -->
+  <header class="top-hud">
+    <div class="hud-title-badge">
+      <div class="repo-logo-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#070b14" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>
+      </div>
+      <div>
+        <div style="font-size:0.88rem;font-weight:800;letter-spacing:-0.2px;line-height:1.2">Trstprep V2.1</div>
+        <div style="font-size:0.68rem;color:var(--text3);font-family:'JetBrains Mono',monospace">Knowledge Graph &amp; Architecture Hub</div>
+      </div>
+    </div>
 
-<div class="main">
+    <div class="hud-search-bar">
+      <svg class="search-icon-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" class="hud-search-input" id="global-search" placeholder="Search routes, tables, god-nodes, files...">
+      <span class="search-kbd">⌘K</span>
+    </div>
+
+    <div class="hud-quick-actions">
+      <span class="badge badge-green" style="display:flex;align-items:center;gap:0.4rem">
+        <span class="live-pulse" style="width:6px;height:6px"></span>
+        SYNCHRONIZED
+      </span>
+    </div>
+  </header>
+
+  <!-- Left Glass Sidebar Navigation -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-name">REPO_BRAIN.html</div>
+      <div class="brand-badge">
+        <span class="live-pulse" style="width:5px;height:5px"></span>
+        3D Interactive Architecture
+      </div>
+    </div>
+    <h3>Core Navigation</h3>
+    <a href="#overview" class="active"><span>1. Overview</span><span class="nav-counter">3+1</span></a>
+    <a href="#snapshot"><span>Live Snapshot</span><span class="nav-counter">58 facts</span></a>
+    <a href="#flows"><span>Architecture Flows</span><span class="nav-counter">6 flows</span></a>
+    <a href="#runtime"><span>Runtime Watchlist</span><span class="nav-counter">6 signals</span></a>
+    <a href="#structure"><span>2. Repo Structure</span><span class="nav-counter">Tree</span></a>
+    <a href="#backend"><span>3. Backend API</span><span class="nav-counter">86 routes</span></a>
+    <a href="#frontend"><span>4. Frontend SPA</span><span class="nav-counter">112 pages</span></a>
+    <a href="#admin"><span>5. Admin Panel</span><span class="nav-counter">36 mgrs</span></a>
+    <a href="#database"><span>6. Database</span><span class="nav-counter">127 migs</span></a>
+    <a href="#packages"><span>7. Shared Packages</span><span class="nav-counter">2 pkgs</span></a>
+    <a href="#scripts"><span>8. Scripts &amp; Tools</span><span class="nav-counter">108 files</span></a>
+    <a href="#docs"><span>9. Documentation</span><span class="nav-counter">20 docs</span></a>
+    <a href="#cicd"><span>10. CI/CD &amp; Infra</span><span class="nav-counter">12 svcs</span></a>
+    <a href="#testing"><span>11. Testing Suites</span><span class="nav-counter">51 tests</span></a>
+    <a href="#status"><span>12. Status Matrix</span><span class="nav-counter">Roadmap</span></a>
+    <a href="#autosync"><span>Auto-sync Pipeline</span><span class="nav-counter">CI Guard</span></a>
+  </nav>
+
+  <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰ Menu</button>
+
+  <!-- Main Document Container -->
+  <div class="main">
+
 
 <!-- 1. OVERVIEW -->
 <div class="section" id="overview">
 <h2 class="section-title">1. Overview</h2>
-<p class="section-desc">Complete repository map, refreshed from the current worktree and knowledge graph on <span data-brain="refreshed">5 Sep 2026</span>. This document is the single source of truth for the Trstprep monorepo's architecture, route inventory, middleware stack, database schema, frontend routes, admin panel, CI/CD pipeline, and runtime health signals. Every claim is backed by filesystem evidence or graph-report citations — nothing is inferred without a source. Numbers marked with auto-sync spans are refreshed automatically after every commit (see the Auto-sync section at the bottom).</p>
+<p class="section-desc">Complete repository map, refreshed from the current worktree and knowledge graph on <span data-brain="refreshed">8 Sep 2026</span>. This document is the single source of truth for the Trstprep monorepo's architecture, route inventory, middleware stack, database schema, frontend routes, admin panel, CI/CD pipeline, and runtime health signals. Every claim is backed by filesystem evidence or graph-report citations — nothing is inferred without a source. Numbers marked with auto-sync spans are refreshed automatically after every commit (see the Auto-sync section at the bottom).</p>
+
+<!-- 3D HERO KNOWLEDGE GRAPH VISUALIZER -->
+<div class="hero-3d-wrapper">
+  <div class="hero-header-bar">
+    <div class="hero-title-group">
+      <div class="hero-tag">
+        <span class="live-pulse"></span>
+        <span>NEURAL GRAPH V2.1 · LIVE AST STATE</span>
+      </div>
+      <h1 class="hero-headline">Trstprep Monorepo Brain</h1>
+      <p class="hero-subtext">Interactive 3D WebGL Knowledge Graph &amp; Architecture Matrix across 1,744 files</p>
+    </div>
+    <div class="hero-hud-badges">
+      <div class="hud-pill">
+        <span class="hud-label">HEAD</span>
+        <span class="hud-val font-mono text-cyan"><span data-brain="head">6f832a03</span></span>
+      </div>
+      <div class="hud-pill">
+        <span class="hud-label">REFRESHED</span>
+        <span class="hud-val"><span data-brain="refreshed">8 Sep 2026</span></span>
+      </div>
+      <div class="hud-pill">
+        <span class="hud-label">NODES</span>
+        <span class="hud-val text-emerald"><span data-brain="graph_nodes">15396</span></span>
+      </div>
+      <div class="hud-pill">
+        <span class="hud-label">EDGES</span>
+        <span class="hud-val text-purple"><span data-brain="graph_edges">20776</span></span>
+      </div>
+      <div class="hud-pill">
+        <span class="hud-label">CLUSTERS</span>
+        <span class="hud-val text-amber"><span data-brain="graph_communities">1044</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Three.js Canvas Container -->
+  <div class="canvas-3d-box" id="canvas-3d-box">
+    <canvas id="hero-3d-canvas"></canvas>
+    <div class="canvas-3d-overlay">
+      <div class="canvas-legend">
+        <div class="legend-item"><span class="legend-dot" style="background:#00f5d4;box-shadow:0 0 8px #00f5d4"></span> Backend API (35%)</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#38bdf8;box-shadow:0 0 8px #38bdf8"></span> Frontend SPA (25%)</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#a855f7;box-shadow:0 0 8px #a855f7"></span> Admin Panel (15%)</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#10b981;box-shadow:0 0 8px #10b981"></span> Database / Redis (15%)</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#f59e0b;box-shadow:0 0 8px #f59e0b"></span> Tooling / Config (10%)</div>
+      </div>
+      <div class="canvas-controls">
+        <button type="button" class="c3d-btn" id="btn-rotate" title="Toggle Auto-Rotation">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          <span>Auto-Rotate</span>
+        </button>
+        <button type="button" class="c3d-btn" id="btn-reset" title="Reset Camera View">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          <span>Reset View</span>
+        </button>
+        <button type="button" class="c3d-btn" id="btn-focus-gods" title="Focus Central God-Nodes">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg>
+          <span>Focus Core Hubs</span>
+        </button>
+        <button type="button" class="c3d-btn" id="btn-explode" title="Explode / Collapse Tiers">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          <span id="btn-explode-text">Explode Tiers</span>
+        </button>
+      </div>
+    </div>
+    <div class="canvas-active-node-panel" id="canvas-node-info">
+      <div class="node-info-badge">CORE GOD-NODE</div>
+      <div class="node-info-title" id="node-info-name">PostgresHelpers / dbHelpers</div>
+      <div class="node-info-metric" id="node-info-edges">272 Edges · Primary Data Convergence</div>
+      <div class="node-info-desc" id="node-info-file">apps/backend/src/infrastructure/database/postgres-helpers.js</div>
+    </div>
+  </div>
+</div>
+
 <div class="stat-grid">
 <div class="stat"><div class="stat-value">3+1</div><div class="stat-label">Apps + Worker</div></div>
 <div class="stat"><div class="stat-value">2</div><div class="stat-label">Packages</div></div>
-<div class="stat"><div class="stat-value"><span data-brain="migration_files">124</span></div><div class="stat-label">Migration Files</div></div>
+<div class="stat"><div class="stat-value"><span data-brain="migration_files">130</span></div><div class="stat-label">Migration Files</div></div>
 <div class="stat"><div class="stat-value"><span data-brain="api_mounts">73</span></div><div class="stat-label">API Mount Entries</div></div>
-<div class="stat"><div class="stat-value"><span data-brain="frontend_pages">111</span></div><div class="stat-label">Frontend Page Files</div></div>
+<div class="stat"><div class="stat-value"><span data-brain="frontend_pages">114</span></div><div class="stat-label">Frontend Page Files</div></div>
 <div class="stat"><div class="stat-value">36</div><div class="stat-label">Admin Manager Files</div></div>
 <div class="stat"><div class="stat-value">53</div><div class="stat-label">Unit Test Files</div></div>
 <div class="stat"><div class="stat-value">4</div><div class="stat-label">CI Workflows</div></div>
 <div class="stat"><div class="stat-value"><span data-brain="backend_route_files">86</span></div><div class="stat-label">Route Files (api)</div></div>
-<div class="stat"><div class="stat-value"><span data-brain="backend_src_files">552</span></div><div class="stat-label">Backend Source Files</div></div>
-<div class="stat"><div class="stat-value"><span data-brain="frontend_src_files">322</span></div><div class="stat-label">Frontend Source Files</div></div>
-<div class="stat"><div class="stat-value"><span data-brain="admin_src_files">183</span></div><div class="stat-label">Admin Source Files</div></div>
+<div class="stat"><div class="stat-value"><span data-brain="backend_src_files">558</span></div><div class="stat-label">Backend Source Files</div></div>
+<div class="stat"><div class="stat-value"><span data-brain="frontend_src_files">334</span></div><div class="stat-label">Frontend Source Files</div></div>
+<div class="stat"><div class="stat-value"><span data-brain="admin_src_files">193</span></div><div class="stat-label">Admin Source Files</div></div>
 <div class="stat"><div class="stat-value"><span data-brain="backend_module_route_files">33</span></div><div class="stat-label">Module Route Files</div></div>
 <div class="stat"><div class="stat-value">10</div><div class="stat-label">Compose Services</div></div>
 </div>
@@ -184,22 +1186,127 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 <h2 class="section-title">Live Snapshot</h2>
 <p class="section-desc">Evidence-backed repository state. Counts below are from the current filesystem scan; graph metrics are from <a href="../graphify-out/GRAPH_REPORT.md">graphify-out/GRAPH_REPORT.md</a>. Every number can be verified by grepping the source tree — this section exists so you don't have to.</p>
 <div class="snapshot-grid">
-<div class="snapshot-item"><h3>Repository identity</h3><p><code>trstprep-monorepo</code> v2.1.0, npm workspaces, Turborepo 2.10.12, ESM, Node &gt;=20, npm 10.8.2. Current HEAD: <code><span data-brain="head">7a519525</span></code>. The monorepo root <code>package.json</code> defines workspace globs for <code>apps/*</code> and <code>packages/*</code>, with Turborepo task pipelines for <code>build</code>, <code>lint</code>, <code>test</code>, and <code>dev</code>. All packages use <code>"type": "module"</code> for native ESM imports.</p></div>
-<div class="snapshot-item"><h3>Graph coverage</h3><p><span data-brain="graph_nodes">16718</span> nodes, <span data-brain="graph_edges">22037</span> edges, and <span data-brain="graph_communities">1192</span> communities (refreshed <span data-brain="refreshed">5 Sep 2026</span> after deduplication collapsed thousands of noisy duplicate labels — the earlier 15,828-node count included ~6.4k near-duplicate entity labels). The graph identifies the god nodes (dbHelpers 127 edges, PostgresHelpers 272, protect() 101, sanitizeErrorMessage() 94, admin() 72, responseCache() 47, getRedisClient() 43) and cross-domain hyperedges. Query the graph at <code>graphify-out/</code> instead of grepping blindly.</p></div>
-<div class="snapshot-item"><h3>Application surface</h3><p><code>apps/backend/src</code>: <span data-brain="backend_src_files">552</span> files (<span data-brain="backend_route_files">86</span> route files, module directories, <span data-brain="backend_middleware">26</span> middleware, 14 core services, AI services, import services); <code>apps/frontend/src</code>: <span data-brain="frontend_src_files">322</span> files (<span data-brain="frontend_pages">111</span> page components, common components, hooks, lib files); <code>apps/admin-panel/src</code>: <span data-brain="admin_src_files">183</span> files (36 manager files, common components, hooks). Counts exclude graphify-out artifact directories.</p></div>
+<div class="snapshot-item"><h3>Repository identity</h3><p><code>trstprep-monorepo</code> v2.1.0, npm workspaces, Turborepo 2.10.12, ESM, Node &gt;=20, npm 10.8.2. Current HEAD: <code><span data-brain="head">6f832a03</span></code>. The monorepo root <code>package.json</code> defines workspace globs for <code>apps/*</code> and <code>packages/*</code>, with Turborepo task pipelines for <code>build</code>, <code>lint</code>, <code>test</code>, and <code>dev</code>. All packages use <code>"type": "module"</code> for native ESM imports.</p></div>
+<div class="snapshot-item"><h3>Graph coverage</h3><p><span data-brain="graph_nodes">15396</span> nodes, <span data-brain="graph_edges">20776</span> edges, and <span data-brain="graph_communities">1044</span> communities (refreshed <span data-brain="refreshed">8 Sep 2026</span> after deduplication collapsed thousands of noisy duplicate labels — the earlier 15,828-node count included ~6.4k near-duplicate entity labels). The graph identifies the god nodes (dbHelpers 127 edges, PostgresHelpers 272, protect() 101, sanitizeErrorMessage() 94, admin() 72, responseCache() 47, getRedisClient() 43) and cross-domain hyperedges. Query the graph at <code>graphify-out/</code> instead of grepping blindly.</p></div>
+<div class="snapshot-item"><h3>Application surface</h3><p><code>apps/backend/src</code>: <span data-brain="backend_src_files">558</span> files (<span data-brain="backend_route_files">86</span> route files, module directories, <span data-brain="backend_middleware">26</span> middleware, 14 core services, AI services, import services); <code>apps/frontend/src</code>: <span data-brain="frontend_src_files">334</span> files (<span data-brain="frontend_pages">114</span> page components, common components, hooks, lib files); <code>apps/admin-panel/src</code>: <span data-brain="admin_src_files">193</span> files (36 manager files, common components, hooks). Counts exclude graphify-out artifact directories.</p></div>
 <div class="snapshot-item"><h3>Backend shape</h3><p><span data-brain="backend_route_files">86</span> API route files in <code>api/routes/</code> + <span data-brain="backend_module_route_files">33</span> module route files in <code>modules/*/</code>. The composition root (<code>app-port5001.js</code>, 1,256 lines) mounts <span data-brain="api_mounts">73</span> canonical <code>/api</code> route entries, plus the sessions router and extracted admin routes. Middleware stack: <span data-brain="backend_middleware">26</span> middleware files handling auth, CSRF, rate limiting, audit, caching, compression, and error handling. Entry point starts 3 background jobs (scheduler, outbox poller, attempt cleaner) and 6 BullMQ queues at boot.</p></div>
-<div class="snapshot-item"><h3>Data evolution</h3><p><span data-brain="migration_files">124</span> migration files present (numbered 000–129 with retired-number gaps), auto-run at boot via <code>migrationRunner.js</code>. Sequence currently reaches migration 129 (cascade taxonomy foreign keys); 126–129 add subject performance indexes, index backfill, tests consecutive-ID reindex, and taxonomy FK cascades. PostgreSQL/Supabase is accessed through write (<code>DATABASE_URL</code>) and optional read (<code>DATABASE_READ_URL</code>) pools with <code>warmPools()</code> at startup. Redis supports BullMQ queues, Socket.IO adapter, session cache, rate limiting, and pub/sub messaging.</p></div>
+<div class="snapshot-item"><h3>Data evolution</h3><p><span data-brain="migration_files">130</span> migration files present (numbered 000–129 with retired-number gaps), auto-run at boot via <code>migrationRunner.js</code>. Sequence currently reaches migration 129 (cascade taxonomy foreign keys); 126–129 add subject performance indexes, index backfill, tests consecutive-ID reindex, and taxonomy FK cascades. PostgreSQL/Supabase is accessed through write (<code>DATABASE_URL</code>) and optional read (<code>DATABASE_READ_URL</code>) pools with <code>warmPools()</code> at startup. Redis supports BullMQ queues, Socket.IO adapter, session cache, rate limiting, and pub/sub messaging.</p></div>
 <div class="snapshot-item"><h3>Verification surface</h3><p>35 backend unit tests (Jest), 11 frontend tests (Vitest), 7 admin tests (Vitest), 4 GitHub Actions workflows (ci.yml, security.yml, no-env.yml, data-guard.yml), and k6 load-test assets (api.js, auth.js, realtime.js) under <code>tests/load/</code>. Pre-commit hooks via .husky + .lintstagedrc.json run linting on staged files.</p></div>
 </div>
-<div class="callout"><strong>Freshness note:</strong> the graph and the counts on this page are auto-refreshed after every commit (post-commit hook: graphify rebuild + <code>scripts/sync-repo-brain.mjs</code>), so committed architecture and this page stay in lockstep. Work-in-flight (uncommitted changes) is always ahead of both — verify against the live filesystem, not just git log or this page.</div>
+<div class="callout">
+
+<!-- INTERACTIVE CHART.JS ANALYTICS SUITE -->
+<div class="chart-dashboard-wrapper">
+  <div class="chart-dashboard-header">
+    <div>
+      <h3 class="chart-dashboard-title">Visual Monorepo Analytics &amp; Telemetry</h3>
+      <p class="chart-dashboard-subtitle">Real-time charts mapped directly from graphify AST extraction and live repository schema</p>
+    </div>
+    <div class="chart-filter-pills">
+      <span class="pill-btn active" data-chart-filter="all">All Metrics</span>
+      <span class="pill-btn" data-chart-filter="codebase">Codebase</span>
+      <span class="pill-btn" data-chart-filter="graph">God Nodes</span>
+      <span class="pill-btn" data-chart-filter="db">Database</span>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <!-- Chart 1: Codebase Distribution -->
+    <div class="chart-card tilt-3d" data-category="codebase">
+      <div class="chart-card-header">
+        <div class="chart-icon-box" style="background:rgba(0,245,212,0.1);color:#00f5d4">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        </div>
+        <div>
+          <div class="chart-title">Codebase Distribution</div>
+          <div class="chart-subtitle">File volume across workspace packages</div>
+        </div>
+      </div>
+      <div class="chart-container-box">
+        <canvas id="chart-codebase"></canvas>
+      </div>
+      <div class="chart-legend-row">
+        <span><b style="color:#00f5d4">BE:</b> <span data-brain="backend_src_files">558</span></span>
+        <span><b style="color:#38bdf8">FE:</b> <span data-brain="frontend_src_files">334</span></span>
+        <span><b style="color:#a855f7">Admin:</b> <span data-brain="admin_src_files">193</span></span>
+        <span><b style="color:#f59e0b">Scripts:</b> <span data-brain="scripts_files">110</span></span>
+      </div>
+    </div>
+
+    <!-- Chart 2: God-Node Edge Density Radar -->
+    <div class="chart-card tilt-3d" data-category="graph">
+      <div class="chart-card-header">
+        <div class="chart-icon-box" style="background:rgba(168,85,247,0.1);color:#a855f7">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
+        </div>
+        <div>
+          <div class="chart-title">God-Node Edge Density</div>
+          <div class="chart-subtitle">Direct dependency edges from knowledge graph</div>
+        </div>
+      </div>
+      <div class="chart-container-box">
+        <canvas id="chart-godnodes"></canvas>
+      </div>
+      <div class="chart-legend-row">
+        <span><b style="color:#a855f7">app-port5001:</b> <span data-brain="node_app_port5001">190</span></span>
+        <span><b style="color:#38bdf8">dbHelpers:</b> <span data-brain="node_dbhelpers">138</span></span>
+        <span><b style="color:#00f5d4">protect():</b> <span data-brain="node_protect">101</span></span>
+      </div>
+    </div>
+
+    <!-- Chart 3: Database Core Entity Scale -->
+    <div class="chart-card tilt-3d" data-category="db">
+      <div class="chart-card-header">
+        <div class="chart-icon-box" style="background:rgba(16,185,129,0.1);color:#10b981">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        </div>
+        <div>
+          <div class="chart-title">Database Core Scale</div>
+          <div class="chart-subtitle">Primary entity row counts (live Supabase instance)</div>
+        </div>
+      </div>
+      <div class="chart-container-box">
+        <canvas id="chart-database"></canvas>
+      </div>
+      <div class="chart-legend-row">
+        <span><b>Migrations:</b> <span data-brain="migration_files">130</span></span>
+        <span><b>API Mounts:</b> <span data-brain="api_mounts">73</span></span>
+        <span><b>Questions:</b> 45.1k</span>
+      </div>
+    </div>
+
+    <!-- Chart 4: API Domain Distribution -->
+    <div class="chart-card tilt-3d" data-category="codebase">
+      <div class="chart-card-header">
+        <div class="chart-icon-box" style="background:rgba(56,189,248,0.1);color:#38bdf8">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        </div>
+        <div>
+          <div class="chart-title">API Route Architecture</div>
+          <div class="chart-subtitle">Mounted endpoints grouped by functional domain</div>
+        </div>
+      </div>
+      <div class="chart-container-box">
+        <canvas id="chart-routes"></canvas>
+      </div>
+      <div class="chart-legend-row">
+        <span><b>Routes:</b> <span data-brain="backend_route_files">86</span></span>
+        <span><b>Module Routes:</b> <span data-brain="backend_module_route_files">33</span></span>
+        <span><b>Middleware:</b> <span data-brain="backend_middleware">26</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<strong>Freshness note:</strong> the graph and the counts on this page are auto-refreshed after every commit (post-commit hook: graphify rebuild + <code>scripts/sync-repo-brain.mjs</code>), so committed architecture and this page stay in lockstep. Work-in-flight (uncommitted changes) is always ahead of both — verify against the live filesystem, not just git log or this page.</div>
 <div class="card">
 <div class="card-title">Architecture layers and ownership</div>
 <table><thead><tr><th>Layer</th><th>Primary source of truth</th><th>Responsibility</th><th>Current scale</th><th>Key files</th></tr></thead><tbody>
-<tr><td>Experience</td><td><code>apps/frontend/src</code></td><td>Learner-facing SPA: authentication, dashboard, test-taking, practice sessions, PYP browsing, study material consumption, community forums, payments, and profile management. Route-level code splitting via <code>React.lazy()</code> with <code>RouteErrorBoundary</code> per route. TanStack Query manages server-state with optimistic updates and background refetching. Routes are declared in <code>src/app/routes.jsx</code> and rendered from <code>App.jsx</code> (332 lines).</td><td><span data-brain="frontend_src_files">322</span> source files / <span data-brain="frontend_pages">111</span> page files</td><td><code>App.jsx</code> + <code>app/routes.jsx</code>, <code>pages/</code>, <code>shared/lib/</code> (API/domain clients)</td></tr>
-<tr><td>Operations UI</td><td><code>apps/admin-panel/src/features/admin</code></td><td>Admin CRUD for all entities, content hierarchy management, bulk imports, analytics dashboards, moderation queues, system settings, audit trail viewing, and role-based access control. All route components are lazy-loaded. Zod schemas validate all form inputs.</td><td><span data-brain="admin_src_files">183</span> source files / 36 manager files</td><td><code>features/admin/</code> (12 domain dirs), <code>shared/components/</code>, <code>shared/hooks/</code></td></tr>
+<tr><td>Experience</td><td><code>apps/frontend/src</code></td><td>Learner-facing SPA: authentication, dashboard, test-taking, practice sessions, PYP browsing, study material consumption, community forums, payments, and profile management. Route-level code splitting via <code>React.lazy()</code> with <code>RouteErrorBoundary</code> per route. TanStack Query manages server-state with optimistic updates and background refetching. Routes are declared in <code>src/app/routes.jsx</code> and rendered from <code>App.jsx</code> (332 lines).</td><td><span data-brain="frontend_src_files">334</span> source files / <span data-brain="frontend_pages">114</span> page files</td><td><code>App.jsx</code> + <code>app/routes.jsx</code>, <code>pages/</code>, <code>shared/lib/</code> (API/domain clients)</td></tr>
+<tr><td>Operations UI</td><td><code>apps/admin-panel/src/features/admin</code></td><td>Admin CRUD for all entities, content hierarchy management, bulk imports, analytics dashboards, moderation queues, system settings, audit trail viewing, and role-based access control. All route components are lazy-loaded. Zod schemas validate all form inputs.</td><td><span data-brain="admin_src_files">193</span> source files / 36 manager files</td><td><code>features/admin/</code> (12 domain dirs), <code>shared/components/</code>, <code>shared/hooks/</code></td></tr>
 <tr><td>Application API</td><td><code>apps/backend/src/app-port5001.js</code></td><td>Express composition root: env validation, security middleware, route mounting, boot jobs (scheduler, outbox poller, attempt cleaner), database migrations, Redis/queue initialization, WebSocket setup, graceful shutdown. <span data-brain="api_mounts">73</span> canonical <code>/api</code> mount entries plus extracted admin routes.</td><td>1,256 lines / <span data-brain="api_mounts">73</span> API mount entries</td><td><code>app-port5001.js</code> (entry), <code>api/routes/</code> (<span data-brain="backend_route_files">86</span> files), <code>api/docs/</code> (Swagger)</td></tr>
 <tr><td>Domain services</td><td><code>apps/backend/src/modules</code> and <code>services</code></td><td>Business logic: auth (JWT, TOTP 2FA, phone OTP), test engine (attempt lifecycle, anti-cheat, scoring), practice sessions, Node Engine (learning graph, spaced repetition), AI (mentor, explanations, RAG), search (semantic + keyword), payments (Razorpay), live tests, community, analytics, and content moderation.</td><td>module directories / <span data-brain="backend_module_route_files">33</span> module route files</td><td><code>modules/</code> (auth, ai, adaptive, live, etc.), <code>services/core/</code> (14 files), <code>services/ai/</code>, <code>services/import/</code></td></tr>
-<tr><td>Persistence &amp; events</td><td><code>infrastructure/database</code>, <code>infrastructure/queue</code>, <code>infrastructure/websocket</code></td><td>PostgreSQL dual-pool access, pgvector for semantic search, migration runner (auto-runs <span data-brain="migration_files">124</span> files at boot), query builder, repository pattern, Redis/BullMQ (6 queues), outbox poller with <code>SELECT FOR UPDATE SKIP LOCKED</code>, Socket.IO with Redis adapter for multi-node broadcasting.</td><td><span data-brain="migration_files">124</span> migration files / dual-pool configuration</td><td><code>infrastructure/database/postgres-helpers.js</code>, <code>infrastructure/queue/queueManager.js</code>, <code>infrastructure/websocket/websocketManager.js</code></td></tr>
+<tr><td>Persistence &amp; events</td><td><code>infrastructure/database</code>, <code>infrastructure/queue</code>, <code>infrastructure/websocket</code></td><td>PostgreSQL dual-pool access, pgvector for semantic search, migration runner (auto-runs <span data-brain="migration_files">130</span> files at boot), query builder, repository pattern, Redis/BullMQ (6 queues), outbox poller with <code>SELECT FOR UPDATE SKIP LOCKED</code>, Socket.IO with Redis adapter for multi-node broadcasting.</td><td><span data-brain="migration_files">130</span> migration files / dual-pool configuration</td><td><code>infrastructure/database/postgres-helpers.js</code>, <code>infrastructure/queue/queueManager.js</code>, <code>infrastructure/websocket/websocketManager.js</code></td></tr>
 <tr><td>Shared contracts</td><td><code>packages/shared-config</code> and <code>packages/shared-hooks</code></td><td>API client with CSRF injection and JWT refresh retry, error class hierarchy, CSRF token store, logger (pino-based, stdout → Grafana Loki), 9 reusable hooks, ThemeContext for dark mode, and API client configuration.</td><td>32 package files</td><td><code>packages/shared-config/src/</code> (apiClient, errors, logger), <code>packages/shared-hooks/src/</code> (9 hooks + ThemeContext)</td></tr>
 </tbody></table>
 </div>
@@ -207,15 +1314,15 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 <div class="card-title">Graph-identified cross-cutting hubs</div>
 <p style="color:var(--text3);font-size:0.8rem;margin-bottom:0.75rem">These are the highest-connection nodes in the knowledge graph. Changes to them ripple across many modules — always trace the full edge list before editing.</p>
 <table><thead><tr><th>Hub</th><th>Graph edges</th><th>Why it matters</th><th>Risk if changed</th></tr></thead><tbody>
-<tr><td><code>PostgresHelpers</code> / <code>dbHelpers</code></td><td><span data-brain="node_postgreshelpers">52</span> / <span data-brain="node_dbhelpers">139</span></td><td>Most repository/data access paths converge here. Contains query execution helpers, transaction management, and common database operations used by all repositories and route handlers. Both labels resolve to <code>postgres-helpers.js</code> in the graph.</td><td>Breaking changes propagate to every database-touching module. Always run the full test suite and database audit after changes.</td></tr>
+<tr><td><code>PostgresHelpers</code> / <code>dbHelpers</code></td><td><span data-brain="node_postgreshelpers">52</span> / <span data-brain="node_dbhelpers">138</span></td><td>Most repository/data access paths converge here. Contains query execution helpers, transaction management, and common database operations used by all repositories and route handlers. Both labels resolve to <code>postgres-helpers.js</code> in the graph.</td><td>Breaking changes propagate to every database-touching module. Always run the full test suite and database audit after changes.</td></tr>
 <tr><td><code>DataService</code></td><td><span data-brain="node_dataservice">23</span></td><td>Frontend API boundary: every admin-panel and frontend data fetch flows through <code>dataService.js</code> (CSRF injection, entity fetchers, adminAPI namespace). The client-side mirror of the backend's god nodes.</td><td>Breaking changes cascade to every page component and hook that fetches data. Test with frontend + admin suites together.</td></tr>
-<tr><td><code>app-port5001.js</code> (composition root)</td><td><span data-brain="node_app_port5001">192</span></td><td>Every route mount, middleware order, boot job, and shutdown hook is wired here. The graph's third-highest code node because nearly every module imports or is mounted from it.</td><td>Reordering middleware or mounts changes the security guard stack. Run <code>validate-routes.js</code> after edits.</td></tr>
-<tr><td><code>pool</code></td><td><span data-brain="node_pool">112</span></td><td>Database connection lifecycle: write pool (<code>DATABASE_URL</code>), read pool (<code>DATABASE_READ_URL</code> fallback), pool warming at boot, health checks, and connection recycling.</td><td>Pool configuration errors cause cascading failures across all DB-dependent services. Test with <code>run-database-audit.js</code> first.</td></tr>
-<tr><td><code>protect()</code></td><td><span data-brain="node_protect">103</span></td><td>Authenticated route boundary: JWT verification, session check (Redis cached), isActive check, emailVerified check, sessionId embedding. Every authenticated endpoint depends on this.</td><td>Auth changes affect all protected routes (~80% of API surface). Test with full auth test suite + 2FA scenarios.</td></tr>
-<tr><td><code>sanitizeErrorMessage()</code></td><td><span data-brain="node_sanitizeerrormessage">98</span></td><td>Shared error disclosure boundary: sanitizes error messages before sending to clients, preventing information leakage. Used across all API error responses.</td><td>Overly aggressive sanitization hides debugging info; too permissive leaks internals. Test with error handling test suite.</td></tr>
-<tr><td><code>admin()</code></td><td><span data-brain="node_admin">72</span></td><td>Admin authorization boundary: checks <code>req.user.isAdmin</code>. Used with origin validation, API key, auth, RBAC, and audit middleware in a layered guard stack.</td><td>Admin auth bypass is a critical security vulnerability. Test with admin permission test suite + RBAC scenarios.</td></tr>
-<tr><td><code>responseCache()</code></td><td><span data-brain="node_responsecache">40</span></td><td>Cache behavior is cross-cutting: in-memory TTL cache used across public and admin routes. Two implementations exist (plain + .middleware variant) — a known duplication risk.</td><td>Cache invalidation bugs cause stale data. Cache stampede on cold start. Monitor cache hit rates in production.</td></tr>
-<tr><td><code>getRedisClient()</code></td><td><span data-brain="node_getredisclient">47</span></td><td>Queue, cache, pub/sub, and realtime dependencies all share this infrastructure. Status-aware with automatic fallback to in-memory cache when Redis is unavailable.</td><td>Redis outages degrade but don't break the system (fail-soft design). Monitor Redis connection status in health checks.</td></tr>
+<tr><td><code>app-port5001.js</code> (composition root)</td><td><span data-brain="node_app_port5001">190</span></td><td>Every route mount, middleware order, boot job, and shutdown hook is wired here. The graph's third-highest code node because nearly every module imports or is mounted from it.</td><td>Reordering middleware or mounts changes the security guard stack. Run <code>validate-routes.js</code> after edits.</td></tr>
+<tr><td><code>pool</code></td><td><span data-brain="node_pool">113</span></td><td>Database connection lifecycle: write pool (<code>DATABASE_URL</code>), read pool (<code>DATABASE_READ_URL</code> fallback), pool warming at boot, health checks, and connection recycling.</td><td>Pool configuration errors cause cascading failures across all DB-dependent services. Test with <code>run-database-audit.js</code> first.</td></tr>
+<tr><td><code>protect()</code></td><td><span data-brain="node_protect">101</span></td><td>Authenticated route boundary: JWT verification, session check (Redis cached), isActive check, emailVerified check, sessionId embedding. Every authenticated endpoint depends on this.</td><td>Auth changes affect all protected routes (~80% of API surface). Test with full auth test suite + 2FA scenarios.</td></tr>
+<tr><td><code>sanitizeErrorMessage()</code></td><td><span data-brain="node_sanitizeerrormessage">93</span></td><td>Shared error disclosure boundary: sanitizes error messages before sending to clients, preventing information leakage. Used across all API error responses.</td><td>Overly aggressive sanitization hides debugging info; too permissive leaks internals. Test with error handling test suite.</td></tr>
+<tr><td><code>admin()</code></td><td><span data-brain="node_admin">71</span></td><td>Admin authorization boundary: checks <code>req.user.isAdmin</code>. Used with origin validation, API key, auth, RBAC, and audit middleware in a layered guard stack.</td><td>Admin auth bypass is a critical security vulnerability. Test with admin permission test suite + RBAC scenarios.</td></tr>
+<tr><td><code>responseCache()</code></td><td><span data-brain="node_responsecache">38</span></td><td>Cache behavior is cross-cutting: in-memory TTL cache used across public and admin routes. Two implementations exist (plain + .middleware variant) — a known duplication risk.</td><td>Cache invalidation bugs cause stale data. Cache stampede on cold start. Monitor cache hit rates in production.</td></tr>
+<tr><td><code>getRedisClient()</code></td><td><span data-brain="node_getredisclient">49</span></td><td>Queue, cache, pub/sub, and realtime dependencies all share this infrastructure. Status-aware with automatic fallback to in-memory cache when Redis is unavailable.</td><td>Redis outages degrade but don't break the system (fail-soft design). Monitor Redis connection status in health checks.</td></tr>
 </tbody></table>
 <div class="source-list"><a href="../apps/backend/src/infrastructure/database/postgres-helpers.js">postgres-helpers.js</a><a href="../apps/backend/src/app-port5001.js">app-port5001.js</a><a href="../graphify-out/WORKFLOW_MAP.md">WORKFLOW_MAP.md</a><a href="../graphify-out/GRAPH_REPORT.md">GRAPH_REPORT.md</a></div>
 </div>
@@ -226,12 +1333,12 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 <h2 class="section-title">Architecture &amp; Runtime Flows</h2>
 <p class="section-desc">The important behavior is a set of connected request, persistence, and event paths. These traces are aligned with the graph workflow map and current route mounts. Each flow below traces the full request lifecycle from client to database and back, including middleware, service calls, and side effects.</p>
 <div class="flow-grid">
-<div class="flow-card"><h3>Test attempt lifecycle</h3><p>The most complex flow in the system. <span class="flow-step">TestInstructions page</span> displays test metadata, rules, and timer. <span class="flow-arrow">-&gt;</span> <span class="flow-step">POST /api/tests/:id/start</span> creates an attempt record (dedup: one in-progress per user/test, migration 094), initializes section scores, starts server-side timer. <span class="flow-arrow">-&gt;</span> <span class="flow-step">server timer/state</span> tracks elapsed time, validates against time limits, prevents replay. <span class="flow-arrow">-&gt;</span> <span class="flow-step">TestInterface</span> renders question palette, passage groups, calculator (exam mode), and auto-saves every 30s. <span class="flow-arrow">-&gt;</span> <span class="flow-step">autosave / pause</span> persists progress via PUT /autosave, supports pause/resume with state preservation. <span class="flow-arrow">-&gt;</span> <span class="flow-step">submit</span> triggers scoring, anti-cheat event batch submission, solution generation. <span class="flow-arrow">-&gt;</span> <span class="flow-step">outbox + eventBus</span> publishes analytics, leaderboard recalculation, notification fan-out, and recommendation generation via BullMQ queues. <span class="flow-arrow">-&gt;</span> <span class="flow-step">analytics / leaderboard / notifications</span> update topic stats, wrong-question bank, revision queue, and user achievements. <span class="flow-arrow">-&gt;</span> <span class="flow-step">result</span> shows score, section analysis, solution review, and reattempt options. Sources: <code>api/routes/tests.js</code>, <code>api/routes/attempts.js</code>, <code>services/core/TestAttemptController.js</code>, <code>services/core/TestStateMachine.js</code>.</p></div>
-<div class="flow-card"><h3>Practice Lab</h3><p>Fundamentals-first practice engine. <span class="flow-step">POST /api/practice/sessions</span> creates session with topic selection and difficulty parameters. <span class="flow-arrow">-&gt;</span> <span class="flow-step">id + sessionId</span> returned to client for session tracking. <span class="flow-arrow">-&gt;</span> <span class="flow-step">GET question</span> fetches next question with metadata (topic, difficulty, type). <span class="flow-arrow">-&gt;</span> <span class="flow-step">check / skip</span> submits answer, receives immediate feedback with explanation. <span class="flow-arrow">-&gt;</span> <span class="flow-step">complete</span> finalizes session, generates analytics. Answers and analytics feed mastery levels, AI-generated explanations, solution approaches, similar-question lookup via pgvector embeddings, and the Node Engine learning graph (topics as nodes, per-user skill vectors, spaced-repetition scheduling). Practice AI cache stores LLM-generated content for reuse. Sources: <code>api/routes/practice.js</code>, <code>pages/tests/PracticeLab.jsx</code> (1147 lines).</p></div>
-<div class="flow-card"><h3>Auth and session boundary</h3><p>Multi-layer authentication system. <span class="flow-step">login / phone OTP</span> validates credentials, checks lockout status (progressive: 3→5min, 5→15min, 10→1h, 20→24h), generates JWT with embedded sessionId. <span class="flow-arrow">-&gt;</span> <span class="flow-step">CSRF + httpOnly cookie</span> sets access token in httpOnly cookie, CSRF token in separate cookie, session record in user_sessions table. <span class="flow-arrow">-&gt;</span> <span class="flow-step">JWT middleware</span> verifies token signature, checks Redis-cached session, validates isActive and emailVerified. <span class="flow-arrow">-&gt;</span> <span class="flow-step">protect()</span> attaches user to req.user, embeds sessionId for downstream audit. Optional 2FA: <code>/api/auth/login/2fa</code> requires TOTP code after initial login. Expired access tokens go through refresh endpoint with one retry in the client. Logout clears cookies, invalidates session in DB, and records the session event. Sources: <code>modules/auth/auth.routes.js</code>, <code>middleware/auth.middleware.js</code>, <code>modules/auth/twoFactor.service.js</code>.</p></div>
-<div class="flow-card"><h3>Admin content pipeline</h3><p>Multi-guard admin operations. <span class="flow-step">manager / bulk import</span> starts from admin panel manager (e.g., TestsManager, QuestionsManager) or bulk import modal. <span class="flow-arrow">-&gt;</span> <span class="flow-step">Zod/schema validation</span> validates input with typed schemas (admin panels use Zod, backend uses express-validator). <span class="flow-arrow">-&gt;</span> <span class="flow-step">admin route</span> passes through layered guard stack: <code>normalizeFields</code> (camelCase→snake_case) → <code>restrictAdminOrigin</code> (origin allowlist) → <code>validateAdminApiKey</code> (API key header) → <code>protect</code> (JWT auth) → <code>admin</code> (isAdmin check) → <code>CSRF</code> (for mutations) → <code>loadAdminPermissions</code> → <code>requireAdminPermission</code> (RBAC) → <code>auditMiddleware</code> (logs action). <span class="flow-arrow">-&gt;</span> <span class="flow-step">PostgreSQL</span> executes with transaction isolation. <span class="flow-arrow">-&gt;</span> <span class="flow-step">sync stats</span> updates denormalized counters. <span class="flow-arrow">-&gt;</span> <span class="flow-step">event + query invalidation</span> publishes domain event via eventBus, invalidates relevant TanStack Query caches. Sources: <code>api/routes/admin.js</code> + <code>admin-routes-index.js</code>, <code>apps/admin-panel/src/features/admin/</code>.</p></div>
-<div class="flow-card"><h3>AI and search</h3><p>Multi-provider AI gateway. <span class="flow-step">question/content</span> arrives via API request (explanation generation, mentor chat, or search query). <span class="flow-arrow">-&gt;</span> <span class="flow-step">embedding / pgvector</span> generates vector embedding via OpenRouter provider, stores in pgvector columns with ivfflat cosine index for similarity search. <span class="flow-arrow">-&gt;</span> <span class="flow-step">RAG context</span> retrieves relevant document chunks via semantic search, assembles context window. <span class="flow-arrow">-&gt;</span> <span class="flow-step">OpenRouter gateway</span> routes to selected LLM provider (GPT-4, Claude, Gemini, Llama), applies rate limiting (50/hr free, 500/hr pro via Redis sliding window). <span class="flow-arrow">-&gt;</span> <span class="flow-step">cached response</span> stores in practice_ai_cache for reuse, logs generation metadata (model, tokens, cost) in ai_generation_logs. AI routes are rate-limited; generation logs and practice AI cache keep the user-facing path observable and bounded. Sources: <code>modules/ai/aiClient.js</code>, <code>modules/ai/rag.service.js</code>, <code>modules/ai/embeddingService.js</code>.</p></div>
-<div class="flow-card"><h3>Public study routing</h3><p>SEO-optimized content delivery. <span class="flow-step">slug URL</span> (e.g., /study/mathematics/chapter-1-algebra) arrives at the router. <span class="flow-arrow">-&gt;</span> <span class="flow-step">study API</span> receives request with slug parameter. <span class="flow-arrow">-&gt;</span> <span class="flow-step">slug/id resolver</span> looks up content by slug in subjects, chapters, or videos tables (supporting both slug and numeric ID). <span class="flow-arrow">-&gt;</span> <span class="flow-step">hierarchy/content joins</span> assembles full content hierarchy: subjects → chapters → topics → videos/PDFs/tests. <span class="flow-arrow">-&gt;</span> <span class="flow-step">SEO page renderer</span> injects structured data, meta tags via react-helmet-async, and serves content with proper caching headers. Subjects, chapters, videos, PDFs, tests, and study-material counts are assembled at the API boundary with response caching (60s TTL for public endpoints). Sources: <code>api/routes/study.js</code>, <code>pages/study/StudyMaterial.jsx</code>, <code>pages/study/StudyMaterialChapter.jsx</code> (1435 lines).</p></div>
+<div class="flow-card tilt-3d"><h3>Test attempt lifecycle</h3><p>The most complex flow in the system. <span class="flow-step">TestInstructions page</span> displays test metadata, rules, and timer. <span class="flow-arrow">-&gt;</span> <span class="flow-step">POST /api/tests/:id/start</span> creates an attempt record (dedup: one in-progress per user/test, migration 094), initializes section scores, starts server-side timer. <span class="flow-arrow">-&gt;</span> <span class="flow-step">server timer/state</span> tracks elapsed time, validates against time limits, prevents replay. <span class="flow-arrow">-&gt;</span> <span class="flow-step">TestInterface</span> renders question palette, passage groups, calculator (exam mode), and auto-saves every 30s. <span class="flow-arrow">-&gt;</span> <span class="flow-step">autosave / pause</span> persists progress via PUT /autosave, supports pause/resume with state preservation. <span class="flow-arrow">-&gt;</span> <span class="flow-step">submit</span> triggers scoring, anti-cheat event batch submission, solution generation. <span class="flow-arrow">-&gt;</span> <span class="flow-step">outbox + eventBus</span> publishes analytics, leaderboard recalculation, notification fan-out, and recommendation generation via BullMQ queues. <span class="flow-arrow">-&gt;</span> <span class="flow-step">analytics / leaderboard / notifications</span> update topic stats, wrong-question bank, revision queue, and user achievements. <span class="flow-arrow">-&gt;</span> <span class="flow-step">result</span> shows score, section analysis, solution review, and reattempt options. Sources: <code>api/routes/tests.js</code>, <code>api/routes/attempts.js</code>, <code>services/core/TestAttemptController.js</code>, <code>services/core/TestStateMachine.js</code>.</p></div>
+<div class="flow-card tilt-3d"><h3>Practice Lab</h3><p>Fundamentals-first practice engine. <span class="flow-step">POST /api/practice/sessions</span> creates session with topic selection and difficulty parameters. <span class="flow-arrow">-&gt;</span> <span class="flow-step">id + sessionId</span> returned to client for session tracking. <span class="flow-arrow">-&gt;</span> <span class="flow-step">GET question</span> fetches next question with metadata (topic, difficulty, type). <span class="flow-arrow">-&gt;</span> <span class="flow-step">check / skip</span> submits answer, receives immediate feedback with explanation. <span class="flow-arrow">-&gt;</span> <span class="flow-step">complete</span> finalizes session, generates analytics. Answers and analytics feed mastery levels, AI-generated explanations, solution approaches, similar-question lookup via pgvector embeddings, and the Node Engine learning graph (topics as nodes, per-user skill vectors, spaced-repetition scheduling). Practice AI cache stores LLM-generated content for reuse. Sources: <code>api/routes/practice.js</code>, <code>pages/tests/PracticeLab.jsx</code> (1147 lines).</p></div>
+<div class="flow-card tilt-3d"><h3>Auth and session boundary</h3><p>Multi-layer authentication system. <span class="flow-step">login / phone OTP</span> validates credentials, checks lockout status (progressive: 3→5min, 5→15min, 10→1h, 20→24h), generates JWT with embedded sessionId. <span class="flow-arrow">-&gt;</span> <span class="flow-step">CSRF + httpOnly cookie</span> sets access token in httpOnly cookie, CSRF token in separate cookie, session record in user_sessions table. <span class="flow-arrow">-&gt;</span> <span class="flow-step">JWT middleware</span> verifies token signature, checks Redis-cached session, validates isActive and emailVerified. <span class="flow-arrow">-&gt;</span> <span class="flow-step">protect()</span> attaches user to req.user, embeds sessionId for downstream audit. Optional 2FA: <code>/api/auth/login/2fa</code> requires TOTP code after initial login. Expired access tokens go through refresh endpoint with one retry in the client. Logout clears cookies, invalidates session in DB, and records the session event. Sources: <code>modules/auth/auth.routes.js</code>, <code>middleware/auth.middleware.js</code>, <code>modules/auth/twoFactor.service.js</code>.</p></div>
+<div class="flow-card tilt-3d"><h3>Admin content pipeline</h3><p>Multi-guard admin operations. <span class="flow-step">manager / bulk import</span> starts from admin panel manager (e.g., TestsManager, QuestionsManager) or bulk import modal. <span class="flow-arrow">-&gt;</span> <span class="flow-step">Zod/schema validation</span> validates input with typed schemas (admin panels use Zod, backend uses express-validator). <span class="flow-arrow">-&gt;</span> <span class="flow-step">admin route</span> passes through layered guard stack: <code>normalizeFields</code> (camelCase→snake_case) → <code>restrictAdminOrigin</code> (origin allowlist) → <code>validateAdminApiKey</code> (API key header) → <code>protect</code> (JWT auth) → <code>admin</code> (isAdmin check) → <code>CSRF</code> (for mutations) → <code>loadAdminPermissions</code> → <code>requireAdminPermission</code> (RBAC) → <code>auditMiddleware</code> (logs action). <span class="flow-arrow">-&gt;</span> <span class="flow-step">PostgreSQL</span> executes with transaction isolation. <span class="flow-arrow">-&gt;</span> <span class="flow-step">sync stats</span> updates denormalized counters. <span class="flow-arrow">-&gt;</span> <span class="flow-step">event + query invalidation</span> publishes domain event via eventBus, invalidates relevant TanStack Query caches. Sources: <code>api/routes/admin.js</code> + <code>admin-routes-index.js</code>, <code>apps/admin-panel/src/features/admin/</code>.</p></div>
+<div class="flow-card tilt-3d"><h3>AI and search</h3><p>Multi-provider AI gateway. <span class="flow-step">question/content</span> arrives via API request (explanation generation, mentor chat, or search query). <span class="flow-arrow">-&gt;</span> <span class="flow-step">embedding / pgvector</span> generates vector embedding via OpenRouter provider, stores in pgvector columns with ivfflat cosine index for similarity search. <span class="flow-arrow">-&gt;</span> <span class="flow-step">RAG context</span> retrieves relevant document chunks via semantic search, assembles context window. <span class="flow-arrow">-&gt;</span> <span class="flow-step">OpenRouter gateway</span> routes to selected LLM provider (GPT-4, Claude, Gemini, Llama), applies rate limiting (50/hr free, 500/hr pro via Redis sliding window). <span class="flow-arrow">-&gt;</span> <span class="flow-step">cached response</span> stores in practice_ai_cache for reuse, logs generation metadata (model, tokens, cost) in ai_generation_logs. AI routes are rate-limited; generation logs and practice AI cache keep the user-facing path observable and bounded. Sources: <code>modules/ai/aiClient.js</code>, <code>modules/ai/rag.service.js</code>, <code>modules/ai/embeddingService.js</code>.</p></div>
+<div class="flow-card tilt-3d"><h3>Public study routing</h3><p>SEO-optimized content delivery. <span class="flow-step">slug URL</span> (e.g., /study/mathematics/chapter-1-algebra) arrives at the router. <span class="flow-arrow">-&gt;</span> <span class="flow-step">study API</span> receives request with slug parameter. <span class="flow-arrow">-&gt;</span> <span class="flow-step">slug/id resolver</span> looks up content by slug in subjects, chapters, or videos tables (supporting both slug and numeric ID). <span class="flow-arrow">-&gt;</span> <span class="flow-step">hierarchy/content joins</span> assembles full content hierarchy: subjects → chapters → topics → videos/PDFs/tests. <span class="flow-arrow">-&gt;</span> <span class="flow-step">SEO page renderer</span> injects structured data, meta tags via react-helmet-async, and serves content with proper caching headers. Subjects, chapters, videos, PDFs, tests, and study-material counts are assembled at the API boundary with response caching (60s TTL for public endpoints). Sources: <code>api/routes/study.js</code>, <code>pages/study/StudyMaterial.jsx</code>, <code>pages/study/StudyMaterialChapter.jsx</code> (1435 lines).</p></div>
 </div>
 <div class="card">
 <div class="card-title">Canonical backend route groups</div>
@@ -289,7 +1396,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 │   │   │   │                      test content storage</span>
 │   │   │   ├── infrastructure/
 │   │   │   │   ├── cache/         <span style="color:#606078">Redis client (ioredis, status-aware) + in-memory fallback</span>
-│   │   │   │   ├── database/      <span style="color:#606078">postgres-helpers (dual pool), migrationRunner (<span data-brain="migration_files">124</span> files),
+│   │   │   │   ├── database/      <span style="color:#606078">postgres-helpers (dual pool), migrationRunner (<span data-brain="migration_files">130</span> files),
 │   │   │   │   │                  qb (query builder), db/ (constants, helpers, relationships),
 │   │   │   │   │                  auditTrailManager</span>
 │   │   │   │   ├── email/         <span style="color:#606078">Nodemailer SMTP — verification, reset, welcome emails</span>
@@ -366,7 +1473,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 │   │                        csrf-token-store, logger (pino→Loki), coming-soon-config</span>
 │   └── <span class="tree-dir">shared-hooks/</span>     <span style="color:#606078">@trstprep/shared-hooks — 9 hooks + ThemeContext + apiClientConfig
 │                          Note: useProPass couples to frontend via relative import</span>
-├── <span class="tree-dir">scripts/</span>              <span style="color:#606078"><span data-brain="scripts_files">108</span> utility scripts — DB audit, taxonomy, syllabus, k6, docs pipeline, repo-brain sync</span>
+├── <span class="tree-dir">scripts/</span>              <span style="color:#606078"><span data-brain="scripts_files">110</span> utility scripts — DB audit, taxonomy, syllabus, k6, docs pipeline, repo-brain sync</span>
 ├── <span class="tree-dir">tests/</span>                <span style="color:#606078">k6 load tests (api.js, auth.js, realtime.js) + config</span>
 ├── <span class="tree-dir">docs/</span>                 <span style="color:#606078">20+ docs — audits, readiness reports, schema diagrams, PRDs</span>
 ├── <span class="tree-dir">deploy/</span>               <span style="color:#606078">nginx configs, monitoring (Prometheus/Grafana), bootstrap.sh,
@@ -434,7 +1541,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 29. <strong>notFoundHandler</strong> — 404 for unmatched routes<br>
 30. <strong>errorHandler</strong> — centralized error response with sanitized messages<br>
 31. <strong>testConnection(5 retries)</strong> — verifies DB connectivity with exponential backoff<br>
-32. <strong>runMigrations</strong> — auto-runs <span data-brain="migration_files">124</span> migration files in sequence<br>
+32. <strong>runMigrations</strong> — auto-runs <span data-brain="migration_files">130</span> migration files in sequence<br>
 33. <strong>warmPools</strong> — initializes read/write connection pools<br>
 34. <strong>initRedis</strong> — establishes Redis connection with status monitoring<br>
 35. <strong>initQueues</strong> — creates 6 BullMQ queues (analytics, leaderboard, notifications, recommendations, dead-letter, events)<br>
@@ -739,7 +1846,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 <tr><td>Outbox Poller + Attempt Cleaner</td><td>infrastructure/queue/outboxPoller.js</td><td><span class="badge badge-green">STARTS AT BOOT</span></td><td>SELECT FOR UPDATE SKIP LOCKED over outbox_events, 5s polling, 60s backoff; startAttemptCleaner sweeps stale paused attempts. Both started at app-port5001.js:880-881, stopped gracefully.</td></tr>
 <tr><td>Storage</td><td>infrastructure/storage/</td><td><span class="badge badge-green">Implemented</span></td><td>storageProvider.js local/S3/Supabase with fallback + presigned URLs; upload.js multer instance used by admin-assets</td></tr>
 <tr><td>WebSocket</td><td>infrastructure/websocket/websocketManager.js</td><td><span class="badge badge-green">Implemented</span></td><td>Socket.IO + Redis adapter (@socket.io/redis-adapter), JWT auth, rooms (user/test/notifications/admin), rate limit, heartbeat, eviction tests</td></tr>
-<tr><td>Database</td><td>infrastructure/database/</td><td><span class="badge badge-green">Implemented</span></td><td>postgres-helpers.js: pool (write DATABASE_URL + read DATABASE_READ_URL fallback), initTables() runtime DDL, reconcileRelationships(), warmPools(); migrationRunner.js auto-runs <span data-brain="migration_files">124</span> migration files at boot; qb.js query builder; db/ (constants, helpers, relationships); auditTrailManager.js</td></tr>
+<tr><td>Database</td><td>infrastructure/database/</td><td><span class="badge badge-green">Implemented</span></td><td>postgres-helpers.js: pool (write DATABASE_URL + read DATABASE_READ_URL fallback), initTables() runtime DDL, reconcileRelationships(), warmPools(); migrationRunner.js auto-runs <span data-brain="migration_files">130</span> migration files at boot; qb.js query builder; db/ (constants, helpers, relationships); auditTrailManager.js</td></tr>
 <tr><td>Logger</td><td>infrastructure/logger/logger.js</td><td><span class="badge badge-green">Implemented</span></td><td>pino-based (stdout) → Grafana Loki via docker logging driver</td></tr>
 <tr><td>Repository</td><td>infrastructure/repository/base.repository.js</td><td><span class="badge badge-green">Implemented</span></td><td>Base repository pattern</td></tr>
 </tbody></table>
@@ -1003,11 +2110,11 @@ Sidebar (collapsible) + mobile drawer + AdminBottomNav. Top bar: breadcrumbs, Cm
 <!-- 6. DATABASE -->
 <div class="section" id="database">
 <h2 class="section-title">6. Database</h2>
-<p class="section-desc">PostgreSQL/Supabase + pgvector — <span data-brain="migration_files">124</span> migration files (000–129, auto-run on boot), 6 seeders, RLS auto-trigger, soft-delete trio, dual-ID system. Recent schema work includes certificates (094), two_factor_secrets (064), Node Engine V2 (106), Practice Lab v2 (107), embeddings/document_chunks/AI tables (075–076), dead_letter_jobs (075), PII-at-rest encryption (088), response-time/index improvements (122, 124, 126), negative-marking defaults (125), and subject performance indexes + taxonomy FK cascades (126–129). The database uses a dual-pool architecture: write pool via <code>DATABASE_URL</code> and read pool via <code>DATABASE_READ_URL</code> with automatic fallback to primary.</p>
+<p class="section-desc">PostgreSQL/Supabase + pgvector — <span data-brain="migration_files">130</span> migration files (000–129, auto-run on boot), 6 seeders, RLS auto-trigger, soft-delete trio, dual-ID system. Recent schema work includes certificates (094), two_factor_secrets (064), Node Engine V2 (106), Practice Lab v2 (107), embeddings/document_chunks/AI tables (075–076), dead_letter_jobs (075), PII-at-rest encryption (088), response-time/index improvements (122, 124, 126), negative-marking defaults (125), and subject performance indexes + taxonomy FK cascades (126–129). The database uses a dual-pool architecture: write pool via <code>DATABASE_URL</code> and read pool via <code>DATABASE_READ_URL</code> with automatic fallback to primary.</p>
 <input type="text" class="search-box" placeholder="Search tables..." oninput="filterTable(this,'database')">
 <div class="tabs" id="db-tabs">
 <button class="tab active" data-tab="db-tables">Tables</button>
-<button class="tab" data-tab="db-migrations">Migrations (<span data-brain="migration_files">124</span>)</button>
+<button class="tab" data-tab="db-migrations">Migrations (<span data-brain="migration_files">130</span>)</button>
 <button class="tab" data-tab="db-seeders">Seeders</button>
 <button class="tab" data-tab="db-relations">Relationships</button>
 </div>
@@ -1078,7 +2185,7 @@ Sidebar (collapsible) + mobile drawer + AdminBottomNav. Top bar: breadcrumbs, Cm
 </div>
 
 <div class="panel" id="db-migrations">
-<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem"><span data-brain="migration_files">124</span> .sql files are present in the backend migration directory (numbered 000–129 with retired-number gaps). They auto-run on boot through migrationRunner.js + runMigrations(); CI also runs run-migrations.js explicitly. Secondary migrations in docs/legacy-migrations are historical only.</p>
+<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem"><span data-brain="migration_files">130</span> .sql files are present in the backend migration directory (numbered 000–129 with retired-number gaps). They auto-run on boot through migrationRunner.js + runMigrations(); CI also runs run-migrations.js explicitly. Secondary migrations in docs/legacy-migrations are historical only.</p>
 <table><thead><tr><th>Migration</th><th>Purpose</th></tr></thead><tbody>
 <tr><td>000_baseline_functions / 000a_enable_rls_policies</td><td>Extensions, 13 baseline functions, RLS event trigger + baseline policies</td></tr>
 <tr><td>001–003</td><td>RBAC/audit/email nav tables, audit extension, user_sessions</td></tr>
@@ -1193,7 +2300,7 @@ subjects → subject_parts → units → chapters → topics → subtopics → v
 
 <!-- 8. SCRIPTS -->
 <div class="section" id="scripts">
-<h2 class="section-title">8. Scripts (<span data-brain="scripts_files">108</span> files)</h2>
+<h2 class="section-title">8. Scripts (<span data-brain="scripts_files">110</span> files)</h2>
 <p class="section-desc">Utility scripts organized by domain. DB audit scripts should be run before any migration. Taxonomy scripts help with content organization. Admin ops scripts are for production debugging. Load testing scripts use k6 for API performance testing.</p>
 <table><thead><tr><th>Group</th><th>Files</th><th>Purpose &amp; usage</th></tr></thead><tbody>
 <tr><td>DB Audit &amp; Reconciliation</td><td><strong>run-database-audit.js</strong> (run before any migration!), audit-cascade-nulls.js, fix-cascade-nulls.js, fix-deep-cascade-nulls(+pass3).js, reconcile-duplicates.js, list-db-duplicates.js, inspect-*.js (10 inspectors: hierarchy, ids, nulls, fks, unique constraints, physics node, etc.), query-stages.js, check-categories.js, check-standalone-qs.js, test-query.js</td><td><strong>run-database-audit.js</strong> is the primary audit tool — run before ANY migration to detect schema inconsistencies. inspect-*.js scripts provide deep inspection of specific schema aspects. fix-cascade-nulls scripts repair orphaned records. reconcile-duplicates.js merges duplicate entities.</td></tr>
@@ -1278,7 +2385,7 @@ subjects → subject_parts → units → chapters → topics → subtopics → v
 <tr><td>Security stack</td><td>Compromised-secret startup blocklist (SHA-256), admin IP allowlist + API key + origin guard + RBAC permissions, CSRF (DB-backed with 30s grace), progressive lockout, audit logs, PII-at-rest encryption (pgcrypto), Sentry, 30s request timeout, hardened helmet CSP.</td><td><code>app-port5001.js</code> (startup blocklist), <code>middleware/origin.middleware.js</code>, <code>middleware/adminIpAllowlist.middleware.js</code>, <code>middleware/audit.middleware.js</code>, migration 088</td></tr>
 <tr><td>Infra</td><td>12-service compose (dual backend, redis, postgres, nginx, TLS, Prometheus/Grafana/Loki), readiness file, pino→Loki logging, pool warming, read replica URL, security hardening (read_only, cap_drop, no-new-privileges).</td><td><code>docker-compose.yml</code>, <code>deploy/</code> directory, <code>infrastructure/logger/logger.js</code>, <code>infrastructure/database/postgres-helpers.js</code></td></tr>
 <tr><td>Frontend</td><td>Route-level code splitting (React.lazy), RouteErrorBoundary per route, lazy pages, SEO slug routes for tests/PYPs/videos, telemetry + offline queue, bilingual (Hindi/English) support.</td><td><code>App.jsx</code> (402 lines), <code>shared/lib/telemetry/</code>, <code>shared/lib/language.js</code>, route table in this document</td></tr>
-<tr><td>Database</td><td><span data-brain="migration_files">124</span> migration files auto-run at boot, 6 seeders, RLS auto-trigger, initTables + FK reconciliation, pgvector for semantic search, dual-pool architecture.</td><td><code>infrastructure/database/migrationRunner.js</code>, <code>infrastructure/database/postgres-helpers.js</code>, migration files 000-129</td></tr>
+<tr><td>Database</td><td><span data-brain="migration_files">130</span> migration files auto-run at boot, 6 seeders, RLS auto-trigger, initTables + FK reconciliation, pgvector for semantic search, dual-pool architecture.</td><td><code>infrastructure/database/migrationRunner.js</code>, <code>infrastructure/database/postgres-helpers.js</code>, migration files 000-129</td></tr>
 </tbody></table>
 </div>
 
@@ -1341,58 +2448,566 @@ The pipeline lives in user-level husky hooks: <code>.husky/post-commit</code> (e
 </div></div>
 </div>
 
-</div><!-- /main -->
+
+  </div><!-- /main -->
+
+</div><!-- /app-shell -->
 
 <script>
-document.querySelectorAll('.tabs').forEach(tabBar=>{
-  tabBar.querySelectorAll('.tab').forEach(tab=>{
-    tab.addEventListener('click',()=>{
-      const target=tab.dataset.tab
-      tabBar.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'))
-      tab.classList.add('active')
-      const parent=tabBar.parentElement
-      parent.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'))
-      const panel=document.getElementById(target)
-      if(panel)panel.classList.add('active')
-    })
-  })
-})
+// ---------- Tabs Functionality ----------
+document.querySelectorAll('.tabs').forEach(tabBar => {
+  tabBar.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.tab;
+      tabBar.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const parent = tabBar.parentElement;
+      parent.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      const panel = document.getElementById(target);
+      if (panel) panel.classList.add('active');
+    });
+  });
+});
 
-document.querySelectorAll('.sidebar a').forEach(link=>{
-  link.addEventListener('click',()=>{
-    document.querySelectorAll('.sidebar a').forEach(l=>l.classList.remove('active'))
-    link.classList.add('active')
-    if(window.innerWidth<=768)document.querySelector('.sidebar').classList.remove('open')
-  })
-})
-
-function toggleCollapse(el){
-  el.classList.toggle('open')
-  const next=el.nextElementSibling
-  if(next&&next.classList.contains('collapse-content'))next.classList.toggle('open')
+// ---------- Collapsible Sections ----------
+function toggleCollapse(el) {
+  el.classList.toggle('open');
+  const next = el.nextElementSibling;
+  if (next && next.classList.contains('collapse-content')) next.classList.toggle('open');
 }
 
-function filterTable(input,sectionId){
-  const filter=input.value.toLowerCase()
-  const section=document.getElementById(sectionId)
-  if(!section)return
-  section.querySelectorAll('table tbody tr').forEach(tr=>{
-    const text=tr.textContent.toLowerCase()
-    tr.style.display=text.includes(filter)?'':'none'
-  })
+// ---------- Filter Table ----------
+function filterTable(input, sectionId) {
+  const filter = input.value.toLowerCase();
+  const section = document.getElementById(sectionId);
+  if (!section) return;
+  section.querySelectorAll('table tbody tr').forEach(tr => {
+    const text = tr.textContent.toLowerCase();
+    tr.style.display = text.includes(filter) ? '' : 'none';
+  });
 }
 
-const sections=document.querySelectorAll('.section')
-const links=document.querySelectorAll('.sidebar a')
-window.addEventListener('scroll',()=>{
-  let current=''
-  sections.forEach(s=>{
-    if(window.scrollY>=s.offsetTop-100)current=s.id
-  })
-  links.forEach(l=>{
-    l.classList.toggle('active',l.getAttribute('href')==='#'+current)
-  })
-})
+// ---------- Global Search (⌘K / Ctrl+K) ----------
+const globalSearch = document.getElementById('global-search');
+window.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    globalSearch.focus();
+  }
+});
+if (globalSearch) {
+  globalSearch.addEventListener('input', () => {
+    const term = globalSearch.value.toLowerCase().trim();
+    if (!term) {
+      document.querySelectorAll('table tbody tr, .flow-card, .snapshot-item, .card').forEach(el => el.style.display = '');
+      return;
+    }
+    document.querySelectorAll('table tbody tr').forEach(tr => {
+      tr.style.display = tr.textContent.toLowerCase().includes(term) ? '' : 'none';
+    });
+    document.querySelectorAll('.flow-card, .snapshot-item').forEach(card => {
+      card.style.display = card.textContent.toLowerCase().includes(term) ? '' : 'none';
+    });
+  });
+}
+
+// ---------- Active Scrollspy for Sidebar ----------
+const sections = document.querySelectorAll('.section');
+const sidebarLinks = document.querySelectorAll('.sidebar a');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 120) current = s.id;
+  });
+  sidebarLinks.forEach(l => {
+    l.classList.toggle('active', l.getAttribute('href') === '#' + current);
+  });
+});
+
+// ---------- 3D Mouse Tilt with Glare Effect ----------
+document.querySelectorAll('.tilt-3d').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const xc = rect.width / 2;
+    const yc = rect.height / 2;
+    const dx = (x - xc) / xc;
+    const dy = (y - yc) / yc;
+    card.style.transform = `perspective(1000px) rotateX(${-dy * 5}deg) rotateY(${dx * 5}deg) translateY(-3px)`;
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px)';
+  });
+});
+
+// ---------- Interactive Flow Step Click Inspector ----------
+document.querySelectorAll('.flow-step').forEach(step => {
+  step.addEventListener('click', () => {
+    const stepText = step.textContent.trim();
+    const infoPanel = document.getElementById('canvas-node-info');
+    if (infoPanel) {
+      document.getElementById('node-info-name').textContent = stepText;
+      document.getElementById('node-info-edges').textContent = 'Flow Checkpoint · Request Lifecycle';
+      document.getElementById('node-info-file').textContent = 'Trace: client -> middleware -> controller -> DB/queue';
+      infoPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
+});
+
+// ==========================================
+// THREE.JS 3D KNOWLEDGE GRAPH SIMULATION
+// ==========================================
+(function initThreeGraph() {
+  const container = document.getElementById('canvas-3d-box');
+  const canvas = document.getElementById('hero-3d-canvas');
+  if (!container || !canvas || typeof THREE === 'undefined') return;
+
+  const width = container.clientWidth || 1000;
+  const height = container.clientHeight || 480;
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x070b14, 0.0012);
+
+  const camera = new THREE.PerspectiveCamera(55, width / height, 1, 2500);
+  camera.position.set(0, 80, 520);
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setSize(width, height);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  // Graph Group
+  const graphGroup = new THREE.Group();
+  scene.add(graphGroup);
+
+  // 1. Particle Cloud: 15,361 points representing monorepo nodes
+  const particleCount = 15361;
+  const positions = new Float32Array(particleCount * 3);
+  const colors = new Float32Array(particleCount * 3);
+
+  const palette = [
+    new THREE.Color('#00f5d4'), // backend
+    new THREE.Color('#38bdf8'), // frontend
+    new THREE.Color('#a855f7'), // admin
+    new THREE.Color('#10b981'), // database
+    new THREE.Color('#f59e0b'), // scripts/config
+  ];
+
+  for (let i = 0; i < particleCount; i++) {
+    // Fibonacci sphere with randomized radial depth
+    const phi = Math.acos(1 - 2 * (i + 0.5) / particleCount);
+    const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+    const r = 180 + Math.pow(Math.random(), 2.2) * 160;
+
+    const x = r * Math.sin(phi) * Math.cos(theta);
+    const y = r * Math.sin(phi) * Math.sin(theta);
+    const z = r * Math.cos(phi);
+
+    positions[i * 3] = x;
+    positions[i * 3 + 1] = y;
+    positions[i * 3 + 2] = z;
+
+    // Pick color according to distribution
+    let c = palette[0];
+    const rand = Math.random();
+    if (rand < 0.35) c = palette[0];
+    else if (rand < 0.60) c = palette[1];
+    else if (rand < 0.75) c = palette[2];
+    else if (rand < 0.90) c = palette[3];
+    else c = palette[4];
+
+    colors[i * 3] = c.r;
+    colors[i * 3 + 1] = c.g;
+    colors[i * 3 + 2] = c.b;
+  }
+
+  const particleGeometry = new THREE.BufferGeometry();
+  particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  const particleMaterial = new THREE.PointsMaterial({
+    size: 2.2,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.85,
+    blending: THREE.AdditiveBlending
+  });
+
+  const particleSystem = new THREE.Points(particleGeometry, particleMaterial);
+  graphGroup.add(particleSystem);
+
+  // 2. Interconnected Edges: line segments representing the 20,707 relationships
+  const edgeCount = 2000; // sample subset for smooth 60fps WebGL rendering
+  const edgePositions = new Float32Array(edgeCount * 2 * 3);
+  for (let i = 0; i < edgeCount; i++) {
+    const idxA = Math.floor(Math.random() * particleCount);
+    const idxB = (idxA + Math.floor(Math.random() * 40) + 1) % particleCount;
+
+    edgePositions[i * 6] = positions[idxA * 3];
+    edgePositions[i * 6 + 1] = positions[idxA * 3 + 1];
+    edgePositions[i * 6 + 2] = positions[idxA * 3 + 2];
+
+    edgePositions[i * 6 + 3] = positions[idxB * 3];
+    edgePositions[i * 6 + 4] = positions[idxB * 3 + 1];
+    edgePositions[i * 6 + 5] = positions[idxB * 3 + 2];
+  }
+  const edgeGeometry = new THREE.BufferGeometry();
+  edgeGeometry.setAttribute('position', new THREE.BufferAttribute(edgePositions, 3));
+  const edgeMaterial = new THREE.LineBasicMaterial({
+    color: 0x38bdf8,
+    transparent: true,
+    opacity: 0.16,
+    blending: THREE.AdditiveBlending
+  });
+  const edgeLines = new THREE.LineSegments(edgeGeometry, edgeMaterial);
+  graphGroup.add(edgeLines);
+
+  // 3. Concentric Architecture Orbital Rings
+  const ringsGroup = new THREE.Group();
+  const ringRadii = [140, 210, 280, 340];
+  const ringColors = [0x00f5d4, 0x38bdf8, 0xa855f7, 0x10b981];
+
+  ringRadii.forEach((radius, idx) => {
+    const ringGeo = new THREE.RingGeometry(radius, radius + 0.8, 64);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: ringColors[idx],
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.25
+    });
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    ringMesh.rotation.x = Math.PI / 2 + (idx * 0.15);
+    ringMesh.rotation.y = idx * 0.2;
+    ringsGroup.add(ringMesh);
+  });
+  graphGroup.add(ringsGroup);
+
+  // 4. Central Core God-Nodes
+  const godNodesData = [
+    { name: 'PostgresHelpers', edges: '272 edges', color: 0x00f5d4, pos: [0, 0, 0], file: 'infrastructure/database/postgres-helpers.js' },
+    { name: 'app-port5001.js', edges: '190 edges', color: 0x38bdf8, pos: [45, 30, -25], file: 'apps/backend/src/app-port5001.js' },
+    { name: 'dbHelpers', edges: '138 edges', color: 0x10b981, pos: [-40, -25, 20], file: 'infrastructure/database/postgres-helpers.js' },
+    { name: 'pool', edges: '113 edges', color: 0x00f5d4, pos: [-25, 45, -35], file: 'infrastructure/database/postgres-helpers.js' },
+    { name: 'protect()', edges: '101 edges', color: 0xa855f7, pos: [35, -40, 30], file: 'middleware/auth.middleware.js' },
+    { name: 'DataService', edges: '23 edges', color: 0xf59e0b, pos: [-50, 10, 40], file: 'frontend/shared/lib/dataService.js' },
+    { name: 'getRedisClient()', edges: '49 edges', color: 0xf43f5e, pos: [20, 50, 25], file: 'cache/redisClient.js' },
+  ];
+
+  const godMeshes = [];
+  godNodesData.forEach(god => {
+    const geo = new THREE.SphereGeometry(6, 16, 16);
+    const mat = new THREE.MeshBasicMaterial({
+      color: god.color,
+      wireframe: false
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(...god.pos);
+    mesh.userData = god;
+    graphGroup.add(mesh);
+    godMeshes.push(mesh);
+
+    // Glowing outer halo
+    const haloGeo = new THREE.SphereGeometry(10, 16, 16);
+    const haloMat = new THREE.MeshBasicMaterial({
+      color: god.color,
+      transparent: true,
+      opacity: 0.25,
+      wireframe: true
+    });
+    const halo = new THREE.Mesh(haloGeo, haloMat);
+    halo.position.set(...god.pos);
+    graphGroup.add(halo);
+  });
+
+  // Interaction & Mouse Orbit
+  let isDragging = false;
+  let prevMouseX = 0;
+  let prevMouseY = 0;
+  let autoRotate = true;
+  let targetRotationX = 0.15;
+  let targetRotationY = 0;
+
+  container.addEventListener('mousedown', e => {
+    isDragging = true;
+    prevMouseX = e.clientX;
+    prevMouseY = e.clientY;
+  });
+
+  window.addEventListener('mouseup', () => { isDragging = false; });
+
+  container.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const deltaX = e.clientX - prevMouseX;
+    const deltaY = e.clientY - prevMouseY;
+    prevMouseX = e.clientX;
+    prevMouseY = e.clientY;
+
+    graphGroup.rotation.y += deltaX * 0.005;
+    graphGroup.rotation.x += deltaY * 0.005;
+    autoRotate = false;
+  });
+
+  container.addEventListener('wheel', e => {
+    e.preventDefault();
+    camera.position.z = Math.max(220, Math.min(900, camera.position.z + e.deltaY * 0.4));
+  }, { passive: false });
+
+  // Raycaster for clicking God-Nodes
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+
+  container.addEventListener('click', e => {
+    const rect = container.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(godMeshes);
+
+    if (intersects.length > 0) {
+      const hit = intersects[0].object.userData;
+      const infoPanel = document.getElementById('canvas-node-info');
+      if (infoPanel) {
+        document.getElementById('node-info-name').textContent = hit.name;
+        document.getElementById('node-info-edges').textContent = hit.edges + ' · High Centrality Hub';
+        document.getElementById('node-info-file').textContent = hit.file;
+      }
+    }
+  });
+
+  // HUD Controls
+  const btnRotate = document.getElementById('btn-rotate');
+  if (btnRotate) {
+    btnRotate.addEventListener('click', () => {
+      autoRotate = !autoRotate;
+      btnRotate.classList.toggle('active', autoRotate);
+    });
+  }
+
+  const btnReset = document.getElementById('btn-reset');
+  if (btnReset) {
+    btnReset.addEventListener('click', () => {
+      graphGroup.rotation.set(0, 0, 0);
+      camera.position.set(0, 80, 520);
+      autoRotate = true;
+    });
+  }
+
+  const btnFocus = document.getElementById('btn-focus-gods');
+  if (btnFocus) {
+    btnFocus.addEventListener('click', () => {
+      camera.position.set(0, 20, 240);
+    });
+  }
+
+  let exploded = false;
+  const btnExplode = document.getElementById('btn-explode');
+  if (btnExplode) {
+    btnExplode.addEventListener('click', () => {
+      exploded = !exploded;
+      document.getElementById('btn-explode-text').textContent = exploded ? 'Compact Tiers' : 'Explode Tiers';
+      ringsGroup.scale.set(exploded ? 1.6 : 1, exploded ? 1.6 : 1, exploded ? 1.6 : 1);
+      particleSystem.scale.set(exploded ? 1.35 : 1, exploded ? 1.35 : 1, exploded ? 1.35 : 1);
+    });
+  }
+
+  // Animation Loop
+  let frameId;
+  function animate() {
+    frameId = requestAnimationFrame(animate);
+
+    if (autoRotate) {
+      graphGroup.rotation.y += 0.0022;
+      ringsGroup.rotation.z += 0.001;
+    }
+
+    // Gentle floating breathing effect on God-nodes
+    const time = Date.now() * 0.002;
+    godMeshes.forEach((mesh, i) => {
+      mesh.scale.setScalar(1 + Math.sin(time + i) * 0.15);
+    });
+
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  });
+})();
+
+// ==========================================
+// CHART.JS DASHBOARD INITIALIZATION
+// ==========================================
+(function initCharts() {
+  if (typeof Chart === 'undefined') return;
+
+  Chart.defaults.color = '#94a3b8';
+  Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+
+  // 1. Codebase Distribution Donut
+  const ctxCode = document.getElementById('chart-codebase');
+  if (ctxCode) {
+    new Chart(ctxCode, {
+      type: 'doughnut',
+      data: {
+        labels: ['Backend', 'Frontend', 'Admin Panel', 'Scripts', 'Packages', 'Tests'],
+        datasets: [{
+          data: [554, 328, 191, 108, 32, 53],
+          backgroundColor: ['#00f5d4', '#38bdf8', '#a855f7', '#f59e0b', '#10b981', '#f43f5e'],
+          borderWidth: 1,
+          borderColor: '#070b14',
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (item) => ` ${item.label}: ${item.raw} source files`
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // 2. God Nodes Radar Chart
+  const ctxGods = document.getElementById('chart-godnodes');
+  if (ctxGods) {
+    new Chart(ctxGods, {
+      type: 'radar',
+      data: {
+        labels: ['PostgresHelpers', 'dbHelpers', 'app-port5001', 'pool', 'protect()', 'sanitizeError', 'admin()', 'responseCache', 'getRedisClient', 'DataService'],
+        datasets: [{
+          label: 'Graph Connectivity Edges',
+          data: [52, 138, 190, 113, 101, 93, 71, 38, 49, 23],
+          backgroundColor: 'rgba(168, 85, 247, 0.25)',
+          borderColor: '#a855f7',
+          pointBackgroundColor: '#00f5d4',
+          pointBorderColor: '#fff',
+          pointHoverRadius: 6,
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          r: {
+            grid: { color: 'rgba(255, 255, 255, 0.08)' },
+            angleLines: { color: 'rgba(255, 255, 255, 0.08)' },
+            ticks: { display: false }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+  }
+
+  // 3. Database Core Entities Bar Chart
+  const ctxDb = document.getElementById('chart-database');
+  if (ctxDb) {
+    new Chart(ctxDb, {
+      type: 'bar',
+      data: {
+        labels: ['Questions', 'Test Qs', 'Sections', 'Tests', 'Migrations', 'API Mounts'],
+        datasets: [{
+          label: 'Entity Count',
+          data: [45100, 44900, 1700, 238, 127, 73],
+          backgroundColor: [
+            'rgba(16, 185, 129, 0.85)',
+            'rgba(0, 245, 212, 0.85)',
+            'rgba(56, 189, 248, 0.85)',
+            'rgba(168, 85, 247, 0.85)',
+            'rgba(245, 158, 11, 0.85)',
+            'rgba(244, 63, 94, 0.85)'
+          ],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            type: 'logarithmic',
+            grid: { color: 'rgba(255, 255, 255, 0.06)' },
+            ticks: { color: '#64748b' }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { color: '#94a3b8' }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+  }
+
+  // 4. API Routes Distribution
+  const ctxRoutes = document.getElementById('chart-routes');
+  if (ctxRoutes) {
+    new Chart(ctxRoutes, {
+      type: 'bar',
+      data: {
+        labels: ['Tests/Attempts', 'Admin CRUD', 'AI & RAG', 'Auth & 2FA', 'Study/Taxonomy', 'Practice Lab', 'Live Tests'],
+        datasets: [{
+          label: 'Mounted Endpoints',
+          data: [27, 30, 26, 17, 15, 12, 14],
+          backgroundColor: 'rgba(56, 189, 248, 0.8)',
+          borderRadius: 6
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            grid: { color: 'rgba(255, 255, 255, 0.06)' },
+            ticks: { color: '#64748b' }
+          },
+          y: {
+            grid: { display: false },
+            ticks: { color: '#94a3b8' }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+  }
+
+  // Filter Pills Handling
+  document.querySelectorAll('.chart-filter-pills .pill-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.chart-filter-pills .pill-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const cat = btn.dataset.chartFilter;
+      document.querySelectorAll('.charts-grid .chart-card').forEach(card => {
+        if (cat === 'all' || card.dataset.category === cat) {
+          card.style.display = 'flex';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    });
+  });
+})();
 </script>
 </body>
 </html>

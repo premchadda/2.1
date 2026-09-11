@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../../shared/providers/AuthContext";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
 import {
   getExamCategories,
@@ -299,7 +298,6 @@ const DEFAULT_CONTENT = {
 function ExamInfoNew() {
   const { examId } = useParams();
   const navigate = useNavigate();
-  const { user: _user } = useAuth();
 
   // Data state
   const [loading, setLoading] = useState(true);
@@ -368,7 +366,8 @@ function ExamInfoNew() {
           setPypPapers(Array.isArray(pypData) ? pypData : []);
         }
       } catch (pypErr) {
-        console.warn("Failed to fetch previous year papers", pypErr);
+        if (import.meta.env.DEV)
+          console.warn("Failed to fetch previous year papers", pypErr);
         if (!signal?.aborted) setPypPapers([]);
       }
 
@@ -380,7 +379,7 @@ function ExamInfoNew() {
           setFaqs(Array.isArray(faqData) ? faqData : []);
         }
       } catch (faqErr) {
-        console.warn("Failed to fetch FAQs", faqErr);
+        if (import.meta.env.DEV) console.warn("Failed to fetch FAQs", faqErr);
         if (!signal?.aborted) setFaqs([]);
       }
 
@@ -389,7 +388,8 @@ function ExamInfoNew() {
         const infoRes = await api.get("/api/exam-info");
         allExamInfo = infoRes.data?.data || [];
       } catch (err) {
-        console.warn("Failed to fetch exam info from DB", err);
+        if (import.meta.env.DEV)
+          console.warn("Failed to fetch exam info from DB", err);
       }
 
       // Try to find the specific exam info
@@ -678,7 +678,7 @@ function ExamInfoNew() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 py-4 md:py-10">
           {/* ── Year selector row ── */}
           <div className="flex items-center gap-1.5 md:gap-2 mb-4 md:mb-6 flex-wrap">
-            <span className="text-white/50 text-[10px] md:text-xs font-semibold uppercase tracking-widest mr-1">
+            <span className="text-white/70 text-[11px] md:text-xs font-semibold uppercase tracking-widest mr-1">
               Year
             </span>
             {Object.keys(yearlyData).map((year) => (
@@ -693,7 +693,7 @@ function ExamInfoNew() {
               >
                 {year}
                 {year === "2026" && (
-                  <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-emerald-400 text-[7px] md:text-[8px] font-black text-white px-0.5 md:px-1 rounded-full">
+                  <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-emerald-400 text-[11px] md:text-xs font-black text-white px-0.5 md:px-1 rounded-full">
                     NEW
                   </span>
                 )}
@@ -737,10 +737,10 @@ function ExamInfoNew() {
 
                 {/* Name and details */}
                 <div className="flex-1 min-w-0">
-                  <span className="inline-block px-2 py-0.5 bg-white/15 border border-white/20 text-white/80 rounded-md text-[8px] md:text-[11px] font-bold uppercase tracking-wider mb-1.5 md:mb-2">
+                  <span className="inline-block px-2 py-0.5 bg-white/15 border border-white/20 text-white/80 rounded-md text-[11px] font-bold uppercase tracking-wider mb-1.5 md:mb-2">
                     {categoryData?.label || "Exam"}
                   </span>
-                  <h1 className="text-xl sm:text-2xl lg:text-2xl sm:text-3xl lg:text-4xl font-black leading-tight">
+                  <h1 className="text-xl sm:text-2xl lg:text-4xl font-black leading-tight">
                     {examData?.title}{" "}
                     <span className="text-violet-300">{selectedYear}</span>
                   </h1>
@@ -756,7 +756,7 @@ function ExamInfoNew() {
                   <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-lg md:rounded-xl px-2.5 md:px-4 py-2 md:py-2.5 flex items-center gap-2 md:gap-2.5">
                     <Users className="w-3.5 h-3.5 md:w-4 md:h-4 text-violet-300 flex-shrink-0" />
                     <div>
-                      <p className="text-[8px] md:text-[10px] text-white/50 uppercase tracking-wide font-semibold">
+                      <p className="text-[11px] md:text-xs text-white/70 uppercase tracking-wide font-semibold">
                         Vacancy
                       </p>
                       <p className="font-extrabold text-xs md:text-sm text-white">
@@ -782,7 +782,7 @@ function ExamInfoNew() {
                   <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-lg md:rounded-xl px-2.5 md:px-4 py-2 md:py-2.5 flex items-center gap-2 md:gap-2.5">
                     <Target className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-300 flex-shrink-0" />
                     <div>
-                      <p className="text-[8px] md:text-[10px] text-white/50 uppercase tracking-wide font-semibold">
+                      <p className="text-[11px] md:text-xs text-white/70 uppercase tracking-wide font-semibold">
                         Cutoff (UR)
                       </p>
                       <p className="font-extrabold text-xs md:text-sm text-white">
@@ -795,7 +795,7 @@ function ExamInfoNew() {
                   <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-lg md:rounded-xl px-2.5 md:px-4 py-2 md:py-2.5 flex items-center gap-2 md:gap-2.5">
                     <Building2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-purple-300 flex-shrink-0" />
                     <div>
-                      <p className="text-[8px] md:text-[10px] text-white/50 uppercase tracking-wide font-semibold">
+                      <p className="text-[11px] md:text-xs text-white/70 uppercase tracking-wide font-semibold">
                         Conducted by
                       </p>
                       <p
@@ -856,7 +856,7 @@ function ExamInfoNew() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 pb-10 md:pb-8">
         {/* ── Tab Navigation ── sticky, compact mode ── */}
         <div className="sticky top-0 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-700 shadow-sm mb-5 -mx-3 sm:-mx-4 lg:-mx-8 px-3 sm:px-4 lg:px-8">
           <div className="overflow-x-auto scrollbar-thin">
@@ -1327,7 +1327,10 @@ function ExamInfoNew() {
                               Marks
                             </th>
                             <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700 dark:text-gray-300">
-                              Duration
+                              <span className="inline-flex items-center justify-center gap-1">
+                                <Clock3 className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                                Duration
+                              </span>
                             </th>
                           </tr>
                         </thead>
@@ -2303,6 +2306,7 @@ function ExamInfoNew() {
               </p>
               <form onSubmit={handleReportSubmit} className="space-y-3">
                 <select
+                  aria-label="Report category"
                   className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={reportCategory}
                   onChange={(e) => setReportCategory(e.target.value)}
@@ -2317,6 +2321,7 @@ function ExamInfoNew() {
                   <option>Other</option>
                 </select>
                 <textarea
+                  aria-label="Describe the issue"
                   className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:placeholder:text-gray-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px]"
                   placeholder="Describe the issue (optional)..."
                   value={reportDetails}

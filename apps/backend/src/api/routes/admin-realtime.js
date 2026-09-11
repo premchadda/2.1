@@ -1,139 +1,159 @@
 import express from "express";
-import { dbHelpers, pool } from "../../infrastructure/database/postgres-helpers.js";
+import os from "os";
+import fs from "fs";
+import {
+  dbHelpers,
+  pool,
+} from "../../infrastructure/database/postgres-helpers.js";
 import { getProPassPrice } from "./admin-helpers.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
-import { protect, admin, superAdmin } from '../../middleware/auth.middleware.js';
+import {
+  protect,
+  admin,
+  superAdmin,
+} from "../../middleware/auth.middleware.js";
 import logger from "../../infrastructure/logger/logger.js";
-import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
+import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
 
-router.use(protect)
-router.use(admin)
+router.use(protect);
+router.use(admin);
 
 // Simple rolling request counter for requests-per-minute in system health.
 // Updated by a middleware that runs on every admin route hit.
 let _reqTimestamps = [];
 const _cleanupReqTimestamps = () => {
   const cutoff = Date.now() - 60_000;
-  _reqTimestamps = _reqTimestamps.filter(t => t > cutoff);
+  _reqTimestamps = _reqTimestamps.filter((t) => t > cutoff);
 };
 setInterval(_cleanupReqTimestamps, 30_000).unref?.();
-Object.defineProperty(router, 'reqCountLastMinute', {
-  get() { _cleanupReqTimestamps(); return _reqTimestamps.length; }
+Object.defineProperty(router, "reqCountLastMinute", {
+  get() {
+    _cleanupReqTimestamps();
+    return _reqTimestamps.length;
+  },
 });
 // Middleware: stamp every admin request for the rolling counter
 router.use((req, res, next) => {
   _reqTimestamps.push(Date.now());
   next();
 });
-const reqCountLastMinute = () => { _cleanupReqTimestamps(); return _reqTimestamps.length; };
+const reqCountLastMinute = () => {
+  _cleanupReqTimestamps();
+  return _reqTimestamps.length;
+};
 
 // Real-time active users and sessions
-router.get("/realtime/active-users", asyncHandler(async (req, res) => {
-  const now = new Date();
-  const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
-  const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
-  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+router.get(
+  "/realtime/active-users",
+  asyncHandler(async (req, res) => {
+    const now = new Date();
+    const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+    const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  // FIX PERF-2: Previously loaded every user + every attempt into JS and
-  // filtered in memory. Now: one COUNT(*) for users, and one pass of
-  // COUNT(DISTINCT) FILTER (..) aggregations for attempts — both O(log n) via indexes.
-  const totalRegisteredResult = await pool.query(
-    `SELECT COUNT(*)::int AS total FROM users WHERE is_active = true`,
-  );
-  const totalRegistered = totalRegisteredResult.rows[0]?.total || 0;
+    // FIX PERF-2: Previously loaded every user + every attempt into JS and
+    // filtered in memory. Now: one COUNT(*) for users, and one pass of
+    // COUNT(DISTINCT) FILTER (..) aggregations for attempts — both O(log n) via indexes.
+    const totalRegisteredResult = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM users WHERE is_active = true`,
+    );
+    const totalRegistered = totalRegisteredResult.rows[0]?.total || 0;
 
-  // Active users within each window — single scan of last-24h attempts
-  const activeResult = await pool.query(
-    `SELECT
+    // Active users within each window — single scan of last-24h attempts
+    const activeResult = await pool.query(
+      `SELECT
        COUNT(DISTINCT CASE WHEN COALESCE(updated_at, created_at) >= $1 THEN user_id END)::int AS active_5min,
        COUNT(DISTINCT CASE WHEN COALESCE(updated_at, created_at) >= $2 THEN user_id END)::int AS active_30min,
        COUNT(DISTINCT CASE WHEN COALESCE(updated_at, created_at) >= $3 THEN user_id END)::int AS active_hour
      FROM attempts
      WHERE COALESCE(updated_at, created_at) >= $4`,
-    [fiveMinutesAgo, thirtyMinutesAgo, oneHourAgo, oneDayAgo],
-  );
-  const activeRow = activeResult.rows[0] || {};
-  const activeLast5Min = activeRow.active_5min || 0;
-  const activeLast30Min = activeRow.active_30min || 0;
-  const activeLastHour = activeRow.active_hour || 0;
+      [fiveMinutesAgo, thirtyMinutesAgo, oneHourAgo, oneDayAgo],
+    );
+    const activeRow = activeResult.rows[0] || {};
+    const activeLast5Min = activeRow.active_5min || 0;
+    const activeLast30Min = activeRow.active_30min || 0;
+    const activeLastHour = activeRow.active_hour || 0;
 
-  // Users taking tests right now (started, not completed, within 30min)
-  const activeTestsResult = await pool.query(
-    `SELECT COUNT(*)::int AS active_tests
+    // Users taking tests right now (started, not completed, within 30min)
+    const activeTestsResult = await pool.query(
+      `SELECT COUNT(*)::int AS active_tests
      FROM attempts
      WHERE is_completed = false
        AND COALESCE(started_at, created_at) >= $1`,
-    [thirtyMinutesAgo],
-  );
-  const activeTestsNow = activeTestsResult.rows[0]?.active_tests || 0;
+      [thirtyMinutesAgo],
+    );
+    const activeTestsNow = activeTestsResult.rows[0]?.active_tests || 0;
 
-  // Hourly activity histogram for the last 24 hours — one GROUP BY instead of 24 JS passes
-  const hourlyResult = await pool.query(
-    `SELECT
+    // Hourly activity histogram for the last 24 hours — one GROUP BY instead of 24 JS passes
+    const hourlyResult = await pool.query(
+      `SELECT
        EXTRACT(HOUR FROM created_at)::int AS hour,
        COUNT(DISTINCT user_id)::int       AS users,
        COUNT(*)::int                       AS tests
      FROM attempts
      WHERE created_at >= $1
      GROUP BY EXTRACT(HOUR FROM created_at)`,
-    [oneDayAgo],
-  );
-  const hourMap = new Map();
-  for (const row of hourlyResult.rows) {
-    hourMap.set(row.hour, { users: row.users, tests: row.tests });
-  }
-  const hourlyData = [];
-  for (let i = 23; i >= 0; i--) {
-    const hourStart = new Date(now.getTime() - (i + 1) * 60 * 60 * 1000);
-    const hour = hourStart.getHours();
-    const bucket = hourMap.get(hour) || { users: 0, tests: 0 };
-    hourlyData.push({
-      hour,
-      label: `${hour}:00`,
-      users: bucket.users,
-      tests: bucket.tests,
-    });
-  }
+      [oneDayAgo],
+    );
+    const hourMap = new Map();
+    for (const row of hourlyResult.rows) {
+      hourMap.set(row.hour, { users: row.users, tests: row.tests });
+    }
+    const hourlyData = [];
+    for (let i = 23; i >= 0; i--) {
+      const hourStart = new Date(now.getTime() - (i + 1) * 60 * 60 * 1000);
+      const hour = hourStart.getHours();
+      const bucket = hourMap.get(hour) || { users: 0, tests: 0 };
+      hourlyData.push({
+        hour,
+        label: `${hour}:00`,
+        users: bucket.users,
+        tests: bucket.tests,
+      });
+    }
 
-  res.json({
-    success: true,
-    data: {
-      onlineNow: activeLast5Min,
-      takingTests: activeTestsNow,
-      totalRegistered,
-      activeLast5Min,
-      activeLast30Min,
-      activeLastHour,
-      hourlyActivity: hourlyData,
-      timestamp: now.toISOString(),
-    },
-  });
-}));
+    res.json({
+      success: true,
+      data: {
+        onlineNow: activeLast5Min,
+        takingTests: activeTestsNow,
+        totalRegistered,
+        activeLast5Min,
+        activeLast30Min,
+        activeLastHour,
+        hourlyActivity: hourlyData,
+        timestamp: now.toISOString(),
+      },
+    });
+  }),
+);
 
 // Real-time test activity
-router.get("/realtime/test-activity", asyncHandler(async (req, res) => {
-  const now = new Date();
-  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+router.get(
+  "/realtime/test-activity",
+  asyncHandler(async (req, res) => {
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  // FIX PERF-3: Previously loaded every attempt + every test into JS and
-  // filtered in memory. Now: one SQL COUNT(*) for active tests, one JOIN for
-  // popular active tests, and one AVG + completion-rate aggregation.
-  const activeTestsResult = await pool.query(
-    `SELECT COUNT(*)::int AS active_tests
+    // FIX PERF-3: Previously loaded every attempt + every test into JS and
+    // filtered in memory. Now: one SQL COUNT(*) for active tests, one JOIN for
+    // popular active tests, and one AVG + completion-rate aggregation.
+    const activeTestsResult = await pool.query(
+      `SELECT COUNT(*)::int AS active_tests
      FROM attempts
      WHERE is_completed = false
        AND COALESCE(started_at, created_at) >= $1`,
-    [oneDayAgo],
-  );
-  const activeTestsNow = activeTestsResult.rows[0]?.active_tests || 0;
+      [oneDayAgo],
+    );
+    const activeTestsNow = activeTestsResult.rows[0]?.active_tests || 0;
 
-  // Most popular tests being taken right now — JOIN replaces in-memory lookup
-  const popularResult = await pool.query(
-    `SELECT
+    // Most popular tests being taken right now — JOIN replaces in-memory lookup
+    const popularResult = await pool.query(
+      `SELECT
         a.test_id,
         t.title AS test_name,
         COUNT(*)::int AS active_users
@@ -144,58 +164,61 @@ router.get("/realtime/test-activity", asyncHandler(async (req, res) => {
      GROUP BY a.test_id, t.title
      ORDER BY active_users DESC
      LIMIT 10`,
-    [oneDayAgo],
-  );
-  const popularActiveTests = popularResult.rows.map((r) => ({
-    testId: r.test_id,
-    testName: r.test_name || "Unknown Test",
-    activeUsers: r.active_users,
-  }));
+      [oneDayAgo],
+    );
+    const popularActiveTests = popularResult.rows.map((r) => ({
+      testId: r.test_id,
+      testName: r.test_name || "Unknown Test",
+      activeUsers: r.active_users,
+    }));
 
-  // Completed in last hour + completion rate + avg score — single pass
-  const hourAggResult = await pool.query(
-    `SELECT
+    // Completed in last hour + completion rate + avg score — single pass
+    const hourAggResult = await pool.query(
+      `SELECT
        COUNT(*)::int                                       AS hour_attempts,
        COUNT(*) FILTER (WHERE is_completed = true)::int     AS hour_completed,
        AVG(score) FILTER (WHERE is_completed = true)::float AS avg_score
      FROM attempts
      WHERE COALESCE(submitted_at, updated_at, created_at) >= $1`,
-    [oneHourAgo],
-  );
-  const hourAgg = hourAggResult.rows[0] || {};
-  const hourAttempts = hourAgg.hour_attempts || 0;
-  const hourCompleted = hourAgg.hour_completed || 0;
-  const completionRate =
-    hourAttempts > 0 ? Math.round((hourCompleted / hourAttempts) * 100) : 0;
-  const avgScoreLastHour = hourAgg.avg_score
-    ? Math.round(parseFloat(hourAgg.avg_score))
-    : 0;
+      [oneHourAgo],
+    );
+    const hourAgg = hourAggResult.rows[0] || {};
+    const hourAttempts = hourAgg.hour_attempts || 0;
+    const hourCompleted = hourAgg.hour_completed || 0;
+    const completionRate =
+      hourAttempts > 0 ? Math.round((hourCompleted / hourAttempts) * 100) : 0;
+    const avgScoreLastHour = hourAgg.avg_score
+      ? Math.round(parseFloat(hourAgg.avg_score))
+      : 0;
 
-  res.json({
-    success: true,
-    data: {
-      activeTestsNow,
-      completedLastHour: hourCompleted,
-      completionRateLastHour: completionRate,
-      avgScoreLastHour,
-      popularActiveTests,
-      timestamp: now.toISOString(),
-    },
-  });
-}));
+    res.json({
+      success: true,
+      data: {
+        activeTestsNow,
+        completedLastHour: hourCompleted,
+        completionRateLastHour: completionRate,
+        avgScoreLastHour,
+        popularActiveTests,
+        timestamp: now.toISOString(),
+      },
+    });
+  }),
+);
 
 // Real-time revenue and enrollments
-router.get("/realtime/revenue", asyncHandler(async (req, res) => {
-  const now = new Date();
-  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+router.get(
+  "/realtime/revenue",
+  asyncHandler(async (req, res) => {
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  // FIX PERF-4: Previously loaded every user + every test_series into JS and
-  // counted/filtered in memory. Now: one COUNT(*) FILTER (..) aggregation query
-  // for all pro / enrollment counts, plus one unnest+JOIN for top enrolled series.
-  const userAggResult = await pool.query(
-    `SELECT
+    // FIX PERF-4: Previously loaded every user + every test_series into JS and
+    // counted/filtered in memory. Now: one COUNT(*) FILTER (..) aggregation query
+    // for all pro / enrollment counts, plus one unnest+JOIN for top enrolled series.
+    const userAggResult = await pool.query(
+      `SELECT
        COUNT(*)::int                                                       AS total_users,
        COUNT(*) FILTER (WHERE is_pro_user = true)::int                     AS pro_users,
        COUNT(*) FILTER (WHERE is_pro_user = true AND is_active <> false)::int AS active_pro_users,
@@ -210,25 +233,25 @@ router.get("/realtime/revenue", asyncHandler(async (req, res) => {
        COUNT(*) FILTER (WHERE array_length(enrolled_series, 1) > 0
                           AND COALESCE(updated_at, created_at) >= $3)::int   AS enrollments_this_week
      FROM users`,
-    [oneHourAgo, oneDayAgo, oneWeekAgo],
-  );
-  const agg = userAggResult.rows[0] || {};
-  const proUsersCount = agg.pro_users || 0;
-  const activeProUsersCount = agg.active_pro_users || 0;
-  const newProLastHour = agg.new_pro_last_hour || 0;
-  const newProToday = agg.new_pro_today || 0;
-  const enrollmentsLastHour = agg.enrollments_last_hour || 0;
-  const enrollmentsToday = agg.enrollments_today || 0;
-  const enrollmentsThisWeek = agg.enrollments_this_week || 0;
+      [oneHourAgo, oneDayAgo, oneWeekAgo],
+    );
+    const agg = userAggResult.rows[0] || {};
+    const proUsersCount = agg.pro_users || 0;
+    const activeProUsersCount = agg.active_pro_users || 0;
+    const newProLastHour = agg.new_pro_last_hour || 0;
+    const newProToday = agg.new_pro_today || 0;
+    const enrollmentsLastHour = agg.enrollments_last_hour || 0;
+    const enrollmentsToday = agg.enrollments_today || 0;
+    const enrollmentsThisWeek = agg.enrollments_this_week || 0;
 
-  // Calculate revenue using actual Pro Pass price from DB
-  const proPassPrice = await getProPassPrice();
-  const totalRevenue = proUsersCount * proPassPrice;
+    // Calculate revenue using actual Pro Pass price from DB
+    const proPassPrice = await getProPassPrice();
+    const totalRevenue = proUsersCount * proPassPrice;
 
-  // Top enrolled series — unnest the array column and JOIN to test_series.
-  // NULLIF guards against empty arrays producing NULL series_id rows.
-  const topSeriesResult = await pool.query(
-    `WITH exploded AS (
+    // Top enrolled series — unnest the array column and JOIN to test_series.
+    // NULLIF guards against empty arrays producing NULL series_id rows.
+    const topSeriesResult = await pool.query(
+      `WITH exploded AS (
        SELECT UNNEST(enrolled_series) AS series_id
          FROM users
         WHERE array_length(enrolled_series, 1) > 0
@@ -243,32 +266,33 @@ router.get("/realtime/revenue", asyncHandler(async (req, res) => {
       GROUP BY e.series_id, ts.title
      ORDER BY enrollments DESC
      LIMIT 5`,
-  );
-  const topEnrolledSeries = topSeriesResult.rows.map((r) => ({
-    seriesId: r.series_id,
-    seriesName: r.series_name || "Unknown",
-    enrollments: r.enrollments,
-  }));
+    );
+    const topEnrolledSeries = topSeriesResult.rows.map((r) => ({
+      seriesId: r.series_id,
+      seriesName: r.series_name || "Unknown",
+      enrollments: r.enrollments,
+    }));
 
-  res.json({
-    success: true,
-    data: {
-      totalRevenue,
-      revenueLastHour: newProLastHour * proPassPrice,
-      revenueToday: newProToday * proPassPrice,
-      totalProUsers: proUsersCount,
-      activeProUsers: activeProUsersCount,
-      newProLastHour,
-      newProToday,
-      enrollmentsLastHour,
-      enrollmentsToday,
-      enrollmentsThisWeek,
-      topEnrolledSeries,
-      proPassPrice,
-      timestamp: now.toISOString(),
-    },
-  });
-}));
+    res.json({
+      success: true,
+      data: {
+        totalRevenue,
+        revenueLastHour: newProLastHour * proPassPrice,
+        revenueToday: newProToday * proPassPrice,
+        totalProUsers: proUsersCount,
+        activeProUsers: activeProUsersCount,
+        newProLastHour,
+        newProToday,
+        enrollmentsLastHour,
+        enrollmentsToday,
+        enrollmentsThisWeek,
+        topEnrolledSeries,
+        proPassPrice,
+        timestamp: now.toISOString(),
+      },
+    });
+  }),
+);
 
 // Real-time system health with detailed metrics
 router.get("/realtime/system-health", async (req, res) => {
@@ -310,7 +334,7 @@ router.get("/realtime/system-health", async (req, res) => {
     // Count active connections — use SQL COUNT instead of loading all rows
     const recentCountResult = await pool.query(
       `SELECT COUNT(*)::int AS count FROM attempts
-       WHERE COALESCE(updated_at, created_at) >= NOW() - INTERVAL '5 minutes'`
+       WHERE COALESCE(updated_at, created_at) >= NOW() - INTERVAL '5 minutes'`,
     );
     const recentAttemptCount = recentCountResult.rows[0]?.count || 0;
 
@@ -343,7 +367,9 @@ router.get("/realtime/system-health", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -363,7 +389,7 @@ router.get("/realtime/live-feed", async (req, res) => {
        WHERE a.is_completed = true
          AND COALESCE(a.submitted_at, a.updated_at) >= NOW() - INTERVAL '15 minutes'
        ORDER BY COALESCE(a.submitted_at, a.updated_at) DESC
-       LIMIT 5`
+       LIMIT 5`,
     );
 
     for (const row of completionsResult.rows) {
@@ -385,7 +411,7 @@ router.get("/realtime/live-feed", async (req, res) => {
       `SELECT name, email, created_at FROM users
        WHERE created_at >= NOW() - INTERVAL '15 minutes'
        ORDER BY created_at DESC
-       LIMIT 3`
+       LIMIT 3`,
     );
 
     for (const u of recentUsersResult.rows) {
@@ -407,7 +433,7 @@ router.get("/realtime/live-feed", async (req, res) => {
        WHERE is_pro_user = true
          AND COALESCE(updated_at, created_at) >= NOW() - INTERVAL '15 minutes'
        ORDER BY COALESCE(updated_at, created_at) DESC
-       LIMIT 3`
+       LIMIT 3`,
     );
 
     for (const u of recentProResult.rows) {
@@ -435,7 +461,9 @@ router.get("/realtime/live-feed", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -447,44 +475,46 @@ const getSystemHealth = async (req, res) => {
     const dbLatency = Date.now() - dbStart;
 
     const mem = process.memoryUsage();
-    const memoryUsagePercent = mem.rss > 0 ? Math.min(100, Math.round((mem.heapUsed / mem.heapTotal) * 100)) : 0;
+    const memoryUsagePercent =
+      mem.rss > 0
+        ? Math.min(100, Math.round((mem.heapUsed / mem.heapTotal) * 100))
+        : 0;
 
     // CPU usage (approximate — load average on Linux, 0 on Windows)
     let cpuUsage = 0;
     try {
-      if (typeof require === 'function') {
-        const os = require('os');
-        const cpus = os.cpus();
-        if (cpus && cpus.length > 0) {
-          // Calculate idle vs total across all cores
-          let totalIdle = 0, totalTick = 0;
-          for (const cpu of cpus) {
-            for (const type in cpu.times) totalTick += cpu.times[type];
-            totalIdle += cpu.times.idle;
-          }
-          cpuUsage = totalTick > 0 ? Math.round((1 - totalIdle / totalTick) * 100) : 0;
+      const cpus = os.cpus();
+      if (cpus && cpus.length > 0) {
+        // Calculate idle vs total across all cores
+        let totalIdle = 0,
+          totalTick = 0;
+        for (const cpu of cpus) {
+          for (const type in cpu.times) totalTick += cpu.times[type];
+          totalIdle += cpu.times.idle;
         }
+        cpuUsage =
+          totalTick > 0 ? Math.round((1 - totalIdle / totalTick) * 100) : 0;
       }
-    } catch (_) { /* non-fatal — CPU % just shows 0 if unavailable */ }
+    } catch (_) {
+      /* non-fatal — CPU % just shows 0 if unavailable */
+    }
 
     // Disk usage (best-effort — uses fs.statSync on the root partition)
     let diskUsage = 0;
     let disk = { total: 0, used: 0, free: 0 };
     try {
-      if (typeof require === 'function') {
-        const fs = require('fs');
-        const os = require('os');
-        const homedir = os.homedir ? os.homedir() : process.cwd();
-        // fs.statfs is available in Node 18.15+ (Linux/macOS only)
-        if (fs.statfsSync) {
-          const stats = fs.statfsSync(homedir);
-          const total = stats.blocks * stats.bsize;
-          const free = stats.bavail * stats.bsize;
-          disk = { total, used: total - free, free };
-          diskUsage = total > 0 ? Math.round(((total - free) / total) * 100) : 0;
-        }
+      const homedir = os.homedir ? os.homedir() : process.cwd();
+      // fs.statfs is available in Node 18.15+ (Linux/macOS only)
+      if (fs.statfsSync) {
+        const stats = fs.statfsSync(homedir);
+        const total = stats.blocks * stats.bsize;
+        const free = stats.bavail * stats.bsize;
+        disk = { total, used: total - free, free };
+        diskUsage = total > 0 ? Math.round(((total - free) / total) * 100) : 0;
       }
-    } catch (_) { /* non-fatal */ }
+    } catch (_) {
+      /* non-fatal */
+    }
 
     const health = {
       status: "healthy",
@@ -501,7 +531,9 @@ const getSystemHealth = async (req, res) => {
 
     res.json({ success: true, data: health });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 

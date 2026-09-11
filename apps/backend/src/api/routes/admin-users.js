@@ -34,52 +34,63 @@ router.get("/users", async (req, res) => {
     const roleFilter = req.query.role; // 'admin' | 'user' | 'super_admin'
     const proFilter = req.query.pro === "true";
 
-    // Build query: by default only active users. If includeInactive or status=inactive,
-    // include all users so the filter can show inactive ones.
-    const query =
-      statusFilter === "inactive" || includeInactive ? {} : { isActive: true };
+    // Build WHERE clauses in SQL so pagination and COUNT agree.
+    // Multi-field search becomes ILIKE so search + filters + paging are all
+    // evaluated by the DB (no more fetch-then-slice, which capped totals at
+    // one page).
+    const conditions = [];
+    const params = [];
+    const addParam = (value) => {
+      params.push(value);
+      return `$${params.length}`;
+    };
 
-    let allUsers = await dbHelpers.find("users", query);
-    let filteredUsers = allUsers;
-
-    // Apply search filter
+    if (statusFilter === "inactive" || includeInactive) {
+      // no is_active condition — include every row
+    } else {
+      conditions.push(`is_active = ${addParam(true)}`);
+    }
+    if (roleFilter) {
+      conditions.push(`role = ${addParam(roleFilter)}`);
+    }
+    if (proFilter) {
+      conditions.push(`is_pro_user = ${addParam(true)}`);
+    }
     if (search) {
-      filteredUsers = filteredUsers.filter(
-        (u) =>
-          u.name?.toLowerCase().includes(search) ||
-          u.email?.toLowerCase().includes(search) ||
-          u.phone?.toLowerCase().includes(search),
+      const like = addParam(`%${search}%`);
+      conditions.push(
+        `(LOWER(name) LIKE ${like} OR LOWER(email) LIKE ${like} OR LOWER(phone) LIKE ${like})`,
       );
     }
 
-    // Apply role filter
-    if (roleFilter) {
-      filteredUsers = filteredUsers.filter((u) => u.role === roleFilter);
-    }
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
 
-    // Apply pro filter
-    if (proFilter) {
-      filteredUsers = filteredUsers.filter((u) => u.isProUser === true);
-    }
+    // Total must come from a COUNT over the SAME filtered set — not from the
+    // length of one page.
+    const countResult = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM users ${whereClause}`,
+      params,
+    );
+    const total = countResult.rows[0]?.total || 0;
 
-    // Apply status filter (active vs inactive) when includeInactive is not set
-    if (statusFilter && !includeInactive) {
-      if (statusFilter === "active") {
-        filteredUsers = filteredUsers.filter((u) => u.isActive !== false);
-      } else if (statusFilter === "inactive") {
-        filteredUsers = filteredUsers.filter((u) => u.isActive === false);
-      }
-    }
-
-    // Sort by created date descending
-    filteredUsers.sort(
-      (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
+    // Page query reuses the filter params, then appends LIMIT/OFFSET.
+    const pageParams = [...params, limit, offset];
+    const pageResult = await pool.query(
+      `SELECT * FROM users ${whereClause}
+       ORDER BY created_at DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      pageParams,
     );
 
-    const total = filteredUsers.length;
+    // Raw SQL rows are snake_case — dbHelpers.find() normally applies
+    // toCamel(); replicate that here so sanitizeUser + the admin panel see
+    // the same camelCase shape as before (isProUser, isActive, createdAt…).
+    const sanitized = pageResult.rows.map((u) =>
+      sanitizeUser(dbHelpers.toCamel(u)),
+    );
     const totalPages = Math.ceil(total / limit);
-    const paginatedUsers = filteredUsers.slice(offset, offset + limit);
-    const sanitized = paginatedUsers.map(sanitizeUser);
 
     res.json({
       success: true,

@@ -455,6 +455,14 @@ router.post(
       duration: Number(body.duration) || 0,
       isPro: body.isPro ?? body.is_pro ?? false,
       isActive: true,
+      // FortSpy encrypted stream (migration 141). fortspyKey is write-only:
+      // it is stored for server-side token issuance and never returned by
+      // public endpoints.
+      fortspyId: body.fortspyId || body.fortspy_id || null,
+      fortspyKey: body.fortspyKey || body.fortspy_key || null,
+      isEncrypted: body.isEncrypted ?? body.is_encrypted ?? false,
+      encryptionType:
+        body.encryptionType || body.encryption_type || "AES-256-CTR",
     });
 
     await dbHelpers.pool.query("SELECT update_study_material_counts($1)", [

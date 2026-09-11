@@ -3,6 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../../shared/providers/AuthContext";
 import { getTestSeries, apiClient } from "../../shared/lib/dataService";
+import {
+  formatDuration as formatTime,
+  formatDate,
+} from "../../shared/lib/format.js";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
 import {
   Clock,
@@ -239,28 +243,6 @@ export default function AttemptedTests() {
     seriesData,
   ]);
 
-  const formatTime = (seconds) => {
-    if (!seconds) return "0m";
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    if (mins >= 60) {
-      const hrs = Math.floor(mins / 60);
-      const remMins = mins % 60;
-      return `${hrs}h ${remMins}m`;
-    }
-    return `${mins}m ${secs}s`;
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "--";
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
@@ -288,7 +270,7 @@ export default function AttemptedTests() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 pb-16">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 pb-10">
       <Helmet>
         <title>My Attempted Tests & Performance Log | Trstprep</title>
         <meta
@@ -339,6 +321,7 @@ export default function AttemptedTests() {
             >
               <BarChart2 className="w-4 h-4 text-indigo-500" />
               <span>Full Analytics</span>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
             </Link>
             <Link
               to="/test-series"
@@ -493,6 +476,7 @@ export default function AttemptedTests() {
             <div className="relative flex-1 min-w-[140px]">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
+                aria-label="Search test or series"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -643,6 +627,30 @@ export default function AttemptedTests() {
             </div>
           )}
         </div>
+
+        {/* Error State */}
+        {error && (
+          <div
+            role="alert"
+            className="mb-6 flex items-start gap-3 rounded-2xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 p-4 shadow-sm"
+          >
+            <XCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-rose-700 dark:text-rose-300">
+                Something went wrong
+              </p>
+              <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5">
+                {error}
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-2 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Loading State */}
         {loading && (
@@ -846,11 +854,13 @@ export default function AttemptedTests() {
                           <div className="flex items-center justify-between text-[10.5px] font-semibold text-slate-400">
                             <span>Breakdown</span>
                             <span>
-                              <strong className="text-emerald-600 dark:text-emerald-400 font-bold">
+                              <strong className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                                <CheckCircle2 className="w-3 h-3" />
                                 {correct}C
                               </strong>{" "}
                               ·{" "}
-                              <strong className="text-rose-600 dark:text-rose-400 font-bold">
+                              <strong className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 font-bold">
+                                <XCircle className="w-3 h-3" />
                                 {wrong}W
                               </strong>{" "}
                               ·{" "}
@@ -1119,12 +1129,22 @@ export default function AttemptedTests() {
                   Reset Filters
                 </button>
               ) : (
-                <Link
-                  to="/test-series"
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md shadow-indigo-600/20 active:scale-95 transition-all"
-                >
-                  Browse Test Series ➔
-                </Link>
+                <>
+                  <Link
+                    to="/test-series"
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md shadow-indigo-600/20 active:scale-95 transition-all"
+                  >
+                    Browse Test Series
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                  <button
+                    onClick={() => navigate("/analysis")}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs font-bold transition-all"
+                  >
+                    View Analytics
+                    <ArrowRight className="w-3.5 h-3.5 text-indigo-500" />
+                  </button>
+                </>
               )}
             </div>
           </div>

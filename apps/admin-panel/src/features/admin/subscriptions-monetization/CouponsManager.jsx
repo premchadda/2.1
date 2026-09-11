@@ -17,6 +17,7 @@ import { apiClient } from "../../../shared/lib/dataService.js";
 import { useTestCategories } from "../../../shared/hooks/useTestCategories";
 import { toast } from "react-hot-toast";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
+import { copyToClipboard } from "../../../shared/utils/clipboard";
 
 const DISCOUNT_TYPES = [
   { value: "percentage", label: "Percentage (%)" },
@@ -161,17 +162,6 @@ export default function CouponsManager() {
     setShowForm(false);
   };
 
-  const copyToClipboard = async (code) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopiedCode(code);
-      setTimeout(() => setCopiedCode(null), 2000);
-    } catch (err) {
-      console.warn("Clipboard write failed:", err);
-      toast.error("Clipboard not available in this context (requires HTTPS)");
-    }
-  };
-
   const generateRandomCode = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let code = "";
@@ -243,6 +233,7 @@ export default function CouponsManager() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
           <input
             type="text"
+            aria-label="Search coupons by code or description"
             placeholder="Search coupons by code or description..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -755,6 +746,7 @@ export default function CouponsManager() {
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
+                      aria-label="Active"
                       checked={formData.isActive}
                       onChange={(e) =>
                         setFormData({ ...formData, isActive: e.target.checked })

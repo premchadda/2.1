@@ -9,14 +9,5 @@
  * @returns {Function} Express middleware function
  */
 export const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next)
-}
-
-/**
- * Wraps multiple async route handlers
- * @param {Function[]} fns - Array of async route handler functions
- * @returns {Function[]} Array of wrapped middleware functions
- */
-export const asyncHandlers = (...fns) => {
-  return fns.map(fn => asyncHandler(fn))
-}
+  Promise.resolve(fn(req, res, next)).catch(next);
+};

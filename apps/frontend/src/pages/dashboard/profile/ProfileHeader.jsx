@@ -24,6 +24,7 @@ function ProfileHeader({
   return (
     <>
       <input
+        aria-label="Upload profile photo"
         ref={fileInputRef}
         type="file"
         accept="image/*"
@@ -31,6 +32,7 @@ function ProfileHeader({
         className="hidden"
       />
       <input
+        aria-label="Upload profile banner"
         ref={bannerFileInputRef}
         type="file"
         accept="image/*"
@@ -100,10 +102,10 @@ function ProfileHeader({
                   <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-gray-800 flex items-center justify-center">
                     {user.avatar ? (
                       <img
+                        alt="Profile avatar"
                         loading="lazy"
                         decoding="async"
                         src={user.avatar}
-                        alt="Profile"
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           e.currentTarget.style.display = "none";
@@ -262,10 +264,10 @@ function ProfileHeader({
                     <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-gray-800 flex items-center justify-center">
                       {user.avatar ? (
                         <img
+                          alt="Profile avatar"
                           loading="lazy"
                           decoding="async"
                           src={user.avatar}
-                          alt="Profile"
                           className="w-full h-full object-cover"
                           onError={(e) => {
                             e.currentTarget.style.display = "none";

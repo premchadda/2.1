@@ -32,14 +32,14 @@ This document records the security controls implemented after the unified audit 
 
 ## CSRF Protection
 
-| Control                                                         | Location              | Status |
-| --------------------------------------------------------------- | --------------------- | ------ |
-| HttpOnly + SameSite=Lax cookies                                 | `auth.service.js`     | ✅     |
-| DB-backed CSRF tokens (double-submit)                           | `csrf.middleware.js`  | ✅     |
-| Only stateless routes exempt (login, register, forgot-password) | `csrf.middleware.js`  | ✅     |
-| /auth/refresh + /auth/logout NOT exempt                         | `csrf.middleware.js`  | ✅     |
-| Token cleanup every 5 minutes                                   | `csrf-token-store.js` | ✅     |
-| logout + change-password require CSRF                           | `csrf.middleware.js`  | ✅     |
+| Control                                                                                                                                                                              | Location                     | Status |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------- | ------ |
+| HttpOnly + SameSite=Lax cookies                                                                                                                                                      | `auth.service.js`            | ✅     |
+| DB-backed CSRF tokens (double-submit)                                                                                                                                                | `csrf.middleware.js`         | ✅     |
+| Mostly stateless/low-risk routes exempt (login, register, forgot-password, 2FA, sessions, payments) + logout (see below)                                                             | `csrf.middleware.js`         | ✅     |
+| /auth/refresh NOT exempt; /auth/logout IS exempt (by design — forced-logout CSRF is low-impact: worst case the victim is signed out; session cookies remain HttpOnly + SameSite=Lax) | `csrf.middleware.js:404-425` | ✅     |
+| Token cleanup every 5 minutes                                                                                                                                                        | `csrf-token-store.js`        | ✅     |
+| change-password requires CSRF; logout exempt (see above)                                                                                                                             | `csrf.middleware.js`         | ✅     |
 
 ## Input Validation & SQL Injection
 

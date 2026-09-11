@@ -117,7 +117,9 @@ function Pass() {
   const fetchPlans = async (isBackground = false, signal) => {
     try {
       if (!isBackground) setLoading(true);
-      const response = await api.get("/api/subscriptions/plans", { signal });
+      const response = await apiClient.get("/api/subscriptions/plans", {
+        signal,
+      });
       const plansData = response.data?.plans;
       if (Array.isArray(plansData) && plansData.length > 0) {
         const processedPlans = plansData.map((p) => ({
@@ -145,6 +147,8 @@ function Pass() {
       }
     } catch (error) {
       if (signal?.aborted) return;
+      if (!isBackground)
+        console.error("Failed to fetch subscription plans:", error);
       setPlans([]);
     } finally {
       setLoading(false);
@@ -220,8 +224,16 @@ function Pass() {
     }
     if (currentPlan.id === "free") return;
 
+    const ok = await confirm({
+      title: "Confirm Pro upgrade",
+      message: `Subscribe to ${currentPlan.name} for ₹${finalPrice}? You will be redirected to the secure payment gateway.`,
+      confirmLabel: "Continue to Pay",
+    });
+    if (!ok) return;
+
     try {
       setVerifying(true);
+      setPurchaseLoading(currentPlan.id);
       // 1. Create order
       const orderRes = await api.post("/api/payments/create-order", {
         planId: currentPlan.id,
@@ -272,6 +284,7 @@ function Pass() {
           razorpay_payment_id: `pay_mock_${Date.now()}_${user?.id || 1}`,
           razorpay_signature: `sig_sandbox_${Date.now()}`,
         });
+        setPurchaseLoading(null);
         return;
       }
 
@@ -316,11 +329,13 @@ function Pass() {
             );
           } finally {
             setVerifying(false);
+            setPurchaseLoading(null);
           }
         },
         modal: {
           ondismiss: () => {
             setVerifying(false);
+            setPurchaseLoading(null);
             toast.info("Payment cancelled");
           },
         },
@@ -329,6 +344,7 @@ function Pass() {
       const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", (response) => {
         setVerifying(false);
+        setPurchaseLoading(null);
         toast.error(
           response.error?.description || "Payment failed. Please try again.",
         );
@@ -354,6 +370,7 @@ function Pass() {
         toast.error(msg || "Payment processing failed. Please try again.");
       }
       setVerifying(false);
+      setPurchaseLoading(null);
     }
   };
 
@@ -594,6 +611,25 @@ function Pass() {
               </button>
             )}
           </div>
+
+          {(platformStats.activeLearners > 0 ||
+            platformStats.satisfaction != null) && (
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-white/80 text-xs font-semibold animate-slide-up">
+              {platformStats.activeLearners > 0 && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-white/70" />
+                  {platformStats.activeLearners.toLocaleString()}+ active
+                  learners
+                </span>
+              )}
+              {platformStats.satisfaction != null && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Star className="w-3.5 h-3.5 text-amber-300 fill-current" />
+                  {Number(platformStats.satisfaction).toFixed(1)} learner rating
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </AnimatedHero>
 
@@ -885,10 +921,20 @@ function Pass() {
         <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-center text-gray-900 dark:text-white mb-1.5 sm:mb-2">
           Choose Your Plan
         </h2>
-        <p className="text-center text-gray-500 dark:text-gray-400 text-xs sm:text-sm max-w-lg mx-auto mb-6 sm:mb-8">
+        <p className="text-center text-gray-500 dark:text-gray-400 text-xs sm:text-sm max-w-lg mx-auto mb-3">
           Select the perfect plan to elevate your test preparation and unlock
           unlimited mock tests and full solutions.
         </p>
+        <div className="flex justify-center mb-6 sm:mb-8">
+          <button
+            type="button"
+            onClick={() => fetchPlans(false)}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+            Refresh prices
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-stretch">
           {plans.map((plan) => {
@@ -904,7 +950,8 @@ function Pass() {
               >
                 {/* Popular Badge */}
                 {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] sm:text-xs font-black tracking-wider uppercase rounded-full shadow-md whitespace-nowrap">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] sm:text-xs font-black tracking-wider uppercase rounded-full shadow-md whitespace-nowrap flex items-center gap-1">
+                    <Flame className="w-3 h-3" aria-hidden="true" />
                     MOST POPULAR • 80% OFF
                   </div>
                 )}
@@ -980,11 +1027,22 @@ function Pass() {
 
                 <button
                   className={`w-full py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 mt-auto shadow-sm ${btnState.className}`}
-                  disabled={btnState.disabled}
+                  disabled={btnState.disabled || purchaseLoading === plan.id}
                   onClick={btnState.onClick}
                 >
-                  {btnState.text}
-                  {!btnState.disabled && <ArrowRight className="w-3.5 h-3.5" />}
+                  {purchaseLoading === plan.id ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      {btnState.text}
+                      {!btnState.disabled && (
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      )}
+                    </>
+                  )}
                 </button>
               </div>
             );
@@ -1097,6 +1155,7 @@ function Pass() {
                               {plan.name}
                             </span>
                             <input
+                              aria-label={`Select ${plan.name} plan`}
                               type="radio"
                               name="plan_choice"
                               checked={selectedPlanId === plan.id}
@@ -1146,11 +1205,19 @@ function Pass() {
                         <button
                           type="button"
                           onClick={() => setSelectedPlanId(plan.id)}
-                          className="mt-3 w-full py-1.5 sm:py-2 text-xs font-bold rounded-lg sm:rounded-xl bg-purple-600 text-white transition-all"
+                          className="mt-3 w-full py-1.5 sm:py-2 text-xs font-bold rounded-lg sm:rounded-xl bg-purple-600 text-white transition-all flex items-center justify-center gap-1.5"
                         >
-                          {selectedPlanId === plan.id
-                            ? "Selected Plan"
-                            : `Select ${plan.name}`}
+                          {selectedPlanId === plan.id ? (
+                            <>
+                              <CheckCircle
+                                className="w-3.5 h-3.5"
+                                aria-hidden="true"
+                              />
+                              Selected Plan
+                            </>
+                          ) : (
+                            `Select ${plan.name}`
+                          )}
                         </button>
                       </div>
                     ))
@@ -1165,11 +1232,16 @@ function Pass() {
                 <div className="p-3 sm:p-4 bg-gray-50 dark:bg-gray-800/60 rounded-xl sm:rounded-2xl border border-gray-200 dark:border-gray-700/60 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 items-center">
                   {/* Coupon Code Input */}
                   <div>
-                    <label className="text-[11px] sm:text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 block">
+                    <label className="text-[11px] sm:text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1.5">
+                      <Tag
+                        className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400"
+                        aria-hidden="true"
+                      />
                       Have a Discount Coupon?
                     </label>
                     <div className="flex gap-2">
                       <input
+                        aria-label="Discount coupon code"
                         type="text"
                         placeholder="Enter code (e.g. TRST50)"
                         value={couponInput}
@@ -1196,6 +1268,20 @@ function Pass() {
                         <CheckCircle2 className="w-3.5 h-3.5" /> Coupon{" "}
                         <strong>{appliedCoupon.code}</strong> applied (-₹
                         {appliedCoupon.discount})
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (navigator.clipboard?.writeText) {
+                              navigator.clipboard.writeText(appliedCoupon.code);
+                              toast.success("Coupon code copied to clipboard");
+                            }
+                          }}
+                          aria-label="Copy coupon code"
+                          title="Copy coupon code"
+                          className="ml-1 p-1 rounded-md hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1261,7 +1347,8 @@ function Pass() {
                             <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
                               Paytm
                             </span>
-                            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-purple-700 dark:text-purple-300 font-semibold">
+                            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-purple-700 dark:text-purple-300 font-semibold inline-flex items-center gap-1">
+                              <QrCode className="w-3 h-3" aria-hidden="true" />
                               UPI QR
                             </span>
                           </div>
@@ -1350,10 +1437,10 @@ function Pass() {
                   <button
                     type="button"
                     onClick={handleConfirmUpgrade}
-                    disabled={verifying}
+                    disabled={verifying || purchaseLoading !== null}
                     className="flex-1 sm:flex-initial px-5 sm:px-7 py-2.5 text-xs sm:text-sm font-extrabold text-white bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
-                    {verifying ? (
+                    {verifying || purchaseLoading !== null ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         <span>Activating Pro Pass...</span>

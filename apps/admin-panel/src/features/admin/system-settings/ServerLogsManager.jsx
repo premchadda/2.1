@@ -792,6 +792,7 @@ export default function ServerLogsManager() {
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 shrink-0" />
             <input
               type="text"
+              aria-label="Search errors, stacks, routes, IPs"
               placeholder="Search errors, stacks, routes, IPs..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -892,7 +893,10 @@ export default function ServerLogsManager() {
             {searchQuery && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold max-w-[200px] truncate">
                 Search: “{searchQuery}”
-                <button onClick={() => setSearchQuery("")} className="shrink-0">
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="shrink-0 focus:outline-none focus:ring-2 focus:ring-amber-500 rounded"
+                >
                   <X className="w-3 h-3" />
                 </button>
               </span>

@@ -94,7 +94,7 @@ export default function About() {
         <meta property="og:image" content="/og-image.png" />
       </Helmet>
       {/* Hero */}
-      <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white py-20">
+      <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white py-10">
         <div className="max-w-6xl mx-auto px-4 text-center">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl md:text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
             About Trstprep
@@ -106,7 +106,7 @@ export default function About() {
       </div>
 
       {/* Stats */}
-      <div className="py-12 bg-white shadow-md">
+      <div className="py-8 bg-white shadow-md">
         <div className="max-w-6xl mx-auto px-4">
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
             {stats.map((stat, idx) => (
@@ -122,7 +122,7 @@ export default function About() {
       </div>
 
       {/* Mission */}
-      <div className="py-16">
+      <div className="py-8">
         <div className="max-w-4xl mx-auto px-4">
           <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 text-center mb-8">
             Our Mission
@@ -139,7 +139,7 @@ export default function About() {
       </div>
 
       {/* Features */}
-      <div className="py-16 bg-white">
+      <div className="py-8 bg-white">
         <div className="max-w-6xl mx-auto px-4">
           <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 text-center mb-12">
             Why Choose Trstprep?
@@ -162,7 +162,7 @@ export default function About() {
       </div>
 
       {/* CTA */}
-      <div className="py-16 bg-indigo-600">
+      <div className="py-8 bg-indigo-600">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-4">
             Start Your Journey Today

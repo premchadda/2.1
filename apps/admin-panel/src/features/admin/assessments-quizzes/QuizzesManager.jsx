@@ -764,6 +764,7 @@ export default function QuizzesManager() {
             <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
+              aria-label="Search quiz title, description, topic or ID"
               placeholder="Search quiz title, description, topic or ID..."
               value={searchQuery}
               onChange={(e) => {
@@ -930,12 +931,12 @@ export default function QuizzesManager() {
       {/* 6. Quizzes Data Table */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-gray-400">
+          <div className="p-6 sm:p-8 text-center text-gray-400">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
             <p className="text-xs font-medium">Loading quizzes...</p>
           </div>
         ) : filteredQuizzes.length === 0 ? (
-          <div className="p-12 text-center">
+          <div className="p-6 sm:p-8 text-center">
             <EmptyState
               title="No Quizzes Found"
               description="Create a new quiz or use AI Quiz Builder to generate rapid tests."
@@ -1000,6 +1001,7 @@ export default function QuizzesManager() {
                       <td className="p-3.5 text-center">
                         <input
                           type="checkbox"
+                          aria-label={`Select quiz ${(currentPage - 1) * pageSize + idx + 1}`}
                           checked={isSelected}
                           onChange={() => handleSelectRow(id)}
                           className="rounded text-indigo-600 focus:ring-indigo-500"
@@ -1584,6 +1586,7 @@ export default function QuizzesManager() {
                         <div className="p-3 border-b border-gray-200 dark:border-gray-700">
                           <input
                             type="text"
+                            aria-label="Filter questions by text or subject"
                             placeholder="Filter questions by text or subject..."
                             value={pickerSearch}
                             onChange={(e) => setPickerSearch(e.target.value)}

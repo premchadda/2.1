@@ -12,6 +12,10 @@
  * All consumers of `sanitizeHtml` now get the strict behavior automatically.
  */
 
-export { sanitizeHtml, decodeHtmlEntities, cleanHtmlWrapper, extractBilingualContent } from './htmlSanitizer'
-export { sanitizeHtml as default } from './htmlSanitizer'
-
+export {
+  sanitizeHtml,
+  decodeHtmlEntities,
+  cleanHtmlWrapper,
+  extractBilingualContent,
+} from "./htmlSanitizer.js";
+export { sanitizeHtml as default } from "./htmlSanitizer.js";

@@ -293,7 +293,7 @@ function QuestionDiscussions({
 
   if (!isOpen) return null;
 
-  return (
+  const panel = (
     <div className="fixed inset-0 z-50 flex justify-end">
       {/* Overlay */}
       <div
@@ -380,11 +380,11 @@ function QuestionDiscussions({
           className="flex-1 overflow-y-auto px-4 divide-y divide-gray-100 dark:divide-gray-700/50"
         >
           {loading ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-500 border-t-transparent" />
             </div>
           ) : error ? (
-            <div className="text-center py-12">
+            <div className="text-center py-8">
               <MessageSquare className="w-10 h-10 text-gray-200 dark:text-gray-700 mx-auto mb-3" />
               <p className="text-sm font-medium text-red-500 dark:text-red-400">
                 {error}
@@ -397,7 +397,7 @@ function QuestionDiscussions({
               </button>
             </div>
           ) : comments.length === 0 ? (
-            <div className="text-center py-12">
+            <div className="text-center py-8">
               <MessageSquare className="w-10 h-10 text-gray-200 dark:text-gray-700 mx-auto mb-3" />
               <p className="text-sm font-medium text-gray-400 dark:text-gray-500">
                 No discussions yet
@@ -421,6 +421,12 @@ function QuestionDiscussions({
       </div>
     </div>
   );
+
+  // Portal the overlay so it escapes parent stacking/overflow contexts.
+  if (typeof document !== "undefined" && document.body) {
+    return createPortal(panel, document.body);
+  }
+  return panel;
 }
 
 export default QuestionDiscussions;

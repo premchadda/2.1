@@ -44,6 +44,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
 import { AnimatedHero } from "../../shared/components";
+import { formatTime } from "../../shared/lib/format.js";
 
 const FONT_IMPORT = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
@@ -88,20 +89,7 @@ const RANKING_CATEGORIES = [
   },
 ];
 
-const AVATAR_GRADIENTS = [
-  "from-indigo-500 to-purple-500",
-  "from-blue-500 to-cyan-500",
-  "from-emerald-500 to-teal-500",
-  "from-amber-500 to-orange-500",
-  "from-rose-500 to-pink-500",
-  "from-violet-500 to-fuchsia-500",
-];
-
-const getAvatarGradient = (name) => {
-  if (!name) return AVATAR_GRADIENTS[0];
-  const sum = name.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  return AVATAR_GRADIENTS[sum % AVATAR_GRADIENTS.length];
-};
+import { getAvatarGradient } from "@trstprep/shared-config";
 
 export default function Leaderboard() {
   const { user, socket, on } = useAuth();
@@ -357,13 +345,8 @@ export default function Leaderboard() {
     return sorted;
   }, [rankings, activeCategory, performanceView]);
 
-  const formatTime = (seconds) => {
-    if (!seconds) return "--:--";
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
-
+  // Clock display (mm:ss) — centralized in shared/lib/format.js
+  // (falsy values render "00:00" instead of the old "--:--").
   const isLoading = loadingLeaderboard;
 
   // Practice mapping from API to UI (strictly real data)
@@ -463,9 +446,10 @@ export default function Leaderboard() {
           </div>
           <Link
             to="/pass"
-            className="block w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm uppercase tracking-wider shadow-md hover:shadow-lg transition-all"
+            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm uppercase tracking-wider shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5"
           >
             Unlock Access
+            <ChevronRight className="w-4 h-4" aria-hidden="true" />
           </Link>
         </div>
       </div>
@@ -954,6 +938,7 @@ export default function Leaderboard() {
               <div className="relative w-full sm:w-72">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                 <input
+                  aria-label="Search tests"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search tests..."
@@ -1069,7 +1054,7 @@ export default function Leaderboard() {
                     <tr>
                       <td
                         colSpan="7"
-                        className="py-12 text-center text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider"
+                        className="py-8 text-center text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider"
                       >
                         No test attempts recorded yet
                       </td>
@@ -1173,7 +1158,7 @@ export default function Leaderboard() {
                 ))}
               </div>
             ) : (
-              <div className="py-12 text-center text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider">
+              <div className="py-8 text-center text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider">
                 No practice question data recorded yet
               </div>
             )}
@@ -1247,7 +1232,7 @@ export default function Leaderboard() {
                 ))}
               </div>
             ) : (
-              <div className="py-12 text-center text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider">
+              <div className="py-8 text-center text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider">
                 No video watching history recorded yet
               </div>
             )}
@@ -1291,6 +1276,7 @@ export default function Leaderboard() {
                 <div className="relative flex-1 md:w-56">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                   <input
+                    aria-label="Search aspirant name"
                     type="text"
                     placeholder="Search aspirant..."
                     value={searchTerm}
@@ -1307,6 +1293,30 @@ export default function Leaderboard() {
                   <ArrowRight
                     className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
                   />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = window.location.href;
+                    const shareData = {
+                      title: "Trstprep Leaderboard",
+                      text: "Check my rank on the Trstprep leaderboard",
+                      url,
+                    };
+                    if (navigator.share) {
+                      navigator.share(shareData).catch(() => {});
+                    } else if (navigator.clipboard) {
+                      navigator.clipboard
+                        .writeText(url)
+                        .then(() => toast.success("Leaderboard link copied!"))
+                        .catch(() => {});
+                    }
+                  }}
+                  className="p-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl text-gray-600 dark:text-gray-300 transition-all"
+                  title="Share leaderboard"
+                  aria-label="Share leaderboard"
+                >
+                  <Share2 className="w-4 h-4" aria-hidden="true" />
                 </button>
                 <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
@@ -1363,13 +1373,23 @@ export default function Leaderboard() {
                 <button
                   onClick={() => setPerformanceView("fastest")}
                   className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${performanceView === "fastest" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+                  title="Fastest solvers by average time per question"
                 >
+                  <Zap
+                    className="w-3.5 h-3.5 text-amber-500"
+                    aria-hidden="true"
+                  />
                   <Timer className="w-3.5 h-3.5" /> Fastest Performers
                 </button>
                 <button
                   onClick={() => setPerformanceView("accuracy")}
                   className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${performanceView === "accuracy" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+                  title="Most accurate solvers by correct-answer rate"
                 >
+                  <Award
+                    className="w-3.5 h-3.5 text-emerald-500"
+                    aria-hidden="true"
+                  />
                   <Target className="w-3.5 h-3.5" /> Highest Accuracy
                 </button>
               </div>
@@ -1387,7 +1407,11 @@ export default function Leaderboard() {
                       <span className="text-white font-bold text-sm">
                         {userRanking.userName} (You)
                       </span>
-                      <span className="bg-white/20 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      <span className="bg-white/20 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                        <Star
+                          className="w-3 h-3 text-amber-300"
+                          aria-hidden="true"
+                        />
                         Your Standing
                       </span>
                     </div>
@@ -1498,7 +1522,13 @@ export default function Leaderboard() {
                             >
                               {entry.userName || "—"}
                             </span>
-                            <span className="text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.2 rounded">
+                            <span className="text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.2 rounded flex items-center gap-1">
+                              {idx === 0 && (
+                                <Crown
+                                  className="w-3 h-3 text-amber-600 dark:text-amber-400"
+                                  aria-hidden="true"
+                                />
+                              )}
                               {ranks.badge}
                             </span>
                           </div>
@@ -1581,7 +1611,7 @@ export default function Leaderboard() {
                       <tr>
                         <td
                           colSpan="5"
-                          className="py-12 text-center text-gray-500 dark:text-gray-400"
+                          className="py-8 text-center text-gray-500 dark:text-gray-400"
                         >
                           <Loader2 className="w-6 h-6 text-indigo-600 dark:text-indigo-400 animate-spin mx-auto" />
                           <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-2">
@@ -1674,7 +1704,7 @@ export default function Leaderboard() {
                       <tr>
                         <td
                           colSpan="5"
-                          className="py-12 text-center text-gray-500 dark:text-gray-400"
+                          className="py-8 text-center text-gray-500 dark:text-gray-400"
                         >
                           <Users className="w-8 h-8 text-gray-300 dark:text-gray-500 mx-auto mb-2" />
                           <p className="text-xs font-bold text-gray-700 dark:text-gray-300">

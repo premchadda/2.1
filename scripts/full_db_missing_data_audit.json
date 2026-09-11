@@ -25,8 +25,9 @@
   },
   {
     "table": "ai_conversations",
-    "rowCount": 0,
-    "status": "EMPTY_TABLE",
+    "rowCount": 1,
+    "status": "POPULATED",
+    "columnCount": 5,
     "missingFields": []
   },
   {
@@ -37,8 +38,9 @@
   },
   {
     "table": "ai_messages",
-    "rowCount": 0,
-    "status": "EMPTY_TABLE",
+    "rowCount": 1,
+    "status": "POPULATED",
+    "columnCount": 6,
     "missingFields": []
   },
   {
@@ -310,7 +312,7 @@
   },
   {
     "table": "attempt_events",
-    "rowCount": 381,
+    "rowCount": 587,
     "status": "POPULATED",
     "columnCount": 13,
     "missingFields": [
@@ -318,37 +320,60 @@
         "column": "question_id",
         "type": "integer",
         "nullable": true,
-        "missingCount": 112,
-        "missingPct": 29.4
+        "missingCount": 115,
+        "missingPct": 19.6
       },
       {
         "column": "deleted_at",
         "type": "timestamp with time zone",
         "nullable": true,
-        "missingCount": 381,
+        "missingCount": 587,
         "missingPct": 100
       },
       {
         "column": "deleted_by",
         "type": "integer",
         "nullable": true,
-        "missingCount": 381,
+        "missingCount": 587,
         "missingPct": 100
       },
       {
         "column": "event_uuid",
         "type": "uuid",
         "nullable": true,
-        "missingCount": 249,
-        "missingPct": 65.4
+        "missingCount": 358,
+        "missingPct": 61
       }
     ]
   },
   {
     "table": "attempt_question_snapshots",
-    "rowCount": 0,
-    "status": "EMPTY_TABLE",
-    "missingFields": []
+    "rowCount": 200,
+    "status": "POPULATED",
+    "columnCount": 18,
+    "missingFields": [
+      {
+        "column": "question_version_id",
+        "type": "integer",
+        "nullable": true,
+        "missingCount": 200,
+        "missingPct": 100
+      },
+      {
+        "column": "section_id",
+        "type": "integer",
+        "nullable": true,
+        "missingCount": 200,
+        "missingPct": 100
+      },
+      {
+        "column": "metadata",
+        "type": "jsonb",
+        "nullable": true,
+        "missingCount": 100,
+        "missingPct": 50
+      }
+    ]
   },
   {
     "table": "attempt_section_scores",
@@ -358,7 +383,7 @@
   },
   {
     "table": "attempts",
-    "rowCount": 18,
+    "rowCount": 29,
     "status": "POPULATED",
     "columnCount": 57,
     "missingFields": [
@@ -367,76 +392,76 @@
         "type": "integer",
         "nullable": true,
         "missingCount": 2,
-        "missingPct": 11.1
+        "missingPct": 6.9
       },
       {
         "column": "duration",
         "type": "integer",
         "nullable": true,
         "missingCount": 2,
-        "missingPct": 11.1
+        "missingPct": 6.9
       },
       {
         "column": "answers",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 9,
-        "missingPct": 50
+        "missingCount": 12,
+        "missingPct": 41.4
       },
       {
         "column": "submitted_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 2,
-        "missingPct": 11.1
+        "missingCount": 3,
+        "missingPct": 10.3
       },
       {
         "column": "marked_for_review",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 16,
-        "missingPct": 88.9
+        "missingCount": 27,
+        "missingPct": 93.1
       },
       {
         "column": "paused_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 18,
-        "missingPct": 100
+        "missingCount": 27,
+        "missingPct": 93.1
       },
       {
         "column": "resumed_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 18,
-        "missingPct": 100
+        "missingCount": 28,
+        "missingPct": 96.6
       },
       {
         "column": "remaining_time_seconds",
         "type": "integer",
         "nullable": true,
-        "missingCount": 18,
-        "missingPct": 100
+        "missingCount": 27,
+        "missingPct": 93.1
       },
       {
         "column": "test_title",
         "type": "character varying",
         "nullable": true,
-        "missingCount": 8,
-        "missingPct": 44.4
+        "missingCount": 14,
+        "missingPct": 48.3
       },
       {
         "column": "reattempt_type",
         "type": "character varying",
         "nullable": true,
-        "missingCount": 18,
+        "missingCount": 29,
         "missingPct": 100
       },
       {
         "column": "parent_attempt_id",
         "type": "integer",
         "nullable": true,
-        "missingCount": 18,
+        "missingCount": 29,
         "missingPct": 100
       },
       {
@@ -444,111 +469,111 @@
         "type": "jsonb",
         "nullable": true,
         "missingCount": 2,
-        "missingPct": 11.1
+        "missingPct": 6.9
       },
       {
         "column": "current_section",
         "type": "character varying",
         "nullable": true,
         "missingCount": 2,
-        "missingPct": 11.1
+        "missingPct": 6.9
       },
       {
         "column": "section_scores",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 18,
+        "missingCount": 29,
         "missingPct": 100
       },
       {
         "column": "section_times",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 18,
+        "missingCount": 29,
         "missingPct": 100
       },
       {
         "column": "expires_at",
         "type": "timestamp with time zone",
         "nullable": true,
-        "missingCount": 18,
+        "missingCount": 29,
         "missingPct": 100
       },
       {
         "column": "started_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 16,
-        "missingPct": 88.9
+        "missingCount": 27,
+        "missingPct": 93.1
       },
       {
         "column": "last_activity",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 18,
+        "missingCount": 29,
         "missingPct": 100
       },
       {
         "column": "last_question_id",
         "type": "integer",
         "nullable": true,
-        "missingCount": 18,
+        "missingCount": 29,
         "missingPct": 100
       },
       {
         "column": "question_results",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 6,
-        "missingPct": 33.3
+        "missingCount": 17,
+        "missingPct": 58.6
       },
       {
         "column": "solutions",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 18,
+        "missingCount": 29,
         "missingPct": 100
       },
       {
         "column": "percentile",
         "type": "numeric",
         "nullable": true,
-        "missingCount": 5,
-        "missingPct": 27.8
+        "missingCount": 16,
+        "missingPct": 55.2
       },
       {
         "column": "rank",
         "type": "integer",
         "nullable": true,
-        "missingCount": 5,
-        "missingPct": 27.8
+        "missingCount": 16,
+        "missingPct": 55.2
       },
       {
         "column": "deleted_at",
         "type": "timestamp with time zone",
         "nullable": true,
-        "missingCount": 18,
+        "missingCount": 29,
         "missingPct": 100
       },
       {
         "column": "deleted_by",
         "type": "integer",
         "nullable": true,
-        "missingCount": 18,
+        "missingCount": 29,
         "missingPct": 100
       },
       {
         "column": "flag_reason",
         "type": "text",
         "nullable": true,
-        "missingCount": 15,
-        "missingPct": 83.3
+        "missingCount": 24,
+        "missingPct": 82.8
       }
     ]
   },
   {
     "table": "audit_logs",
-    "rowCount": 1822,
+    "rowCount": 1906,
     "status": "POPULATED",
     "columnCount": 25,
     "missingFields": [
@@ -556,98 +581,98 @@
         "column": "user_id",
         "type": "integer",
         "nullable": true,
-        "missingCount": 50,
-        "missingPct": 2.7
+        "missingCount": 57,
+        "missingPct": 3
       },
       {
         "column": "admin_id",
         "type": "integer",
         "nullable": true,
-        "missingCount": 1822,
+        "missingCount": 1906,
         "missingPct": 100
       },
       {
         "column": "table_name",
         "type": "character varying",
         "nullable": true,
-        "missingCount": 1822,
+        "missingCount": 1906,
         "missingPct": 100
       },
       {
         "column": "record_id",
         "type": "integer",
         "nullable": true,
-        "missingCount": 1822,
+        "missingCount": 1906,
         "missingPct": 100
       },
       {
         "column": "old_data",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 1822,
+        "missingCount": 1906,
         "missingPct": 100
       },
       {
         "column": "new_data",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 1822,
+        "missingCount": 1906,
         "missingPct": 100
       },
       {
         "column": "resource_id",
         "type": "character varying",
         "nullable": true,
-        "missingCount": 1772,
-        "missingPct": 97.3
+        "missingCount": 1856,
+        "missingPct": 97.4
       },
       {
         "column": "description",
         "type": "text",
         "nullable": true,
-        "missingCount": 1822,
+        "missingCount": 1906,
         "missingPct": 100
       },
       {
         "column": "response_status_code",
         "type": "integer",
         "nullable": true,
-        "missingCount": 500,
-        "missingPct": 27.4
+        "missingCount": 508,
+        "missingPct": 26.7
       },
       {
         "column": "admin_email",
         "type": "character varying",
         "nullable": true,
-        "missingCount": 522,
-        "missingPct": 28.6
+        "missingCount": 537,
+        "missingPct": 28.2
       },
       {
         "column": "admin_name",
         "type": "character varying",
         "nullable": true,
-        "missingCount": 532,
-        "missingPct": 29.2
+        "missingCount": 547,
+        "missingPct": 28.7
       },
       {
         "column": "entity_id",
         "type": "character varying",
         "nullable": true,
-        "missingCount": 1371,
-        "missingPct": 75.2
+        "missingCount": 1447,
+        "missingPct": 75.9
       },
       {
         "column": "old_values",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 1822,
+        "missingCount": 1906,
         "missingPct": 100
       },
       {
         "column": "new_values",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 1822,
+        "missingCount": 1906,
         "missingPct": 100
       }
     ]
@@ -725,6 +750,12 @@
     "missingFields": []
   },
   {
+    "table": "coming_soon_features",
+    "rowCount": 0,
+    "status": "EMPTY_TABLE",
+    "missingFields": []
+  },
+  {
     "table": "community_comments",
     "rowCount": 0,
     "status": "EMPTY_TABLE",
@@ -756,7 +787,7 @@
   },
   {
     "table": "csrf_tokens",
-    "rowCount": 3111,
+    "rowCount": 3116,
     "status": "POPULATED",
     "columnCount": 10,
     "missingFields": [
@@ -764,21 +795,21 @@
         "column": "user_id",
         "type": "integer",
         "nullable": true,
-        "missingCount": 3111,
+        "missingCount": 3116,
         "missingPct": 100
       },
       {
         "column": "deleted_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 3111,
+        "missingCount": 3116,
         "missingPct": 100
       },
       {
         "column": "deleted_by",
         "type": "integer",
         "nullable": true,
-        "missingCount": 3111,
+        "missingCount": 3116,
         "missingPct": 100
       }
     ]
@@ -1203,13 +1234,6 @@
     "columnCount": 30,
     "missingFields": [
       {
-        "column": "description",
-        "type": "text",
-        "nullable": true,
-        "missingCount": 6,
-        "missingPct": 46.2
-      },
-      {
         "column": "notification",
         "type": "text",
         "nullable": true,
@@ -1306,13 +1330,6 @@
         "nullable": true,
         "missingCount": 13,
         "missingPct": 100
-      },
-      {
-        "column": "slug",
-        "type": "character varying",
-        "nullable": true,
-        "missingCount": 11,
-        "missingPct": 84.6
       },
       {
         "column": "deleted_reason",
@@ -1427,7 +1444,7 @@
   },
   {
     "table": "leaderboard_entries",
-    "rowCount": 8,
+    "rowCount": 11,
     "status": "POPULATED",
     "columnCount": 21,
     "missingFields": [
@@ -1436,34 +1453,34 @@
         "type": "integer",
         "nullable": true,
         "missingCount": 2,
-        "missingPct": 25
+        "missingPct": 18.2
       },
       {
         "column": "metadata",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 8,
+        "missingCount": 11,
         "missingPct": 100
       },
       {
         "column": "rankings",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 8,
+        "missingCount": 11,
         "missingPct": 100
       },
       {
         "column": "deleted_at",
         "type": "timestamp with time zone",
         "nullable": true,
-        "missingCount": 8,
+        "missingCount": 11,
         "missingPct": 100
       },
       {
         "column": "deleted_by",
         "type": "integer",
         "nullable": true,
-        "missingCount": 8,
+        "missingCount": 11,
         "missingPct": 100
       }
     ]
@@ -1513,7 +1530,7 @@
   },
   {
     "table": "leaderboards",
-    "rowCount": 6,
+    "rowCount": 9,
     "status": "POPULATED",
     "columnCount": 36,
     "missingFields": [
@@ -1521,84 +1538,84 @@
         "column": "rankings",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 9,
         "missingPct": 100
       },
       {
         "column": "public_id",
         "type": "character varying",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 9,
         "missingPct": 100
       },
       {
         "column": "deleted_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 9,
         "missingPct": 100
       },
       {
         "column": "deleted_by",
         "type": "integer",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 9,
         "missingPct": 100
       },
       {
         "column": "deleted_reason",
         "type": "text",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 9,
         "missingPct": 100
       },
       {
         "column": "name",
         "type": "character varying",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 9,
         "missingPct": 100
       },
       {
         "column": "description",
         "type": "text",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 9,
         "missingPct": 100
       },
       {
         "column": "scope_id",
         "type": "character varying",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 9,
         "missingPct": 100
       },
       {
         "column": "start_date",
         "type": "timestamp with time zone",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 9,
         "missingPct": 100
       },
       {
         "column": "end_date",
         "type": "timestamp with time zone",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 9,
         "missingPct": 100
       },
       {
         "column": "last_calculated_at",
         "type": "timestamp with time zone",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 9,
         "missingPct": 100
       },
       {
         "column": "created_by",
         "type": "integer",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 9,
         "missingPct": 100
       }
     ]
@@ -1681,7 +1698,7 @@
   },
   {
     "table": "login_attempts",
-    "rowCount": 707,
+    "rowCount": 711,
     "status": "POPULATED",
     "columnCount": 7,
     "missingFields": []
@@ -1798,8 +1815,14 @@
     "missingFields": []
   },
   {
+    "table": "notification_preferences",
+    "rowCount": 0,
+    "status": "EMPTY_TABLE",
+    "missingFields": []
+  },
+  {
     "table": "notifications",
-    "rowCount": 16,
+    "rowCount": 19,
     "status": "POPULATED",
     "columnCount": 28,
     "missingFields": [
@@ -1807,14 +1830,14 @@
         "column": "data",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 16,
+        "missingCount": 19,
         "missingPct": 100
       },
       {
         "column": "image",
         "type": "character varying",
         "nullable": true,
-        "missingCount": 16,
+        "missingCount": 19,
         "missingPct": 100
       },
       {
@@ -1822,62 +1845,62 @@
         "type": "character varying",
         "nullable": true,
         "missingCount": 11,
-        "missingPct": 68.8
+        "missingPct": 57.9
       },
       {
         "column": "read_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 12,
-        "missingPct": 75
+        "missingCount": 13,
+        "missingPct": 68.4
       },
       {
         "column": "sent_via",
         "type": "ARRAY",
         "nullable": true,
-        "missingCount": 16,
+        "missingCount": 19,
         "missingPct": 100
       },
       {
         "column": "scheduled_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 16,
+        "missingCount": 19,
         "missingPct": 100
       },
       {
         "column": "sent_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 16,
+        "missingCount": 19,
         "missingPct": 100
       },
       {
         "column": "expires_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 16,
+        "missingCount": 19,
         "missingPct": 100
       },
       {
         "column": "deleted_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 16,
+        "missingCount": 19,
         "missingPct": 100
       },
       {
         "column": "deleted_by",
         "type": "integer",
         "nullable": true,
-        "missingCount": 16,
+        "missingCount": 19,
         "missingPct": 100
       },
       {
         "column": "deleted_reason",
         "type": "text",
         "nullable": true,
-        "missingCount": 16,
+        "missingCount": 19,
         "missingPct": 100
       }
     ]
@@ -2026,7 +2049,7 @@
   },
   {
     "table": "practice_sessions",
-    "rowCount": 8,
+    "rowCount": 29,
     "status": "POPULATED",
     "columnCount": 22,
     "missingFields": [
@@ -2034,63 +2057,63 @@
         "column": "exam_id",
         "type": "character varying",
         "nullable": true,
-        "missingCount": 8,
+        "missingCount": 29,
         "missingPct": 100
       },
       {
         "column": "subject_id",
         "type": "integer",
         "nullable": true,
-        "missingCount": 8,
-        "missingPct": 100
+        "missingCount": 20,
+        "missingPct": 69
       },
       {
         "column": "chapter_id",
         "type": "integer",
         "nullable": true,
-        "missingCount": 5,
-        "missingPct": 62.5
+        "missingCount": 23,
+        "missingPct": 79.3
       },
       {
         "column": "topic_id",
         "type": "integer",
         "nullable": true,
-        "missingCount": 7,
-        "missingPct": 87.5
+        "missingCount": 12,
+        "missingPct": 41.4
       },
       {
         "column": "time_limit_sec",
         "type": "integer",
         "nullable": true,
-        "missingCount": 8,
+        "missingCount": 29,
         "missingPct": 100
       },
       {
         "column": "last_active_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 8,
+        "missingCount": 29,
         "missingPct": 100
       },
       {
         "column": "completed_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 8,
+        "missingCount": 29,
         "missingPct": 100
       },
       {
         "column": "deleted_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 8,
+        "missingCount": 29,
         "missingPct": 100
       },
       {
         "column": "deleted_by",
         "type": "integer",
         "nullable": true,
-        "missingCount": 8,
+        "missingCount": 29,
         "missingPct": 100
       }
     ]
@@ -2146,9 +2169,46 @@
   },
   {
     "table": "question_attempts",
-    "rowCount": 0,
-    "status": "EMPTY_TABLE",
-    "missingFields": []
+    "rowCount": 2,
+    "status": "POPULATED",
+    "columnCount": 17,
+    "missingFields": [
+      {
+        "column": "selected_option",
+        "type": "integer",
+        "nullable": true,
+        "missingCount": 2,
+        "missingPct": 100
+      },
+      {
+        "column": "question_version_id",
+        "type": "integer",
+        "nullable": true,
+        "missingCount": 2,
+        "missingPct": 100
+      },
+      {
+        "column": "order_index",
+        "type": "integer",
+        "nullable": true,
+        "missingCount": 2,
+        "missingPct": 100
+      },
+      {
+        "column": "deleted_at",
+        "type": "timestamp with time zone",
+        "nullable": true,
+        "missingCount": 2,
+        "missingPct": 100
+      },
+      {
+        "column": "deleted_by",
+        "type": "integer",
+        "nullable": true,
+        "missingCount": 2,
+        "missingPct": 100
+      }
+    ]
   },
   {
     "table": "question_bookmarks",
@@ -2622,7 +2682,7 @@
   },
   {
     "table": "results",
-    "rowCount": 10,
+    "rowCount": 15,
     "status": "POPULATED",
     "columnCount": 29,
     "missingFields": [
@@ -2630,49 +2690,49 @@
         "column": "answers",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 10,
+        "missingCount": 15,
         "missingPct": 100
       },
       {
         "column": "time_spent",
         "type": "integer",
         "nullable": true,
-        "missingCount": 10,
+        "missingCount": 15,
         "missingPct": 100
       },
       {
         "column": "rank",
         "type": "integer",
         "nullable": true,
-        "missingCount": 10,
+        "missingCount": 15,
         "missingPct": 100
       },
       {
         "column": "percentile",
         "type": "numeric",
         "nullable": true,
-        "missingCount": 10,
+        "missingCount": 15,
         "missingPct": 100
       },
       {
         "column": "deleted_at",
         "type": "timestamp with time zone",
         "nullable": true,
-        "missingCount": 10,
+        "missingCount": 15,
         "missingPct": 100
       },
       {
         "column": "deleted_by",
         "type": "integer",
         "nullable": true,
-        "missingCount": 10,
+        "missingCount": 15,
         "missingPct": 100
       },
       {
         "column": "deleted_reason",
         "type": "text",
         "nullable": true,
-        "missingCount": 10,
+        "missingCount": 15,
         "missingPct": 100
       }
     ]
@@ -2698,7 +2758,7 @@
   },
   {
     "table": "schema_migrations",
-    "rowCount": 129,
+    "rowCount": 138,
     "status": "POPULATED",
     "columnCount": 3,
     "missingFields": []
@@ -3763,8 +3823,8 @@
         "column": "subject_id",
         "type": "integer",
         "nullable": true,
-        "missingCount": 807,
-        "missingPct": 45.4
+        "missingCount": 102,
+        "missingPct": 5.7
       },
       {
         "column": "test_series_id",
@@ -3812,13 +3872,6 @@
       {
         "column": "tags",
         "type": "ARRAY",
-        "nullable": true,
-        "missingCount": 1,
-        "missingPct": 50
-      },
-      {
-        "column": "colour_hex",
-        "type": "character varying",
         "nullable": true,
         "missingCount": 1,
         "missingPct": 50
@@ -3909,7 +3962,7 @@
   },
   {
     "table": "testimonials",
-    "rowCount": 6,
+    "rowCount": 3,
     "status": "POPULATED",
     "columnCount": 15,
     "missingFields": [
@@ -3917,28 +3970,28 @@
         "column": "user_id",
         "type": "integer",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 3,
         "missingPct": 100
       },
       {
         "column": "public_id",
         "type": "character varying",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 3,
         "missingPct": 100
       },
       {
         "column": "deleted_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 3,
         "missingPct": 100
       },
       {
         "column": "deleted_by",
         "type": "integer",
         "nullable": true,
-        "missingCount": 6,
+        "missingCount": 3,
         "missingPct": 100
       }
     ]
@@ -3947,7 +4000,7 @@
     "table": "tests",
     "rowCount": 493,
     "status": "POPULATED",
-    "columnCount": 90,
+    "columnCount": 92,
     "missingFields": [
       {
         "column": "series_id",
@@ -4132,13 +4185,6 @@
         "missingPct": 100
       },
       {
-        "column": "instructions",
-        "type": "text",
-        "nullable": true,
-        "missingCount": 2,
-        "missingPct": 0.4
-      },
-      {
         "column": "start_time",
         "type": "timestamp without time zone",
         "nullable": true,
@@ -4253,6 +4299,20 @@
       {
         "column": "deleted_reason",
         "type": "text",
+        "nullable": true,
+        "missingCount": 493,
+        "missingPct": 100
+      },
+      {
+        "column": "category_cutoffs",
+        "type": "jsonb",
+        "nullable": true,
+        "missingCount": 493,
+        "missingPct": 100
+      },
+      {
+        "column": "shuffle_seed",
+        "type": "character varying",
         "nullable": true,
         "missingCount": 493,
         "missingPct": 100
@@ -4379,8 +4439,9 @@
   },
   {
     "table": "user_fundamental_mastery",
-    "rowCount": 0,
-    "status": "EMPTY_TABLE",
+    "rowCount": 1,
+    "status": "POPULATED",
+    "columnCount": 8,
     "missingFields": []
   },
   {
@@ -4397,7 +4458,7 @@
   },
   {
     "table": "user_recommendations",
-    "rowCount": 33,
+    "rowCount": 40,
     "status": "POPULATED",
     "columnCount": 12,
     "missingFields": [
@@ -4405,21 +4466,21 @@
         "column": "expires_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 33,
+        "missingCount": 40,
         "missingPct": 100
       },
       {
         "column": "deleted_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 33,
+        "missingCount": 40,
         "missingPct": 100
       },
       {
         "column": "deleted_by",
         "type": "integer",
         "nullable": true,
-        "missingCount": 33,
+        "missingCount": 40,
         "missingPct": 100
       }
     ]
@@ -4432,7 +4493,7 @@
   },
   {
     "table": "user_sessions",
-    "rowCount": 290,
+    "rowCount": 292,
     "status": "POPULATED",
     "columnCount": 25,
     "missingFields": [
@@ -4440,7 +4501,7 @@
         "column": "device_info",
         "type": "jsonb",
         "nullable": true,
-        "missingCount": 286,
+        "missingCount": 288,
         "missingPct": 98.6
       },
       {
@@ -4454,7 +4515,7 @@
         "column": "expires_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 286,
+        "missingCount": 288,
         "missingPct": 98.6
       },
       {
@@ -4496,14 +4557,14 @@
         "column": "deleted_at",
         "type": "timestamp with time zone",
         "nullable": true,
-        "missingCount": 290,
+        "missingCount": 292,
         "missingPct": 100
       },
       {
         "column": "deleted_by",
         "type": "integer",
         "nullable": true,
-        "missingCount": 290,
+        "missingCount": 292,
         "missingPct": 100
       },
       {
@@ -4511,21 +4572,21 @@
         "type": "character varying",
         "nullable": true,
         "missingCount": 153,
-        "missingPct": 52.8
+        "missingPct": 52.4
       },
       {
         "column": "prev_refresh_token_hash",
         "type": "character varying",
         "nullable": true,
-        "missingCount": 283,
-        "missingPct": 97.6
+        "missingCount": 284,
+        "missingPct": 97.3
       },
       {
         "column": "rotated_at",
         "type": "timestamp without time zone",
         "nullable": true,
         "missingCount": 153,
-        "missingPct": 52.8
+        "missingPct": 52.4
       }
     ]
   },
@@ -4562,7 +4623,7 @@
     "table": "users",
     "rowCount": 24,
     "status": "POPULATED",
-    "columnCount": 44,
+    "columnCount": 45,
     "missingFields": [
       {
         "column": "mobile",
@@ -4715,8 +4776,8 @@
         "column": "deleted_at",
         "type": "timestamp without time zone",
         "nullable": true,
-        "missingCount": 24,
-        "missingPct": 100
+        "missingCount": 12,
+        "missingPct": 50
       },
       {
         "column": "phone_enc",

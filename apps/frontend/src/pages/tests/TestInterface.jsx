@@ -23,6 +23,7 @@ import { clearDashboardCache } from "../../shared/lib/dashboardCache";
 import Telemetry from "../../shared/lib/telemetry";
 import sanitizeHtml from "../../shared/lib/sanitizeHtml";
 import { getLocalizedField } from "../../shared/lib/language";
+import { formatTime } from "../../shared/lib/format.js";
 import MathRenderer from "../../shared/components/MathRenderer";
 import { useAuth } from "../../shared/providers/AuthContext";
 // M25: code-split the heavy, conditionally-shown panels out of the main
@@ -308,14 +309,22 @@ function TestInterface() {
                 section.name || section.title || section.subject || "",
               ).toLowerCase() === String(sectionName).toLowerCase(),
           );
-          const configuredMinutes = Number(
-            config?.duration ??
-              config?.timeLimit ??
-              config?.time_limit ??
-              config?.durationMinutes,
+          const testTotalMinutes = Number(preloadedTest?.duration) || 60;
+          const rawDuration = Number(
+            config?.duration ?? config?.durationMinutes,
           );
-          sectionTimeLimits[sectionName] =
-            (configuredMinutes > 0 ? configuredMinutes : fallbackMinutes) * 60;
+          const rawLimit = Number(config?.timeLimit ?? config?.time_limit);
+          let secMinutes = null;
+          if (rawDuration > 0 && rawDuration <= testTotalMinutes) {
+            secMinutes = rawDuration;
+          } else if (rawDuration >= 60) {
+            secMinutes = Math.round(rawDuration / 60);
+          } else if (rawLimit > 0) {
+            secMinutes = rawLimit >= 60 ? Math.round(rawLimit / 60) : rawLimit;
+          }
+          const finalMinutes =
+            secMinutes && secMinutes > 0 ? secMinutes : fallbackMinutes;
+          sectionTimeLimits[sectionName] = finalMinutes * 60;
         });
       }
       return {
@@ -393,7 +402,6 @@ function TestInterface() {
     document.documentElement.lang = lang;
     return lang;
   });
-  const [_showInstructions, _setShowInstructions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [attemptId, setAttemptId] = useState(
@@ -418,7 +426,6 @@ function TestInterface() {
   const [showSubmitSummary, setShowSubmitSummary] = useState(false);
   const pauseDialogRef = useRef(null);
   const submitDialogRef = useRef(null);
-  const [disableNegativeMarking, _setDisableNegativeMarking] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [showDiscussions, setShowDiscussions] = useState(false);
   const [savedQuestions, setSavedQuestions] = useState(new Set());
@@ -435,7 +442,9 @@ function TestInterface() {
           const set = new Set(items.map((b) => String(b.itemId || b.item_id)));
           setSavedQuestions(set);
         })
-        .catch((err) => console.warn("Load bookmarks error:", err));
+        .catch((err) => {
+          if (import.meta.env.DEV) console.warn("Load bookmarks error:", err);
+        });
     }
   }, [user]);
 
@@ -778,16 +787,25 @@ function TestInterface() {
                       section.name || section.title || section.subject || "",
                     ).toLowerCase() === String(sectionName).toLowerCase(),
                 );
-                const configuredMinutes = Number(
-                  config?.duration ??
-                    config?.timeLimit ??
-                    config?.time_limit ??
-                    config?.durationMinutes,
+                const testTotalMinutes = Number(testData.duration) || 60;
+                const rawDuration = Number(
+                  config?.duration ?? config?.durationMinutes,
                 );
-                sectionTimeLimits[sectionName] =
-                  (configuredMinutes > 0
-                    ? configuredMinutes
-                    : fallbackMinutes) * 60;
+                const rawLimit = Number(
+                  config?.timeLimit ?? config?.time_limit,
+                );
+                let secMinutes = null;
+                if (rawDuration > 0 && rawDuration <= testTotalMinutes) {
+                  secMinutes = rawDuration;
+                } else if (rawDuration >= 60) {
+                  secMinutes = Math.round(rawDuration / 60);
+                } else if (rawLimit > 0) {
+                  secMinutes =
+                    rawLimit >= 60 ? Math.round(rawLimit / 60) : rawLimit;
+                }
+                const finalMinutes =
+                  secMinutes && secMinutes > 0 ? secMinutes : fallbackMinutes;
+                sectionTimeLimits[sectionName] = finalMinutes * 60;
               });
             }
             testData.sectionTimeLimits = sectionTimeLimits;
@@ -1121,13 +1139,7 @@ function TestInterface() {
     isSubmitting,
   ]);
 
-  // Format time (mm:ss)
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
+  // Format time (mm:ss) — centralized in shared/lib/format.js
   // Auto-save progress
   // NOTE: Previously this effect listed `timeLeft` (which ticks every second)
   // and `answers`/`markedForReview`/`currentSection` in its deps, causing the
@@ -1754,7 +1766,7 @@ function TestInterface() {
 
     // Save previous question time
     const savePrevQuestionTime = async () => {
-      if (questionStartTimeRef.current && currentQuestion > 0) {
+      if (questionStartTimeRef.current && currentQuestion >= 0) {
         const timeSpent = Math.floor(
           (Date.now() - questionStartTimeRef.current) / 1000,
         );
@@ -2153,7 +2165,7 @@ function TestInterface() {
           markedForReview: Array.from(markedForReview),
           sectionTimers: sectionTimersData,
           currentSection,
-          disableNegativeMarking,
+          disableNegativeMarking: false,
         },
       );
 
@@ -2198,7 +2210,7 @@ function TestInterface() {
       clearLocalAnswers(testId);
 
       const submittedAttemptId = response.data?.data?.attemptId || attemptId;
-      const targetSeriesSlug = test?.seriesSlug || seriesId || "ssc-cgl-2026";
+      const targetSeriesSlug = test?.seriesSlug || seriesId || "pyp";
       const targetTestId = test?.id || test?._id || testId;
       navigate(`/${targetSeriesSlug}/tests/${targetTestId}/result`, {
         state: { attemptId: submittedAttemptId },
@@ -2403,9 +2415,41 @@ function TestInterface() {
           <div
             className={`flex-1 ${
               reviewMode ? "p-2 sm:p-3" : "p-3"
-            } pb-24 md:pb-3 scroll-smooth overflow-y-auto overscroll-contain`}
+            } pb-10 md:pb-3 scroll-smooth overflow-y-auto overscroll-contain`}
           >
             <div className="w-full max-w-none flex flex-col min-h-full">
+              {/* Candidate context strip: adaptive level, localized test note, candidate ID (display-only) */}
+              {!reviewMode && (
+                <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 shadow-2xs">
+                  {adaptiveLevel && (
+                    <DifficultyBadge
+                      level={adaptiveLevel}
+                      score={adaptiveScore}
+                      size="sm"
+                    />
+                  )}
+                  {(test?.description || test?.instructions) && (
+                    <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                      <MathRenderer
+                        text={sanitizeHtml(
+                          getLocalizedField(
+                            test.description || test.instructions,
+                            language,
+                          ),
+                        )}
+                      />
+                    </span>
+                  )}
+                  {userIdentifier && (
+                    <span
+                      className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500"
+                      title={`Candidate ID: ${userIdentifier}`}
+                    >
+                      ID: {String(userIdentifier).slice(0, 8)}
+                    </span>
+                  )}
+                </div>
+              )}
               {/* Section Tabs (only in test-taking mode) */}
               {!reviewMode && (
                 <SectionTabs

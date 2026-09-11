@@ -1,5 +1,11 @@
-import { useState, useRef } from 'react';
-import { Search, X, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
+import { useState, useRef } from "react";
+import {
+  Search,
+  X,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+} from "lucide-react";
 
 /**
  * CompactFilterBar - A space-efficient filter component
@@ -10,10 +16,10 @@ import { Search, X, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-rea
  * - Minimal padding/margins
  */
 const CompactFilterBar = ({
-  searchValue = '',
+  searchValue = "",
   onSearchChange,
   onSearchClear,
-  searchPlaceholder = 'Search...',
+  searchPlaceholder = "Search...",
   filters = [],
   activeFilters = [],
   onFilterChange,
@@ -21,7 +27,7 @@ const CompactFilterBar = ({
   showSearch = true,
   expandable = false,
   defaultExpanded = false,
-  className = '',
+  className = "",
   actions,
   resultsCount,
 }) => {
@@ -29,10 +35,15 @@ const CompactFilterBar = ({
   const containerRef = useRef(null);
 
   // Count active filters
-  const activeFilterCount = activeFilters.filter(f => f.value !== 'all' && f.value !== '' && f.value !== false).length;
+  const activeFilterCount = activeFilters.filter(
+    (f) => f.value !== "all" && f.value !== "" && f.value !== false,
+  ).length;
 
   return (
-    <div ref={containerRef} className={`bg-white rounded-lg border border-gray-100 ${className}`}>
+    <div
+      ref={containerRef}
+      className={`bg-white rounded-lg border border-gray-100 ${className}`}
+    >
       {/* Main Row - Always visible */}
       <div className="flex items-center gap-2 p-2">
         {/* Search Input */}
@@ -40,6 +51,7 @@ const CompactFilterBar = ({
           <div className="relative flex-1 min-w-0">
             <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
+              aria-label={searchPlaceholder || "Search"}
               type="text"
               placeholder={searchPlaceholder}
               value={searchValue}
@@ -58,25 +70,31 @@ const CompactFilterBar = ({
         )}
 
         {/* Quick Filters - Inline dropdowns */}
-        {filters.filter(f => !f.expandable).map((filter, idx) => (
-          <select
-            key={filter.key || idx}
-            value={filter.value}
-            onChange={(e) => onFilterChange?.(filter.key, e.target.value)}
-            className="px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-brand-start transition-all flex-shrink-0"
-          >
-            {filter.options.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        ))}
+        {filters
+          .filter((f) => !f.expandable)
+          .map((filter, idx) => (
+            <select
+              key={filter.key || idx}
+              value={filter.value}
+              onChange={(e) => onFilterChange?.(filter.key, e.target.value)}
+              className="px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-brand-start transition-all flex-shrink-0"
+            >
+              {filter.options.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          ))}
 
         {/* Expandable Toggle */}
-        {expandable && filters.some(f => f.expandable) && (
+        {expandable && filters.some((f) => f.expandable) && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className={`flex items-center gap-1 px-2 py-1.5 text-xs rounded-md border transition-all flex-shrink-0 ${
-              isExpanded ? 'bg-brand-start/10 border-brand-start/30 text-brand-start' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+              isExpanded
+                ? "bg-brand-start/10 border-brand-start/30 text-brand-start"
+                : "border-gray-200 text-gray-600 hover:bg-gray-50"
             }`}
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -86,7 +104,11 @@ const CompactFilterBar = ({
                 {activeFilterCount}
               </span>
             )}
-            {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            {isExpanded ? (
+              <ChevronUp className="w-3 h-3" />
+            ) : (
+              <ChevronDown className="w-3 h-3" />
+            )}
           </button>
         )}
 
@@ -102,21 +124,25 @@ const CompactFilterBar = ({
       </div>
 
       {/* Expanded Filters Section */}
-      {expandable && isExpanded && filters.some(f => f.expandable) && (
+      {expandable && isExpanded && filters.some((f) => f.expandable) && (
         <div className="px-2 pb-2 pt-1 border-t border-gray-100 animate-slide-in-up">
           <div className="flex flex-wrap gap-2">
-            {filters.filter(f => f.expandable).map((filter, idx) => (
-              <select
-                key={filter.key || idx}
-                value={filter.value}
-                onChange={(e) => onFilterChange?.(filter.key, e.target.value)}
-                className="px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-brand-start transition-all"
-              >
-                {filter.options.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            ))}
+            {filters
+              .filter((f) => f.expandable)
+              .map((filter, idx) => (
+                <select
+                  key={filter.key || idx}
+                  value={filter.value}
+                  onChange={(e) => onFilterChange?.(filter.key, e.target.value)}
+                  className="px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-brand-start transition-all"
+                >
+                  {filter.options.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              ))}
           </div>
         </div>
       )}
@@ -124,22 +150,27 @@ const CompactFilterBar = ({
       {/* Active Filter Chips - Inline */}
       {activeFilters.length > 0 && (
         <div className="px-2 pb-2 flex flex-wrap items-center gap-1.5">
-          {activeFilters.map((filter, idx) => (
-            filter.value !== 'all' && filter.value !== '' && filter.value !== false && (
-              <span
-                key={idx}
-                className="inline-flex items-center gap-1 px-2 py-0.5 bg-brand-start/10 text-brand-start rounded-full text-xs font-medium"
-              >
-                {filter.label}: {filter.displayValue || filter.value}
-                <button
-                  onClick={() => onFilterChange?.(filter.key, filter.defaultValue || 'all')}
-                  className="hover:bg-brand-start/20 rounded-full p-0.5"
+          {activeFilters.map(
+            (filter, idx) =>
+              filter.value !== "all" &&
+              filter.value !== "" &&
+              filter.value !== false && (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-brand-start/10 text-brand-start rounded-full text-xs font-medium"
                 >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )
-          ))}
+                  {filter.label}: {filter.displayValue || filter.value}
+                  <button
+                    onClick={() =>
+                      onFilterChange?.(filter.key, filter.defaultValue || "all")
+                    }
+                    className="hover:bg-brand-start/20 rounded-full p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ),
+          )}
           {activeFilterCount > 1 && onClearAll && (
             <button
               onClick={onClearAll}
@@ -159,19 +190,24 @@ export default CompactFilterBar;
 /**
  * FilterChip - Compact filter chip for inline display
  */
-export const FilterChip = ({ label, onRemove, color = 'brand' }) => {
+export const FilterChip = ({ label, onRemove, color = "brand" }) => {
   const colorClasses = {
-    brand: 'bg-brand-start/10 text-brand-start',
-    green: 'bg-green-100 text-green-700',
-    amber: 'bg-amber-100 text-amber-700',
-    red: 'bg-red-100 text-red-700',
+    brand: "bg-brand-start/10 text-brand-start",
+    green: "bg-green-100 text-green-700",
+    amber: "bg-amber-100 text-amber-700",
+    red: "bg-red-100 text-red-700",
   };
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 ${colorClasses[color]} rounded-full text-xs font-medium`}>
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 ${colorClasses[color]} rounded-full text-xs font-medium`}
+    >
       {label}
       {onRemove && (
-        <button onClick={onRemove} className={`hover:bg-${color === 'brand' ? 'brand-start' : color}/20 rounded-full p-0.5`}>
+        <button
+          onClick={onRemove}
+          className={`hover:bg-${color === "brand" ? "brand-start" : color}/20 rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+        >
           <X className="w-3 h-3" />
         </button>
       )}
@@ -182,15 +218,23 @@ export const FilterChip = ({ label, onRemove, color = 'brand' }) => {
 /**
  * CompactSelect - Minimal select dropdown
  */
-export const CompactSelect = ({ value, onChange, options, placeholder, className = '' }) => (
+export const CompactSelect = ({
+  value,
+  onChange,
+  options,
+  placeholder,
+  className = "",
+}) => (
   <select
     value={value}
     onChange={(e) => onChange?.(e.target.value)}
     className={`px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-brand-start transition-all ${className}`}
   >
     {placeholder && <option value="">{placeholder}</option>}
-    {options.map(opt => (
-      <option key={opt.value} value={opt.value}>{opt.label}</option>
+    {options.map((opt) => (
+      <option key={opt.value} value={opt.value}>
+        {opt.label}
+      </option>
     ))}
   </select>
 );

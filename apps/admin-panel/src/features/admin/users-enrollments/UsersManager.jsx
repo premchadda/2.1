@@ -50,6 +50,7 @@ import { toast } from "react-hot-toast";
 import { apiClient as api } from "../../../shared/lib/dataService";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 import SearchInput from "../../../shared/components/ui/SearchInput";
+import { copyToClipboard } from "../../../shared/utils/clipboard";
 
 export default function UsersManager({ activeTab = "users", setActiveTab }) {
   const [users, setUsers] = useState([]);
@@ -333,12 +334,6 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
       console.error("Failed to update session limit:", error);
       toast.error("Failed to update session limit");
     }
-  };
-
-  const copyToClipboard = (text, label) => {
-    if (!text) return;
-    navigator.clipboard.writeText(String(text));
-    toast.success(`Copied ${label} to clipboard`);
   };
 
   const handleBulkStatus = async (isActive) => {
@@ -951,14 +946,14 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
 
       {/* 4. Main Content Area */}
       {loading ? (
-        <div className="p-16 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+        <div className="p-6 sm:p-8 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
           <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
             Loading Candidate Profiles...
           </p>
         </div>
       ) : users.length === 0 ? (
-        <div className="p-16 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+        <div className="p-6 sm:p-8 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
           <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
           <h3 className="text-base font-bold text-gray-900 dark:text-white">
             No users match your criteria
@@ -1294,6 +1289,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
                   <th className="px-4 py-3 w-10">
                     <input
                       type="checkbox"
+                      aria-label="Select all candidates"
                       checked={
                         users.length > 0 &&
                         users.every((u) =>
@@ -1347,6 +1343,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
                       >
                         <input
                           type="checkbox"
+                          aria-label={`Select candidate ${userName || uid}`}
                           checked={isSelected}
                           onChange={() => toggleUserSelection(uid)}
                           className="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"

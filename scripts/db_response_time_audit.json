@@ -1,0 +1,323 @@
+{
+  "timestamp": "2026-09-11T14:11:43.265Z",
+  "avgPing": 41.939340000000016,
+  "avgCold": 87.88285714285716,
+  "avgWarm": 70.78,
+  "results": [
+    {
+      "section": "🔑 Authentication & Session Verification",
+      "name": "User Lookup by ID (protect middleware)",
+      "coldMs": 129.4,
+      "warmMs": 38.5,
+      "rowCount": 1,
+      "scanType": "Limit",
+      "planCost": 2.36
+    },
+    {
+      "section": "🔑 Authentication & Session Verification",
+      "name": "User Lookup by Email (login endpoint)",
+      "coldMs": 77.8,
+      "warmMs": 44.5,
+      "rowCount": 1,
+      "scanType": "Limit",
+      "planCost": 2.36
+    },
+    {
+      "section": "🔑 Authentication & Session Verification",
+      "name": "Active Session Check (user_sessions)",
+      "coldMs": 80.5,
+      "warmMs": 61.2,
+      "rowCount": 5,
+      "scanType": "Limit",
+      "planCost": 0.67
+    },
+    {
+      "section": "🔑 Authentication & Session Verification",
+      "name": "Unified Enrollments Summary (/api/auth/me)",
+      "coldMs": 50.4,
+      "warmMs": 41.1,
+      "rowCount": 2,
+      "scanType": "Seq Scan",
+      "planCost": 1.06
+    },
+    {
+      "section": "🔑 Authentication & Session Verification",
+      "name": "Attempted Tests Payload (/api/auth/me)",
+      "coldMs": 64.5,
+      "warmMs": 42.7,
+      "rowCount": 24,
+      "scanType": "Seq Scan",
+      "planCost": 10.34
+    },
+    {
+      "section": "🏠 Public Home & Landing Pages",
+      "name": "Public Platform Statistics",
+      "coldMs": 218.2,
+      "warmMs": 77.3,
+      "rowCount": 1,
+      "scanType": "Result",
+      "planCost": 969.14
+    },
+    {
+      "section": "🏠 Public Home & Landing Pages",
+      "name": "Featured Exam Categories",
+      "coldMs": 63.4,
+      "warmMs": 41.6,
+      "rowCount": 2,
+      "scanType": "Limit",
+      "planCost": 1.03
+    },
+    {
+      "section": "🏠 Public Home & Landing Pages",
+      "name": "Active Exams List for Home",
+      "coldMs": 80.2,
+      "warmMs": 40.7,
+      "rowCount": 12,
+      "scanType": "Limit",
+      "planCost": 6.4
+    },
+    {
+      "section": "🏠 Public Home & Landing Pages",
+      "name": "Site Banners & Announcements",
+      "coldMs": 71,
+      "warmMs": 48.6,
+      "rowCount": 0,
+      "scanType": "Limit",
+      "planCost": "Unknown"
+    },
+    {
+      "section": "🏠 Public Home & Landing Pages",
+      "name": "Frequently Asked Questions (FAQ)",
+      "coldMs": 66,
+      "warmMs": 48.9,
+      "rowCount": 10,
+      "scanType": "Limit",
+      "planCost": 1.29
+    },
+    {
+      "section": "🎓 Exams, Stages & Taxonomies",
+      "name": "All Exam Categories with Meta",
+      "coldMs": 43.5,
+      "warmMs": 36.5,
+      "rowCount": 2,
+      "scanType": "Sort",
+      "planCost": 1.03
+    },
+    {
+      "section": "🎓 Exams, Stages & Taxonomies",
+      "name": "Exam Details with Metadata",
+      "coldMs": 50.9,
+      "warmMs": 51.9,
+      "rowCount": 10,
+      "scanType": "Limit",
+      "planCost": 4.72
+    },
+    {
+      "section": "🎓 Exams, Stages & Taxonomies",
+      "name": "Exam Stages Hierarchy",
+      "coldMs": 53.9,
+      "warmMs": 38.8,
+      "rowCount": 4,
+      "scanType": "Limit",
+      "planCost": 2.07
+    },
+    {
+      "section": "🎓 Exams, Stages & Taxonomies",
+      "name": "Test Categories & Taxonomy Junction",
+      "coldMs": 85.6,
+      "warmMs": 38.3,
+      "rowCount": 20,
+      "scanType": "Limit",
+      "planCost": 4.09
+    },
+    {
+      "section": "📚 Test Series & Tests Catalog",
+      "name": "Test Series Catalog with Counts",
+      "coldMs": 44.9,
+      "warmMs": 53.6,
+      "rowCount": 2,
+      "scanType": "Limit",
+      "planCost": 4.45
+    },
+    {
+      "section": "📚 Test Series & Tests Catalog",
+      "name": "Full Tests Listing with Section/Category Filters",
+      "coldMs": 59.4,
+      "warmMs": 51.2,
+      "rowCount": 20,
+      "scanType": "Limit",
+      "planCost": 16.11
+    },
+    {
+      "section": "📚 Test Series & Tests Catalog",
+      "name": "Previous Year Papers (PYP Tests)",
+      "coldMs": 55.1,
+      "warmMs": 45,
+      "rowCount": 15,
+      "scanType": "Limit",
+      "planCost": 14.14
+    },
+    {
+      "section": "📚 Test Series & Tests Catalog",
+      "name": "Single Test Details & Section Structure",
+      "coldMs": 61.7,
+      "warmMs": 48.2,
+      "rowCount": 1,
+      "scanType": "Nested Loop",
+      "planCost": 6.69
+    },
+    {
+      "section": "📝 Test Engine & Exam Interface",
+      "name": "Test Questions Fetch (Exam Interface)",
+      "coldMs": 76.2,
+      "warmMs": 46.9,
+      "rowCount": 25,
+      "scanType": "Limit",
+      "planCost": 301.09
+    },
+    {
+      "section": "📝 Test Engine & Exam Interface",
+      "name": "Check Existing Ongoing Attempt",
+      "coldMs": 42.9,
+      "warmMs": 44.7,
+      "rowCount": 0,
+      "scanType": "Limit",
+      "planCost": 2.37
+    },
+    {
+      "section": "📝 Test Engine & Exam Interface",
+      "name": "Student Attempt Result Summary",
+      "coldMs": 59.6,
+      "warmMs": 56.8,
+      "rowCount": 0,
+      "scanType": "Index Scan",
+      "planCost": 2.36
+    },
+    {
+      "section": "📝 Test Engine & Exam Interface",
+      "name": "Test Leaderboard (Top 20 Performers)",
+      "coldMs": 54.2,
+      "warmMs": 56,
+      "rowCount": 1,
+      "scanType": "Limit",
+      "planCost": 4.9
+    },
+    {
+      "section": "📖 Study Materials & Learning Tree",
+      "name": "Subjects List with Hierarchy",
+      "coldMs": 52.1,
+      "warmMs": 57,
+      "rowCount": 15,
+      "scanType": "Limit",
+      "planCost": 2.48
+    },
+    {
+      "section": "📖 Study Materials & Learning Tree",
+      "name": "Subject Chapters & Topics Cascade",
+      "coldMs": 104.6,
+      "warmMs": 87.7,
+      "rowCount": 50,
+      "scanType": "Limit",
+      "planCost": 12.35
+    },
+    {
+      "section": "📖 Study Materials & Learning Tree",
+      "name": "Subject Videos / Lectures",
+      "coldMs": 72.5,
+      "warmMs": 71.5,
+      "rowCount": 1,
+      "scanType": "Limit",
+      "planCost": 1.02
+    },
+    {
+      "section": "🔬 Practice Lab & Spaced Repetition",
+      "name": "Practice Questions by Subject/Difficulty",
+      "coldMs": 66.8,
+      "warmMs": 81.6,
+      "rowCount": 20,
+      "scanType": "Limit",
+      "planCost": 19.07
+    },
+    {
+      "section": "🔬 Practice Lab & Spaced Repetition",
+      "name": "Smart Revision Queue (Due Cards)",
+      "coldMs": 114.7,
+      "warmMs": 93.7,
+      "rowCount": 0,
+      "scanType": "Limit",
+      "planCost": 2.37
+    },
+    {
+      "section": "🔬 Practice Lab & Spaced Repetition",
+      "name": "Wrong Questions Review Queue",
+      "coldMs": 212.3,
+      "warmMs": 174,
+      "rowCount": 1,
+      "scanType": "Limit",
+      "planCost": 3.41
+    },
+    {
+      "section": "📊 Student Dashboard",
+      "name": "Student Completed Attempts History",
+      "coldMs": 229.8,
+      "warmMs": 110,
+      "rowCount": 10,
+      "scanType": "Limit",
+      "planCost": 49.7
+    },
+    {
+      "section": "📊 Student Dashboard",
+      "name": "User Bookmarks & Saved Items",
+      "coldMs": 62.7,
+      "warmMs": 37.7,
+      "rowCount": 1,
+      "scanType": "Limit",
+      "planCost": 2.37
+    },
+    {
+      "section": "📊 Student Dashboard",
+      "name": "User Notifications Feed",
+      "coldMs": 56.4,
+      "warmMs": 283.9,
+      "rowCount": 15,
+      "scanType": "Limit",
+      "planCost": 2.09
+    },
+    {
+      "section": "🛡️ Admin Panel & Management",
+      "name": "Admin Users Manager (Paginated + Filtered)",
+      "coldMs": 250.2,
+      "warmMs": 279.6,
+      "rowCount": 24,
+      "scanType": "Limit",
+      "planCost": 3.85
+    },
+    {
+      "section": "🛡️ Admin Panel & Management",
+      "name": "Admin Audit Trail Logs",
+      "coldMs": 165.3,
+      "warmMs": 47,
+      "rowCount": 25,
+      "scanType": "Limit",
+      "planCost": 2.14
+    },
+    {
+      "section": "🛡️ Admin Panel & Management",
+      "name": "Admin Realtime Active Sessions",
+      "coldMs": 54.4,
+      "warmMs": 49.8,
+      "rowCount": 21,
+      "scanType": "Limit",
+      "planCost": 8.76
+    },
+    {
+      "section": "🛡️ Admin Panel & Management",
+      "name": "Admin Deep Analytics (Funnel Aggregate)",
+      "coldMs": 44.8,
+      "warmMs": 50.8,
+      "rowCount": 1,
+      "scanType": "Aggregate",
+      "planCost": 14.68
+    }
+  ]
+}

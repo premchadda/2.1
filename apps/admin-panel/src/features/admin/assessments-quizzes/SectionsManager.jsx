@@ -21,6 +21,7 @@ import {
   Settings,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { logger } from "../../../shared/lib/logger";
 import { apiClient, adminAPI } from "../../../shared/lib/dataService";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 import { EXAM_PRESETS } from "../../../shared/config/examPresets";
@@ -441,7 +442,7 @@ function SectionsManager({ testId: propTestId } = {}) {
         setErrors((prev) => ({ ...prev, sections: "Failed to load sections" }));
       }
     } catch (error) {
-      console.error("Fetch error:", error);
+      logger.error("Fetch error:", error);
       toast.error("Failed to load data");
     } finally {
       setLoading(false);
@@ -1595,6 +1596,7 @@ function SectionsManager({ testId: propTestId } = {}) {
                 <div className="mb-4">
                   <input
                     type="text"
+                    aria-label="Search sections"
                     placeholder="Search sections..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -1679,6 +1681,7 @@ function SectionsManager({ testId: propTestId } = {}) {
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
                               <input
                                 type="checkbox"
+                                aria-label="Select all sections"
                                 checked={
                                   selectedIds.length ===
                                     filteredSections.length &&
@@ -1753,6 +1756,7 @@ function SectionsManager({ testId: propTestId } = {}) {
                               <td className="px-4 py-3">
                                 <input
                                   type="checkbox"
+                                  aria-label={`Select section ${section.name || section.id}`}
                                   checked={selectedIds.includes(section.id)}
                                   onChange={(e) => {
                                     if (e.target.checked)

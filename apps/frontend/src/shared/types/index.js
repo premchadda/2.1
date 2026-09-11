@@ -468,7 +468,7 @@ export function mapTestToFrontend(backendTest) {
  */
 export function mapQuestionToFrontend(backendQuestion) {
   // 1. Process question text & bilingual spans
-  let textFormatted = { en: "", hi: "" };
+  const textFormatted = { en: "", hi: "" };
   const rawText =
     backendQuestion.questionText ||
     backendQuestion.question_text ||
@@ -498,7 +498,7 @@ export function mapQuestionToFrontend(backendQuestion) {
   }
 
   // 2. Process options & bilingual options
-  let optionsFormatted = { en: [], hi: [] };
+  const optionsFormatted = { en: [], hi: [] };
   const rawOptions = backendQuestion.options;
   let rawOptionsHi = backendQuestion.optionsHi || backendQuestion.options_hi;
   if (typeof rawOptionsHi === "string" && rawOptionsHi.trim().startsWith("[")) {
@@ -512,7 +512,7 @@ export function mapQuestionToFrontend(backendQuestion) {
   if (Array.isArray(rawOptions)) {
     const enOpts = [];
     const hiOpts = [];
-    rawOptions.forEach((opt, idx) => {
+    rawOptions.forEach((opt) => {
       if (typeof opt === "string") {
         const extracted = extractBilingualContent(opt);
         enOpts.push(extracted.en);
@@ -559,7 +559,7 @@ export function mapQuestionToFrontend(backendQuestion) {
   }
 
   // 3. Process explanation & bilingual explanation
-  let explanationFormatted = { en: "", hi: "" };
+  const explanationFormatted = { en: "", hi: "" };
   const rawExplanation =
     backendQuestion.explanation || backendQuestion.solution || "";
   const rawExplanationHi =

@@ -49,7 +49,7 @@ function HomeSections(props) {
     <>
       {/* ─── HOW IT WORKS ───────────────────────────────── */}
       <section
-        className="py-8 sm:py-10 md:py-14 bg-white dark:bg-gray-800 relative overflow-hidden"
+        className="py-8 sm:py-10 bg-white dark:bg-gray-800 relative overflow-hidden"
         id="how"
       >
         {/* Ambient background decoration */}
@@ -150,7 +150,7 @@ function HomeSections(props) {
 
       {/* ─── FEATURES ───────────────────────────────────── */}
       <section
-        className="py-12 md:py-24 bg-white dark:bg-gray-800"
+        className="py-8 md:py-10 bg-white dark:bg-gray-800"
         id="features"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -235,7 +235,7 @@ function HomeSections(props) {
       {/* ─── EXAM CATEGORIES (from real categories) ─────── */}
       {examCategories.length > 0 && (
         <section
-          className="py-12 md:py-20 bg-gradient-to-b from-gray-50/80 via-white to-gray-50/50 dark:from-gray-900/50 dark:via-gray-800/80 dark:to-gray-900/50"
+          className="py-8 md:py-10 bg-gradient-to-b from-gray-50/80 via-white to-gray-50/50 dark:from-gray-900/50 dark:via-gray-800/80 dark:to-gray-900/50"
           id="exams"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -251,6 +251,23 @@ function HomeSections(props) {
                   Curated test series and live practice mapped directly to
                   official exam syllabus
                 </p>
+                {(totalCategoriesCount > 0 || totalActiveLearnersCount > 0) && (
+                  <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
+                    {totalCategoriesCount > 0 && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-50 dark:bg-indigo-900/30 border border-brand-100 dark:border-indigo-800 text-brand-start dark:text-indigo-300 text-[11px] md:text-xs font-bold">
+                        <Target className="w-3.5 h-3.5" aria-hidden="true" />
+                        {totalCategoriesCount} exam categories
+                      </span>
+                    )}
+                    {totalActiveLearnersCount > 0 && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-[11px] md:text-xs font-bold">
+                        <User className="w-3.5 h-3.5" aria-hidden="true" />
+                        {Number(totalActiveLearnersCount).toLocaleString()}+
+                        active learners
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </ScrollReveal>
 
@@ -303,7 +320,7 @@ function HomeSections(props) {
                         </div>
 
                         <h4 className="font-extrabold text-gray-900 dark:text-white text-base md:text-lg mb-1 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors">
-                          {cat.label || cat.name}
+                          {cat.label || categoryMap?.[cat.id] || cat.name}
                         </h4>
                         <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm line-clamp-1 mb-4 font-medium">
                           {subtitleTag}
@@ -331,7 +348,7 @@ function HomeSections(props) {
 
       {/* ─── LIVE TESTS & QUIZZES ───────────────────────── */}
       {(liveTests.length > 0 || freeQuizzes.length > 0) && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
           <ScrollReveal>
             <div className="flex items-center gap-2 md:gap-3 mb-5 md:mb-6">
               <div className="relative">
@@ -428,7 +445,7 @@ function HomeSections(props) {
                                 </span>
                               </div>
                             </div>
-                            <button className="w-full py-2 bg-gradient-to-r from-red-500 to-red-600 text-white text-[10px] md:text-xs font-bold rounded-lg md:rounded-xl transition-all hover:shadow-lg">
+                            <button className="w-full py-2 bg-gradient-to-r from-red-500 to-red-600 text-white text-[10px] md:text-xs font-bold rounded-lg md:rounded-xl transition-all hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-500">
                               {user ? "▶ Start Now" : "🔒 Login to Start"}
                             </button>
                           </Link>
@@ -493,7 +510,7 @@ function HomeSections(props) {
                               {quiz.duration || quiz.timeLimit || 15} mins
                               <span>• {quiz.totalQuestions || 10} Qs</span>
                             </div>
-                            <button className="w-full py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-[10px] md:text-xs font-bold rounded-lg md:rounded-xl transition-all hover:shadow-lg">
+                            <button className="w-full py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-[10px] md:text-xs font-bold rounded-lg md:rounded-xl transition-all hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                               {user ? "▶ Start Now" : "🔒 Login to Start"}
                             </button>
                           </Link>
@@ -507,7 +524,7 @@ function HomeSections(props) {
       )}
 
       {/* ─── POPULAR TEST SERIES ────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
         <ScrollReveal>
           <div className="flex justify-between items-end mb-5 md:mb-6">
             <div>
@@ -516,6 +533,10 @@ function HomeSections(props) {
                 <h2 className="text-lg md:text-2xl font-extrabold text-gray-900 dark:text-white">
                   Popular Test Series
                 </h2>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-[10px] md:text-xs font-bold">
+                  <Crown className="w-3 h-3" aria-hidden="true" />
+                  Top rated
+                </span>
               </div>
               <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm hidden sm:block">
                 Top-rated series chosen by students with instant rankings
@@ -570,7 +591,7 @@ function HomeSections(props) {
 
       {/* ─── STUDY MATERIALS ────────────────────────────── */}
       {studyMaterials.length > 0 && (
-        <section className="py-12 md:py-20 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700/80 relative overflow-hidden">
+        <section className="py-8 md:py-10 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700/80 relative overflow-hidden">
           {/* Ambient background decoration */}
           <div className="absolute top-0 right-0 w-80 h-80 bg-brand-start/5 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-80 h-80 bg-purple-500/5 rounded-full blur-3xl pointer-events-none" />
@@ -677,7 +698,8 @@ function HomeSections(props) {
                       <span className="text-brand-start dark:text-indigo-400 text-xs md:text-sm font-bold flex items-center gap-1.5 group-hover:gap-2.5 transition-all">
                         Start Learning <ArrowRight className="w-3.5 h-3.5" />
                       </span>
-                      <span className="text-[10px] bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full font-bold border border-green-200 dark:border-green-800">
+                      <span className="text-[10px] bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full font-bold border border-green-200 dark:border-green-800 inline-flex items-center gap-1">
+                        <Award className="w-3 h-3" aria-hidden="true" />
                         Free Notes
                       </span>
                     </div>
@@ -692,7 +714,7 @@ function HomeSections(props) {
       {/* ─── TESTIMONIALS (from real API) ───────────────── */}
       {!testimonialsLoading && testimonials.length > 0 && (
         <section
-          className="py-12 md:py-24"
+          className="py-8 md:py-10"
           style={{ background: "linear-gradient(180deg, #f8faff, #fdf4ff)" }}
           id="reviews"
         >
@@ -705,6 +727,22 @@ function HomeSections(props) {
                 <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 dark:text-white mb-3 md:mb-4">
                   Loved by <span className="text-gradient">students</span>
                 </h2>
+                {testimonials.length > 0 && (
+                  <p className="flex items-center justify-center gap-1.5 text-gray-500 dark:text-gray-400 text-xs md:text-sm font-semibold">
+                    <Star
+                      className="w-3.5 h-3.5 text-amber-400 fill-current"
+                      aria-hidden="true"
+                    />
+                    {(
+                      testimonials.reduce(
+                        (sum, r) => sum + (Number(r.rating) || 5),
+                        0,
+                      ) / testimonials.length
+                    ).toFixed(1)}{" "}
+                    average from {testimonials.length} learner{" "}
+                    {testimonials.length === 1 ? "review" : "reviews"}
+                  </p>
+                )}
               </div>
             </ScrollReveal>
 
@@ -785,7 +823,7 @@ function HomeSections(props) {
 
       {/* ─── FOOTER CTA (logged-out only) ──────────────── */}
       {!user && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
           <ScrollReveal>
             <div
               className="relative overflow-hidden rounded-2xl md:rounded-3xl"
@@ -810,7 +848,7 @@ function HomeSections(props) {
               <div className="absolute top-0 right-0 w-48 h-48 bg-brand-start/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
               <div className="absolute bottom-0 left-0 w-48 h-48 bg-brand-end/20 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3" />
 
-              <div className="relative z-10 px-6 py-10 md:px-16 md:py-14 text-center">
+              <div className="relative z-10 px-6 py-8 md:px-10 md:py-10 text-center">
                 <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white mb-3 md:mb-5">
                   Not sure where to start?
                 </h2>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { apiClient } from "../../../shared/lib/api";
+import { formatTime } from "../../../shared/lib/format.js";
 
 export function useTestTimer({
   test,
@@ -56,17 +57,7 @@ export function useTestTimer({
     setTimeLeft,
   ]);
 
-  const formatTime = useCallback((seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  }, []);
-
-  const formatSectionTime = useCallback((seconds) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, "0")}`;
-  }, []);
+  const formatSectionTime = useCallback((seconds) => formatTime(seconds), []);
 
   const handlePause = useCallback(async () => {
     if (reviewMode || !attemptId) return;

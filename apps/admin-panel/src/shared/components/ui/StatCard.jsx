@@ -50,13 +50,13 @@ export default function StatCard({
         </p>
         <div className="flex items-baseline gap-2 mt-0.5">
           <p
-            className={`${compact ? "text-base sm:text-lg" : "text-lg sm:text-xl md:text-2xl"} font-black text-gray-900 dark:text-white leading-tight`}
+            className={`${compact ? "text-base sm:text-lg" : "text-lg sm:text-xl md:text-2xl"} font-black text-gray-900 dark:text-white leading-tight font-mono tabular-nums`}
           >
             {value}
           </p>
           {trend && (
             <span
-              className={`inline-flex items-center text-[10px] sm:text-xs font-extrabold ${
+              className={`inline-flex items-center text-[11px] sm:text-xs font-extrabold ${
                 trend === "up"
                   ? trendColors.up
                   : trend === "down"
@@ -72,7 +72,7 @@ export default function StatCard({
         </div>
         {subtitle && (
           <p
-            className="text-[10px] sm:text-[11px] font-medium text-gray-400 dark:text-gray-500 mt-0.5 truncate"
+            className="text-[11px] sm:text-[11px] font-medium text-gray-400 dark:text-gray-500 mt-0.5 truncate"
             title={subtitle}
           >
             {subtitle}

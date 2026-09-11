@@ -363,14 +363,59 @@ function TestSeries() {
     }
   };
 
+  // All tests (display-only enrichment: live/quiz badges + per-series stats)
+  const { data: allTestsDirectory = [] } = useQuery({
+    queryKey: ["tests-directory"],
+    queryFn: async () => {
+      const res = await getTests({ limit: 200 });
+      return res?.data?.data || res?.data || [];
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const liveDirectoryCount = allTestsDirectory.filter((t) =>
+    checkIsLive(t),
+  ).length;
+  const quizDirectoryCount = allTestsDirectory.filter((t) =>
+    checkIsQuiz(t),
+  ).length;
+
   // Enrich series with dynamic active test counts and real types
   const seriesWithStats = useMemo(() => {
-    return allSeries.map((series) => ({
-      ...series,
-      totalTests: Number(series.totalTests || series.total_tests || 0),
-      freeTests: Number(series.freeTests || series.free_tests || 0),
-    }));
-  }, [allSeries]);
+    return allSeries.map((series) => {
+      const withStats = getSeriesTestStats(series, allTestsDirectory);
+      return {
+        ...withStats,
+        totalTests: Number(
+          withStats.totalTests ?? series.totalTests ?? series.total_tests ?? 0,
+        ),
+        freeTests: Number(
+          withStats.freeTests ?? series.freeTests ?? series.free_tests ?? 0,
+        ),
+        liveTestsCount: allTestsDirectory.filter(
+          (t) =>
+            checkIsLive(t) &&
+            String(t.seriesId || t.series_slug || t.seriesSlug || "") !== "" &&
+            [series._id, series.id, series.slug, series.public_id]
+              .filter(Boolean)
+              .map(String)
+              .includes(
+                String(t.seriesId || t.series_slug || t.seriesSlug || ""),
+              ),
+        ).length,
+        quizTestsCount: allTestsDirectory.filter(
+          (t) =>
+            checkIsQuiz(t) &&
+            [series._id, series.id, series.slug, series.public_id]
+              .filter(Boolean)
+              .map(String)
+              .includes(
+                String(t.seriesId || t.series_slug || t.seriesSlug || ""),
+              ),
+        ).length,
+      };
+    });
+  }, [allSeries, allTestsDirectory]);
 
   // Get enrolled series for logged-in users - check actual enrollment & attempts
   const enrolledSeries = useMemo(() => {
@@ -1158,6 +1203,53 @@ function TestSeries() {
                 </div>
 
                 <div className="p-4 sm:p-5 md:p-6">
+                  {/* Sort + filter controls (display-only refinements, logic unchanged) */}
+                  <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+                    <label className="flex items-center gap-1.5 font-bold text-gray-600 dark:text-gray-300">
+                      Sort
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        aria-label="Sort test series"
+                        className="px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 font-bold text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
+                      >
+                        <option value="custom">Recommended</option>
+                        <option value="popular">Most popular</option>
+                        <option value="rating">Top rated</option>
+                        <option value="tests">Most tests</option>
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setFreeOnly((v) => !v)}
+                      aria-pressed={freeOnly}
+                      title="Show only series with free tests"
+                      className={`px-2.5 py-1.5 rounded-lg border font-bold transition-all cursor-pointer ${
+                        freeOnly
+                          ? "bg-emerald-600 border-emerald-600 text-white"
+                          : "bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300"
+                      }`}
+                    >
+                      Free tests only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHindiOnly((v) => !v)}
+                      aria-pressed={hindiOnly}
+                      title="Show only Hindi-medium series"
+                      className={`px-2.5 py-1.5 rounded-lg border font-bold transition-all cursor-pointer ${
+                        hindiOnly
+                          ? "bg-indigo-600 border-indigo-600 text-white"
+                          : "bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300"
+                      }`}
+                    >
+                      Hindi only
+                    </button>
+                    <span className="ml-auto text-[11px] font-semibold text-gray-400 dark:text-gray-500">
+                      {liveDirectoryCount} live • {quizDirectoryCount} quizzes
+                      in directory
+                    </span>
+                  </div>
                   {/* Series Grid - Horizontal scroll left to right */}
                   <div className="relative z-10 flex items-stretch gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
                     {filteredSeries.map((series) => (

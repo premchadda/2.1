@@ -45,6 +45,7 @@ import {
   QUESTION_TYPES,
   STATUS_OPTIONS,
 } from "../../../shared/config/questionConstants.js";
+import { isSafeImageUrl } from "../../../shared/lib/sanitizeHtml.js";
 
 const DEFAULT_FORM_DATA = {
   questionText: "",
@@ -69,20 +70,6 @@ const DEFAULT_FORM_DATA = {
   status: "active",
   tags: [],
   imageUrl: "",
-};
-
-const isSafeImageUrl = (url) => {
-  if (!url) return true;
-  try {
-    const parsed = new URL(url, window.location.origin);
-    return (
-      parsed.protocol === "http:" ||
-      parsed.protocol === "https:" ||
-      parsed.protocol === "data:"
-    );
-  } catch {
-    return false;
-  }
 };
 
 export default function PracticeQuestionsManager() {
@@ -691,29 +678,34 @@ export default function PracticeQuestionsManager() {
 
   const handleBulkStatus = async (newStatus) => {
     if (selectedQuestions.length === 0) return;
-    const results = await Promise.allSettled(
-      selectedQuestions.map((id) =>
-        adminAPI.apiClient.put(`/admin/questions/${id}`, {
-          status: newStatus,
-          is_active: newStatus === "active",
-        }),
-      ),
-    );
-    const failed = results.filter((r) => r.status === "rejected").length;
-    if (failed === 0) {
-      toast.success(
-        `${selectedQuestions.length} questions set to ${newStatus}`,
+    try {
+      const results = await Promise.allSettled(
+        selectedQuestions.map((id) =>
+          adminAPI.apiClient.put(`/admin/questions/${id}`, {
+            status: newStatus,
+            is_active: newStatus === "active",
+          }),
+        ),
       );
-      setSelectedQuestions([]);
-      fetchAllData();
-    } else if (failed === results.length) {
-      toast.error(`Failed to update ${failed} question(s)`);
-    } else {
-      toast.success(
-        `${results.length - failed} questions updated, ${failed} failed`,
-      );
-      setSelectedQuestions([]);
-      fetchAllData();
+      const failed = results.filter((r) => r.status === "rejected").length;
+      if (failed === 0) {
+        toast.success(
+          `${selectedQuestions.length} questions set to ${newStatus}`,
+        );
+        setSelectedQuestions([]);
+        fetchAllData();
+      } else if (failed === results.length) {
+        toast.error(`Failed to update ${failed} question(s)`);
+      } else {
+        toast.success(
+          `${results.length - failed} questions updated, ${failed} failed`,
+        );
+        setSelectedQuestions([]);
+        fetchAllData();
+      }
+    } catch (err) {
+      console.error("[PracticeQuestionsManager] Bulk status error:", err);
+      toast.error("Failed to update status for selected questions");
     }
   };
 
@@ -1046,6 +1038,7 @@ export default function PracticeQuestionsManager() {
             <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
+              aria-label="Search question text, Hindi text, tags, explanation or ID"
               placeholder="Search question text, Hindi text, tags, explanation or ID..."
               value={searchQuery}
               onChange={(e) => {
@@ -1252,12 +1245,12 @@ export default function PracticeQuestionsManager() {
       {/* 6. Questions Data Table */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-gray-400">
+          <div className="p-6 sm:p-8 text-center text-gray-400">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-amber-500" />
             <p className="text-xs font-medium">Loading practice questions...</p>
           </div>
         ) : filteredQuestions.length === 0 ? (
-          <div className="p-12 text-center">
+          <div className="p-6 sm:p-8 text-center">
             <EmptyState
               title="No Practice Questions Found"
               description="No questions match the selected subject, chapter, topic or filter criteria."
@@ -1327,6 +1320,7 @@ export default function PracticeQuestionsManager() {
                       <td className="p-3.5 text-center">
                         <input
                           type="checkbox"
+                          aria-label={`Select question ${(currentPage - 1) * pageSize + idx + 1}`}
                           checked={isSelected}
                           onChange={() => handleSelectRow(id)}
                           className="rounded text-amber-600 focus:ring-amber-500"
@@ -1820,6 +1814,7 @@ export default function PracticeQuestionsManager() {
                               type={
                                 formData.type === "msq" ? "checkbox" : "radio"
                               }
+                              aria-label={`Mark Option ${String.fromCharCode(65 + i)} as correct`}
                               name="correctOption"
                               checked={isCorrect}
                               onChange={() => {
@@ -1854,6 +1849,7 @@ export default function PracticeQuestionsManager() {
                             </span>
                             <input
                               type="text"
+                              aria-label={`Option ${String.fromCharCode(65 + i)}`}
                               value={opt}
                               onChange={(e) => {
                                 const newOpts = [...formData.options];
@@ -1961,6 +1957,7 @@ export default function PracticeQuestionsManager() {
                           </span>
                           <input
                             type="text"
+                            aria-label={`Option ${String.fromCharCode(65 + i)} (Hindi)`}
                             value={formData.optionsHi[i] || ""}
                             onChange={(e) => {
                               const newOptsHi = [...formData.optionsHi];

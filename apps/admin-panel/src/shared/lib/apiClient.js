@@ -26,6 +26,11 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
+    // Safeguard: normalize leading "/api/" or "api/" to prevent double-prefix hazard
+    // when endpoints or utilities are shared or copied between frontend and admin-panel
+    if (config.url && typeof config.url === "string") {
+      config.url = config.url.replace(/^\/?api\//, "/");
+    }
     if (typeof FormData !== "undefined" && config.data instanceof FormData) {
       delete config.headers["Content-Type"];
       delete config.headers["content-type"];

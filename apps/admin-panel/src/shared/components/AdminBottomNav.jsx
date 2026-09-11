@@ -51,7 +51,7 @@ export default function AdminBottomNav() {
               />
               <span
                 title={label}
-                className={`text-[9px] sm:text-[10px] tracking-tight truncate w-full text-center leading-none ${active ? "font-bold" : "font-medium"}`}
+                className={`text-[11px] tracking-tight truncate w-full text-center leading-none ${active ? "font-bold" : "font-medium"}`}
               >
                 {label}
               </span>

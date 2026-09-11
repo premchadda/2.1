@@ -461,6 +461,7 @@ export default function NavigationManager() {
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           <input
+            aria-label="Search label, route or icon"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search label, route or icon…"
@@ -532,7 +533,7 @@ export default function NavigationManager() {
 
       {/* Sections */}
       {filteredGroups.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 p-8 sm:p-12 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 p-8 sm:p-6 sm:p-8 text-center">
           <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto">
             <Search className="w-7 h-7 text-gray-400" />
           </div>
@@ -889,6 +890,7 @@ export default function NavigationManager() {
                       </div>
                       <input
                         type="text"
+                        aria-label="Icon name (Lucide)"
                         value={formData.icon}
                         onChange={(e) =>
                           setFormData({ ...formData, icon: e.target.value })

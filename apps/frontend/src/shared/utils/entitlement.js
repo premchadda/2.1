@@ -146,6 +146,30 @@ export const needsProPass = ({
 };
 
 export const getTestEntitlement = ({ test, user, series = null }) => {
+  // `series` is accepted for call-site symmetry (badges/CTA resolvers pass the
+  // parent context) but MUST NOT influence attempt access — a test's access type
+  // is strictly decoupled from its series (see header rules). DEV-only shape
+  // check so a mismatched parent context surfaces loudly instead of silently.
+  if (import.meta.env.DEV && series && typeof series === "object") {
+    const seriesKey = series.id ?? series._id ?? series.slug ?? null;
+    const testSeriesKey =
+      test?.seriesId ??
+      test?.series_id ??
+      test?.seriesSlug ??
+      test?.series_slug ??
+      null;
+    if (
+      seriesKey &&
+      testSeriesKey &&
+      String(seriesKey) !== String(testSeriesKey)
+    ) {
+      console.warn("[Entitlement] test/series context mismatch:", {
+        seriesKey,
+        testSeriesKey,
+      });
+    }
+  }
+
   if (!test) {
     return {
       accessType: "FREE",

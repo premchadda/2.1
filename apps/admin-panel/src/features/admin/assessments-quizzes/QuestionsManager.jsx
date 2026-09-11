@@ -24,9 +24,6 @@ import {
   Sparkles,
   Layers,
   ArrowLeft,
-  FolderOpen,
-  List,
-  Filter,
   Activity,
   AlertTriangle,
   Sun,
@@ -34,7 +31,8 @@ import {
   History,
   RotateCcw,
 } from "lucide-react";
-import sanitizeHtml from "../../../shared/lib/sanitizeHtml";
+import sanitizeHtml, { isSafeImageUrl } from "../../../shared/lib/sanitizeHtml";
+import { logger } from "../../../shared/lib/logger";
 import { adminAPI, questionsAPI } from "../../../shared/lib/dataService";
 import { useExamCategories } from "../../../shared/hooks/useExamCategories";
 import { toast } from "react-hot-toast";
@@ -46,20 +44,27 @@ import {
   normalizeKey,
   buildCategorySelectionRefs,
 } from "../../../shared/utils/questionHelpers";
+import { getCategoryLabel } from "../../../shared/utils/categoryHelpers.js";
 import { DIFFICULTY_LEVELS } from "../../../shared/config/difficultyConfig.js";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 import EmptyState from "../../../shared/components/ui/EmptyState";
-import UserActivityLog from "../users-enrollments/UserActivityLog";
 import { Badge } from "./components/Badge";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { CategoryTabBar } from "./components/CategoryTabBar";
 import { BulkImportModal } from "./components/BulkImportModal";
 import { StatsCard } from "./components/StatsCard";
 import QuestionForm from "./components/QuestionForm";
+import ActivityLogModal from "./components/ActivityLogModal";
+import SimpleTestModal from "./components/SimpleTestModal";
 import QuestionPreviewDrawer from "./components/QuestionPreviewDrawer";
 import QuestionVersionHistoryModal from "./components/QuestionVersionHistoryModal";
 import TestPreviewDrawer from "./components/TestPreviewDrawer";
 import AuditQuestionsView from "./components/AuditQuestionsView";
+import ExamHierarchyFilters from "./components/ExamHierarchyFilters";
+import SeriesDrillGrid from "./components/SeriesDrillGrid";
+import TestListingDrill from "./components/TestListingDrill";
+import QuestionDetailList from "./components/QuestionDetailList";
+import SeriesWorkspaceModal from "./components/SeriesWorkspaceModal";
 import { auditQuestionsList } from "./components/auditHelpers";
 import MathRenderer from "../../../shared/components/MathRenderer";
 import {
@@ -72,290 +77,33 @@ import {
   QUESTION_TYPES,
   STATUS_OPTIONS,
 } from "../../../shared/config/questionConstants.js";
-
-const getTestCategoryValues = (item = {}) =>
-  [
-    item.testCategoryId,
-    item.test_category_id,
-    item.categoryId,
-    item.category_id,
-    item.category,
-    item.categoryName,
-    item.category_name,
-    item.testCategory,
-    item.test_category,
-    item.subCategory,
-    item.sub_category,
-    item.year,
-    item.pyq_year,
-    ...coerceArray(item.category_path_ids),
-    ...coerceArray(item.category_path_names),
-    ...coerceArray(item.test_category_ids || item.testCategoryIds),
-  ].filter((value) => value !== null && value !== undefined && value !== "");
-
-const getSeriesCategoryValues = (series = {}) =>
-  [
-    series.testCategoryId,
-    series.test_category_id,
-    ...coerceArray(series.testCategoryIds || series.test_category_ids),
-    ...coerceArray(series.testCategories || series.test_categories),
-    series.testCategory,
-    series.test_category,
-  ].filter((value) => value !== null && value !== undefined && value !== "");
-
-const getSeriesId = (series) =>
-  series?._id ?? series?.id ?? series?.public_id ?? null;
-const getTestId = (test) => test?._id ?? test?.id ?? test?.public_id ?? null;
-const getQuestionId = (question) =>
-  question?._id ?? question?.id ?? question?.public_id ?? null;
-const getTestSeriesIdFromTest = (test = {}) =>
-  test.testSeriesId ??
-  test.test_series_id ??
-  test.seriesId ??
-  test.series_id ??
-  null;
-const getTestIdFromQuestion = (question = {}) =>
-  question.testId ?? question.test_id ?? question.testid ?? null;
-const getTestSeriesIdFromQuestion = (question = {}) =>
-  question.testSeriesId ??
-  question.test_series_id ??
-  question.seriesId ??
-  question.series_id ??
-  null;
-const getSeriesExamId = (series = {}) =>
-  series.examId ?? series.exam_id ?? null;
-const getSeriesExamCategoryId = (series = {}) =>
-  series.category ??
-  series.category_id ??
-  series.examCategoryId ??
-  series.exam_category_id ??
-  null;
-const getStageIdFromTest = (test = {}) =>
-  test.stageId ?? test.stage_id ?? test.tierId ?? test.tier_id ?? null;
-const getSectionId = (section = {}) => section._id ?? section.id ?? null;
-const getSectionName = (section = {}) =>
-  section.name || section.title || section.label || "";
-const sectionValueMatches = (section, value) => {
-  if (value === null || value === undefined || value === "") return false;
-  return (
-    String(getSectionId(section)) === String(value) ||
-    getSectionName(section) === String(value)
-  );
-};
-
-const isSafeImageUrl = (url) => {
-  if (!url) return false;
-  try {
-    const parsed = new URL(url, window.location.origin);
-    return (
-      parsed.protocol === "http:" ||
-      parsed.protocol === "https:" ||
-      parsed.protocol === "data:"
-    );
-  } catch {
-    return false;
-  }
-};
-
-const normalizeQuestion = (q) => ({
-  ...q,
-  questionText: q.questionText || q.question_text || q.text?.en || q.text || "",
-  questionTextHi: q.questionTextHi || q.question_text_hi || "",
-  correctOption:
-    q.correctOption ??
-    q.correct_option ??
-    q.correctAnswer ??
-    q.correct_answer ??
-    q.correct_option_id ??
-    q.correctOptionId ??
-    q.correct ??
-    q.answer ??
-    // BUGFIX: never fabricate index 0 (= Option A) when the real answer is
-    // unknown/null — that default was persisted on save, silently rewriting
-    // questions to "first option correct". Surface as null instead so the
-    // audit/missing-answer guards and preview render truthful state.
-    null,
-  negativeMarks: q.negativeMarks ?? q.negative_marks ?? 0,
-  options: Array.isArray(q.options) ? q.options : q.options?.en || [],
-  optionsHi: q.optionsHi || q.options_hi || [],
-  category: q.category || "mock-tests",
-  section: q.section || "",
-  passageId: q.passageId || q.passage_id || null,
-  questionNumber: q.questionNumber || q.question_number || null,
-  imageUrl: q.imageUrl || q.image_url || "",
-  testId: q.testId ?? q.test_id ?? q.testid ?? null,
-  testSeriesId:
-    q.testSeriesId ?? q.test_series_id ?? q.seriesId ?? q.series_id ?? null,
-  subjectId: q.subjectId ?? q.subject_id ?? null,
-  chapterId: q.chapterId ?? q.chapter_id ?? null,
-  topicId: q.topicId ?? q.topic_id ?? null,
-});
-
-const valueMatchesRefs = (values, refs) => {
-  if (!refs || refs.size === 0) return false;
-  return values
-    .filter((value) => value !== null && value !== undefined && value !== "")
-    .some((value) => refs.has(normalizeKey(value)) || refs.has(String(value)));
-};
-
-const buildExamCategoryRefs = (categoryId, categories = []) => {
-  const refs = new Set();
-  if (!categoryId) return refs;
-  const match = categories.find((cat) =>
-    [cat.id, cat.categoryId, cat.slug, cat.label, cat.name].some((value) =>
-      idsEqual(value, categoryId),
-    ),
-  );
-  [
-    categoryId,
-    match?.id,
-    match?.categoryId,
-    match?.slug,
-    match?.label,
-    match?.name,
-  ]
-    .filter(Boolean)
-    .forEach((value) => {
-      refs.add(String(value));
-      refs.add(normalizeKey(value));
-    });
-  return refs;
-};
-
-const buildExamRefs = (examId, exams = [], examInfo = []) => {
-  const refs = new Set();
-  if (!examId) return refs;
-  const allExams = [...(exams || []), ...(examInfo || [])];
-  const match = allExams.find((exam) =>
-    [
-      exam.id,
-      exam._id,
-      exam.examId,
-      exam.exam_id,
-      exam.slug,
-      exam.name,
-      exam.title,
-    ].some((value) => idsEqual(value, examId)),
-  );
-  [
-    examId,
-    match?.id,
-    match?._id,
-    match?.examId,
-    match?.exam_id,
-    match?.slug,
-    match?.name,
-    match?.title,
-  ]
-    .filter(Boolean)
-    .forEach((value) => {
-      refs.add(String(value));
-      refs.add(normalizeKey(value));
-    });
-  return refs;
-};
-
-const buildStageRefs = (stageId) => {
-  const refs = new Set();
-  if (!stageId) return refs;
-  refs.add(String(stageId));
-  refs.add(normalizeKey(stageId));
-  return refs;
-};
-
-const stageMatchesExam = (stage, examRefs) => {
-  if (!stage || !examRefs || examRefs.size === 0) return false;
-  const stageExamIds = coerceArray(
-    stage.examIds || stage.exam_ids || stage.exam_id || stage.examId,
-  );
-  return valueMatchesRefs(stageExamIds, examRefs);
-};
-
-const buildTestCategoryRefs = (activeCategory, flatCategories = []) => {
-  const refs = new Set();
-  const aliases = QUESTION_CATEGORY_ALIASES[activeCategory] || [activeCategory];
-  aliases.forEach((value) => {
-    refs.add(String(value));
-    refs.add(normalizeKey(value));
-  });
-  const mappedName = QUESTION_CAT_TO_TEST_CAT_MAP[activeCategory];
-  if (mappedName) {
-    refs.add(mappedName);
-    refs.add(normalizeKey(mappedName));
-  }
-
-  const seedCategories = flatCategories.filter((cat) =>
-    [cat.id, cat._id, cat.slug, cat.name, cat.label, cat.categoryId]
-      .filter(Boolean)
-      .some(
-        (value) => refs.has(String(value)) || refs.has(normalizeKey(value)),
-      ),
-  );
-
-  const childrenByParent = new Map();
-  flatCategories.forEach((cat) => {
-    const parentId = cat.parentId || cat.parent_id || "";
-    const key = String(parentId || "");
-    if (!childrenByParent.has(key)) childrenByParent.set(key, []);
-    childrenByParent.get(key).push(cat);
-  });
-
-  const addCategory = (cat) => {
-    [cat.id, cat._id, cat.slug, cat.name, cat.label, cat.categoryId]
-      .filter(Boolean)
-      .forEach((value) => {
-        refs.add(String(value));
-        refs.add(normalizeKey(value));
-      });
-  };
-
-  const queue = [...seedCategories];
-  let qHead = 0;
-  const seen = new Set();
-  while (qHead < queue.length) {
-    const cat = queue[qHead++];
-    const id = String(
-      getEntityId(cat) || cat.categoryId || cat.slug || cat.name || "",
-    );
-    if (seen.has(id)) continue;
-    seen.add(id);
-    addCategory(cat);
-    (childrenByParent.get(String(getEntityId(cat) || "")) || []).forEach(
-      (child) => queue.push(child),
-    );
-  }
-
-  return refs;
-};
-
-const recordMatchesTestCategory = (record, refs) =>
-  valueMatchesRefs(getTestCategoryValues(record), refs);
-const categoryLinksSeries = (category, seriesId) =>
-  coerceArray(
-    category?.testSeriesId ??
-      category?.test_series_id ??
-      category?.test_series_ids ??
-      category?.seriesId ??
-      category?.series_id,
-  ).some((id) => idsEqual(id, seriesId));
-
-const categoryRecordMatchesRefs = (category, refs) =>
-  valueMatchesRefs(
-    [
-      category?.id,
-      category?._id,
-      category?.slug,
-      category?.name,
-      category?.label,
-      category?.categoryId,
-    ],
-    refs,
-  );
-
-const seriesMatchesTestCategory = (series, refs, testsInSeries = []) => {
-  if (valueMatchesRefs(getSeriesCategoryValues(series), refs)) return true;
-  return testsInSeries.some((test) => recordMatchesTestCategory(test, refs));
-};
+import {
+  getTestCategoryValues,
+  getSeriesCategoryValues,
+  getSeriesId,
+  getTestId,
+  getQuestionId,
+  getTestSeriesIdFromTest,
+  getTestIdFromQuestion,
+  getTestSeriesIdFromQuestion,
+  getSeriesExamId,
+  getSeriesExamCategoryId,
+  getStageIdFromTest,
+  getSectionId,
+  getSectionName,
+  sectionValueMatches,
+  normalizeQuestion,
+  valueMatchesRefs,
+  buildExamCategoryRefs,
+  buildExamRefs,
+  buildStageRefs,
+  stageMatchesExam,
+  buildTestCategoryRefs,
+  recordMatchesTestCategory,
+  categoryLinksSeries,
+  categoryRecordMatchesRefs,
+  seriesMatchesTestCategory,
+} from "./components/questionHelpers";
 
 const DEFAULT_FORM_DATA = {
   questionText: "",
@@ -675,7 +423,7 @@ function QuestionsManager() {
           if (testData) setSelectedTest(testData);
         })
         .catch((err) => {
-          console.error("Failed to load test from URL param:", err);
+          logger.error("Failed to load test from URL param:", err);
         });
     }
   }, [testsList, selectedTest]);
@@ -1051,14 +799,6 @@ function QuestionsManager() {
       setSubCategoryLevel1(singleId);
     }
   }, [subCategoryOptionsLevel1, subCategoryLevel1]);
-
-  const getCategoryLabel = (category) =>
-    category?.label ||
-    category?.name ||
-    category?.slug ||
-    category?.categoryId ||
-    category?.id ||
-    "Not linked";
 
   const getCategoryTestCount = (categoryId) => {
     if (!categoryId || categoryId === "all") return seriesTests.length;
@@ -1891,9 +1631,13 @@ function QuestionsManager() {
   };
 
   const refreshTests = async () => {
-    const testsRes = await adminAPI.getTests();
-    const testsData = testsRes.data?.data || testsRes.data || [];
-    setTestsList(Array.isArray(testsData) ? testsData : []);
+    try {
+      const testsRes = await adminAPI.getTests();
+      const testsData = testsRes.data?.data || testsRes.data || [];
+      setTestsList(Array.isArray(testsData) ? testsData : []);
+    } catch (err) {
+      console.error("Failed to refresh tests list:", err);
+    }
   };
 
   const getLinkedTestCategoryId = () => {
@@ -2365,167 +2109,32 @@ function QuestionsManager() {
 
         {/* Exam hierarchy filters */}
         {!showTrash && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
-            <div className="p-4 flex flex-col gap-4">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-gray-400" />
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Manager Filters
-                </h3>
-                {examFiltersLoading && (
-                  <span className="text-xs text-gray-400">
-                    Loading exam data...
-                  </span>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-sm font-semibold text-gray-700">
-                    Exam Category:
-                  </span>
-                  {examCategories.length === 0 ? (
-                    <span className="text-sm text-gray-400">
-                      No exam categories found
-                    </span>
-                  ) : (
-                    examCategories.map((category) => {
-                      const categoryValue =
-                        category.categoryId || category.slug || category.id;
-                      const isActive = idsEqual(
-                        activeExamCategoryId,
-                        categoryValue,
-                      );
-                      return (
-                        <button
-                          key={categoryValue}
-                          onClick={() => {
-                            setActiveExamCategoryId(categoryValue);
-                            setActiveExamId("");
-                            setActiveStageId("");
-                          }}
-                          className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                            isActive
-                              ? "bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold"
-                              : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
-                          }`}
-                        >
-                          {category.label || category.name || categoryValue}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-sm font-semibold text-gray-700">
-                    Exam:
-                  </span>
-                  {examsForActiveCategory.length === 0 ? (
-                    <span className="text-sm text-gray-400">
-                      No exams found
-                    </span>
-                  ) : (
-                    examsForActiveCategory.map((exam) => {
-                      const isActive = idsEqual(activeExamId, exam.value);
-                      return (
-                        <button
-                          key={exam.value}
-                          onClick={() => {
-                            setActiveExamId(exam.value);
-                            setActiveStageId("");
-                          }}
-                          className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                            isActive
-                              ? "bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold"
-                              : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
-                          }`}
-                        >
-                          {exam.label || exam.fullName || exam.value}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-sm font-semibold text-gray-700">
-                    Stage:
-                  </span>
-                  {stagesForActiveExam.length === 0 ? (
-                    <span className="text-sm text-gray-400">
-                      No stages available
-                    </span>
-                  ) : (
-                    stagesForActiveExam.map((stage) => {
-                      const stageId = getEntityId(stage);
-                      const isActive = idsEqual(activeStageId, stageId);
-                      return (
-                        <button
-                          key={stageId}
-                          onClick={() => setActiveStageId(stageId)}
-                          className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                            isActive
-                              ? "bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold"
-                              : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
-                          }`}
-                        >
-                          {stage.name || stage.title || stage.slug || stageId}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100">
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">
-                    Selected Path
-                  </span>
-                  <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">
-                    {selectedExamCategoryLabel}
-                  </span>
-                  {activeExamId && (
-                    <>
-                      <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-                      <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">
-                        {selectedExamLabel}
-                      </span>
-                    </>
-                  )}
-                  {activeStageId && (
-                    <>
-                      <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-                      <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">
-                        {selectedStageLabel}
-                      </span>
-                    </>
-                  )}
-                  {selectedSeries && (
-                    <>
-                      <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-                      <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">
-                        {selectedSeries?.title || selectedSeries?.name}
-                      </span>
-                    </>
-                  )}
-                  <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-                  <span className="px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-lg text-xs font-semibold text-indigo-700">
-                    {activeCatLabel}
-                  </span>
-                  {selectedTestSubCategoryId !== "all" &&
-                    selectedTestSubCategoryRecord && (
-                      <>
-                        <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-                        <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">
-                          {selectedTestSubCategoryRecord?.name ||
-                            selectedTestSubCategoryRecord?.label}
-                        </span>
-                      </>
-                    )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <ExamHierarchyFilters
+            examCategories={examCategories}
+            activeExamCategoryId={activeExamCategoryId}
+            onSelectExamCategory={(categoryValue) => {
+              setActiveExamCategoryId(categoryValue);
+              setActiveExamId("");
+              setActiveStageId("");
+            }}
+            examsForActiveCategory={examsForActiveCategory}
+            activeExamId={activeExamId}
+            onSelectExam={(examValue) => {
+              setActiveExamId(examValue);
+              setActiveStageId("");
+            }}
+            stagesForActiveExam={stagesForActiveExam}
+            activeStageId={activeStageId}
+            onSelectStage={setActiveStageId}
+            examFiltersLoading={examFiltersLoading}
+            selectedExamCategoryLabel={selectedExamCategoryLabel}
+            selectedExamLabel={selectedExamLabel}
+            selectedStageLabel={selectedStageLabel}
+            selectedSeries={selectedSeries}
+            activeCatLabel={activeCatLabel}
+            selectedTestSubCategoryId={selectedTestSubCategoryId}
+            selectedTestSubCategoryRecord={selectedTestSubCategoryRecord}
+          />
         )}
 
         {!showTrash && (
@@ -2546,2099 +2155,135 @@ function QuestionsManager() {
 
         {/* ===== LEVEL 1: Test Series Grid (filtered by active category) ===== */}
         {!showTrash && drillLevel === "series" && (
-          <div className="flex flex-col gap-3">
-            {filteredSeriesList.length > 0 ? (
-              filteredSeriesList.map((series) => {
-                const seriesId = getSeriesId(series);
-                const seriesStat = seriesStatsMap.get(
-                  String(seriesId ?? ""),
-                ) || { testsCount: 0, questionsCount: 0 };
-                const testsCount = seriesStat.testsCount;
-                const questionsCount = seriesStat.questionsCount;
-
-                return (
-                  <div
-                    key={seriesId}
-                    onClick={() => setSelectedSeries(series)}
-                    className="group bg-white border border-gray-200 rounded-xl cursor-pointer transition-all p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden hover:border-indigo-300 hover:shadow-md"
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "translateY(-2px)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "none";
-                    }}
-                  >
-                    {/* Top gradient accent */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: "4px",
-                        background:
-                          "linear-gradient(to right, #6366f1, #8b5cf6)",
-                        borderRadius: "16px 16px 0 0",
-                      }}
-                    />
-                    <div className="flex items-start gap-4 min-w-0 flex-1">
-                      <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-                        <FolderOpen
-                          style={{
-                            width: "22px",
-                            height: "22px",
-                            color: "#6366f1",
-                          }}
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3
-                          style={{
-                            fontSize: "16px",
-                            fontWeight: 700,
-                            color: "#1e293b",
-                            marginBottom: "6px",
-                            lineHeight: 1.3,
-                          }}
-                        >
-                          {series.title || series.name || "Untitled Series"}
-                        </h3>
-
-                        <p
-                          style={{
-                            fontSize: "13px",
-                            color: "#94a3b8",
-                            marginBottom: "16px",
-                            lineHeight: 1.5,
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
-                          }}
-                        >
-                          {series.description || "No description available"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "16px",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          padding: "4px 10px",
-                          backgroundColor: "#f1f5f9",
-                          borderRadius: "8px",
-                        }}
-                      >
-                        <List
-                          style={{
-                            width: "14px",
-                            height: "14px",
-                            color: "#6366f1",
-                          }}
-                        />
-                        <span
-                          style={{
-                            fontSize: "13px",
-                            fontWeight: 600,
-                            color: "#475569",
-                          }}
-                        >
-                          {testsCount} tests
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          padding: "4px 10px",
-                          backgroundColor: "#f0fdf4",
-                          borderRadius: "8px",
-                        }}
-                      >
-                        <FileText
-                          style={{
-                            width: "14px",
-                            height: "14px",
-                            color: "#16a34a",
-                          }}
-                        />
-                        <span
-                          style={{
-                            fontSize: "13px",
-                            fontWeight: 600,
-                            color: "#166534",
-                          }}
-                        >
-                          {questionsCount} Qs
-                        </span>
-                      </div>
-                      {series.category && (
-                        <span
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            padding: "4px 10px",
-                            backgroundColor: "#faf5ff",
-                            color: "#7c3aed",
-                            borderRadius: "8px",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.5px",
-                          }}
-                        >
-                          {series.category}
-                        </span>
-                      )}
-                      <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 hidden md:block" />
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div style={{ gridColumn: "1 / -1" }}>
-                <EmptyState
-                  icon={FolderOpen}
-                  title="No Test Series Found"
-                  description="No test series match the selected test category, exam category, exam, and stage filters."
-                />
-              </div>
-            )}
-          </div>
+          <SeriesDrillGrid
+            seriesList={filteredSeriesList}
+            seriesStatsMap={seriesStatsMap}
+            onSelectSeries={setSelectedSeries}
+          />
         )}
 
         {/* ===== LEVEL 2: Test Listing ===== */}
         {drillLevel === "tests" && (
-          <div className="space-y-4">
-            {/* Subcategory Navigation Pills */}
-            {(subCategoryOptionsLevel1.length > 0 ||
-              subCategoryOptionsLevel2.length > 0) && (
-              <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3 shadow-xs">
-                {/* Level 1 Subcategories (e.g. Year Based, Sectional) */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-2">
-                    Category:
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSubCategoryLevel1("");
-                      setSubCategoryLevel2("");
-                      setSubCategoryLevel3("");
-                      setSubCategoryLevel4("");
-                      setSelectedTestSubCategoryId("all");
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors ${
-                      !subCategoryLevel1
-                        ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
-                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
-                    }`}
-                  >
-                    All ({seriesTests.length})
-                  </button>
-                  {subCategoryOptionsLevel1.map((cat) => {
-                    const catId = getEntityId(cat) || "";
-                    const isSelected = subCategoryLevel1 === catId;
-                    const count = getCategoryTestCount(catId);
-                    return (
-                      <button
-                        key={catId}
-                        type="button"
-                        onClick={() => {
-                          const newVal = isSelected ? "" : catId;
-                          setSubCategoryLevel1(newVal);
-                          setSubCategoryLevel2("");
-                          setSubCategoryLevel3("");
-                          setSubCategoryLevel4("");
-                          setSelectedTestSubCategoryId(newVal || "all");
-                        }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors ${
-                          isSelected
-                            ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
-                            : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
-                        }`}
-                      >
-                        {getCategoryLabel(cat)} ({count})
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Level 2 Subcategories (e.g. 2025, 2024, 2023, 2022, 2021, 2020, 2019) */}
-                {subCategoryLevel1 && subCategoryOptionsLevel2.length > 0 && (
-                  <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-gray-100">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-2">
-                      Sub Level:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSubCategoryLevel2("");
-                        setSubCategoryLevel3("");
-                        setSubCategoryLevel4("");
-                        setSelectedTestSubCategoryId(subCategoryLevel1);
-                      }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors ${
-                        !subCategoryLevel2
-                          ? "bg-amber-600 text-white border-amber-600 shadow-xs"
-                          : "bg-amber-50/50 text-amber-900 border-amber-200 hover:bg-amber-100/60"
-                      }`}
-                    >
-                      All ({getCategoryTestCount(subCategoryLevel1)})
-                    </button>
-                    {subCategoryOptionsLevel2.map((cat) => {
-                      const catId = getEntityId(cat) || "";
-                      const isSelected = subCategoryLevel2 === catId;
-                      const count = getCategoryTestCount(catId);
-                      return (
-                        <button
-                          key={catId}
-                          type="button"
-                          onClick={() => {
-                            const newVal = isSelected ? "" : catId;
-                            setSubCategoryLevel2(newVal);
-                            setSubCategoryLevel3("");
-                            setSubCategoryLevel4("");
-                            setSelectedTestSubCategoryId(
-                              newVal || subCategoryLevel1,
-                            );
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors ${
-                            isSelected
-                              ? "bg-amber-600 text-white border-amber-600 shadow-xs"
-                              : "bg-amber-50/50 text-amber-900 border-amber-200 hover:bg-amber-100/60"
-                          }`}
-                        >
-                          {getCategoryLabel(cat)} ({count})
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Level 3 Subcategories */}
-                {subCategoryLevel2 && subCategoryOptionsLevel3.length > 0 && (
-                  <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-gray-100">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-2">
-                      Shift / Paper:
-                    </span>
-                    {subCategoryOptionsLevel3.map((cat) => {
-                      const catId = getEntityId(cat) || "";
-                      const isSelected = subCategoryLevel3 === catId;
-                      const count = getCategoryTestCount(catId);
-                      return (
-                        <button
-                          key={catId}
-                          type="button"
-                          onClick={() => {
-                            const newVal = isSelected ? "" : catId;
-                            setSubCategoryLevel3(newVal);
-                            setSubCategoryLevel4("");
-                            setSelectedTestSubCategoryId(
-                              newVal || subCategoryLevel2 || subCategoryLevel1,
-                            );
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors ${
-                            isSelected
-                              ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                              : "bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100"
-                          }`}
-                        >
-                          {getCategoryLabel(cat)} ({count})
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-                gap: "16px",
-              }}
-            >
-              {workspaceTests.length > 0 ? (
-                workspaceTests.map((test) => {
-                  const testId = getTestId(test);
-                  const testStat = testStatsMap.get(String(testId ?? "")) || {
-                    totalCount: 0,
-                    activeCount: 0,
-                  };
-                  const qCount = testStat.totalCount;
-                  const activeCount = testStat.activeCount;
-                  const isPublished =
-                    test.status === "published" || test.status === "active";
-
-                  return (
-                    <div
-                      key={testId}
-                      onClick={() => setSelectedTest(test)}
-                      style={{
-                        padding: "20px",
-                        backgroundColor: "#ffffff",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: "14px",
-                        cursor: "pointer",
-                        transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = "#a78bfa";
-                        e.currentTarget.style.boxShadow =
-                          "0 6px 20px -4px rgba(139, 92, 246, 0.15)";
-                        e.currentTarget.style.transform = "translateY(-2px)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = "#e2e8f0";
-                        e.currentTarget.style.boxShadow = "none";
-                        e.currentTarget.style.transform = "none";
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          justifyContent: "space-between",
-                          marginBottom: "12px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: "40px",
-                            height: "40px",
-                            borderRadius: "10px",
-                            background:
-                              qCount > 0
-                                ? "linear-gradient(135deg, #dcfce7, #bbf7d0)"
-                                : "linear-gradient(135deg, #fef3c7, #fde68a)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <FileText
-                            style={{
-                              width: "20px",
-                              height: "20px",
-                              color: qCount > 0 ? "#16a34a" : "#d97706",
-                            }}
-                          />
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <span
-                            style={{
-                              display: "inline-block",
-                              width: "8px",
-                              height: "8px",
-                              borderRadius: "50%",
-                              backgroundColor: isPublished
-                                ? "#22c55e"
-                                : "#94a3b8",
-                            }}
-                          />
-                          <ChevronRight
-                            style={{
-                              width: "18px",
-                              height: "18px",
-                              color: "#cbd5e1",
-                            }}
-                          />
-                        </div>
-                      </div>
-
-                      <h3
-                        style={{
-                          fontSize: "15px",
-                          fontWeight: 700,
-                          color: "#1e293b",
-                          marginBottom: "4px",
-                          lineHeight: 1.3,
-                        }}
-                      >
-                        {test.title || test.name || "Untitled Test"}
-                      </h3>
-
-                      {test.description && (
-                        <p
-                          style={{
-                            fontSize: "13px",
-                            color: "#94a3b8",
-                            marginBottom: "14px",
-                            lineHeight: 1.4,
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
-                          }}
-                        >
-                          {test.description}
-                        </p>
-                      )}
-
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          marginTop: test.description ? "0" : "14px",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            padding: "3px 10px",
-                            backgroundColor: "#f1f5f9",
-                            color: "#475569",
-                            borderRadius: "6px",
-                          }}
-                        >
-                          {qCount} questions
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            padding: "3px 10px",
-                            backgroundColor:
-                              activeCount > 0 ? "#f0fdf4" : "#fef2f2",
-                            color: activeCount > 0 ? "#166534" : "#991b1b",
-                            borderRadius: "6px",
-                          }}
-                        >
-                          {activeCount} active
-                        </span>
-                        {(test.duration || test.time_limit) && (
-                          <span
-                            style={{
-                              fontSize: "12px",
-                              fontWeight: 600,
-                              padding: "3px 10px",
-                              backgroundColor: "#eff6ff",
-                              color: "#1e40af",
-                              borderRadius: "6px",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                            }}
-                          >
-                            <Clock style={{ width: "12px", height: "12px" }} />
-                            {test.duration || test.time_limit} min
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <EmptyState
-                    icon={FileText}
-                    title="No Tests in this Category"
-                    description={`No tests found in "${selectedSeries?.title || selectedSeries?.name || "this series"}" for the selected subcategory.`}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+          <TestListingDrill
+            subCategoryOptionsLevel1={subCategoryOptionsLevel1}
+            subCategoryOptionsLevel2={subCategoryOptionsLevel2}
+            subCategoryOptionsLevel3={subCategoryOptionsLevel3}
+            subCategoryLevel1={subCategoryLevel1}
+            subCategoryLevel2={subCategoryLevel2}
+            subCategoryLevel3={subCategoryLevel3}
+            setSubCategoryLevel1={setSubCategoryLevel1}
+            setSubCategoryLevel2={setSubCategoryLevel2}
+            setSubCategoryLevel3={setSubCategoryLevel3}
+            setSubCategoryLevel4={setSubCategoryLevel4}
+            setSelectedTestSubCategoryId={setSelectedTestSubCategoryId}
+            seriesTests={seriesTests}
+            getCategoryTestCount={getCategoryTestCount}
+            getCategoryLabel={getCategoryLabel}
+            workspaceTests={workspaceTests}
+            testStatsMap={testStatsMap}
+            onSelectTest={setSelectedTest}
+            selectedSeries={selectedSeries}
+          />
         )}
 
         {/* ===== LEVEL 3: Question Detail Cards ===== */}
         {drillLevel === "questions" && (
-          <div>
-            <div className="mb-4 bg-white border border-gray-200 rounded-xl p-3 flex gap-2 overflow-x-auto">
-              <button
-                onClick={() => {
-                  setSelectedSection("all");
-                  setCurrentPage(1);
-                }}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                  selectedSection === "all"
-                    ? "bg-gray-900 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                All Sections ({testQuestions.length})
-              </button>
-              {[...sectionCounts.entries()].map(([section, count]) => (
-                <button
-                  key={section}
-                  onClick={() => {
-                    setSelectedSection(section);
-                    setCurrentPage(1);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                    selectedSection === section
-                      ? "bg-gray-900 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {section} ({count})
-                </button>
-              ))}
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "16px",
-                padding: "12px 16px",
-                backgroundColor: "#f8fafc",
-                borderRadius: "12px",
-                border: "1px solid #e2e8f0",
-              }}
-            >
-              <span style={{ fontSize: "14px", color: "#64748b" }}>
-                <strong style={{ color: "#1e293b" }}>
-                  {filteredTestQuestions.length}
-                </strong>{" "}
-                questions
-                {selectedSection !== "all"
-                  ? ` in ${selectedSection}`
-                  : " in this test"}
-              </span>
-              <button
-                onClick={() => {
-                  resetForm();
-                  setShowForm(true);
-                }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "8px 16px",
-                  backgroundColor: "#6366f1",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  fontFamily: "inherit",
-                  transition: "background-color 0.15s",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#4f46e5")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#6366f1")
-                }
-              >
-                <Plus style={{ width: "16px", height: "16px" }} />
-                Add Question
-              </button>
-            </div>
-
-            {testQuestionsLoading && filteredTestQuestions.length === 0 ? (
-              <div className="bg-white rounded-xl border border-gray-200 p-12 text-center flex flex-col items-center justify-center gap-3">
-                <LoadingSpinner />
-                <p className="text-sm font-medium text-gray-500">
-                  Loading questions for this test...
-                </p>
-              </div>
-            ) : filteredTestQuestions.length > 0 ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "12px",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    padding: "8px 12px",
-                    backgroundColor: "#f8fafc",
-                    borderRadius: "10px",
-                    border: "1px solid #e2e8f0",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={
-                      selectedIds.length === paginatedQuestions.length &&
-                      paginatedQuestions.length > 0
-                    }
-                    onChange={(e) =>
-                      setSelectedIds(
-                        e.target.checked
-                          ? paginatedQuestions.map((q) => q._id || q.id)
-                          : [],
-                      )
-                    }
-                    style={{
-                      width: "16px",
-                      height: "16px",
-                      accentColor: "#6366f1",
-                      cursor: "pointer",
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontSize: "13px",
-                      color: "#64748b",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {selectedIds.length > 0
-                      ? `${selectedIds.length} selected`
-                      : "Select all"}
-                  </span>
-                  {selectedIds.length > 0 && (
-                    <div
-                      style={{
-                        marginLeft: "auto",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "12px",
-                          color: "#64748b",
-                          fontWeight: 600,
-                        }}
-                      >
-                        Bulk Actions:
-                      </span>
-                      <button
-                        onClick={() => handleBulkDifficulty("easy")}
-                        className="px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
-                      >
-                        Set Easy
-                      </button>
-                      <button
-                        onClick={() => handleBulkDifficulty("medium")}
-                        className="px-2.5 py-1 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
-                      >
-                        Set Medium
-                      </button>
-                      <button
-                        onClick={() => handleBulkDifficulty("hard")}
-                        className="px-2.5 py-1 text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors"
-                      >
-                        Set Hard
-                      </button>
-                      <button
-                        onClick={handleBulkDelete}
-                        style={{
-                          padding: "5px 12px",
-                          backgroundColor: "#ef4444",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                          fontSize: "12px",
-                          fontWeight: 600,
-                          fontFamily: "inherit",
-                          transition: "background-color 0.15s",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.backgroundColor = "#dc2626")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.backgroundColor = "#ef4444")
-                        }
-                      >
-                        Delete ({selectedIds.length})
-                      </button>
-                      <button
-                        onClick={() => setSelectedIds([])}
-                        className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 font-medium"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {paginatedQuestions.map((q, idx) => {
-                  // Calculate actual index for question number display
-                  const actualIdx =
-                    (currentPage - 1) * QUESTIONS_PER_PAGE + idx;
-                  const difficulty =
-                    DIFFICULTY_LEVELS.find((d) => d.value === q.difficulty) ||
-                    DIFFICULTY_LEVELS[1];
-                  const status =
-                    STATUS_OPTIONS.find((s) => s.value === q.status) ||
-                    STATUS_OPTIONS[1];
-                  const type =
-                    QUESTION_TYPES.find((t) => t.value === q.type) ||
-                    QUESTION_TYPES[0];
-                  const letters = ["A", "B", "C", "D", "E", "F"];
-
-                  return (
-                    <div
-                      key={q._id || q.id || idx}
-                      style={{
-                        padding: "20px",
-                        backgroundColor: "#ffffff",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: "14px",
-                        transition: "border-color 0.15s",
-                      }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.borderColor = "#cbd5e1")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.borderColor = "#e2e8f0")
-                      }
-                    >
-                      {/* Question header */}
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          justifyContent: "space-between",
-                          marginBottom: "12px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "10px",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(q._id || q.id)}
-                            onChange={(e) => {
-                              const qId = q._id || q.id;
-                              if (e.target.checked)
-                                setSelectedIds([...selectedIds, qId]);
-                              else
-                                setSelectedIds(
-                                  selectedIds.filter((id) => id !== qId),
-                                );
-                            }}
-                            style={{
-                              width: "16px",
-                              height: "16px",
-                              accentColor: "#6366f1",
-                              cursor: "pointer",
-                            }}
-                          />
-                          <span
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: "28px",
-                              height: "28px",
-                              borderRadius: "8px",
-                              backgroundColor: "#eef2ff",
-                              color: "#6366f1",
-                              fontSize: "13px",
-                              fontWeight: 700,
-                            }}
-                          >
-                            {actualIdx + 1}
-                          </span>
-                          <Badge variant="info">{type.label}</Badge>
-                          <Badge className={difficulty.color}>
-                            {difficulty.label}
-                          </Badge>
-                          <Badge className={status.color}>{status.label}</Badge>
-                          {q.marks && (
-                            <span
-                              style={{ fontSize: "12px", color: "#64748b" }}
-                            >
-                              <strong style={{ color: "#059669" }}>
-                                +{q.marks}
-                              </strong>
-                              {q.negativeMarks > 0 && (
-                                <span style={{ color: "#dc2626" }}>
-                                  {" "}
-                                  / -{q.negativeMarks}
-                                </span>
-                              )}
-                            </span>
-                          )}
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <button
-                            onClick={() => handleQuestionPreview(q)}
-                            style={{
-                              padding: "6px",
-                              backgroundColor: "transparent",
-                              border: "none",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                              color: "#94a3b8",
-                              transition: "all 0.15s",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = "#ecfdf5";
-                              e.currentTarget.style.color = "#10b981";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor =
-                                "transparent";
-                              e.currentTarget.style.color = "#94a3b8";
-                            }}
-                            title="Preview"
-                          >
-                            <Eye style={{ width: "16px", height: "16px" }} />
-                          </button>
-                          <button
-                            onClick={() => handleEdit(q)}
-                            style={{
-                              padding: "6px",
-                              backgroundColor: "transparent",
-                              border: "none",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                              color: "#94a3b8",
-                              transition: "all 0.15s",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = "#eef2ff";
-                              e.currentTarget.style.color = "#6366f1";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor =
-                                "transparent";
-                              e.currentTarget.style.color = "#94a3b8";
-                            }}
-                            title="Edit"
-                          >
-                            <Edit2 style={{ width: "16px", height: "16px" }} />
-                          </button>
-                          <button
-                            onClick={() => handleToggleStatus(q)}
-                            style={{
-                              padding: "6px",
-                              backgroundColor: "transparent",
-                              border: "none",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                              color: "#94a3b8",
-                              transition: "all 0.15s",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = "#f0fdf4";
-                              e.currentTarget.style.color = "#16a34a";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor =
-                                "transparent";
-                              e.currentTarget.style.color = "#94a3b8";
-                            }}
-                            title={
-                              q.status === "active" ? "Deactivate" : "Activate"
-                            }
-                          >
-                            {q.status === "active" ? (
-                              <X style={{ width: "16px", height: "16px" }} />
-                            ) : (
-                              <CheckCircle
-                                style={{ width: "16px", height: "16px" }}
-                              />
-                            )}
-                          </button>
-                          <button
-                            onClick={() => handleDelete(q._id || q.id)}
-                            style={{
-                              padding: "6px",
-                              backgroundColor: "transparent",
-                              border: "none",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                              color: "#94a3b8",
-                              transition: "all 0.15s",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = "#fef2f2";
-                              e.currentTarget.style.color = "#dc2626";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor =
-                                "transparent";
-                              e.currentTarget.style.color = "#94a3b8";
-                            }}
-                            title="Delete"
-                          >
-                            <Trash2 style={{ width: "16px", height: "16px" }} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Question text with MathRenderer */}
-                      <div
-                        style={{
-                          fontSize: "15px",
-                          color: "#1e293b",
-                          lineHeight: 1.6,
-                          marginBottom: q.options?.length > 0 ? "16px" : "0",
-                        }}
-                      >
-                        <MathRenderer content={q.questionText} />
-                      </div>
-
-                      {/* Options */}
-                      {q.options?.length > 0 && (
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns:
-                              "repeat(auto-fit, minmax(240px, 1fr))",
-                            gap: "8px",
-                            marginBottom: q.explanation ? "14px" : "0",
-                          }}
-                        >
-                          {q.options.map((opt, oi) => {
-                            const isCorrect = Array.isArray(q.correctOption)
-                              ? q.correctOption.includes(oi)
-                              : q.correctOption === oi;
-
-                            return (
-                              <div
-                                key={oi}
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "10px",
-                                  padding: "10px 14px",
-                                  borderRadius: "10px",
-                                  border: `1px solid ${isCorrect ? "#86efac" : "#f1f5f9"}`,
-                                  backgroundColor: isCorrect
-                                    ? "#f0fdf4"
-                                    : "#f8fafc",
-                                  fontSize: "14px",
-                                  color: isCorrect ? "#166534" : "#475569",
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    width: "24px",
-                                    height: "24px",
-                                    borderRadius: "50%",
-                                    backgroundColor: isCorrect
-                                      ? "#22c55e"
-                                      : "#e2e8f0",
-                                    color: isCorrect ? "#fff" : "#64748b",
-                                    fontSize: "12px",
-                                    fontWeight: 700,
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  {isCorrect ? "✓" : letters[oi]}
-                                </span>
-                                <MathRenderer content={opt} />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {/* Explanation */}
-                      {q.explanation && (
-                        <div
-                          style={{
-                            padding: "12px 16px",
-                            backgroundColor: "#fffbeb",
-                            border: "1px solid #fde68a",
-                            borderRadius: "10px",
-                            fontSize: "13px",
-                            color: "#92400e",
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          <strong
-                            style={{
-                              display: "block",
-                              marginBottom: "4px",
-                              fontSize: "11px",
-                              textTransform: "uppercase",
-                              letterSpacing: "0.5px",
-                              color: "#b45309",
-                            }}
-                          >
-                            Solution Explanation:
-                          </strong>
-                          <MathRenderer content={q.explanation} />
-                        </div>
-                      )}
-
-                      {/* Tags & Metadata footer */}
-                      {(q.subject || q.tags?.length > 0) && (
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                            marginTop: "14px",
-                            paddingTop: "12px",
-                            borderTop: "1px solid #f1f5f9",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          {q.subject && (
-                            <span
-                              style={{
-                                fontSize: "11px",
-                                fontWeight: 600,
-                                padding: "3px 8px",
-                                backgroundColor: "#f5f3ff",
-                                color: "#7c3aed",
-                                borderRadius: "6px",
-                              }}
-                            >
-                              {q.subjectName || q.subject}
-                            </span>
-                          )}
-                          {q.chapter && (
-                            <span
-                              style={{
-                                fontSize: "11px",
-                                fontWeight: 500,
-                                padding: "3px 8px",
-                                backgroundColor: "#f1f5f9",
-                                color: "#64748b",
-                                borderRadius: "6px",
-                              }}
-                            >
-                              {q.chapter}
-                            </span>
-                          )}
-                          {q.tags?.map((tag, ti) => (
-                            <span
-                              key={ti}
-                              style={{
-                                fontSize: "11px",
-                                fontWeight: 500,
-                                padding: "3px 8px",
-                                backgroundColor: "#f1f5f9",
-                                color: "#64748b",
-                                borderRadius: "6px",
-                              }}
-                            >
-                              #{tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                {totalPages > 1 && (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginTop: "20px",
-                      padding: "16px",
-                      backgroundColor: "#f8fafc",
-                      borderRadius: "12px",
-                      border: "1px solid #e2e8f0",
-                    }}
-                  >
-                    <span style={{ fontSize: "13px", color: "#64748b" }}>
-                      Showing {(currentPage - 1) * QUESTIONS_PER_PAGE + 1} -{" "}
-                      {Math.min(
-                        currentPage * QUESTIONS_PER_PAGE,
-                        filteredTestQuestions.length,
-                      )}{" "}
-                      of {filteredTestQuestions.length} questions
-                    </span>
-                    <div style={{ display: "flex", gap: "4px" }}>
-                      <button
-                        onClick={() => setCurrentPage(1)}
-                        disabled={currentPage === 1}
-                        style={{
-                          padding: "6px 12px",
-                          backgroundColor: "#fff",
-                          border: "1px solid #e2e8f0",
-                          borderRadius: "6px",
-                          cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                          opacity: currentPage === 1 ? 0.5 : 1,
-                          fontSize: "13px",
-                          color: "#374151",
-                        }}
-                      >
-                        First
-                      </button>
-                      <button
-                        onClick={() =>
-                          setCurrentPage((p) => Math.max(1, p - 1))
-                        }
-                        disabled={currentPage === 1}
-                        style={{
-                          padding: "6px 12px",
-                          backgroundColor: "#fff",
-                          border: "1px solid #e2e8f0",
-                          borderRadius: "6px",
-                          cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                          opacity: currentPage === 1 ? 0.5 : 1,
-                          fontSize: "13px",
-                          color: "#374151",
-                        }}
-                      >
-                        Previous
-                      </button>
-                      {Array.from(
-                        { length: Math.min(5, totalPages) },
-                        (_, i) => {
-                          let pageNum;
-                          if (totalPages <= 5) {
-                            pageNum = i + 1;
-                          } else if (currentPage <= 3) {
-                            pageNum = i + 1;
-                          } else if (currentPage >= totalPages - 2) {
-                            pageNum = totalPages - 4 + i;
-                          } else {
-                            pageNum = currentPage - 2 + i;
-                          }
-                          return (
-                            <button
-                              key={pageNum}
-                              onClick={() => setCurrentPage(pageNum)}
-                              style={{
-                                width: "32px",
-                                height: "32px",
-                                backgroundColor:
-                                  currentPage === pageNum ? "#6366f1" : "#fff",
-                                border: "1px solid #e2e8f0",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontSize: "13px",
-                                fontWeight: currentPage === pageNum ? 700 : 500,
-                                color:
-                                  currentPage === pageNum ? "#fff" : "#374151",
-                              }}
-                            >
-                              {pageNum}
-                            </button>
-                          );
-                        },
-                      )}
-                      <button
-                        onClick={() =>
-                          setCurrentPage((p) => Math.min(totalPages, p + 1))
-                        }
-                        disabled={currentPage === totalPages}
-                        style={{
-                          padding: "6px 12px",
-                          backgroundColor: "#fff",
-                          border: "1px solid #e2e8f0",
-                          borderRadius: "6px",
-                          cursor:
-                            currentPage === totalPages
-                              ? "not-allowed"
-                              : "pointer",
-                          opacity: currentPage === totalPages ? 0.5 : 1,
-                          fontSize: "13px",
-                          color: "#374151",
-                        }}
-                      >
-                        Next
-                      </button>
-                      <button
-                        onClick={() => setCurrentPage(totalPages)}
-                        disabled={currentPage === totalPages}
-                        style={{
-                          padding: "6px 12px",
-                          backgroundColor: "#fff",
-                          border: "1px solid #e2e8f0",
-                          borderRadius: "6px",
-                          cursor:
-                            currentPage === totalPages
-                              ? "not-allowed"
-                              : "pointer",
-                          opacity: currentPage === totalPages ? 0.5 : 1,
-                          fontSize: "13px",
-                          color: "#374151",
-                        }}
-                      >
-                        Last
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <EmptyState
-                icon={FileText}
-                title="No Questions in this Test"
-                description={`"${selectedTest?.title || selectedTest?.name || "This test"}" has no questions yet. Add your first question.`}
-                action={
-                  <button
-                    onClick={() => {
-                      resetForm();
-                      setShowForm(true);
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Question
-                  </button>
-                }
-              />
-            )}
-          </div>
+          <QuestionDetailList
+            testQuestions={testQuestions}
+            filteredTestQuestions={filteredTestQuestions}
+            paginatedQuestions={paginatedQuestions}
+            selectedSection={selectedSection}
+            setSelectedSection={setSelectedSection}
+            sectionCounts={sectionCounts}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalPages={totalPages}
+            questionsPerPage={QUESTIONS_PER_PAGE}
+            testQuestionsLoading={testQuestionsLoading}
+            selectedIds={selectedIds}
+            setSelectedIds={setSelectedIds}
+            onBulkDifficulty={handleBulkDifficulty}
+            onBulkDelete={handleBulkDelete}
+            onQuestionPreview={handleQuestionPreview}
+            onEditQuestion={handleEdit}
+            onToggleStatus={handleToggleStatus}
+            onDeleteQuestion={handleDelete}
+            onAddQuestion={() => {
+              resetForm();
+              setShowForm(true);
+            }}
+            selectedTest={selectedTest}
+          />
         )}
 
-        {selectedSeries &&
-          createPortal(
-            <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 animate-fade-in">
-              <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 w-full max-w-6xl h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-modal-pop">
-                <div className="px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-start justify-between gap-3 bg-gray-50/50 dark:bg-gray-800/40">
-                  <div className="min-w-0">
-                    <h2
-                      className="text-base sm:text-lg font-black text-gray-900 dark:text-white truncate"
-                      title={
-                        selectedSeries.title ||
-                        selectedSeries.name ||
-                        "Test Series"
-                      }
-                    >
-                      {selectedSeries.title ||
-                        selectedSeries.name ||
-                        "Test Series"}
-                    </h2>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
-                      <span className="px-2 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg font-medium">
-                        {selectedExamCategoryLabel}
-                      </span>
-                      <ChevronRight className="w-3 h-3 text-gray-300 dark:text-gray-600 shrink-0" />
-                      <span className="px-2 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg font-medium">
-                        {selectedExamLabel}
-                      </span>
-                      <ChevronRight className="w-3 h-3 text-gray-300 dark:text-gray-600 shrink-0" />
-                      <span className="px-2 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg font-medium">
-                        {selectedStageLabel}
-                      </span>
-                      <ChevronRight className="w-3 h-3 text-gray-300 dark:text-gray-600 shrink-0" />
-                      <span className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-bold rounded-lg">
-                        {activeCatLabel}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setSelectedSeries(null);
-                      setSelectedTest(null);
-                      resetTestForm();
-                    }}
-                    className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-xl text-gray-500 dark:text-gray-400 transition tap-feedback"
-                    aria-label="Close modal"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
+        <SeriesWorkspaceModal
+          isOpen={!!selectedSeries}
+          selectedSeries={selectedSeries}
+          onClose={() => setSelectedSeries(null)}
+          selectedExamCategoryLabel={selectedExamCategoryLabel}
+          selectedExamLabel={selectedExamLabel}
+          selectedStageLabel={selectedStageLabel}
+          activeCatLabel={activeCatLabel}
+          activeCategory={activeCategory}
+          subCategoryOptionsLevel1={subCategoryOptionsLevel1}
+          subCategoryOptionsLevel2={subCategoryOptionsLevel2}
+          subCategoryOptionsLevel3={subCategoryOptionsLevel3}
+          subCategoryOptionsLevel4={subCategoryOptionsLevel4}
+          subCategoryLevel1={subCategoryLevel1}
+          setSubCategoryLevel1={setSubCategoryLevel1}
+          setSubCategoryLevel2={setSubCategoryLevel2}
+          setSubCategoryLevel3={setSubCategoryLevel3}
+          setSubCategoryLevel4={setSubCategoryLevel4}
+          setSelectedTestSubCategoryId={setSelectedTestSubCategoryId}
+          seriesTests={seriesTests}
+          getCategoryTestCount={getCategoryTestCount}
+          getCategoryLabel={getCategoryLabel}
+          workspaceTests={workspaceTests}
+          selectedTest={selectedTest}
+          setSelectedTest={setSelectedTest}
+          resetTestForm={resetTestForm}
+          openCreateTestForm={openCreateTestForm}
+          openEditTestForm={openEditTestForm}
+          handleTestPreview={handleTestPreview}
+          setShowTestBulkUpload={setShowTestBulkUpload}
+          setShowBulkImport={setShowBulkImport}
+          onAddQuestion={() => {
+            resetForm();
+            setShowForm(true);
+          }}
+          handleBackToTests={handleBackToTests}
+          selectedSection={selectedSection}
+          setSelectedSection={setSelectedSection}
+          setCurrentPage={setCurrentPage}
+          currentPage={currentPage}
+          testQuestions={testQuestions}
+          sectionCounts={sectionCounts}
+          filteredTestQuestions={filteredTestQuestions}
+          testQuestionsLoading={testQuestionsLoading}
+          paginatedQuestions={paginatedQuestions}
+          questionsPerPage={QUESTIONS_PER_PAGE}
+          handleQuestionPreview={handleQuestionPreview}
+          handleEdit={handleEdit}
+          openVersionHistory={openVersionHistory}
+          handleDelete={handleDelete}
+          questions={questions}
+        />
 
-                <div className="border-b border-gray-100 dark:border-gray-800 p-3 flex flex-col gap-2">
-                  {/* Level 1 - Top level row (Year Based, Exam Based) */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1 shrink-0">
-                      Test Subcategory
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSubCategoryLevel1("");
-                        setSubCategoryLevel2("");
-                        setSubCategoryLevel3("");
-                        setSubCategoryLevel4("");
-                        setSelectedTestSubCategoryId("all");
-                        setSelectedTest(null);
-                      }}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
-                        !subCategoryLevel1
-                          ? "bg-gray-900 text-white border-gray-900"
-                          : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                      }`}
-                    >
-                      All ({seriesTests.length})
-                    </button>
-                    {subCategoryOptionsLevel1.map((cat) => {
-                      const catId = getEntityId(cat) || "";
-                      const isSelected = subCategoryLevel1 === catId;
-                      const count = getCategoryTestCount(catId);
-                      return (
-                        <button
-                          key={catId}
-                          type="button"
-                          onClick={() => {
-                            const newVal = isSelected ? "" : catId;
-                            setSubCategoryLevel1(newVal);
-                            setSubCategoryLevel2("");
-                            setSubCategoryLevel3("");
-                            setSubCategoryLevel4("");
-                            setSelectedTestSubCategoryId(newVal || "all");
-                            setSelectedTest(null);
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
-                            isSelected
-                              ? "bg-gray-900 text-white border-gray-900"
-                              : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                          }`}
-                        >
-                          {getCategoryLabel(cat)} ({count})
-                        </button>
-                      );
-                    })}
-                    {subCategoryOptionsLevel1.length === 0 && (
-                      <span className="text-sm text-gray-400 px-2">
-                        No child categories under {activeCatLabel}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Level 2 - Second row (2025, 2024, etc.) */}
-                  {subCategoryLevel1 && subCategoryOptionsLevel2.length > 0 && (
-                    <div className="flex items-center gap-2 flex-wrap ml-4">
-                      {subCategoryOptionsLevel2.map((cat) => {
-                        const catId = getEntityId(cat) || "";
-                        const isSelected = subCategoryLevel2 === catId;
-                        const count = getCategoryTestCount(catId);
-                        return (
-                          <button
-                            key={catId}
-                            type="button"
-                            onClick={() => {
-                              const newVal = isSelected ? "" : catId;
-                              setSubCategoryLevel2(newVal);
-                              setSubCategoryLevel3("");
-                              setSubCategoryLevel4("");
-                              setSelectedTestSubCategoryId(
-                                newVal || subCategoryLevel1 || "all",
-                              );
-                              setSelectedTest(null);
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
-                              isSelected
-                                ? "bg-gray-900 text-white border-gray-900"
-                                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                            }`}
-                          >
-                            {getCategoryLabel(cat)} ({count})
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Level 3 - Third row */}
-                  {subCategoryLevel2 && subCategoryOptionsLevel3.length > 0 && (
-                    <div className="flex items-center gap-2 flex-wrap ml-8">
-                      {subCategoryOptionsLevel3.map((cat) => {
-                        const catId = getEntityId(cat) || "";
-                        const isSelected = subCategoryLevel3 === catId;
-                        const count = getCategoryTestCount(catId);
-                        return (
-                          <button
-                            key={catId}
-                            type="button"
-                            onClick={() => {
-                              const newVal = isSelected ? "" : catId;
-                              setSubCategoryLevel3(newVal);
-                              setSubCategoryLevel4("");
-                              setSelectedTestSubCategoryId(
-                                newVal ||
-                                  subCategoryLevel2 ||
-                                  subCategoryLevel1 ||
-                                  "all",
-                              );
-                              setSelectedTest(null);
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
-                              isSelected
-                                ? "bg-gray-900 text-white border-gray-900"
-                                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                            }`}
-                          >
-                            {getCategoryLabel(cat)} ({count})
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Level 4 - Fourth row */}
-                  {subCategoryLevel3 && subCategoryOptionsLevel4.length > 0 && (
-                    <div className="flex items-center gap-2 flex-wrap ml-12">
-                      {subCategoryOptionsLevel4.map((cat) => {
-                        const catId = getEntityId(cat) || "";
-                        const isSelected = subCategoryLevel4 === catId;
-                        const count = getCategoryTestCount(catId);
-                        return (
-                          <button
-                            key={catId}
-                            type="button"
-                            onClick={() => {
-                              const newVal = isSelected ? "" : catId;
-                              setSubCategoryLevel4(newVal);
-                              setSelectedTestSubCategoryId(
-                                newVal ||
-                                  subCategoryLevel3 ||
-                                  subCategoryLevel2 ||
-                                  subCategoryLevel1 ||
-                                  "all",
-                              );
-                              setSelectedTest(null);
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
-                              isSelected
-                                ? "bg-gray-900 text-white border-gray-900"
-                                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                            }`}
-                          >
-                            {getCategoryLabel(cat)} ({count})
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-4 bg-gray-50/40">
-                  {!selectedTest ? (
-                    <div>
-                      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                          <h3 className="font-bold text-gray-900">Tests</h3>
-                          <p className="text-sm text-gray-500">
-                            {workspaceTests.length} tests linked to the selected
-                            test subcategory.
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setShowTestBulkUpload(true)}
-                            className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                          >
-                            <Upload className="w-4 h-4" /> Bulk Create
-                          </button>
-                          <button
-                            onClick={openCreateTestForm}
-                            className="px-3 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 flex items-center gap-2"
-                          >
-                            <Plus className="w-4 h-4" /> Create Test
-                          </button>
-                        </div>
-                      </div>
-
-                      {workspaceTests.length === 0 ? (
-                        <EmptyState
-                          icon={FileText}
-                          title="No Tests Linked"
-                          description="Create a test or bulk upload tests for this series and selected test subcategory."
-                        />
-                      ) : (
-                        <div className="flex flex-col gap-3">
-                          {workspaceTests.map((test) => {
-                            const testId = getTestId(test);
-                            const qCount =
-                              Number(
-                                test.total_questions ??
-                                  test.totalQuestions ??
-                                  test.question_count ??
-                                  test.questionsCount,
-                              ) ||
-                              questions.filter((q) =>
-                                idsEqual(getTestIdFromQuestion(q), testId),
-                              ).length;
-                            return (
-                              <div
-                                key={testId}
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => setSelectedTest(test)}
-                                onKeyDown={(event) => {
-                                  if (
-                                    event.key === "Enter" ||
-                                    event.key === " "
-                                  ) {
-                                    event.preventDefault();
-                                    setSelectedTest(test);
-                                  }
-                                }}
-                                className="w-full text-left bg-white border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
-                              >
-                                <div className="min-w-0">
-                                  <div className="flex flex-wrap gap-2 mb-2">
-                                    <Badge
-                                      variant={
-                                        test.status === "active" ||
-                                        test.status === "published"
-                                          ? "success"
-                                          : "default"
-                                      }
-                                    >
-                                      {test.status || "draft"}
-                                    </Badge>
-                                    <Badge variant="info">
-                                      {test.type || activeCategory}
-                                    </Badge>
-                                  </div>
-                                  <h4
-                                    className="font-bold text-gray-900 truncate"
-                                    title={
-                                      test.title || test.name || "Untitled Test"
-                                    }
-                                  >
-                                    {test.title || test.name || "Untitled Test"}
-                                  </h4>
-                                  <p
-                                    className="text-xs text-gray-500 mt-1 truncate"
-                                    title={test.description || "No description"}
-                                  >
-                                    {test.description || "No description"}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-4 text-sm text-gray-600 shrink-0">
-                                  <span className="flex items-center gap-1">
-                                    <Clock className="w-4 h-4" />
-                                    {test.duration ||
-                                      test.time_limit ||
-                                      "--"}{" "}
-                                    min
-                                  </span>
-                                  <span className="flex items-center gap-1">
-                                    <FileText className="w-4 h-4" />
-                                    {qCount} Qs
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      handleTestPreview(test);
-                                    }}
-                                    className="p-2 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-600"
-                                    title="Preview Test"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      openEditTestForm(test);
-                                    }}
-                                    className="p-2 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600"
-                                    title="Edit Test Setup"
-                                  >
-                                    <Edit2 className="w-4 h-4" />
-                                  </button>
-                                  <ChevronRight className="w-5 h-5 text-gray-300" />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleBackToTests();
-                        }}
-                        className="mb-4 inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
-                      >
-                        <ArrowLeft className="w-4 h-4" /> Back to Tests
-                      </button>
-                      <div className="mb-4 bg-white border border-gray-200 rounded-xl p-3 flex gap-2 overflow-x-auto">
-                        <button
-                          onClick={() => {
-                            setSelectedSection("all");
-                            setCurrentPage(1);
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedSection === "all" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                        >
-                          All Sections ({testQuestions.length})
-                        </button>
-                        {[...sectionCounts.entries()].map(
-                          ([section, count]) => (
-                            <button
-                              key={section}
-                              onClick={() => {
-                                setSelectedSection(section);
-                                setCurrentPage(1);
-                              }}
-                              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedSection === section ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                            >
-                              {section} ({count})
-                            </button>
-                          ),
-                        )}
-                      </div>
-
-                      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                          <h3 className="font-bold text-gray-900">
-                            {selectedTest.title || selectedTest.name || "Test"}
-                          </h3>
-                          <p className="text-sm text-gray-500">
-                            {filteredTestQuestions.length} questions in current
-                            section.
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setShowBulkImport(true)}
-                            className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                          >
-                            <Upload className="w-4 h-4" /> Bulk Questions
-                          </button>
-                          <button
-                            onClick={() => {
-                              resetForm();
-                              setShowForm(true);
-                            }}
-                            className="px-3 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 flex items-center gap-2"
-                          >
-                            <Plus className="w-4 h-4" /> Add Question
-                          </button>
-                        </div>
-                      </div>
-
-                      {testQuestionsLoading ? (
-                        <div className="flex flex-col items-center justify-center p-8 my-6 text-center space-y-4">
-                          <LoadingSpinner
-                            size="lg"
-                            message="Loading questions for this test..."
-                          />
-                        </div>
-                      ) : filteredTestQuestions.length === 0 ? (
-                        <EmptyState
-                          icon={FileText}
-                          title="No Questions in this Test"
-                          description="Add or bulk upload questions for this test."
-                        />
-                      ) : (
-                        <div className="space-y-3">
-                          {paginatedQuestions.map((q, idx) => (
-                            <div
-                              key={getQuestionId(q) || idx}
-                              className="bg-white border border-gray-200 rounded-xl p-4 hover:border-indigo-200 transition-all shadow-xs"
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                                    <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 inline-flex items-center justify-center text-xs font-bold">
-                                      {(currentPage - 1) * QUESTIONS_PER_PAGE +
-                                        idx +
-                                        1}
-                                    </span>
-                                    <Badge variant="info">
-                                      {q.type || "mcq"}
-                                    </Badge>
-                                    <Badge
-                                      className={
-                                        (
-                                          DIFFICULTY_LEVELS.find(
-                                            (d) => d.value === q.difficulty,
-                                          ) || DIFFICULTY_LEVELS[1]
-                                        ).color
-                                      }
-                                    >
-                                      {q.difficulty || "medium"}
-                                    </Badge>
-                                    <Badge
-                                      className={
-                                        (
-                                          STATUS_OPTIONS.find(
-                                            (s) => s.value === q.status,
-                                          ) || STATUS_OPTIONS[1]
-                                        ).color
-                                      }
-                                    >
-                                      {q.status || "draft"}
-                                    </Badge>
-                                    {q.marks && (
-                                      <span className="text-xs text-gray-500 font-medium">
-                                        <strong className="text-emerald-600">
-                                          +{q.marks}
-                                        </strong>
-                                        {q.negativeMarks > 0 && (
-                                          <span className="text-red-500">
-                                            {" "}
-                                            / -{q.negativeMarks}
-                                          </span>
-                                        )}
-                                      </span>
-                                    )}
-                                    {q.questionTextHi && (
-                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
-                                        Hindi Available
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="text-sm text-gray-900 leading-relaxed font-medium mb-3">
-                                    <MathRenderer content={q.questionText} />
-                                  </div>
-
-                                  {/* Options Preview */}
-                                  {q.options && q.options.length > 0 && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-gray-600 mb-2">
-                                      {q.options.map((opt, oi) => {
-                                        const isCorrect = Array.isArray(
-                                          q.correctOption,
-                                        )
-                                          ? q.correctOption.includes(oi)
-                                          : q.correctOption === oi ||
-                                            Number(q.correctOption) === oi;
-                                        const optionLetters = [
-                                          "A",
-                                          "B",
-                                          "C",
-                                          "D",
-                                          "E",
-                                          "F",
-                                        ];
-                                        return (
-                                          <div
-                                            key={oi}
-                                            className={`flex items-start gap-1.5 p-2 rounded-lg border text-xs ${
-                                              isCorrect
-                                                ? "bg-emerald-50/80 border-emerald-200 text-emerald-900 font-medium"
-                                                : "bg-gray-50/60 border-gray-100 text-gray-700"
-                                            }`}
-                                          >
-                                            <span
-                                              className={`w-4 h-4 rounded flex items-center justify-center font-bold text-[10px] shrink-0 ${
-                                                isCorrect
-                                                  ? "bg-emerald-200 text-emerald-800"
-                                                  : "bg-gray-200 text-gray-600"
-                                              }`}
-                                            >
-                                              {optionLetters[oi] || oi + 1}
-                                            </span>
-                                            <div className="flex-1 overflow-hidden">
-                                              <MathRenderer content={opt} />
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-
-                                  {/* Explanation Preview */}
-                                  {q.explanation && (
-                                    <div className="p-2.5 bg-indigo-50/40 border border-indigo-100/60 rounded-lg text-xs text-indigo-950 mt-2">
-                                      <div className="font-bold text-[11px] text-indigo-700 mb-1 flex items-center gap-1">
-                                        <Sparkles className="w-3 h-3" />{" "}
-                                        Solution & Explanation
-                                      </div>
-                                      <div
-                                        className="line-clamp-3 overflow-hidden text-gray-700"
-                                        title={
-                                          typeof q.explanation === "string"
-                                            ? q.explanation
-                                            : undefined
-                                        }
-                                      >
-                                        <MathRenderer content={q.explanation} />
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex gap-1 shrink-0">
-                                  <button
-                                    onClick={() => handleQuestionPreview(q)}
-                                    className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50"
-                                    title="Preview Question"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleEdit(q)}
-                                    className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"
-                                  >
-                                    <Edit2 className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      openVersionHistory(getQuestionId(q))
-                                    }
-                                    className="p-2 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50"
-                                    title="Version History"
-                                  >
-                                    <History className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      handleDelete(getQuestionId(q))
-                                    }
-                                    className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>,
-            document.body,
-          )}
-
-        {showTestForm &&
-          createPortal(
-            <div
-              key={
-                editingTestId ||
-                `create-${getSeriesId(selectedSeries) || "none"}-${activeStageId || "all"}-${selectedTestSubCategoryId}`
-              }
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-            >
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col">
-                <div className="px-6 py-4 border-b flex justify-between items-center">
-                  <h3 className="font-bold text-gray-900">
-                    {editingTestId ? "Edit Test" : "Create Test"}
-                  </h3>
-                  <button
-                    onClick={resetTestForm}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                <form
-                  onSubmit={handleTestSubmit}
-                  className="p-6 overflow-y-auto space-y-4"
-                >
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Title *
-                    </label>
-                    <input
-                      required
-                      value={testFormData.title}
-                      onChange={(e) =>
-                        setTestFormData({
-                          ...testFormData,
-                          title: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Description
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={testFormData.description}
-                      onChange={(e) =>
-                        setTestFormData({
-                          ...testFormData,
-                          description: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Duration
-                      </label>
-                      <input
-                        type="number"
-                        value={testFormData.duration}
-                        onChange={(e) =>
-                          setTestFormData({
-                            ...testFormData,
-                            duration: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 py-2 border rounded-lg"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Questions
-                      </label>
-                      <input
-                        type="number"
-                        value={testFormData.totalQuestions}
-                        onChange={(e) =>
-                          setTestFormData({
-                            ...testFormData,
-                            totalQuestions: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 py-2 border rounded-lg"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Marks
-                      </label>
-                      <input
-                        type="number"
-                        value={testFormData.totalMarks}
-                        onChange={(e) =>
-                          setTestFormData({
-                            ...testFormData,
-                            totalMarks: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 py-2 border rounded-lg"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Negative
-                      </label>
-                      <input
-                        type="number"
-                        step="0.25"
-                        value={testFormData.negativeMarking}
-                        onChange={(e) =>
-                          setTestFormData({
-                            ...testFormData,
-                            negativeMarking: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 py-2 border rounded-lg"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Type
-                      </label>
-                      <input
-                        value={testFormData.type}
-                        onChange={(e) =>
-                          setTestFormData({
-                            ...testFormData,
-                            type: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 py-2 border rounded-lg"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Difficulty
-                      </label>
-                      <select
-                        value={testFormData.difficulty}
-                        onChange={(e) =>
-                          setTestFormData({
-                            ...testFormData,
-                            difficulty: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 py-2 border rounded-lg"
-                      >
-                        <option>Easy</option>
-                        <option>Medium</option>
-                        <option>Hard</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Passing Marks
-                      </label>
-                      <input
-                        type="number"
-                        value={testFormData.passingMarks}
-                        onChange={(e) =>
-                          setTestFormData({
-                            ...testFormData,
-                            passingMarks: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 py-2 border rounded-lg"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tags
-                    </label>
-                    <input
-                      value={testFormData.tags}
-                      onChange={(e) =>
-                        setTestFormData({
-                          ...testFormData,
-                          tags: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="comma, separated, tags"
-                    />
-                  </div>
-                  <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-xs text-indigo-900">
-                    Linked to: {selectedSeries?.title || selectedSeries?.name} /{" "}
-                    {selectedStageLabel} / {activeCatLabel} /{" "}
-                    {selectedTestSubCategoryRecord?.name ||
-                      selectedTestSubCategoryRecord?.label ||
-                      "All test subcategories"}
-                  </div>
-                  <div className="pt-4 border-t flex justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={resetTestForm}
-                      className="px-4 py-2 border rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={testSaving}
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50"
-                    >
-                      {testSaving ? "Saving..." : "Save Test"}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>,
-            document.body,
-          )}
+        <SimpleTestModal
+          isOpen={showTestForm}
+          editingTestId={editingTestId}
+          selectedSeries={selectedSeries}
+          activeStageId={activeStageId}
+          selectedTestSubCategoryId={selectedTestSubCategoryId}
+          testFormData={testFormData}
+          setTestFormData={setTestFormData}
+          handleTestSubmit={handleTestSubmit}
+          resetTestForm={resetTestForm}
+          testSaving={testSaving}
+          selectedStageLabel={selectedStageLabel}
+          activeCatLabel={activeCatLabel}
+          selectedTestSubCategoryRecord={selectedTestSubCategoryRecord}
+        />
 
         {showTestBulkUpload &&
           createPortal(
@@ -4687,34 +2332,10 @@ function QuestionsManager() {
         />
 
         {/* Activity Log Modal */}
-        {showActivityLog &&
-          createPortal(
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-indigo-600" />
-                      Activity Log
-                    </h2>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Monitor user actions and system events
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setShowActivityLog(false)}
-                    className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                  <UserActivityLog />
-                </div>
-              </div>
-            </div>,
-            document.body,
-          )}
+        <ActivityLogModal
+          isOpen={showActivityLog}
+          onClose={() => setShowActivityLog(false)}
+        />
 
         {/* Close Main Content */}
       </div>

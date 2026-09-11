@@ -29,6 +29,22 @@ export default function MaintenanceMode({ children }) {
   const allowAdmin = maintenance.allowAdminAccess !== false;
   const adminBypass = allowAdmin && isAdmin;
 
+  if (isLoading) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center gap-2 bg-slate-950 text-white"
+        role="status"
+        aria-label="Checking system status"
+      >
+        <Loader2
+          className="w-6 h-6 animate-spin text-violet-400"
+          aria-hidden="true"
+        />
+        <span className="text-sm text-slate-300">Checking system status…</span>
+      </div>
+    );
+  }
+
   if (!isMaintenanceMode) {
     return children;
   }

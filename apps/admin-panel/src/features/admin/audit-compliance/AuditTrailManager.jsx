@@ -182,7 +182,7 @@ export default function AuditTrailManager() {
 
   if (loading && logs.length === 0) {
     return (
-      <div className="p-12 flex flex-col items-center justify-center min-h-96 text-center space-y-4">
+      <div className="p-6 sm:p-8 flex flex-col items-center justify-center min-h-96 text-center space-y-4">
         <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
         <p className="text-sm font-bold text-gray-500 dark:text-gray-400">
           Loading audit trail records...
@@ -305,6 +305,7 @@ export default function AuditTrailManager() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
+              aria-label="Search by user, action, table, or IP address"
               placeholder="Search by user, action, table, or IP address..."
               value={searchQuery}
               onChange={(e) => {
@@ -353,7 +354,7 @@ export default function AuditTrailManager() {
       {/* Audit Logs Table */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
         {logs.length === 0 ? (
-          <div className="p-16 text-center text-gray-400 space-y-3">
+          <div className="p-6 sm:p-8 text-center text-gray-400 space-y-3">
             <Shield className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600" />
             <p className="font-bold text-base text-gray-700 dark:text-gray-300">
               No audit log records found

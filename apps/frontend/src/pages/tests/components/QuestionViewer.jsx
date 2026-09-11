@@ -12,11 +12,13 @@ import {
   RotateCcw,
   Check,
   X,
+  Tag,
 } from "lucide-react";
 import MathRenderer from "../../../shared/components/MathRenderer";
 import DifficultyBadge from "../../../shared/components/common/DifficultyBadge";
 import sanitizeHtml from "../../../shared/lib/sanitizeHtml";
 import { getLocalizedField } from "../../../shared/lib/language";
+import { formatPyqSourceLabel } from "../../../shared/lib/questionUtils.js";
 import SocraticHintModal from "./SocraticHintModal";
 
 const DEFAULT_MARKS_PER_QUESTION = 2;
@@ -59,6 +61,58 @@ export default function QuestionViewer({
   );
   const hasReattemptedCurrentQ =
     reviewCurrentResponse !== undefined && reviewCurrentResponse !== null;
+
+  const pyqSource = currentQ?.sourceConfig || currentQ?.source_config || {};
+  const qTags = Array.isArray(currentQ?.tags) ? currentQ.tags : [];
+  const isPyq =
+    test?.isPyq ||
+    test?.is_pyq ||
+    Boolean(test?.pyqYear || test?.pyq_year) ||
+    qTags.some((t) => String(t).toLowerCase().includes("pyq")) ||
+    String(pyqSource.type || "")
+      .toLowerCase()
+      .includes("pyq") ||
+    String(currentQ?.source || "")
+      .toLowerCase()
+      .includes("pyq") ||
+    Boolean(
+      pyqSource.examName ||
+      pyqSource.exam_name ||
+      pyqSource.year ||
+      pyqSource.shift ||
+      pyqSource.paper,
+    );
+
+  const pyqLabel = isPyq
+    ? formatPyqSourceLabel(
+        {
+          ...currentQ,
+          examName:
+            currentQ?.examName ||
+            currentQ?.exam_name ||
+            test?.examName ||
+            test?.exam_name ||
+            test?.title,
+          year:
+            currentQ?.year ||
+            currentQ?.pyqYear ||
+            currentQ?.pyq_year ||
+            test?.pyqYear ||
+            test?.pyq_year ||
+            test?.year,
+          stage: currentQ?.stage || currentQ?.tier || test?.stage,
+          date:
+            currentQ?.date ||
+            currentQ?.examDate ||
+            currentQ?.exam_date ||
+            test?.scheduled_at ||
+            test?.testDate,
+          shift: currentQ?.shift || test?.shift,
+        },
+        pyqSource,
+        currentQ?.source,
+      )
+    : null;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 md:p-5 mb-3 border border-gray-100 dark:border-gray-700 flex-1">
@@ -186,11 +240,24 @@ export default function QuestionViewer({
 
       {/* Question Text */}
       <div className="prose max-w-none mb-5 w-full overflow-hidden">
+        {/* Previous-year paper source — exam name year stage date shift */}
+        {pyqLabel && (
+          <div className="mb-3.5 flex flex-wrap items-center gap-2 not-prose">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded-md px-2.5 py-0.5 shadow-2xs">
+              <Tag className="w-3 h-3 text-purple-600 dark:text-purple-400 shrink-0" />
+              <span>{pyqLabel}</span>
+            </span>
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+              Asked in previous year paper
+            </span>
+          </div>
+        )}
+
         {questionImageUrl && (
           <div className="mb-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 p-1.5 relative">
             <img
-              src={questionImageUrl}
               alt={`Question ${currentQuestion + 1}`}
+              src={questionImageUrl}
               className="max-h-60 w-full object-contain rounded cursor-zoom-in"
               loading="lazy"
               onClick={() => setShowImageZoom(true)}
@@ -255,6 +322,7 @@ export default function QuestionViewer({
                   className={`flex items-center gap-3 rounded-xl border-2 cursor-pointer transition-all ${optionButtonClass} ${isReviewMode ? "cursor-default p-2 sm:p-2.5" : "p-2.5 sm:p-3"}`}
                 >
                   <input
+                    aria-label={`Option ${idx + 1}`}
                     type="checkbox"
                     checked={isSelected}
                     disabled={isReviewMode}
@@ -297,6 +365,7 @@ export default function QuestionViewer({
       {/* Numeric Input */}
       {currentQ?.type === "numeric" && (
         <input
+          aria-label="Numeric answer input"
           type="number"
           value={answers[currentQuestion] ?? ""}
           onChange={(e) => handleAnswer(parseFloat(e.target.value) || "")}
@@ -383,9 +452,9 @@ export default function QuestionViewer({
                 const revealReviewAnswers =
                   !isReattemptActive || hasReattemptedCurrentQ;
 
-                let optionButtonClass = "";
-                let optionIndicatorClass = "";
-                let optionTextClass = "";
+                let optionButtonClass;
+                let optionIndicatorClass;
+                let optionTextClass;
 
                 if (reviewMode) {
                   if (isReattemptActive && !hasReattemptedCurrentQ) {
@@ -632,26 +701,32 @@ export default function QuestionViewer({
 
       {/* Solution / Explanation Content */}
       {reviewMode &&
-        currentQ?.explanation &&
-        getLocalizedField(currentQ.explanation, language) &&
+        (currentQ?.explanation ||
+          currentQ?.explanationHi ||
+          currentQ?.explanation_hi) &&
         showReviewExplanation &&
-        (!isReattemptActive || hasReattemptedCurrentQ) && (
-          <div
-            data-testid="question-explanation-box"
-            className="mt-4 rounded-lg border border-sky-100 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/20 p-4"
-          >
-            <div className="text-xs font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300 mb-2">
-              Explanation
+        (!isReattemptActive || hasReattemptedCurrentQ) &&
+        (() => {
+          const expText =
+            language === "hi" &&
+            (currentQ?.explanationHi || currentQ?.explanation_hi)
+              ? currentQ.explanationHi || currentQ.explanation_hi
+              : getLocalizedField(currentQ?.explanation, language);
+          if (!expText) return null;
+          return (
+            <div
+              data-testid="question-explanation-box"
+              className="mt-4 rounded-lg border border-sky-100 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/20 p-4"
+            >
+              <div className="text-xs font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300 mb-2">
+                {language === "hi" ? "व्याख्या (Explanation)" : "Explanation"}
+              </div>
+              <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                <MathRenderer text={sanitizeHtml(expText)} />
+              </div>
             </div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-              <MathRenderer
-                text={sanitizeHtml(
-                  getLocalizedField(currentQ.explanation, language),
-                )}
-              />
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
       {/* Dual Response Comparison (Interactive Review / Reattempt Mode) */}
       {reviewMode && isReattemptActive && hasReattemptedCurrentQ && (
@@ -669,16 +744,33 @@ export default function QuestionViewer({
               </div>
             </div>
             {clearCurrentReattempt && (
-              <button
-                type="button"
-                data-testid="clear-reattempt-btn"
-                onClick={clearCurrentReattempt}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold transition-all cursor-pointer shadow-2xs"
-                title="Try answering this question again"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
-                <span>Try Again</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  data-testid="toggle-reattempt-btn"
+                  onClick={toggleReattemptMode}
+                  aria-pressed={Boolean(reattemptMode)}
+                  title={
+                    reattemptMode
+                      ? "Exit reattempt mode"
+                      : "Enter reattempt mode"
+                  }
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/40 hover:bg-indigo-100 dark:hover:bg-indigo-800/50 text-indigo-700 dark:text-indigo-200 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>{reattemptMode ? "Exit Reattempt" : "Reattempt"}</span>
+                </button>
+                <button
+                  type="button"
+                  data-testid="clear-reattempt-btn"
+                  onClick={clearCurrentReattempt}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                  title="Try answering this question again"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Try Again</span>
+                </button>
+              </div>
             )}
           </div>
 
@@ -688,11 +780,23 @@ export default function QuestionViewer({
               const correctOption = resolveCorrectIndex(currentQ);
               const firstAns = answers[currentQuestion];
               const newAns = reviewCurrentResponse;
+              // "" counts as skipped too: Number("") === 0 would otherwise
+              // mark an empty-string answer as "was correct" when the right
+              // option is index 0.
               const firstWasSkipped =
-                firstAns === undefined || firstAns === null || firstAns === -1;
+                firstAns === undefined ||
+                firstAns === null ||
+                firstAns === "" ||
+                firstAns === -1;
+              const newIsSkipped =
+                newAns === undefined ||
+                newAns === null ||
+                newAns === "" ||
+                newAns === -1;
               const firstWasCorrect =
-                !firstWasSkipped && firstAns === correctOption;
-              const newIsCorrect = newAns === correctOption;
+                !firstWasSkipped && Number(firstAns) === Number(correctOption);
+              const newIsCorrect =
+                !newIsSkipped && Number(newAns) === Number(correctOption);
 
               if (firstWasSkipped) {
                 return (

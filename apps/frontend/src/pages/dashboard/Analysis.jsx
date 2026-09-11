@@ -28,9 +28,6 @@ import {
   Lock as LockIcon,
   Activity,
   Gauge,
-  Layers,
-  Wind,
-  Brain,
 } from "lucide-react";
 import { checkFeatureAccess } from "../../shared/utils/pass-helpers";
 import InsightsTab from "./components/InsightsTab";
@@ -714,7 +711,7 @@ function Analysis() {
         </div>
       </AnimatedHero>
 
-      <div className="max-w-7xl mx-auto px-4 pb-6 min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-7xl mx-auto px-2 pb-6 min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Your Progress Section */}
 
         {/* Subject Performance & Achievements Row */}
@@ -761,11 +758,25 @@ function Analysis() {
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   Overall Score
                 </span>
-                <span className="text-lg font-bold text-brand-start dark:text-indigo-400">
-                  {Math.round(
-                    subjectPerformance.reduce((a, b) => a + b.score, 0) /
-                      subjectPerformance.length,
-                  )}
+                <span
+                  className="text-lg font-bold text-brand-start dark:text-indigo-400"
+                  title="Weighted by questions attempted in each subject"
+                >
+                  {(() => {
+                    const totalAtt = subjectPerformance.reduce(
+                      (a, b) => a + (b.attempted || 0),
+                      0,
+                    );
+                    if (totalAtt > 0) {
+                      return Math.round(
+                        subjectPerformance.reduce(
+                          (a, b) => a + b.score * (b.attempted || 0),
+                          0,
+                        ) / totalAtt,
+                      );
+                    }
+                    return effectiveAnalytics.avgAccuracy || 0;
+                  })()}
                   %
                 </span>
               </div>
@@ -845,7 +856,7 @@ function Analysis() {
                     title={badge.name}
                   >
                     <span className="text-sm">{badge.icon}</span>
-                    <span className="text-[7px] text-gray-600 dark:text-gray-400 mt-0.5 leading-tight">
+                    <span className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5 leading-tight">
                       {badge.name}
                     </span>
                   </div>
@@ -1595,10 +1606,13 @@ function Analysis() {
             {activeTab === "progress" && (
               <div className="space-y-6">
                 <div className="bg-gradient-to-r from-brand-start to-brand-end rounded-xl p-6 text-white">
-                  <h3 className="font-bold text-lg mb-2">Keep Going! 🎯</h3>
+                  <h3 className="font-bold text-lg mb-2">
+                    🚀 You're in the Top {100 - effectiveAnalytics.percentile}%!
+                  </h3>
                   <p className="text-purple-100 text-sm mb-4">
-                    You're in the top {100 - effectiveAnalytics.percentile}% of
-                    all students. Keep practicing to improve your rank!
+                    Across {effectiveAnalytics.totalTests} tests, you're
+                    performing better than {100 - effectiveAnalytics.percentile}
+                    % of all students — one more mock could push you higher!
                   </p>
                   <Link
                     to="/test-series"

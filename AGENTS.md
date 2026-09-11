@@ -67,10 +67,16 @@ These are real, graph-surfaced landmines. Check them every session:
    - Migrations 094–101 added (certificates, missing tables, soft-delete
      columns, exam_id type fix, RLS policies, duplicate table reconciliation,
      achievement consolidation).
-   - Migrations 102–135 added (attempt numbering, bookmarks, Node Engine V2
+   - Migrations 102–140 added (attempt numbering, bookmarks, Node Engine V2
      tables, practice redesign, `test_category_series` junction ensure,
      webhook events, RLS waves, taxonomy cascades, lifecycle/shuffle seed,
-     performance backfills — next file is `136_*`).
+     performance backfills, audit follow-up, subject_topics index rename,
+     138 practice revision pipeline reconciliation, 139 user recommendations reconciliation,
+     140 practice_sessions/practice_answers updated_at column fix — next file is `141_*`).
+   - NOTE: the live DB has drifted ahead of shipped migrations (verified
+     Sept 2026 via information_schema) — e.g. `revision_queue.priority` is
+     INTEGER, `practice_answers` carries `is_skipped`/`time_taken_sec`/`mode`.
+     Always confirm against the live DB, not just migration files.
    - Run `scripts/run-database-audit.js` first; do NOT assume tables/indexes
      exist. Read/write split: write pool = `DATABASE_URL`, read pool =
      `DATABASE_READ_URL` (falls back to primary).
@@ -83,7 +89,8 @@ These are real, graph-surfaced landmines. Check them every session:
 
 4. **Write/guard rails**
    Respect `aiRateLimiter`, publish to `MessageBroker` (Redis Pub/Sub +
-   BullMQ), and write `audit_trail` entries. The admin router enforces
+   BullMQ), and write `audit_logs` entries (`audit_logs` is canonical —
+   there is no `audit_trail` table). The admin router enforces
    `normalizeFields → restrictAdminOrigin → validateAdminApiKey → protect →
 admin → auditMiddleware` — do not bypass.
 
@@ -95,7 +102,7 @@ write territories, pre-flight checks, dispatch protocol, and verify gates.
 
 ## AI features (read before touching AI code)
 
-- AI gateway: OpenRouter (multi-provider) via `apps/backend/src/modules/ai/aiClient.js` (`/api/ai/mentor|explanation|logs`). NOTE: admin `generate-questions` currently returns stub content — no live LLM call yet.
+- AI gateway: OpenRouter (multi-provider) via `apps/backend/src/modules/ai/aiClient.js` (`/api/ai/mentor|explanation|logs`). Admin `generate-questions` (`admin-catalog.js`) makes a LIVE OpenRouter call with `aiRateLimiter` + `correctAnswer ∈ options` validation + real insert-only results; if AI keys are absent it falls back to a structured template generator.
 - Semantic search: pgvector (`vector(1536)` + ivfflat cosine indexes).
 - "Node Engine" evolves V1 (flat `nodes` table) → V2 (learning graph +
   spaced repetition) → V3 (Socratic AI tutor) → V4 (autonomous education OS).

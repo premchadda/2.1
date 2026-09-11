@@ -138,7 +138,22 @@ describe("Test Review Normalization and Answer Mapping", () => {
         return {
           ...q,
           userAnswer: ans ? ans.selectedOption : null,
+          // Preserve source position so per-index assertions below can verify
+          // the id-keyed join did not reorder or shift any question.
+          sourceIndex: index,
         };
+      });
+
+      // Per-index integrity: id-keyed mapping preserves original order.
+      mappedQuestions.forEach((q, index) => {
+        expect(
+          q.sourceIndex,
+          `question ${q.id} lost its position at mapped index ${index}`,
+        ).toBe(index);
+        expect(
+          q.questionNumber,
+          `question ${q.id} number drifted at mapped index ${index}`,
+        ).toBe(index + 1);
       });
 
       // Normalize in review mode
@@ -202,6 +217,40 @@ describe("Test Review Normalization and Answer Mapping", () => {
       expect(restoredAnswers[2]).toBeUndefined();
       expect(restoredAnswers[3]).toBeUndefined();
       expect(restoredAnswers[4]).toBeUndefined();
+    });
+  });
+
+  describe("standardSectionOrderMap", () => {
+    it("orders Reasoning < General Awareness < Quant < English", () => {
+      expect(standardSectionOrderMap.reasoning).toBe(1);
+      expect(standardSectionOrderMap["general intelligence & reasoning"]).toBe(
+        1,
+      );
+      expect(standardSectionOrderMap["general awareness"]).toBe(2);
+      expect(standardSectionOrderMap["quantitative aptitude"]).toBe(3);
+      expect(standardSectionOrderMap["english comprehension"]).toBe(4);
+      expect(standardSectionOrderMap["quantitative aptitude"]).toBeGreaterThan(
+        standardSectionOrderMap["general awareness"],
+      );
+      expect(standardSectionOrderMap["english comprehension"]).toBeGreaterThan(
+        standardSectionOrderMap["quantitative aptitude"],
+      );
+    });
+  });
+
+  describe("mapQuestionToFrontend", () => {
+    it("maps a backend stem/options payload into frontend en/hi shape", () => {
+      const mapped = mapQuestionToFrontend({
+        id: "rx-1",
+        question: "What is 2 + 2?",
+        options: ["3", "4", "5", "6"],
+        correct_option: 1,
+        marks: 2,
+      });
+      expect(mapped.id).toBe("rx-1");
+      expect(mapped.text.en).toContain("What is 2 + 2?");
+      expect(mapped.options.en).toEqual(["3", "4", "5", "6"]);
+      expect(mapped.correctOption).toBe(1);
     });
   });
 });

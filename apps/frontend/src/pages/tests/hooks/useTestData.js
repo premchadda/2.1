@@ -32,6 +32,17 @@ export function useTestData({
 }) {
   useEffect(() => {
     const controller = new AbortController();
+    // Preloaded inputs (if the caller already holds test/questions) are only
+    // used for additive diagnostics here — fetching below stays authoritative
+    // so existing load/resume behavior is unchanged.
+    const preloadedCount = Array.isArray(questions) ? questions.length : 0;
+    const hasPreloadedTest = Boolean(test?.id || test?._id);
+    if (import.meta.env.DEV && (preloadedCount > 0 || hasPreloadedTest)) {
+      console.debug("useTestData: ignoring preloaded inputs, refetching", {
+        preloadedCount,
+        hasPreloadedTest,
+      });
+    }
     const fetchData = async () => {
       try {
         if (reviewMode) {

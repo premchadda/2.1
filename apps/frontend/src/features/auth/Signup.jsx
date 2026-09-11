@@ -16,6 +16,7 @@ import {
 import { useAuth } from "../../shared/providers/AuthContext";
 import AnimatedHero from "../../shared/components/common/AnimatedHero";
 import { Logo } from "../../shared/components";
+import { TrstprepLoading } from "../../shared/components/common/TrstprepLoading.jsx";
 import { getPublicStats } from "../../shared/lib/dataService";
 import { usePublicSettings } from "../../shared/hooks/usePublicSettings";
 
@@ -98,20 +99,20 @@ function Signup() {
   // Covers the same three cases as Login.jsx:
   //   1) They just signed up successfully in this tab
   //   2) They hard-refreshed while authenticated (AuthProvider rehydrated `user`)
-  //   3) They typed /signup into the address bar while still logged in
-  if (authResolved && !loading && !isSubmitting && user) {
+  // If the user is already authenticated (including from cached session),
+  // send them to the dashboard immediately in 1ms.
+  if (user && !isSubmitting) {
     return <Navigate to="/dashboard" replace state={{}} />;
   }
 
-  // Show loading spinner only during initial session determination before auth state is resolved
+  // Show branded Trstprep loading animation only during initial session determination before auth state is resolved
   if (!authResolved && loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-500">Verifying session...</p>
-        </div>
-      </div>
+      <TrstprepLoading
+        fullscreen
+        message="Verifying session..."
+        subtext="Connecting to Trstprep secure authentication"
+      />
     );
   }
 
@@ -292,6 +293,7 @@ function Signup() {
             <form onSubmit={handleSubmit} className="space-y-3">
               {/* Invisible Bot Honeypot Trap */}
               <input
+                aria-label="Do not fill this field"
                 type="text"
                 name="_hp_website_trap"
                 value={honeypot}
@@ -319,6 +321,7 @@ function Signup() {
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
+                    aria-label="Full Name"
                     id="signup-name"
                     type="text"
                     value={name}
@@ -340,6 +343,7 @@ function Signup() {
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
+                    aria-label="Email Address"
                     id="signup-email"
                     type="email"
                     value={email}
@@ -362,6 +366,7 @@ function Signup() {
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
+                    aria-label="Mobile Number"
                     id="signup-mobile"
                     type="tel"
                     value={mobile}
@@ -385,6 +390,7 @@ function Signup() {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
+                    aria-label="Password"
                     id="signup-password"
                     type={showPassword ? "text" : "password"}
                     value={password}
@@ -443,6 +449,7 @@ function Signup() {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
+                    aria-label="Confirm Password"
                     id="signup-confirm-password"
                     type="password"
                     value={confirmPassword}
@@ -463,6 +470,7 @@ function Signup() {
                   type="checkbox"
                   checked={agreedToTerms}
                   onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  aria-label="I agree to the Terms of Service and Privacy Policy"
                   className="w-3.5 h-3.5 rounded border-gray-300 text-brand-start focus:ring-brand-start mt-0.5"
                 />
                 <span className="text-xs text-gray-600">

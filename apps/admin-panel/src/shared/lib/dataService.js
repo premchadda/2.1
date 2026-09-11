@@ -1,11 +1,11 @@
-// Consolidated Data Service - Re-export layer
-// Imports from split modules and provides the intelligent caching layer (DataService)
+// Consolidated Data Service - Re-export layer.
+// Imports from split modules and provides the intelligent caching layer (DataService).
 import { apiClient, fetchFromAPI } from "./apiClient.js";
 import { CacheService } from "./cacheService.js";
 import { authAPI } from "./api/authAPI.js";
 import { testsAPI } from "./api/testsAPI.js";
 import { questionsAPI } from "./api/questionsAPI.js";
-import { adminAPI } from "./api/adminAPI.js";
+import { adminAPI } from "../lib/api/adminAPI.js";
 import { seriesAPI } from "./api/seriesAPI.js";
 import { userAPI } from "./api/userAPI.js";
 import { examAPI } from "./api/examAPI.js";
@@ -431,6 +431,12 @@ export const getUserAnalytics = (...args) =>
   dataService.getUserAnalytics(...args);
 
 // Bookmark functions
+// NOTE (intentional divergence — do NOT "fix" by adding an /api prefix):
+// apiClient.baseURL is already origin + "/api" (see apiBase.js), so every
+// path here must stay relative WITHOUT an "/api" prefix; adding one would
+// double-prefix to /api/api/... and break the call. getBookmarks delegates
+// to adminAPI while getUserStreak (below) calls apiClient directly — both
+// conventions are correct as-is.
 export const getBookmarks = () => adminAPI.getBookmarks();
 export const deleteBookmark = (id) => adminAPI.deleteBookmark(id);
 
@@ -464,7 +470,8 @@ export const getIntelligenceLeaderboard = async (params = {}) => {
   return apiClient.get(`/intelligence/leaderboard?${queryParams.toString()}`);
 };
 
-// User streak data
+// User streak data — path convention: see note above getBookmarks
+// (no /api prefix; apiClient.baseURL already includes it).
 export const getUserStreak = () => apiClient.get("/intelligence/streak");
 
 // Top performers across all tests

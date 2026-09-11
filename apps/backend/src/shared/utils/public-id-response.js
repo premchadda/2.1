@@ -1,75 +1,90 @@
-import { parseNumericId } from './db-utils.js'
+import { parseNumericId } from "./db-utils.js";
 
 const sanitizeIdentifierFields = (record, options = {}) => {
-  if (!record || typeof record !== 'object' || Array.isArray(record)) {
-    return record
+  if (!record || typeof record !== "object" || Array.isArray(record)) {
+    return record;
   }
 
-  const cleaned = { ...record }
+  const cleaned = { ...record };
 
   if (options.keepPublicId !== true) {
-    delete cleaned.publicId
+    delete cleaned.publicId;
   }
 
   if (options.keepInternalId !== true) {
-    delete cleaned._id
-    delete cleaned.publicIdUuid
-    delete cleaned.public_id_uuid
-    delete cleaned._legacyId
-    delete cleaned._publicId
+    delete cleaned._id;
+    delete cleaned.publicIdUuid;
+    delete cleaned.public_id_uuid;
+    delete cleaned._legacyId;
+    delete cleaned._publicId;
   }
 
-  return cleaned
-}
+  return cleaned;
+};
 
-export function serializeEntityForResponse(dbHelpers, collection, record, options = {}) {
-  if (!record || typeof record !== 'object') {
-    return record
+export function serializeEntityForResponse(
+  dbHelpers,
+  collection,
+  record,
+  options = {},
+) {
+  if (!record || typeof record !== "object") {
+    return record;
   }
 
-  const entityType = dbHelpers?.getTableName?.(collection) || collection
-  const allowFallback = options.allowFallback !== false
+  const entityType = dbHelpers?.getTableName?.(collection) || collection;
+  const allowFallback = options.allowFallback !== false;
 
   try {
     const serialized = dbHelpers?.toApi
       ? dbHelpers.toApi(record, entityType, { allowFallback })
-      : record
+      : record;
 
-    return sanitizeIdentifierFields(serialized, options)
+    return sanitizeIdentifierFields(serialized, options);
   } catch {
-    return sanitizeIdentifierFields(record, options)
+    return sanitizeIdentifierFields(record, options);
   }
 }
 
-export function getPublicResponseId(dbHelpers, collection, recordOrValue, fallback = null) {
+export function getPublicResponseId(
+  dbHelpers,
+  collection,
+  recordOrValue,
+  fallback = null,
+) {
   if (recordOrValue === undefined || recordOrValue === null) {
-    return fallback
+    return fallback;
   }
 
-  if (typeof recordOrValue === 'string') {
-    const trimmed = recordOrValue.trim()
+  if (typeof recordOrValue === "string") {
+    const trimmed = recordOrValue.trim();
     if (!trimmed) {
-      return fallback
+      return fallback;
     }
 
-    const entityType = dbHelpers?.getTableName?.(collection) || collection
+    const entityType = dbHelpers?.getTableName?.(collection) || collection;
     if (dbHelpers?.isValidPublicId?.(trimmed, entityType)) {
-      return trimmed
+      return trimmed;
     }
 
-    const numeric = parseNumericId(trimmed)
-    return numeric ?? fallback ?? trimmed
+    const numeric = parseNumericId(trimmed);
+    return numeric ?? fallback ?? trimmed;
   }
 
-  if (typeof recordOrValue === 'number') {
-    return fallback ?? recordOrValue
+  if (typeof recordOrValue === "number") {
+    return fallback ?? recordOrValue;
   }
 
-  const serialized = serializeEntityForResponse(dbHelpers, collection, recordOrValue, {
-    allowFallback: true
-  })
+  const serialized = serializeEntityForResponse(
+    dbHelpers,
+    collection,
+    recordOrValue,
+    {
+      allowFallback: true,
+    },
+  );
 
-  return serialized?.id ?? fallback
+  return serialized?.id ?? fallback;
 }
 
 export async function buildPublicIdLookup(dbHelpers, collection, ids = []) {
@@ -77,35 +92,42 @@ export async function buildPublicIdLookup(dbHelpers, collection, ids = []) {
     new Set(
       ids
         .map((value) => parseNumericId(value))
-        .filter((value) => value !== null)
-    )
-  )
+        .filter((value) => value !== null),
+    ),
+  );
 
   if (numericIds.length === 0) {
-    return new Map()
+    return new Map();
   }
 
-  const records = await dbHelpers.find(collection, {
-    id: { $in: numericIds }
-  })
+  const records = await dbHelpers.find(
+    collection,
+    { id: { $in: numericIds } },
+    null,
+    null,
+    ["id", "public_id", "public_id_uuid"],
+  );
 
-  const lookup = new Map()
+  const lookup = new Map();
   for (const record of records) {
-    const internalId = parseNumericId(record?.id ?? record?._id)
+    const internalId = parseNumericId(record?.id ?? record?._id);
     if (internalId === null) {
-      continue
+      continue;
     }
 
-    lookup.set(String(internalId), getPublicResponseId(dbHelpers, collection, record, internalId))
+    lookup.set(
+      String(internalId),
+      getPublicResponseId(dbHelpers, collection, record, internalId),
+    );
   }
 
-  return lookup
+  return lookup;
 }
 
 export function mapLookupId(value, lookup, fallback = value) {
   if (value === undefined || value === null) {
-    return fallback
+    return fallback;
   }
 
-  return lookup.get(String(value)) ?? fallback
+  return lookup.get(String(value)) ?? fallback;
 }

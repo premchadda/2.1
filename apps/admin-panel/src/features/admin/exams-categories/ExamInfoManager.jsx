@@ -315,7 +315,7 @@ export default function ExamInfoManager() {
         {/* Exam List - Row Style Cards */}
         <div className="p-4">
           {filteredExams.length === 0 ? (
-            <div className="text-center py-12 bg-gradient-to-b from-gray-50 to-white rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+            <div className="text-center py-8 bg-gradient-to-b from-gray-50 to-white rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
               <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                 <FileText className="w-7 h-7 text-gray-400 dark:text-gray-500" />
               </div>

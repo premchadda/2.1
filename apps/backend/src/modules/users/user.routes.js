@@ -4,7 +4,10 @@ import { fileURLToPath } from "url";
 import { dirname } from "path";
 import express from "express";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
-import { protect } from "../../middleware/auth.middleware.js";
+import {
+  protect,
+  invalidateUserCache,
+} from "../../middleware/auth.middleware.js";
 import {
   responseCache,
   invalidateResponseCache,
@@ -48,6 +51,7 @@ import {
   getUserAttempts,
   isCompletedAttempt,
   formatAttemptResponse,
+  getAttemptedTestsPayload,
 } from "../../shared/utils/attempt-utils.js";
 import EnrollmentService from "../../services/EnrollmentService.js";
 import EntitlementService from "../../services/EntitlementService.js";
@@ -56,8 +60,10 @@ import {
   getUserSessions,
 } from "../../services/SessionCaptureService.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
 
 const router = express.Router();
+const seriesEnrollmentLimiter = createRateLimiter("moderate");
 
 const recordIdentifierValues = (record, fields) =>
   fields
@@ -282,52 +288,10 @@ router.get("/profile", protect, async (req, res) => {
         : [];
 
     // Fetch user's completed test attempts to calculate progress and provide attempted tests info
-    const userAttempts = await getUserAttempts(req.user.id, dbHelpers, {
-      completedOnly: true,
-    });
-
-    const attemptedTestsBySeries = new Map();
-    const attemptedTestIds = new Set();
-
-    userAttempts.forEach((attempt) => {
-      if (attempt.isReattempt === true || attempt.is_reattempt === true) {
-        return;
-      }
-
-      const seriesId = attempt.seriesId || attempt.series_id;
-      const testId = attempt.testId || attempt.test_id;
-
-      if (seriesId && testId) {
-        const seriesKey = String(seriesId);
-        if (!attemptedTestsBySeries.has(seriesKey)) {
-          attemptedTestsBySeries.set(seriesKey, new Set());
-        }
-        attemptedTestsBySeries.get(seriesKey).add(String(testId));
-      }
-
-      if (testId) {
-        attemptedTestIds.add(String(testId));
-      }
-    });
-
-    const attemptedSeriesLookup = await buildPublicIdLookup(
+    // (shared helper — same computation used by GET /api/auth/me)
+    const { attemptedTests, attemptedTestIds } = await getAttemptedTestsPayload(
+      req.user.id,
       dbHelpers,
-      "testSeries",
-      Array.from(attemptedTestsBySeries.keys()),
-    );
-    const attemptedTestsLookup = await buildPublicIdLookup(
-      dbHelpers,
-      "tests",
-      Array.from(attemptedTestIds),
-    );
-
-    const attemptedTests = Object.fromEntries(
-      Array.from(attemptedTestsBySeries.entries()).map(
-        ([seriesId, testIds]) => [
-          mapLookupId(seriesId, attemptedSeriesLookup, seriesId),
-          testIds.size,
-        ],
-      ),
     );
 
     res.json({
@@ -336,9 +300,7 @@ router.get("/profile", protect, async (req, res) => {
         ...sanitizeUser(profileUser),
         enrolledSeries: populatedSeries,
         attemptedTests,
-        attemptedTestIds: Array.from(attemptedTestIds).map((testId) =>
-          mapLookupId(testId, attemptedTestsLookup, testId),
-        ),
+        attemptedTestIds,
       },
     });
   } catch (error) {
@@ -523,6 +485,11 @@ router.put(
         dbHelpers,
       );
 
+      // PERF/CORRECTNESS: /api/auth/me now serves a long-lived SWR-cached body.
+      // Profile changes must evict it immediately or users see stale name/avatar.
+      await invalidateUserCache(req.user.id).catch(() => {});
+      await invalidateResponseCache("auth-me").catch(() => {});
+
       res.json({
         success: true,
         data: {
@@ -571,163 +538,174 @@ router.delete("/profile", protect, async (req, res) => {
 // @route   POST /api/users/enroll/:seriesId
 // @desc    Enroll in a test series (supports both numeric ID and slug)
 // @access  Private
-router.post("/enroll/:seriesId", protect, async (req, res) => {
-  try {
-    const { seriesId } = req.params;
-    console.log(
-      "[Enroll] Request received for seriesId:",
-      seriesId,
-      "userId:",
-      req.user.id,
-    );
-
-    const series = await findEntityByIdentifier(
-      dbHelpers,
-      "testSeries",
-      seriesId,
-      {
-        slugFields: ["slug"],
-      },
-    );
-
-    if (!series) {
-      console.log("[Enroll] Series not found:", seriesId);
-      return res.status(404).json({
-        success: false,
-        message: "Test series not found",
-      });
-    }
-    console.log(
-      "[Enroll] Series found:",
-      series._id || series.id,
-      series.title,
-    );
-
-    // Check if series is Pro and user has Pro access via centralized EntitlementService
-    const entitlement = EntitlementService.canEnrollSeries(req.user, series);
-    if (!entitlement.allowed) {
+router.post(
+  "/enroll/:seriesId",
+  protect,
+  seriesEnrollmentLimiter,
+  async (req, res) => {
+    try {
+      const { seriesId } = req.params;
       console.log(
-        "[Enroll] Entitlement check failed:",
-        entitlement.reason,
-        "series:",
+        "[Enroll] Request received for seriesId:",
         seriesId,
         "userId:",
         req.user.id,
       );
-      return res.status(403).json({
-        success: false,
-        message:
-          entitlement.message ||
-          "Pro Pass required to enroll in this test series",
-        requiresPro: entitlement.requiresPro === true,
-      });
-    }
 
-    const canonicalSeriesId = getInternalId(series);
+      const series = await findEntityByIdentifier(
+        dbHelpers,
+        "testSeries",
+        seriesId,
+        {
+          slugFields: ["slug"],
+        },
+      );
 
-    // Use EnrollmentService - primary source is enrollments table
-    const result = await EnrollmentService.enrollInSeries(
-      dbHelpers,
-      req.user.id,
-      canonicalSeriesId,
-    );
+      if (!series) {
+        console.log("[Enroll] Series not found:", seriesId);
+        return res.status(404).json({
+          success: false,
+          message: "Test series not found",
+        });
+      }
+      console.log(
+        "[Enroll] Series found:",
+        series._id || series.id,
+        series.title,
+      );
 
-    if (result.alreadyEnrolled) {
-      console.log("[Enroll] User already enrolled");
+      // Check if series is Pro and user has Pro access via centralized EntitlementService
+      const entitlement = EntitlementService.canEnrollSeries(req.user, series);
+      if (!entitlement.allowed) {
+        console.log(
+          "[Enroll] Entitlement check failed:",
+          entitlement.reason,
+          "series:",
+          seriesId,
+          "userId:",
+          req.user.id,
+        );
+        return res.status(403).json({
+          success: false,
+          message:
+            entitlement.message ||
+            "Pro Pass required to enroll in this test series",
+          requiresPro: entitlement.requiresPro === true,
+        });
+      }
+
+      const canonicalSeriesId = getInternalId(series);
+
+      // Use EnrollmentService - primary source is enrollments table
+      const result = await EnrollmentService.enrollInSeries(
+        dbHelpers,
+        req.user.id,
+        canonicalSeriesId,
+      );
+
+      if (result.alreadyEnrolled) {
+        console.log("[Enroll] User already enrolled");
+        const enrolledSeriesIds = await EnrollmentService.getEnrolledSeriesIds(
+          dbHelpers,
+          req.user.id,
+        );
+        const enrolledSeriesResponse = await mapEnrolledSeriesIdsForResponse(
+          enrolledSeriesIds,
+          dbHelpers,
+        );
+        return res.json({
+          success: true,
+          message: "Already enrolled in this series",
+          alreadyEnrolled: true,
+          data: enrolledSeriesResponse,
+        });
+      }
+
+      console.log("[Enroll] Created enrollment record in enrollments table");
+
+      // AUTO-ENROLLMENT: Enroll user in all exams related to this series
+      try {
+        console.log("[Enroll] Starting auto-enrollment in related exams...");
+
+        const seriesData = await dbHelpers.findById(
+          "testSeries",
+          canonicalSeriesId,
+        );
+        if (seriesData && seriesData.stages && seriesData.stages.length > 0) {
+          console.log("[Enroll] Series has stages:", seriesData.stages);
+
+          const currentEnrolledExamIds =
+            await EnrollmentService.getEnrolledExamIds(dbHelpers, req.user.id);
+
+          const examIdsToAdd = [];
+          for (const stageId of seriesData.stages) {
+            const stage = await dbHelpers.findById("stages", stageId);
+            if (stage && stage.examIds && Array.isArray(stage.examIds)) {
+              for (const examId of stage.examIds) {
+                const examIdNum = parseInt(examId);
+                if (
+                  !isNaN(examIdNum) &&
+                  !currentEnrolledExamIds.includes(examIdNum) &&
+                  !examIdsToAdd.includes(examIdNum)
+                ) {
+                  examIdsToAdd.push(examIdNum);
+                }
+              }
+            }
+          }
+
+          console.log("[Enroll] Exams to auto-enroll:", examIdsToAdd);
+
+          for (const examId of examIdsToAdd) {
+            try {
+              await EnrollmentService.enrollInExam(
+                dbHelpers,
+                req.user.id,
+                examId,
+              );
+              console.log(
+                "[Enroll] Created enrollment record for exam:",
+                examId,
+              );
+            } catch (err) {
+              console.error("[Enroll] Error creating exam enrollment:", err);
+            }
+          }
+        }
+      } catch (autoEnrollError) {
+        console.error(
+          "[Enroll] Error during auto-enrollment:",
+          autoEnrollError,
+        );
+      }
+
       const enrolledSeriesIds = await EnrollmentService.getEnrolledSeriesIds(
         dbHelpers,
         req.user.id,
       );
-      const enrolledSeriesResponse = await mapEnrolledSeriesIdsForResponse(
-        enrolledSeriesIds,
+      const enrolledSeriesLookup = await buildPublicIdLookup(
         dbHelpers,
+        "testSeries",
+        enrolledSeriesIds,
       );
-      return res.json({
+
+      res.json({
         success: true,
-        message: "Already enrolled in this series",
-        alreadyEnrolled: true,
-        data: enrolledSeriesResponse,
+        message: "Successfully enrolled",
+        alreadyEnrolled: false,
+        data: enrolledSeriesIds.map((value) =>
+          mapLookupId(value, enrolledSeriesLookup, value),
+        ),
+      });
+    } catch (error) {
+      console.error("[Enroll] Error:", error);
+      res.status(500).json({
+        success: false,
+        message: sanitizeErrorMessage(error),
       });
     }
-
-    console.log("[Enroll] Created enrollment record in enrollments table");
-
-    // AUTO-ENROLLMENT: Enroll user in all exams related to this series
-    try {
-      console.log("[Enroll] Starting auto-enrollment in related exams...");
-
-      const seriesData = await dbHelpers.findById(
-        "testSeries",
-        canonicalSeriesId,
-      );
-      if (seriesData && seriesData.stages && seriesData.stages.length > 0) {
-        console.log("[Enroll] Series has stages:", seriesData.stages);
-
-        const currentEnrolledExamIds =
-          await EnrollmentService.getEnrolledExamIds(dbHelpers, req.user.id);
-
-        const examIdsToAdd = [];
-        for (const stageId of seriesData.stages) {
-          const stage = await dbHelpers.findById("stages", stageId);
-          if (stage && stage.examIds && Array.isArray(stage.examIds)) {
-            for (const examId of stage.examIds) {
-              const examIdNum = parseInt(examId);
-              if (
-                !isNaN(examIdNum) &&
-                !currentEnrolledExamIds.includes(examIdNum) &&
-                !examIdsToAdd.includes(examIdNum)
-              ) {
-                examIdsToAdd.push(examIdNum);
-              }
-            }
-          }
-        }
-
-        console.log("[Enroll] Exams to auto-enroll:", examIdsToAdd);
-
-        for (const examId of examIdsToAdd) {
-          try {
-            await EnrollmentService.enrollInExam(
-              dbHelpers,
-              req.user.id,
-              examId,
-            );
-            console.log("[Enroll] Created enrollment record for exam:", examId);
-          } catch (err) {
-            console.error("[Enroll] Error creating exam enrollment:", err);
-          }
-        }
-      }
-    } catch (autoEnrollError) {
-      console.error("[Enroll] Error during auto-enrollment:", autoEnrollError);
-    }
-
-    const enrolledSeriesIds = await EnrollmentService.getEnrolledSeriesIds(
-      dbHelpers,
-      req.user.id,
-    );
-    const enrolledSeriesLookup = await buildPublicIdLookup(
-      dbHelpers,
-      "testSeries",
-      enrolledSeriesIds,
-    );
-
-    res.json({
-      success: true,
-      message: "Successfully enrolled",
-      alreadyEnrolled: false,
-      data: enrolledSeriesIds.map((value) =>
-        mapLookupId(value, enrolledSeriesLookup, value),
-      ),
-    });
-  } catch (error) {
-    console.error("[Enroll] Error:", error);
-    res.status(500).json({
-      success: false,
-      message: sanitizeErrorMessage(error),
-    });
-  }
-});
+  },
+);
 
 // @route   DELETE /api/users/unenroll/:seriesId
 // @desc    Unenroll from a test series (archives user history)
@@ -1377,6 +1355,39 @@ router.get("/attempts/incomplete", protect, async (req, res) => {
       ]),
     );
 
+    // Some test rows don't carry total_questions (legacy imports) — derive the
+    // count from active questions so the resume card shows "0/100 Qs Answered"
+    // instead of "0/0". dbHelpers rows are camelCased, so `total_questions`
+    // must be read as `totalQuestions`.
+    const missingCountTestIds = tests
+      .filter(
+        (t) =>
+          !Number(t.totalQuestions || t.total_questions || 0) &&
+          Number(t.id || t._id),
+      )
+      .map((t) => Number(t.id || t._id));
+
+    const questionCountMap = {};
+    if (missingCountTestIds.length > 0) {
+      try {
+        const { rows: countRows } = await dbHelpers.pool.query(
+          `SELECT test_id, COUNT(*)::int AS question_count
+           FROM questions
+           WHERE test_id = ANY($1::int[]) AND is_active = true
+           GROUP BY test_id`,
+          [missingCountTestIds],
+        );
+        countRows.forEach((r) => {
+          questionCountMap[Number(r.test_id)] = Number(r.question_count);
+        });
+      } catch (countErr) {
+        console.warn(
+          "[incomplete-attempts] Failed to count test questions:",
+          countErr.message,
+        );
+      }
+    }
+
     const formatted = incompleteAttempts.map((attempt) => {
       const test =
         findLookupRecord(
@@ -1423,6 +1434,46 @@ router.get("/attempts/incomplete", protect, async (req, res) => {
           ? Math.min(100, Math.round((timeSpent / totalDuration) * 100))
           : 0;
 
+      // answers can be an array, a JSON string, or a JSONB object keyed by
+      // question id — normalize before counting.
+      let answersArr = [];
+      if (Array.isArray(attempt.answers)) {
+        answersArr = attempt.answers;
+      } else if (
+        typeof attempt.answers === "string" &&
+        attempt.answers.trim()
+      ) {
+        try {
+          const parsed = JSON.parse(attempt.answers);
+          if (Array.isArray(parsed)) answersArr = parsed;
+          else if (parsed && typeof parsed === "object")
+            answersArr = Object.values(parsed);
+        } catch {
+          answersArr = [];
+        }
+      } else if (attempt.answers && typeof attempt.answers === "object") {
+        answersArr = Object.values(attempt.answers);
+      }
+
+      // Count entries with an actual selection; fall back to raw length for
+      // legacy entries that don't carry a selection field.
+      const withSelection = answersArr.filter((a) => {
+        const sel = a?.selectedOption ?? a?.selected_option;
+        return sel !== null && sel !== undefined && sel !== -1 && sel !== "";
+      }).length;
+      const answeredCount =
+        withSelection > 0 ? withSelection : answersArr.length;
+
+      const resolvedTotalQuestions =
+        Number(
+          attempt.totalQuestions ||
+            test.totalQuestions ||
+            test.total_questions ||
+            0,
+        ) ||
+        questionCountMap[Number(test.id || test._id)] ||
+        0;
+
       return {
         attemptId: getPublicResponseId(
           dbHelpers,
@@ -1448,11 +1499,8 @@ router.get("/attempts/incomplete", protect, async (req, res) => {
         title: attempt.testTitle || test.title || "Unknown Test",
         seriesTitle: testSeries.title || "Unknown Series",
         status: attempt.status,
-        totalQuestions:
-          attempt.totalQuestions || test.questions || test.total_questions || 0,
-        answeredQuestions: Array.isArray(attempt.answers)
-          ? attempt.answers.length
-          : 0,
+        totalQuestions: resolvedTotalQuestions,
+        answeredQuestions: answeredCount,
         timeSpentSeconds: timeSpent,
         remainingTimeSeconds: attempt.remainingTimeSeconds || 0,
         totalDurationSeconds: totalDuration,
@@ -1487,7 +1535,7 @@ router.get(
       // Get all attempts for this user directly from DB and user quizzes in parallel
       const [userAttempts, quizzes] = await Promise.all([
         dbHelpers.find("attempts", { userId: userId }),
-        dbHelpers.find("quizzes", { created_by: userId }).catch(() => []),
+        dbHelpers.find("quizzes", { created_by: userId }),
       ]);
 
       // Filter completed/submitted attempts

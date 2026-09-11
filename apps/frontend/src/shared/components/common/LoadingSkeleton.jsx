@@ -139,7 +139,7 @@ export function ContentPlaceholder({
   className = "",
 }) {
   return (
-    <div className={`text-center py-12 ${className}`}>
+    <div className={`text-center py-8 ${className}`}>
       <div className="w-16 h-16 mx-auto bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mb-4 animate-pulse">
         {Icon && <Icon className="w-8 h-8 text-gray-400" />}
       </div>

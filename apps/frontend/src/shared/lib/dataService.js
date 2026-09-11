@@ -16,7 +16,6 @@ import { userAPI } from "./userAPI.js";
 import { studyAPI } from "./studyAPI.js";
 import { questionsAPI } from "./questionsAPI.js";
 import { examAPI } from "./examAPI.js";
-import { adminAPI } from "./adminAPI.js";
 import { bookmarksAPI } from "./bookmarksAPI.js";
 
 // Re-export all error classes and utilities from apiClient
@@ -41,7 +40,6 @@ export {
   studyAPI,
   questionsAPI,
   examAPI,
-  adminAPI,
   bookmarksAPI,
 };
 export { notificationPrefAPI } from "./notificationPrefAPI.js";
@@ -439,7 +437,12 @@ class DataService {
           const data = response.data?.data || response.data;
           if (data) return mapTestToFrontend(data);
         } catch (err) {
-          // Fallback search in cached list
+          // Fall back to searching the cached list below.
+          if (import.meta.env.DEV)
+            console.warn(
+              `[DataService] Direct fetch failed for test "${id}", falling back to cached list:`,
+              err,
+            );
         }
 
         const allTests = await this.getTests(options);
@@ -590,8 +593,8 @@ export const handleMutation = (...args) => dataService.handleMutation(...args);
 export const refreshData = (...args) => dataService.refreshData(...args);
 
 // Achievement functions
-export const getAchievements = () => adminAPI.getAchievements();
-export const checkAchievements = () => adminAPI.checkAchievements();
+export const getAchievements = () => apiClient.get("/api/achievements");
+export const checkAchievements = () => apiClient.get("/api/achievements/check");
 
 // User Analytics
 export const getUserAnalytics = (...args) =>
@@ -615,15 +618,27 @@ export const getTestimonials = () => examAPI.getTestimonials();
 export const getPromotions = () => examAPI.getPromotions();
 
 // Notification functions
-export const getNotifications = (params) => adminAPI.getNotifications(params);
-export const markNotificationRead = (id) => adminAPI.markNotificationRead(id);
+export const getNotifications = (params) =>
+  apiClient.get("/api/notifications", { params });
+export const markNotificationRead = (id) =>
+  apiClient.put(`/api/notifications/${id}/read`);
 export const markAllNotificationsRead = () =>
-  adminAPI.markAllNotificationsRead();
-export const deleteNotification = (id) => adminAPI.deleteNotification(id);
-export const clearAllNotifications = () => adminAPI.clearAllNotifications();
+  apiClient.put("/api/notifications/read-all");
+export const deleteNotification = (id) =>
+  apiClient.delete(`/api/notifications/${id}`);
+export const clearAllNotifications = () =>
+  apiClient.delete("/api/notifications/clear-all");
 
 // Leaderboard functions
-export const getLeaderboard = (seriesId) => adminAPI.getLeaderboard(seriesId);
+export const getLeaderboard = (seriesId, timeFilter) => {
+  const params = new URLSearchParams({ testId: seriesId });
+  // Optional time window ("all" | "week" | "month" | "today") — the
+  // backend ignores unknown values, so "all"/undefined is a plain fetch.
+  if (timeFilter && timeFilter !== "all") {
+    params.set("timeFilter", timeFilter);
+  }
+  return apiClient.get(`/api/leaderboards?${params.toString()}`);
+};
 
 // Intelligence Leaderboard - Multiple ranking categories
 export const getIntelligenceLeaderboard = async (params = {}) => {

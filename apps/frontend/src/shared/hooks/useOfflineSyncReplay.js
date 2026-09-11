@@ -65,7 +65,8 @@ export function useOfflineSyncReplay(attemptId, options = {}) {
 
       return res;
     } catch (err) {
-      console.warn("[useOfflineSyncReplay] Sync error:", err);
+      if (import.meta.env.DEV)
+        console.warn("[useOfflineSyncReplay] Sync error:", err);
       return null;
     } finally {
       setIsSyncing(false);

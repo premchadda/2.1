@@ -17,7 +17,14 @@ export default function LiveTestReview() {
   const { liveTestId } = useParams();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
-  const { data: result, isLoading } = useQuery({
+  const {
+    data: result,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ["live-test-review", liveTestId],
     queryFn: async () => {
       const response = await api.get(`/api/live-tests/${liveTestId}/result`);
@@ -32,6 +39,29 @@ export default function LiveTestReview() {
         <div className="text-center">
           <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mx-auto mb-4" />
           <p className="text-slate-500">Loading review...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-slate-600 font-semibold mb-2">
+            Couldn&apos;t load the review.
+          </p>
+          <p className="text-slate-400 text-sm mb-4">
+            {error?.message ||
+              "Something went wrong while fetching your result."}
+          </p>
+          <button
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="px-4 py-2 rounded-2xl bg-indigo-600 text-white font-semibold disabled:opacity-50"
+          >
+            {isFetching ? "Retrying..." : "Try Again"}
+          </button>
         </div>
       </div>
     );
@@ -74,7 +104,7 @@ export default function LiveTestReview() {
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-8">
           <div className="flex items-center gap-3 mb-6">
             {currentQuestion.isCorrect ? (
               <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center">
@@ -179,7 +209,7 @@ export default function LiveTestReview() {
           )}
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-4 flex items-center justify-between">
           <button
             onClick={() =>
               setCurrentQuestionIndex((index) => Math.max(0, index - 1))

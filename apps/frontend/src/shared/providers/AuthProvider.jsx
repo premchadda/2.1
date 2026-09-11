@@ -182,17 +182,29 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = async (email, password, rememberMe = false, botContext = {}) => {
+  const login = async (
+    email,
+    password,
+    rememberMe = false,
+    botContext = {},
+  ) => {
     setError(null);
     setLoading(true);
     authSequenceRef.current++;
     try {
       const response = await api.post("/api/auth/login", {
-        email, password, rememberMe, ...botContext,
+        email,
+        password,
+        rememberMe,
+        ...botContext,
       });
       if (response.data.requires2FA) {
         setLoading(false);
-        return { success: false, requires2FA: true, tempToken: response.data.data?.tempToken };
+        return {
+          success: false,
+          requires2FA: true,
+          tempToken: response.data.data?.tempToken,
+        };
       }
       const {
         user: userData,
@@ -224,7 +236,8 @@ export function AuthProvider({ children }) {
       };
     } catch (err) {
       logger.error("Login failed:", err);
-      const message = err.response?.data?.message || err.message || "Login failed";
+      const message =
+        err.response?.data?.message || err.message || "Login failed";
       setError(message);
       return { success: false, error: message };
     } finally {
@@ -233,80 +246,181 @@ export function AuthProvider({ children }) {
   };
 
   const googleLogin = async (credential, rememberMe = true) => {
-    setError(null); setLoading(true); authSequenceRef.current++;
+    setError(null);
+    setLoading(true);
+    authSequenceRef.current++;
     try {
-      const response = await api.post("/api/auth/google", { credential, rememberMe });
-      const { user: userData, csrfToken: newCsrfToken, token: accessToken, refreshToken: bodyRefreshToken } = response.data.data;
-      applyAuthSession({ token: accessToken, refreshToken: bodyRefreshToken, csrfToken: newCsrfToken, rememberMe });
+      const response = await api.post("/api/auth/google", {
+        credential,
+        rememberMe,
+      });
+      const {
+        user: userData,
+        csrfToken: newCsrfToken,
+        token: accessToken,
+        refreshToken: bodyRefreshToken,
+      } = response.data.data;
+      applyAuthSession({
+        token: accessToken,
+        refreshToken: bodyRefreshToken,
+        csrfToken: newCsrfToken,
+        rememberMe,
+      });
       await new Promise((resolve) => setTimeout(resolve, 200));
       const frontendUser = mapUserToFrontend(userData);
-      setUser(frontendUser); saveUserCache(frontendUser, rememberMe); setAuthResolved(true);
+      setUser(frontendUser);
+      saveUserCache(frontendUser, rememberMe);
+      setAuthResolved(true);
       return { success: true, user: frontendUser };
     } catch (err) {
       logger.error("Google Login failed:", err);
-      const message = err.response?.data?.message || err.message || "Google Login failed";
-      setError(message); return { success: false, error: message };
-    } finally { setLoading(false); }
+      const message =
+        err.response?.data?.message || err.message || "Google Login failed";
+      setError(message);
+      return { success: false, error: message };
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const verify2FA = async (tempToken, code, isBackupCode = false, rememberMe = false) => {
-    setError(null); setLoading(true); authSequenceRef.current++;
+  const verify2FA = async (
+    tempToken,
+    code,
+    isBackupCode = false,
+    rememberMe = false,
+  ) => {
+    setError(null);
+    setLoading(true);
+    authSequenceRef.current++;
     try {
       const body = { tempToken, rememberMe };
-      if (isBackupCode) body.backupCode = code; else body.token = code;
+      if (isBackupCode) body.backupCode = code;
+      else body.token = code;
       const response = await api.post("/api/auth/login/2fa", body);
-      const { user: userData, csrfToken: newCsrfToken, token: accessToken, refreshToken: bodyRefreshToken } = response.data.data;
-      applyAuthSession({ token: accessToken, refreshToken: bodyRefreshToken, csrfToken: newCsrfToken, rememberMe });
+      const {
+        user: userData,
+        csrfToken: newCsrfToken,
+        token: accessToken,
+        refreshToken: bodyRefreshToken,
+      } = response.data.data;
+      applyAuthSession({
+        token: accessToken,
+        refreshToken: bodyRefreshToken,
+        csrfToken: newCsrfToken,
+        rememberMe,
+      });
       await new Promise((resolve) => setTimeout(resolve, 200));
       const frontendUser = mapUserToFrontend(userData);
-      setUser(frontendUser); saveUserCache(frontendUser, rememberMe); setAuthResolved(true);
+      setUser(frontendUser);
+      saveUserCache(frontendUser, rememberMe);
+      setAuthResolved(true);
       return { success: true, user: frontendUser };
     } catch (err) {
       logger.error("2FA verification failed:", err);
-      const message = err.response?.data?.message || err.message || "2FA verification failed";
-      setError(message); return { success: false, error: message };
-    } finally { setLoading(false); }
+      const message =
+        err.response?.data?.message || err.message || "2FA verification failed";
+      setError(message);
+      return { success: false, error: message };
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const signup = async (name, email, password, mobile = null, botContext = {}) => {
-    setError(null); setLoading(true); authSequenceRef.current++;
+  const signup = async (
+    name,
+    email,
+    password,
+    mobile = null,
+    botContext = {},
+  ) => {
+    setError(null);
+    setLoading(true);
+    authSequenceRef.current++;
     try {
-      const response = await api.post("/api/auth/register", { name, email, password, mobile, ...botContext });
+      const response = await api.post("/api/auth/register", {
+        name,
+        email,
+        password,
+        mobile,
+        ...botContext,
+      });
       const payload = response.data?.data || {};
       const userData = payload.user;
-      if (payload.requiresEmailVerification) return { success: true, requiresVerification: true, email: userData?.email || email, message: payload.message || "Registration successful. Please verify your email." };
+      if (payload.requiresEmailVerification)
+        return {
+          success: true,
+          requiresVerification: true,
+          email: userData?.email || email,
+          message:
+            payload.message ||
+            "Registration successful. Please verify your email.",
+        };
       if (userData) {
-        applyAuthSession({ token: payload.token, refreshToken: payload.refreshToken, csrfToken: payload.csrfToken, rememberMe: false });
+        applyAuthSession({
+          token: payload.token,
+          refreshToken: payload.refreshToken,
+          csrfToken: payload.csrfToken,
+          rememberMe: false,
+        });
         await new Promise((resolve) => setTimeout(resolve, 200));
         const frontendUser = mapUserToFrontend(userData);
-        setUser(frontendUser); saveUserCache(frontendUser, false); setAuthResolved(true);
-        return { success: true, user: frontendUser, requiresVerification: false };
+        setUser(frontendUser);
+        saveUserCache(frontendUser, false);
+        setAuthResolved(true);
+        return {
+          success: true,
+          user: frontendUser,
+          requiresVerification: false,
+        };
       }
-      return { success: true, requiresVerification: true, email, message: "Registration successful. Please verify your email." };
+      return {
+        success: true,
+        requiresVerification: true,
+        email,
+        message: "Registration successful. Please verify your email.",
+      };
     } catch (err) {
       logger.error("Signup failed:", err);
-      const message = err.response?.data?.message || err.message || "Registration failed";
-      setError(message); return { success: false, error: message };
-    } finally { setLoading(false); }
+      const message =
+        err.response?.data?.message || err.message || "Registration failed";
+      setError(message);
+      return { success: false, error: message };
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = async () => {
     authSequenceRef.current++;
-    try { await api.post("/api/auth/logout"); } catch (err) { logger.error("Logout API call failed:", err); }
-    finally {
-      clearDashboardCache(); clearAuthTokens(); saveUserCache(null); setUser(null); setError(null); setAuthResolved(true);
-      if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("trstprep:data-invalidated"));
+    try {
+      await api.post("/api/auth/logout");
+    } catch (err) {
+      logger.error("Logout API call failed:", err);
+    } finally {
+      clearDashboardCache();
+      clearAuthTokens();
+      saveUserCache(null);
+      setUser(null);
+      setError(null);
+      setAuthResolved(true);
+      if (typeof window !== "undefined")
+        window.dispatchEvent(new CustomEvent("trstprep:data-invalidated"));
     }
   };
 
   const revokeOtherSessions = async () => {
     try {
-      const headers = currentSessionIdRef.current ? { "x-session-id": currentSessionIdRef.current } : {};
+      const headers = currentSessionIdRef.current
+        ? { "x-session-id": currentSessionIdRef.current }
+        : {};
       const response = await api.delete("/api/sessions", { headers });
       return { success: true, data: response.data };
     } catch (err) {
       logger.error("Failed to revoke other sessions:", err);
-      return { success: false, error: err.response?.data?.message || err.message };
+      return {
+        success: false,
+        error: err.response?.data?.message || err.message,
+      };
     }
   };
 
@@ -315,9 +429,12 @@ export function AuthProvider({ children }) {
     try {
       const response = await api.put("/api/users/profile", updates);
       const updatedUser = mapUserToFrontend(response.data?.data);
-      setUser(updatedUser); saveUserCache(updatedUser);
+      setUser(updatedUser);
+      saveUserCache(updatedUser);
       return { success: true, user: updatedUser };
-    } catch (err) { return { success: false, error: err.message }; }
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   };
 
   const isAuthenticated = !!user;
@@ -333,26 +450,72 @@ export function AuthProvider({ children }) {
     if (!socket) return;
     const cleanupNotification = on("notification:new", (data) => {
       logger.debug("🔔 New Real-time Notification:", data);
-      toast(data.message, { icon: data.type === "test:result_ready" ? "✅" : "🔔", duration: 5000 });
+      toast(data.message, {
+        icon: data.type === "test:result_ready" ? "✅" : "🔔",
+        duration: 5000,
+      });
       if (data.type === "user:profile_updated") fetchCurrentUser();
     });
     const cleanupRevocation = on("session:revoked", (data) => {
-      if (data?.sessionId && currentSessionIdRef.current && data.sessionId === currentSessionIdRef.current) {
-        clearAuthTokens(); setUser(null); saveUserCache(null);
-        toast.error("Your session was logged out from another device.", { duration: 6000, id: "session-revoked-toast" });
+      if (
+        data?.sessionId &&
+        currentSessionIdRef.current &&
+        data.sessionId === currentSessionIdRef.current
+      ) {
+        clearAuthTokens();
+        setUser(null);
+        saveUserCache(null);
+        toast.error("Your session was logged out from another device.", {
+          duration: 6000,
+          id: "session-revoked-toast",
+        });
         window.dispatchEvent(new CustomEvent("trstprep:session-revoked"));
       }
     });
-    return () => { if (cleanupNotification) cleanupNotification(); if (cleanupRevocation) cleanupRevocation(); };
+    return () => {
+      if (cleanupNotification) cleanupNotification();
+      if (cleanupRevocation) cleanupRevocation();
+    };
   }, [socket, on, fetchCurrentUser]);
 
+  // children is usually an element/array but may be a primitive — normalize
+  // primitives into an explicit fragment so the provider always renders nodes.
+  const renderedChildren =
+    React.isValidElement(children) || Array.isArray(children) ? (
+      children
+    ) : (
+      <React.Fragment>{children}</React.Fragment>
+    );
+
   const value = {
-    user, loading, authResolved, error, isConnected, socket, on, emit,
-    login, verify2FA, googleLogin, signup, logout, revokeOtherSessions,
-    updateProfile, isAuthenticated, hasProPass, isAdmin, refreshToken,
-    refreshUser: fetchCurrentUser, fetchCurrentUser, getCsrfToken,
+    user,
+    loading,
+    authResolved,
+    error,
+    isConnected,
+    socket,
+    on,
+    emit,
+    login,
+    verify2FA,
+    googleLogin,
+    signup,
+    logout,
+    revokeOtherSessions,
+    updateProfile,
+    isAuthenticated,
+    hasProPass,
+    isAdmin,
+    refreshToken,
+    refreshUser: fetchCurrentUser,
+    fetchCurrentUser,
+    getCsrfToken,
   };
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {renderedChildren}
+    </AuthContext.Provider>
+  );
 }
 
 export default AuthProvider;

@@ -682,7 +682,7 @@ export default function Settings() {
   const strength = getPasswordStrength(passwordForm.new);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 pb-24">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 pb-10">
       <Helmet>
         <title>Settings | Trstprep</title>
         <meta
@@ -793,11 +793,11 @@ export default function Settings() {
                   <div className="w-full h-full rounded-full bg-white dark:bg-slate-950 flex items-center justify-center overflow-hidden">
                     {user?.avatar ? (
                       <img
+                        alt={user.name || "User avatar"}
                         loading="lazy"
                         decoding="async"
                         src={user.avatar}
                         className="w-full h-full object-cover"
-                        alt={user.name}
                         onError={(e) => {
                           e.currentTarget.style.display = "none";
                           if (e.currentTarget.nextSibling) {
@@ -919,11 +919,11 @@ export default function Settings() {
                         <div className="w-full h-full rounded-full bg-white dark:bg-slate-950 flex items-center justify-center overflow-hidden">
                           {user?.avatar ? (
                             <img
+                              alt="Profile avatar"
                               loading="lazy"
                               decoding="async"
                               src={user.avatar}
                               className="w-full h-full object-cover"
-                              alt="Profile"
                               onError={(e) => {
                                 e.currentTarget.style.display = "none";
                                 if (e.currentTarget.nextSibling) {
@@ -1013,6 +1013,7 @@ export default function Settings() {
                         </div>
                         <div className="relative">
                           <input
+                            aria-label="Primary account email address"
                             type="email"
                             value={profileForm.email}
                             disabled
@@ -1029,6 +1030,7 @@ export default function Settings() {
                         </label>
                         <div className="relative">
                           <input
+                            aria-label="Mobile phone number"
                             type="tel"
                             value={profileForm.phone}
                             onChange={(e) =>
@@ -1157,6 +1159,7 @@ export default function Settings() {
                       </label>
                       <div className="relative">
                         <input
+                          aria-label="Current password"
                           type={showCurrentPw ? "text" : "password"}
                           value={passwordForm.current}
                           onChange={(e) =>
@@ -1199,6 +1202,7 @@ export default function Settings() {
                       </label>
                       <div className="relative">
                         <input
+                          aria-label="New password"
                           type={showNewPw ? "text" : "password"}
                           value={passwordForm.new}
                           onChange={(e) =>
@@ -1563,10 +1567,10 @@ export default function Settings() {
                         <div className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 min-h-[200px]">
                           {twoFAEnrollment?.otpauthUri ? (
                             <img
+                              alt="2FA QR code"
                               loading="lazy"
                               decoding="async"
                               src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(twoFAEnrollment.otpauthUri)}`}
-                              alt="2FA QR code"
                               className="w-44 h-44 rounded-xl bg-white p-2 shadow-sm"
                             />
                           ) : (
@@ -1622,6 +1626,7 @@ export default function Settings() {
                         </label>
                         <div className="flex gap-2">
                           <input
+                            aria-label="Verification code"
                             type="text"
                             inputMode="numeric"
                             pattern="[0-9]*"
@@ -1979,6 +1984,7 @@ export default function Settings() {
                       to="/pass"
                       className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs sm:text-sm rounded-xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
                     >
+                      <Zap className="w-4 h-4" />
                       {proPass.isActive
                         ? "Manage Subscription"
                         : "Upgrade to Pro Pass"}
@@ -2168,21 +2174,30 @@ export default function Settings() {
                       to="/contact"
                       className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/70 dark:border-slate-800 transition-colors flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300"
                     >
-                      <span>Help & Support</span>
+                      <span className="flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-indigo-500" />
+                        Help & Support
+                      </span>
                       <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
                     </Link>
                     <Link
                       to="/privacy"
                       className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/70 dark:border-slate-800 transition-colors flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300"
                     >
-                      <span>Privacy Policy</span>
+                      <span className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-indigo-500" />
+                        Privacy Policy
+                      </span>
                       <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
                     </Link>
                     <Link
                       to="/terms"
                       className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/70 dark:border-slate-800 transition-colors flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300"
                     >
-                      <span>Terms of Service</span>
+                      <span className="flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-indigo-500" />
+                        Terms of Service
+                      </span>
                       <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
                     </Link>
                   </div>
@@ -2193,8 +2208,11 @@ export default function Settings() {
         </div>
 
         {/* System Build Info */}
-        <div className="mt-12 text-center text-xs text-slate-400 dark:text-slate-600 font-bold uppercase tracking-widest">
-          Trstprep v{APP_VERSION} · Build {APP_BUILD_DATE}
+        <div className="mt-12 flex items-center justify-center gap-1.5 text-center text-xs text-slate-400 dark:text-slate-600 font-bold uppercase tracking-widest">
+          <Clock className="w-3.5 h-3.5" />
+          <span>
+            Trstprep v{APP_VERSION} · Build {APP_BUILD_DATE}
+          </span>
         </div>
       </div>
 

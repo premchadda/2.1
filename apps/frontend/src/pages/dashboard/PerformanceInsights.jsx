@@ -29,6 +29,7 @@ import {
   Loader2,
 } from "lucide-react";
 import ExamReadinessGauge from "./components/ExamReadinessGauge";
+import RecommendationCard from "../../shared/components/RecommendationCard";
 
 const timeframeOptions = [
   "This Week",
@@ -45,7 +46,7 @@ const TIMEFRAME_MAP = {
 };
 
 function PerformanceInsights() {
-  const { _user } = useAuth();
+  const { user } = useAuth();
   const [timeframe, setTimeframe] = useState("This Month");
   const [expandedSection, setExpandedSection] = useState(null);
 
@@ -76,7 +77,7 @@ function PerformanceInsights() {
       };
     },
     staleTime: 1000 * 60 * 5,
-    enabled: !!_user,
+    enabled: !!user,
   });
 
   const {
@@ -92,7 +93,7 @@ function PerformanceInsights() {
       return res.data?.data || [];
     },
     staleTime: 1000 * 60 * 5,
-    enabled: !!_user,
+    enabled: !!user,
   });
 
   const {
@@ -106,7 +107,7 @@ function PerformanceInsights() {
       return res.data?.data || [];
     },
     staleTime: 1000 * 60 * 5,
-    enabled: !!_user,
+    enabled: !!user,
   });
 
   const { data: streakData } = useQuery({
@@ -120,7 +121,7 @@ function PerformanceInsights() {
       };
     },
     staleTime: 1000 * 60 * 5,
-    enabled: !!_user,
+    enabled: !!user,
   });
 
   const isLoading = loadingPerf || loadingWeak || loadingRecs;
@@ -215,15 +216,18 @@ function PerformanceInsights() {
       [];
 
   const recs = recList.map((r) => ({
-    icon: Brain,
+    icon: r.icon || Brain,
     title: r.title || r.recommendation || (r.topic ? `Improve ${r.topic}` : ""),
+    message: r.message || r.desc || r.reason || "",
+    reason: r.reason || "",
     desc: r.description || r.reason || r.desc || "",
     action: r.actionLabel || "Practice Now",
     route: r.route || r.actionUrl || "/test-series",
+    severity: r.severity || "medium",
   }));
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20 md:pb-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-10 md:pb-8">
       <AnimatedHero pageType="analysis" compact>
         <div className="flex items-center gap-3">
           <Link
@@ -277,6 +281,37 @@ function PerformanceInsights() {
         <ScrollReveal>
           <ExamReadinessGauge className="mb-6" />
         </ScrollReveal>
+
+        {(errorPerf || errorWeak || errorRecs) && (
+          <Card
+            variant="elevated"
+            size="md"
+            className="mb-6 border-red-200 dark:border-red-800"
+          >
+            <div
+              role="alert"
+              className="flex items-start gap-3 bg-red-50 dark:bg-red-900/10 rounded-xl p-3"
+            >
+              <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-red-700 dark:text-red-300">
+                  Some insights failed to load
+                </p>
+                <ul className="text-xs text-red-600 dark:text-red-400 mt-1 space-y-0.5 list-disc list-inside">
+                  {errorPerf && (
+                    <li>Performance overview is temporarily unavailable.</li>
+                  )}
+                  {errorWeak && (
+                    <li>Weak-area analysis is temporarily unavailable.</li>
+                  )}
+                  {errorRecs && (
+                    <li>AI recommendations are temporarily unavailable.</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
@@ -446,6 +481,10 @@ function PerformanceInsights() {
               <h3 className="font-bold text-gray-900 dark:text-white">
                 Smart Recommendations
               </h3>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 -ml-0.5">
+                Why we recommend: each card cites the accuracy and attempt data
+                behind it.
+              </p>
               <Badge variant="primary" size="xs">
                 AI-Powered
               </Badge>
@@ -455,26 +494,17 @@ function PerformanceInsights() {
             ) : recs.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {recs.map((rec) => (
-                  <div
+                  <RecommendationCard
                     key={rec.title}
-                    className="p-4 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-750 rounded-xl border border-gray-200 dark:border-gray-700"
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center mb-3">
-                      <rec.icon className="w-5 h-5 text-brand-start" />
-                    </div>
-                    <h4 className="font-semibold text-sm text-gray-900 dark:text-white mb-1">
-                      {rec.title}
-                    </h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                      {rec.desc}
-                    </p>
-                    <Link
-                      to={rec.route}
-                      className="text-xs font-semibold text-brand-start dark:text-indigo-400 hover:underline"
-                    >
-                      {rec.action} →
-                    </Link>
-                  </div>
+                    icon={rec.icon}
+                    title={rec.title}
+                    message={rec.message}
+                    reason={rec.reason || rec.desc}
+                    action={rec.route}
+                    actionLabel={rec.action}
+                    severity={rec.severity}
+                    route={rec.route}
+                  />
                 ))}
               </div>
             ) : (

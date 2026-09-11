@@ -24,19 +24,19 @@ import { userNavSections } from "./index.js";
 import { APP_VERSION } from "./index.js";
 ```
 
-## Files (all 9 entries)
+## Files (8 entries — adminNavConfig.js removed 2026-09-08, zero consumers)
 
-| File                  | Purpose                                                                                                                                                                                          | Key exports                                                                                                                                           |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `adminNavConfig.js`   | Admin navigation data mirrored into the frontend (header: "Data-driven navigation structure for Trstprep V2.0 Admin Panel"). Verify consumers before editing — the admin panel owns its own copy | nav structure (`categories`, item metadata)                                                                                                           |
-| `assetConfig.js`      | **DEPRECATED shim** — re-exports `@trstprep/shared-config` for backward compatibility only                                                                                                       | Do not add code here (see decision box)                                                                                                               |
-| `assets-config.js`    | **Legacy local asset module** (full implementation, predates the shared package): picsum/placeholder helpers, thumbnail sizes, category/subject seeds                                            | `PICSUM_BASE_URL`, `ICON_LIBRARY`, `THUMBNAIL_SIZES`, `CATEGORY_SEEDS`, `SUBJECT_SEEDS`, `getPicsumUrl`, … — do not extend; migrate to shared package |
-| `comingSoonConfig.js` | Coming-soon / maintenance gating: per-page flags + site-wide maintenance mode                                                                                                                    | `SITE_CONFIG`, `COMING_SOON_PAGES`, `isPageComingSoon(pageKey)`, `getComingSoonConfig(pageKey)`, `isSiteInMaintenance(role)`                          |
-| `emojiConfig.js`      | All emoji maps + lookup helpers                                                                                                                                                                  | See emoji section below                                                                                                                               |
-| `index.js`            | Barrel re-exporting `emojiConfig` + `assetConfig` (legacy)                                                                                                                                       | `emojiConfig`, `assetConfig` (defaults) + all named exports                                                                                           |
-| `userNavConfig.js`    | Single source of truth for user-facing sidebar nav                                                                                                                                               | `userNavSections` (grouped sections: "Learning & Tests", …), `moreNavItems` (pages without dedicated sidebar links)                                   |
-| `version.js`          | Single source of truth for UI version strings — edit here, not in components                                                                                                                     | `APP_VERSION` (`2.1.0`), `APP_BUILD_DATE` (`2026.07.10`)                                                                                              |
-| `README.md`           | This file                                                                                                                                                                                        | —                                                                                                                                                     |
+| File                    | Purpose                                                                                                                                               | Key exports                                                                                                                                           |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~`adminNavConfig.js`~~ | **REMOVED** — dead admin nav mirror, zero imports in frontend. Admin nav owned by admin-panel only                                                    | —                                                                                                                                                     |
+| `assetConfig.js`        | **DEPRECATED shim** — re-exports `@trstprep/shared-config` for backward compatibility only                                                            | Do not add code here (see decision box)                                                                                                               |
+| `assets-config.js`      | **Legacy local asset module** (full implementation, predates the shared package): picsum/placeholder helpers, thumbnail sizes, category/subject seeds | `PICSUM_BASE_URL`, `ICON_LIBRARY`, `THUMBNAIL_SIZES`, `CATEGORY_SEEDS`, `SUBJECT_SEEDS`, `getPicsumUrl`, … — do not extend; migrate to shared package |
+| `comingSoonConfig.js`   | Coming-soon / maintenance gating: per-page flags + site-wide maintenance mode                                                                         | `SITE_CONFIG`, `COMING_SOON_PAGES`, `isPageComingSoon(pageKey)`, `getComingSoonConfig(pageKey)`, `isSiteInMaintenance(role)`                          |
+| `emojiConfig.js`        | All emoji maps + lookup helpers                                                                                                                       | See emoji section below                                                                                                                               |
+| `index.js`              | Barrel re-exporting `emojiConfig` + `assetConfig` (legacy)                                                                                            | `emojiConfig`, `assetConfig` (defaults) + all named exports                                                                                           |
+| `userNavConfig.js`      | Single source of truth for user-facing sidebar nav                                                                                                    | `userNavSections` (grouped sections: "Learning & Tests", …), `moreNavItems` (pages without dedicated sidebar links)                                   |
+| `version.js`            | Single source of truth for UI version strings — edit here, not in components                                                                          | `APP_VERSION` (`2.1.0`), `APP_BUILD_DATE` (`2026.07.10`)                                                                                              |
+| `README.md`             | This file                                                                                                                                             | —                                                                                                                                                     |
 
 ## Decision: `assets-config.js` vs `assetConfig.js`
 
@@ -70,7 +70,7 @@ Helpers: `getEmoji(key, map, fallback)`, `getCategoryEmoji`, `getSubjectEmoji`,
 > copy). If a subject label misses its emoji here, add the key to this file's
 > `SUBJECT_EMOJIS` — or, better, unify the two copies behind the shared package.
 
-## Gating: `comingSoonConfig` + `userNavConfig`/`adminNavConfig` + `FeatureGate`/`pageKey`
+## Gating: `comingSoonConfig` + `userNavConfig` + `FeatureGate`/`pageKey`
 
 - Routes opt into gating via `createRoute(path, el, { pageKey })` (`src/App.jsx`,
   `src/app/routes.jsx`): e.g. `/videos` → `pageKey: "videos"`,
@@ -80,8 +80,7 @@ Helpers: `getEmoji(key, map, fallback)`, `getCategoryEmoji`, `getSubjectEmoji`,
   `sectionKey` / `pageKey` / `featureKey`: page keys resolve through
   `comingSoonConfig` (ungated pages render `PageComingSoon`), `featureKey`
   (e.g. `analytics`) checks feature flags.
-- `userNavConfig.js` drives the user sidebar; `adminNavConfig.js` mirrors admin
-  nav data. Keep nav labels and `comingSoonConfig` page keys in sync — a rename
+- `userNavConfig.js` drives the user sidebar. Keep nav labels and `comingSoonConfig` page keys in sync — a rename
   in one without the other breaks gating or search.
 
 ## Where do I add X?
@@ -93,4 +92,4 @@ Helpers: `getEmoji(key, map, fallback)`, `getCategoryEmoji`, `getSubjectEmoji`,
 | Add a category / subject / status emoji      | `emojiConfig.js` map                                                                              | See divergence note above before duplicating admin keys     |
 | Bump the displayed app version               | `version.js` (`APP_VERSION`, `APP_BUILD_DATE`)                                                    | Never hardcode version strings in components                |
 | Add an image/thumbnail helper                | **Don't here** — use `packages/shared-config/src/index.js`                                        | Migrate old `./assets-config` imports when you touch them   |
-| Change admin nav data                        | Admin panel owns it; this dir's `adminNavConfig.js` is a mirror                                   | Verify frontend consumers first                             |
+| Change admin nav data                        | Admin panel owns it (no frontend mirror — `adminNavConfig.js` removed 2026-09-08)                 | —                                                           |

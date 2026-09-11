@@ -76,7 +76,7 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
             </div>
           )}
 
-          <div className="p-8 md:p-12">
+          <div className="p-4 sm:p-6">
             {/* Category Badge */}
             {contentData?.category && (
               <div className="mb-4">

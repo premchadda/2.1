@@ -306,23 +306,29 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
       }
     };
 
-    const workers = Array.from({ length: CONCURRENCY }, (_, i) =>
-      worker(i + 1),
-    );
-    await Promise.all(workers);
+    try {
+      const workers = Array.from({ length: CONCURRENCY }, (_, i) =>
+        worker(i + 1),
+      );
+      await Promise.all(workers);
 
-    setImportResult(accumulatedResults);
-    setImporting(false);
+      setImportResult(accumulatedResults);
 
-    const successCount = accumulatedResults.imported.length;
-    const failCount = accumulatedResults.failed.length;
+      const successCount = accumulatedResults.imported.length;
+      const failCount = accumulatedResults.failed.length;
 
-    if (successCount > 0) {
-      toast.success(`Successfully imported ${successCount} test(s)`);
-      onImported?.();
-    }
-    if (failCount > 0) {
-      toast.error(`Failed to import ${failCount} test(s)`);
+      if (successCount > 0) {
+        toast.success(`Successfully imported ${successCount} test(s)`);
+        onImported?.();
+      }
+      if (failCount > 0) {
+        toast.error(`Failed to import ${failCount} test(s)`);
+      }
+    } catch (err) {
+      console.error("[FullTestImportModal] Import batch failure:", err);
+      toast.error("Import failed due to an unexpected error");
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -494,7 +500,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
             </span>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <span className="text-gray-400 text-[10px]">
+            <span className="text-gray-400 text-[11px]">
               {test.questionsCount} Qs
             </span>
             <button
@@ -580,12 +586,12 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
           />
           {icon}
           <span
-            className={`uppercase text-[9px] tracking-wider px-1.5 py-0.5 rounded font-bold mr-1 ${badgeColor}`}
+            className={`uppercase text-[11px] tracking-wider px-1.5 py-0.5 rounded font-bold mr-1 ${badgeColor}`}
           >
             {typeLabel}
           </span>
           <span className="capitalize">{node.name.replace(/[-_]/g, " ")}</span>
-          <span className="text-[10px] text-gray-400 font-normal">
+          <span className="text-[11px] text-gray-400 font-normal">
             ({node.tests.length} tests)
           </span>
         </div>
@@ -686,7 +692,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
             <div>
               <span className="text-gray-400 block mb-1">Show Calculator</span>
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.showCalculator ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold inline-block ${test.showCalculator ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
               >
                 {test.showCalculator ? "YES" : "NO"}
               </span>
@@ -694,7 +700,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
             <div>
               <span className="text-gray-400 block mb-1">Show Timer</span>
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.showTimer !== false ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold inline-block ${test.showTimer !== false ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
               >
                 {test.showTimer !== false ? "YES" : "NO"}
               </span>
@@ -702,7 +708,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
             <div>
               <span className="text-gray-400 block mb-1">Allow Bookmarks</span>
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.allowBookmark !== false ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold inline-block ${test.allowBookmark !== false ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
               >
                 {test.allowBookmark !== false ? "YES" : "NO"}
               </span>
@@ -712,7 +718,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                 Shuffle Questions
               </span>
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.shuffleQuestions ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold inline-block ${test.shuffleQuestions ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
               >
                 {test.shuffleQuestions ? "YES" : "NO"}
               </span>
@@ -731,7 +737,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                 Proctoring Enabled
               </span>
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.proctoringEnabled ? "bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold inline-block ${test.proctoringEnabled ? "bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
               >
                 {test.proctoringEnabled ? "YES" : "NO"}
               </span>
@@ -741,7 +747,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                 Camera Monitoring
               </span>
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.cameraMonitoring ? "bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold inline-block ${test.cameraMonitoring ? "bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
               >
                 {test.cameraMonitoring ? "YES" : "NO"}
               </span>
@@ -757,7 +763,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                 Copy/Paste Disabled
               </span>
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.copyPasteDisabled ? "bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold inline-block ${test.copyPasteDisabled ? "bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
               >
                 {test.copyPasteDisabled ? "YES" : "NO"}
               </span>
@@ -784,7 +790,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                 Leaderboard Enabled
               </span>
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.leaderboardEnabled !== false ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold inline-block ${test.leaderboardEnabled !== false ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
               >
                 {test.leaderboardEnabled !== false ? "YES" : "NO"}
               </span>
@@ -794,7 +800,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                 Certificate Enabled
               </span>
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.certificateEnabled ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold inline-block ${test.certificateEnabled ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}
               >
                 {test.certificateEnabled ? "YES" : "NO"}
               </span>
@@ -1059,6 +1065,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                     <input
                       type="text"
+                      aria-label="Search by title or subcategory"
                       placeholder="Search by title, subcategory..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
@@ -1073,7 +1080,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                 {/* Tree scrollable container */}
                 <div className="flex-1 border border-gray-200 dark:border-gray-800 rounded-xl p-4 bg-white dark:bg-gray-900 overflow-y-auto space-y-2">
                   {Object.keys(hierarchyTree.children || {}).length === 0 ? (
-                    <div className="text-center py-12 text-gray-400 dark:text-gray-500 text-xs font-medium">
+                    <div className="text-center py-8 text-gray-400 dark:text-gray-500 text-xs font-medium">
                       No tests match your search query.
                     </div>
                   ) : (
@@ -1111,7 +1118,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                           {schemaValidation.missingFields.test.map((f, i) => (
                             <span
                               key={i}
-                              className="px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 text-[10px] font-semibold rounded"
+                              className="px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 text-[11px] font-semibold rounded"
                             >
                               {f}
                             </span>
@@ -1144,7 +1151,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                           {schemaValidation.extraFields.test.map((f, i) => (
                             <span
                               key={i}
-                              className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 text-[9px] font-medium rounded"
+                              className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 text-[11px] font-medium rounded"
                             >
                               {f}
                             </span>
@@ -1168,7 +1175,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
 
                 {/* Settings Block */}
                 <div className="bg-gray-50 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-800 rounded-xl p-4 space-y-3 mt-auto">
-                  <h4 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                  <h4 className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                     Import Settings
                   </h4>
                   <div className="flex items-start gap-2">
@@ -1186,7 +1193,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                       Enable Strict Taxonomy matching
                     </label>
                   </div>
-                  <p className="text-[10px] text-gray-500 leading-relaxed">
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
                     If checked, the import will fail if any referenced exam,
                     stage, test series, or subject does not already exist in the
                     database.
@@ -1233,7 +1240,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                             {sec.name || `Section ${sIdx + 1}`}
                           </span>
                           <span
-                            className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                            className={`text-[11px] px-1.5 py-0.5 rounded-full font-bold ${
                               activePreviewSectionIndex === sIdx
                                 ? "bg-indigo-700 text-white"
                                 : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
@@ -1420,7 +1427,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
           {step === 4 && (
             <div className="space-y-6 animate-fade-in">
               {importing ? (
-                <div className="flex flex-col items-center justify-center p-12 gap-5 text-center">
+                <div className="flex flex-col items-center justify-center p-6 sm:p-8 gap-5 text-center">
                   <Loader2 className="w-10 h-10 text-indigo-600 dark:text-indigo-400 animate-spin" />
 
                   <div className="w-full max-w-md space-y-2">
@@ -1520,7 +1527,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                                 <p className="font-semibold text-gray-800 dark:text-gray-200">
                                   {item.testTitle}
                                 </p>
-                                <p className="text-[10px] text-gray-500 mt-0.5">
+                                <p className="text-[11px] text-gray-500 mt-0.5">
                                   Imported {item.questionsCreated} questions in{" "}
                                   {item.sectionsCreated} sections
                                 </p>
@@ -1554,7 +1561,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                                 <p className="font-semibold text-gray-800 dark:text-gray-200">
                                   {item.testTitle || `Test #${item.index}`}
                                 </p>
-                                <p className="text-[10px] text-red-500 mt-0.5 font-medium">
+                                <p className="text-[11px] text-red-500 mt-0.5 font-medium">
                                   {item.error}
                                 </p>
                               </div>

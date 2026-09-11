@@ -1088,8 +1088,11 @@ export async function importFullTest(json, config = {}) {
         result.questionsCreated += validQRows.length;
       } else if (validQRows.length > 0) {
         const batchSavepoint = `batch_sec_${String(sIdx).replace(/[^0-9]/g, "")}`;
+        const batchSavepointSql = `SAVEPOINT "${batchSavepoint}"`;
+        const batchReleaseSql = `RELEASE SAVEPOINT "${batchSavepoint}"`;
+        const batchRollbackSql = `ROLLBACK TO SAVEPOINT "${batchSavepoint}"`;
         try {
-          await client.query(`SAVEPOINT ${batchSavepoint}`);
+          await client.query(batchSavepointSql);
 
           // Batch Multi-Row Insert into questions
           const cols = await getTableColumns(client, "questions");
@@ -1144,11 +1147,11 @@ export async function importFullTest(json, config = {}) {
             await client.query(batchJunctionSql, junctionVals);
           }
 
-          await client.query(`RELEASE SAVEPOINT ${batchSavepoint}`);
+          await client.query(batchReleaseSql);
           result.questionsCreated += qInsertResult.rows.length;
         } catch (batchErr) {
           try {
-            await client.query(`ROLLBACK TO SAVEPOINT ${batchSavepoint}`);
+            await client.query(batchRollbackSql);
           } catch (_) {
             void _;
           }
@@ -1163,8 +1166,11 @@ export async function importFullTest(json, config = {}) {
             const { qRow, qi, originalQ } = validQRows[vi];
             const safeQi = String(qi ?? vi).replace(/[^0-9]/g, "");
             const qSavepoint = `q_fb_${safeQi}`;
+            const qSavepointSql = `SAVEPOINT "${qSavepoint}"`;
+            const qReleaseSql = `RELEASE SAVEPOINT "${qSavepoint}"`;
+            const qRollbackSql = `ROLLBACK TO SAVEPOINT "${qSavepoint}"`;
             try {
-              await client.query(`SAVEPOINT ${qSavepoint}`);
+              await client.query(qSavepointSql);
               const cols = await getTableColumns(client, "questions");
               const validCols = Object.keys(qRow).filter((c) => cols.has(c));
               const validVals = validCols.map((c) => qRow[c]);
@@ -1183,11 +1189,11 @@ export async function importFullTest(json, config = {}) {
                  ON CONFLICT DO NOTHING`,
                 [testDbId, questionDbId, sectionDbId, qi + 1],
               );
-              await client.query(`RELEASE SAVEPOINT ${qSavepoint}`);
+              await client.query(qReleaseSql);
               result.questionsCreated++;
             } catch (qErr) {
               try {
-                await client.query(`ROLLBACK TO SAVEPOINT ${qSavepoint}`);
+                await client.query(qRollbackSql);
               } catch (_) {
                 void _;
               }

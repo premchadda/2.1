@@ -4,17 +4,31 @@ import RouteErrorBoundary from "../shared/components/common/RouteErrorBoundary.j
 import ProtectedRoute from "../shared/components/auth/ProtectedRoute.jsx";
 import FeatureGate from "../shared/components/common/FeatureGate.jsx";
 import { PageSkeleton } from "../shared/components/common/LoadingSkeleton.jsx";
+import { TrstprepLoading } from "../shared/components/common/TrstprepLoading.jsx";
 import { useAuth } from "../shared/providers/AuthContext";
 
 /**
- * Root route resolver: do not render the public Home page while authentication
- * is still being resolved. This prevents the Home -> Dashboard flash on
- * revisits when the existing session is restored asynchronously.
+ * Root route resolver:
+ * - If user is already authenticated (including from cached session),
+ *   redirects to /dashboard in 1ms without flashing the public home.
+ * - If authentication is still being resolved, shows the branded
+ *   Trstprep loading animation with logo and iridescent glow.
  */
 function RootRoute({ element }) {
-  const { isAuthenticated, authResolved } = useAuth();
-  if (!authResolved) return <PageSkeleton />;
-  return isAuthenticated ? <Navigate to="/dashboard" replace /> : element;
+  const { user, isAuthenticated, authResolved } = useAuth();
+  if (user || isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  if (!authResolved) {
+    return (
+      <TrstprepLoading
+        fullscreen
+        message="Loading Trstprep..."
+        subtext="Preparing your personalized study environment"
+      />
+    );
+  }
+  return element;
 }
 
 /**
@@ -35,6 +49,13 @@ export function wrapElement(element, opts = {}) {
   }
   if (isProtected) {
     wrapped = <ProtectedRoute>{wrapped}</ProtectedRoute>;
+  }
+  if (!React.isValidElement(wrapped)) {
+    return (
+      <RouteErrorBoundary>
+        <PageSkeleton type="default" />
+      </RouteErrorBoundary>
+    );
   }
   return <RouteErrorBoundary>{wrapped}</RouteErrorBoundary>;
 }

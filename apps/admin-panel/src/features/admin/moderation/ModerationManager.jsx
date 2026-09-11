@@ -51,6 +51,7 @@ import {
 import toast from "react-hot-toast";
 import { adminAPI } from "../../../shared/lib/dataService";
 import SearchInput from "../../../shared/components/ui/SearchInput";
+import { copyToClipboard } from "../../../shared/utils/clipboard";
 
 const STATUS_COLORS = {
   open: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800",
@@ -333,12 +334,6 @@ export default function ModerationManager() {
     } finally {
       setActionLoading(null);
     }
-  };
-
-  const copyToClipboard = (text, label = "Content") => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    toast.success(`${label} copied to clipboard!`);
   };
 
   // -------------------------------------------------------------
@@ -720,14 +715,14 @@ export default function ModerationManager() {
 
           {/* Body Content */}
           {savedLoading ? (
-            <div className="p-12 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+            <div className="p-6 sm:p-8 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
               <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
               <p className="text-xs text-gray-500">
                 Loading saved questions and items...
               </p>
             </div>
           ) : filteredSavedItems.length === 0 ? (
-            <div className="p-12 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+            <div className="p-6 sm:p-8 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
               <Bookmark className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-700 mb-2" />
               <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
                 No saved items found
@@ -1034,14 +1029,14 @@ export default function ModerationManager() {
 
           {/* Reports List */}
           {reportedLoading ? (
-            <div className="p-12 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+            <div className="p-6 sm:p-8 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
               <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
               <p className="text-xs text-gray-500">
                 Loading student reports...
               </p>
             </div>
           ) : filteredReportedQuestions.length === 0 ? (
-            <div className="p-12 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+            <div className="p-6 sm:p-8 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
               <CheckCircle className="mx-auto h-10 w-10 text-emerald-500 mb-2" />
               <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
                 No reported questions found
@@ -1211,12 +1206,12 @@ export default function ModerationManager() {
           {/* Table */}
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-hidden">
             {doubtsLoading ? (
-              <div className="p-12 text-center">
+              <div className="p-6 sm:p-8 text-center">
                 <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                 <p className="text-xs text-gray-500">Loading doubts...</p>
               </div>
             ) : doubts.length === 0 ? (
-              <div className="p-12 text-center">
+              <div className="p-6 sm:p-8 text-center">
                 <MessageSquare className="mx-auto h-10 w-10 text-gray-300 mb-2" />
                 <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
                   No doubts found

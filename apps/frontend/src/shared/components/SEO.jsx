@@ -103,7 +103,8 @@ export default function SEO({
       </Helmet>
     );
   } catch (err) {
-    console.warn("[SEO] Helmet error (fail-open):", err);
+    if (import.meta.env.DEV)
+      console.warn("[SEO] Helmet error (fail-open):", err);
     return null;
   }
 }

@@ -148,6 +148,7 @@ export default function AuditQuestionsView({ questions = [], onEditQuestion }) {
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
             <input
               type="text"
+              aria-label="Search audit issues or questions"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search audit issues or questions..."
@@ -167,7 +168,7 @@ export default function AuditQuestionsView({ questions = [], onEditQuestion }) {
 
       {/* Main Content Area */}
       {questions.length === 0 ? (
-        <div className="p-12 text-center">
+        <div className="p-6 sm:p-8 text-center">
           <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-3.5">
             <CheckCircle className="w-7 h-7" />
           </div>

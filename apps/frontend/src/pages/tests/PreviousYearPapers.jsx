@@ -131,12 +131,13 @@ export default function PreviousYearPapers() {
 
       <div className="max-w-6xl mx-auto px-4 py-6">
         {/* Compact Filters */}
-        <div className="bg-white rounded-lg border border-gray-100 p-2 mb-6">
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-100 dark:border-slate-700 p-2 mb-6">
           <div className="flex flex-row items-center gap-2">
             {/* Search */}
             <div className="relative flex-1 min-w-0">
               <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               <input
+                aria-label="Search papers"
                 type="text"
                 placeholder="Search papers..."
                 value={searchTerm}
@@ -202,7 +203,7 @@ export default function PreviousYearPapers() {
 
         {/* content */}
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <div className="flex flex-col items-center justify-center py-10 gap-4">
             <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
             <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">
               Curating Papers...
@@ -213,7 +214,7 @@ export default function PreviousYearPapers() {
             {filteredPapers.map((paper, idx) => (
               <div
                 key={paper._id || idx}
-                className="group bg-white rounded-[2rem] border border-gray-100 p-6 hover:border-indigo-200 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden"
+                className="group bg-white dark:bg-slate-800 rounded-[2rem] border border-gray-100 dark:border-slate-700 p-4 sm:p-6 hover:border-indigo-200 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden"
               >
                 {/* Visual Accent */}
                 <div className="absolute -top-12 -right-12 w-24 h-24 bg-indigo-50 rounded-full group-hover:bg-indigo-100 transition-colors duration-300" />
@@ -221,10 +222,10 @@ export default function PreviousYearPapers() {
                 <div className="relative z-10">
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex flex-col gap-2">
-                      <span className="inline-flex items-center px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100/50">
+                      <span className="inline-flex items-center px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[11px] font-black uppercase tracking-widest border border-indigo-100/50">
                         {paper.exam}
                       </span>
-                      <span className="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-widest w-fit">
+                      <span className="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[11px] font-black uppercase tracking-widest w-fit">
                         Year {paper.year}
                       </span>
                     </div>
@@ -245,7 +246,7 @@ export default function PreviousYearPapers() {
                       .map((sub, i) => (
                         <span
                           key={i}
-                          className="text-[10px] font-bold text-gray-400 border border-gray-100 px-2 py-0.5 rounded-md"
+                          className="text-[11px] font-bold text-gray-400 border border-gray-100 px-2 py-0.5 rounded-md"
                         >
                           {sub}
                         </span>
@@ -255,13 +256,13 @@ export default function PreviousYearPapers() {
                   <div className="flex items-center justify-between py-4 border-t border-gray-50">
                     <div className="flex items-center gap-1.5 text-gray-400">
                       <Target className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-black uppercase tracking-tighter">
+                      <span className="text-[11px] font-black uppercase tracking-tighter">
                         {paper.questions || 100} Questions
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 text-gray-400">
                       <Calendar className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-black uppercase tracking-tighter">
+                      <span className="text-[11px] font-black uppercase tracking-tighter">
                         Official
                       </span>
                     </div>
@@ -291,7 +292,7 @@ export default function PreviousYearPapers() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-24 bg-white rounded-[3rem] border border-dashed border-gray-200">
+          <div className="text-center py-8 bg-white dark:bg-slate-800 rounded-[3rem] border border-dashed border-gray-200 dark:border-slate-700">
             <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
               <Search className="w-10 h-10 text-gray-300" />
             </div>
@@ -316,38 +317,38 @@ export default function PreviousYearPapers() {
         )}
 
         {/* Global Stats Footer */}
-        <div className="mt-20 bg-gray-900 rounded-[3rem] p-10 md:p-4 sm:p-6 text-white relative overflow-hidden">
+        <div className="mt-20 bg-gray-900 dark:bg-slate-800 rounded-[3rem] p-4 md:p-6 text-white dark:text-slate-100 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[100px]" />
-          <div className="relative z-10 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 text-center">
+          <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 text-center">
             <div>
-              <p className="text-xl sm:text-2xl lg:text-3xl md:text-3xl sm:text-4xl lg:text-5xl font-black mb-1">
+              <p className="text-xl sm:text-2xl md:text-3xl lg:text-5xl font-black mb-1">
                 {platformStats.mockTests}
               </p>
-              <p className="text-[10px] md:text-xs font-black text-indigo-300 uppercase tracking-[0.2em]">
+              <p className="text-[11px] md:text-xs font-black text-indigo-300 uppercase tracking-[0.2em]">
                 Live Papers
               </p>
             </div>
             <div>
-              <p className="text-xl sm:text-2xl lg:text-3xl md:text-3xl sm:text-4xl lg:text-5xl font-black mb-1">
+              <p className="text-xl sm:text-2xl md:text-3xl lg:text-5xl font-black mb-1">
                 {platformStats.examsCovered}
               </p>
-              <p className="text-[10px] md:text-xs font-black text-indigo-300 uppercase tracking-[0.2em]">
+              <p className="text-[11px] md:text-xs font-black text-indigo-300 uppercase tracking-[0.2em]">
                 Exams Covered
               </p>
             </div>
             <div>
-              <p className="text-xl sm:text-2xl lg:text-3xl md:text-3xl sm:text-4xl lg:text-5xl font-black mb-1">
+              <p className="text-xl sm:text-2xl md:text-3xl lg:text-5xl font-black mb-1">
                 5+
               </p>
-              <p className="text-[10px] md:text-xs font-black text-indigo-300 uppercase tracking-[0.2em]">
+              <p className="text-[11px] md:text-xs font-black text-indigo-300 uppercase tracking-[0.2em]">
                 Years Depth
               </p>
             </div>
             <div>
-              <p className="text-xl sm:text-2xl lg:text-3xl md:text-3xl sm:text-4xl lg:text-5xl font-black mb-1">
+              <p className="text-xl sm:text-2xl md:text-3xl lg:text-5xl font-black mb-1">
                 FREE
               </p>
-              <p className="text-[10px] md:text-xs font-black text-indigo-300 uppercase tracking-[0.2em]">
+              <p className="text-[11px] md:text-xs font-black text-indigo-300 uppercase tracking-[0.2em]">
                 View Access
               </p>
             </div>

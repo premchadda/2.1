@@ -194,6 +194,7 @@ export default function LiveProctoringConsole() {
             <span className="text-gray-500 font-medium">Live Test ID:</span>
             <input
               type="text"
+              aria-label="Live Test ID"
               value={liveTestId}
               onChange={(e) => setLiveTestId(e.target.value)}
               className="w-16 font-bold text-gray-900 dark:text-white bg-transparent outline-none"
@@ -298,6 +299,7 @@ export default function LiveProctoringConsole() {
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
+            aria-label="Search candidate name, email, or attempt ID"
             placeholder="Search candidate name, email, or attempt ID..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -325,7 +327,7 @@ export default function LiveProctoringConsole() {
 
       {/* Candidate Grid */}
       {filteredCandidates.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-12 border border-gray-100 dark:border-gray-700 text-center space-y-2">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 sm:p-8 border border-gray-100 dark:border-gray-700 text-center space-y-2">
           <ShieldCheck className="w-12 h-12 text-emerald-500 mx-auto" />
           <h3 className="text-base font-bold text-gray-900 dark:text-white">
             No candidates match active filters

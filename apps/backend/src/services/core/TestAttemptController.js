@@ -323,14 +323,17 @@ export class TestAttemptController {
         unattempted = 0,
         totalScore = 0;
 
-      for (const qState of questionStates.rows) {
-        const qRes = await client.query(
-          "SELECT id, question_text, question_text_hi, options, options_hi, correct_answer, correct_option, explanation, explanation_hi, marks, negative_marks, difficulty, question_type, category, sub_category_id, tags, status, is_active, is_practice, question_number, test_id, series_id, section_id, subject, subject_id, chapter_id, topic_id, topic, quiz_id, study_material_id, image_asset_id, image_url, passage_id, created_by, category_id, external_question_id, language, solution_image_url, source, imported_from, is_deleted, deleted_by, deleted_at, created_at, updated_at FROM questions WHERE id = $1",
-          [qState.question_id],
-        );
-        if (qRes.rows.length === 0) continue;
+      // Batch-fetch all questions in one query (fixes N+1)
+      const questionIds = questionStates.rows.map((q) => q.question_id);
+      const allQuestionsRes = await client.query(
+        "SELECT id, question_text, question_text_hi, options, options_hi, correct_answer, correct_option, explanation, explanation_hi, marks, negative_marks, difficulty, question_type, category, sub_category_id, tags, status, is_active, is_practice, question_number, test_id, series_id, section_id, subject, subject_id, chapter_id, topic_id, topic, quiz_id, study_material_id, image_asset_id, image_url, passage_id, created_by, category_id, external_question_id, language, solution_image_url, source, imported_from, is_deleted, deleted_by, deleted_at, created_at, updated_at FROM questions WHERE id = ANY($1)",
+        [questionIds],
+      );
+      const questionsById = new Map(allQuestionsRes.rows.map((q) => [q.id, q]));
 
-        const question = qRes.rows[0];
+      for (const qState of questionStates.rows) {
+        const question = questionsById.get(qState.question_id);
+        if (!question) continue;
         const correctOption =
           question.correct_option ??
           question.correct_answer ??
@@ -457,7 +460,7 @@ export class TestAttemptController {
       FROM question_attempts qa
       JOIN questions q ON q.id = qa.question_id
       LEFT JOIN subject_topics t ON t.id = q.topic_id
-      LEFT JOIN subjects s ON s.id = q.subject
+      LEFT JOIN subjects s ON s.id = q.subject_id
       WHERE qa.attempt_id = $1 AND qa.selected_option IS NOT NULL
       GROUP BY t.name, s.name
     `,

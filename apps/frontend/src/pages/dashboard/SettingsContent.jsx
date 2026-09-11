@@ -261,6 +261,7 @@ function SettingsContent({
             </h3>
             <div className="space-y-3">
               <input
+                aria-label="Current Password"
                 type={showPasswords ? "text" : "password"}
                 placeholder="Current Password"
                 value={passwordForm.current}
@@ -271,6 +272,7 @@ function SettingsContent({
               />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input
+                  aria-label="New Password"
                   type={showPasswords ? "text" : "password"}
                   placeholder="New Password"
                   value={passwordForm.new}
@@ -280,6 +282,7 @@ function SettingsContent({
                   className={`w-full px-4 py-2.5 rounded-xl border ${passwordErrors.new ? "border-red-500" : "border-gray-200 dark:border-gray-600"} bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white`}
                 />
                 <input
+                  aria-label="Confirm New Password"
                   type={showPasswords ? "text" : "password"}
                   placeholder="Confirm"
                   value={passwordForm.confirm}

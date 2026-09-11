@@ -222,6 +222,7 @@ export default function RolePermissionsManager({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <input
           type="text"
+          aria-label="Role name"
           placeholder="Role name (e.g., content_manager)"
           value={formData.name}
           onChange={(e) =>
@@ -234,6 +235,7 @@ export default function RolePermissionsManager({
         />
         <input
           type="text"
+          aria-label="Display name"
           placeholder="Display name (e.g., Content Manager)"
           value={formData.displayName}
           onChange={(e) =>
@@ -244,6 +246,7 @@ export default function RolePermissionsManager({
       </div>
       <input
         type="text"
+        aria-label="Description"
         placeholder="Description"
         value={formData.description}
         onChange={(e) =>

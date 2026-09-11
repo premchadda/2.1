@@ -157,7 +157,7 @@ export default defineConfig(({ mode }) => {
       }),
     ],
     optimizeDeps: {
-      include: ["@trstprep/shared-config", "@trstprep/shared-hooks"],
+      exclude: ["@trstprep/shared-config", "@trstprep/shared-hooks"],
     },
     resolve: {
       dedupe: ["react", "react-dom"],

@@ -343,13 +343,10 @@ router.post("/:id/leave", protect, async (req, res) => {
         isActive: { $ne: false },
       });
       if (members.length === 1) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message:
-              "Cannot leave as the only admin. Delete the group instead.",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Cannot leave as the only admin. Delete the group instead.",
+        });
       }
     }
 
@@ -764,6 +761,24 @@ router.put("/:id/posts/:postId/pin", protect, async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Post not found" });
+    }
+
+    // Verify requester is author or group admin
+    const requesterMember = await dbHelpers.findOne("studyGroupMembers", {
+      groupId: req.params.id,
+      userId: req.user.id,
+      isActive: { $ne: false },
+    });
+    const hasAuthor = Boolean(post.userId || post.authorId);
+    const isAuthor = hasAuthor
+      ? idsMatch(post.userId || post.authorId, req.user.id)
+      : true;
+    const isGroupAdmin = requesterMember?.role === "admin" || req.user?.isAdmin;
+    if (!isAuthor && !isGroupAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to pin posts in this group",
+      });
     }
 
     const isPinned = Boolean(post.isPinned ?? post.is_pinned ?? false);

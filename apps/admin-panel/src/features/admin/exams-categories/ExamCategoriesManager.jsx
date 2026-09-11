@@ -393,7 +393,7 @@ export default function ExamCategoriesManager() {
       </div>
 
       {categories.length === 0 && (
-        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
+        <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
           <FolderOpen className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
           <div className="flex items-center justify-center gap-2">
             <Folder className="w-6 h-6 text-gray-300" />

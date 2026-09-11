@@ -9,6 +9,8 @@ import Telemetry from "../../shared/lib/telemetry";
 import { useAuth } from "../../shared/providers/AuthContext";
 import { clearDashboardCache } from "../../shared/lib/dashboardCache";
 import { useConfirm } from "../../shared/components/common/ConfirmModal";
+import MathRenderer from "../../shared/components/MathRenderer";
+import { formatTime } from "../../shared/lib/format.js";
 import "./TestInterface.css";
 
 const LiveTestInterface = () => {
@@ -328,14 +330,6 @@ const LiveTestInterface = () => {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [loading, isSubmitted, test, currentQuestion, handleSubmit, confirm]);
 
-  const formatTime = (seconds) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = seconds % 60;
-
-    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
-  };
-
   const saveAnswerToServer = async (questionIndex, value) => {
     try {
       await api.post(`/api/live-tests/${liveTestId}/save-answer`, {
@@ -434,7 +428,10 @@ const LiveTestInterface = () => {
               <div className="test-timer-value">{formatTime(timeLeft)}</div>
             </div>
           </div>
-          <button className="test-btn-submit" onClick={handleSubmit}>
+          <button
+            className="test-btn-submit focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            onClick={handleSubmit}
+          >
             Submit Test
           </button>
         </div>
@@ -565,6 +562,7 @@ const LiveTestInterface = () => {
 
             {question.type === "numeric" && (
               <input
+                aria-label="Numeric answer input"
                 type="number"
                 className="test-input-numeric"
                 placeholder="Enter your answer"

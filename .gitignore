@@ -192,3 +192,6 @@ __pycache__/
 .pytest_cache/
 .freebuff/
 
+# FortSpy encrypted video store
+fortspy-server/store/*
+!fortspy-server/store/.gitkeep

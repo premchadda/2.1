@@ -35,7 +35,7 @@ function PassageGroup({
 
   if (groups.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-8">
         <BookOpen className="w-12 h-12 text-gray-200 dark:text-gray-700 mx-auto mb-3" />
         <p className="text-sm font-medium text-gray-400 dark:text-gray-500">
           No questions available

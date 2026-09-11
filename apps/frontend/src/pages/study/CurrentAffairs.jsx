@@ -121,7 +121,7 @@ export default function CurrentAffairs() {
         </div>
 
         {/* Date Navigation */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-8">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-4 mb-8">
           <div className="flex items-center justify-between">
             <button
               onClick={() => changeDate(-1)}
@@ -166,7 +166,7 @@ export default function CurrentAffairs() {
           </div>
           <Link
             to="/quizzes?category=current-affairs"
-            className="px-5 py-2.5 bg-white text-indigo-700 hover:bg-indigo-50 font-bold text-xs uppercase tracking-wider rounded-xl shadow transition-all shrink-0 flex items-center gap-1.5"
+            className="px-5 py-2.5 bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 font-bold text-xs uppercase tracking-wider rounded-xl shadow transition-all shrink-0 flex items-center gap-1.5"
           >
             <span>Take Daily Quiz</span>
             <ChevronRight className="w-4 h-4" />
@@ -182,7 +182,7 @@ export default function CurrentAffairs() {
               className={`px-4 py-2 rounded-full text-sm font-medium capitalize ${
                 category === cat
                   ? "bg-indigo-600 text-white"
-                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+                  : "bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 border border-gray-200 dark:border-slate-700"
               }`}
             >
               {cat}
@@ -192,7 +192,7 @@ export default function CurrentAffairs() {
 
         {/* Articles Grid */}
         {error && !loading ? (
-          <div className="text-center py-12 bg-white rounded-xl">
+          <div className="text-center py-8 bg-white dark:bg-slate-800 rounded-xl">
             <FileText className="w-16 h-16 text-red-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
               Something went wrong
@@ -210,7 +210,7 @@ export default function CurrentAffairs() {
             </button>
           </div>
         ) : loading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-8">
             <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : filteredArticles.length > 0 ? (
@@ -218,7 +218,7 @@ export default function CurrentAffairs() {
             {filteredArticles.map((article, idx) => (
               <div
                 key={article.id || article._id || idx}
-                className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow"
+                className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-4 sm:p-6 hover:shadow-md transition-shadow"
               >
                 <div className="flex items-center justify-between mb-3">
                   <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-medium">
@@ -243,7 +243,7 @@ export default function CurrentAffairs() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 bg-white rounded-xl">
+          <div className="text-center py-8 bg-white dark:bg-slate-800 rounded-xl">
             <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
               No Articles Found

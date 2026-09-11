@@ -46,7 +46,7 @@ export async function runMigrations(pool, { afterMigrations } = {}) {
       console.log("[Migrations] Advisory lock acquired.");
     }
 
-    await runMigrationsLocked(pool, migrationsDir, { afterMigrations });
+    await runMigrationsLocked(lockClient, migrationsDir, { afterMigrations });
   } finally {
     if (acquired) {
       try {
@@ -65,12 +65,12 @@ export async function runMigrations(pool, { afterMigrations } = {}) {
 }
 
 async function runMigrationsLocked(
-  pool,
+  client,
   migrationsDir,
   { afterMigrations } = {},
 ) {
   // 1. Ensure schema_migrations table exists
-  await pool.query(`
+  await client.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       id SERIAL PRIMARY KEY,
       migration_name VARCHAR(255) UNIQUE NOT NULL,
@@ -91,20 +91,27 @@ async function runMigrationsLocked(
       a.localeCompare(b, "en", { numeric: true, sensitivity: "base" }),
     );
 
-  // 2a. Detect duplicate numeric prefixes (e.g., 038_a.sql + 038_b.sql).
+  // 2a. Detect duplicate numeric prefixes (e.g., 038_a.sql + 038_b.sql,
+  //     or letter-suffixed 038a_x.sql colliding with 038_x.sql).
   //     Lexicographic sort alone does not prevent the runner from applying both,
   //     but humans + tooling rely on a unique prefix. Fail fast with a
   //     descriptive error pointing at the conflicting files.
+  //     Letter suffixes are forbidden going forward: use the next free numeric
+  //     prefix instead (e.g., prefer 136_ over 135b_).
   const prefixMap = new Map();
   for (const file of files) {
-    const match = file.match(/^(\d{3})_/);
+    const match = file.match(/^(\d{3})[a-z]?_/i);
     if (!match) continue;
     const prefix = match[1];
     if (!prefixMap.has(prefix)) prefixMap.set(prefix, []);
     prefixMap.get(prefix).push(file);
   }
+  // Grandfathered intentional pairs (see docs/legacy-migrations/README.md):
+  // 000_baseline_functions.sql + 000a_enable_rls_policies.sql,
+  // 056a_* + 056b_* (no bare 056_* exists). Never add new pairs.
+  const GRANDFATHERED_PREFIXES = new Set(["000", "056"]);
   const duplicates = [...prefixMap.entries()].filter(
-    ([, list]) => list.length > 1,
+    ([prefix, list]) => list.length > 1 && !GRANDFATHERED_PREFIXES.has(prefix),
   );
   if (duplicates.length > 0) {
     const details = duplicates
@@ -116,7 +123,7 @@ async function runMigrationsLocked(
   }
 
   // 3. Get applied migrations
-  const { rows } = await pool.query(
+  const { rows } = await client.query(
     "SELECT migration_name FROM schema_migrations;",
   );
   const applied = new Set(rows.map((r) => r.migration_name));

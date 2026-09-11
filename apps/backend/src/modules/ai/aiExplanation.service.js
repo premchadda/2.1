@@ -115,27 +115,39 @@ const aiExplanationService = {
 
   /**
    * Generate explanations for multiple questions.
+   * Bounded concurrency (pool of 3) so a 20-item bulk request cannot fan out
+   * into 20 parallel LLM calls; input capped at 50 ids per call.
    */
   async generateBulk(questionIds, options = {}) {
+    const ids = Array.isArray(questionIds) ? questionIds.slice(0, 50) : [];
+    const CONCURRENCY = 3;
     const results = {
-      total: questionIds.length,
+      total: ids.length,
       generated: 0,
       failed: 0,
       errors: [],
     };
 
-    for (const questionId of questionIds) {
-      try {
-        await this.generateExplanation(questionId, options);
-        results.generated++;
-      } catch (error) {
-        results.failed++;
-        results.errors.push({
-          questionId,
-          message: error.message || "Generation failed",
-        });
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < ids.length) {
+        const questionId = ids[cursor++];
+        try {
+          await this.generateExplanation(questionId, options);
+          results.generated++;
+        } catch (error) {
+          results.failed++;
+          results.errors.push({
+            questionId,
+            message: error.message || "Generation failed",
+          });
+        }
       }
-    }
+    };
+
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, ids.length) }, () => worker()),
+    );
 
     return results;
   },

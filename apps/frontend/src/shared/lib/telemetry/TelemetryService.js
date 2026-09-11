@@ -381,9 +381,11 @@ class TelemetryService {
       const { attemptStatus, serverTime } = res.data || {};
 
       if (attemptStatus && attemptStatus !== "active") {
-        console.warn(
-          `[TelemetryService] Heartbeat reported attempt status: ${attemptStatus}. Stopping telemetry.`,
-        );
+        if (import.meta.env.DEV) {
+          console.warn(
+            `[TelemetryService] Heartbeat reported attempt status: ${attemptStatus}. Stopping telemetry.`,
+          );
+        }
         if (this.onViolation) {
           this.onViolation("attempt_revoked", { status: attemptStatus });
         }
@@ -398,7 +400,8 @@ class TelemetryService {
         this.serverOffset = Math.round(serverTimeMs - clientTimeNow);
       }
     } catch (err) {
-      console.warn("[TelemetryService] Heartbeat ping failed:", err.message);
+      if (import.meta.env.DEV)
+        console.warn("[TelemetryService] Heartbeat ping failed:", err.message);
     }
   }
 

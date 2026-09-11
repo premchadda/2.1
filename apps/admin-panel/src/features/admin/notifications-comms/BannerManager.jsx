@@ -74,7 +74,11 @@ export default function BannerManager() {
         setSaving(false);
         return;
       }
-      if (payload.startDate && payload.endDate && new Date(payload.startDate) > new Date(payload.endDate)) {
+      if (
+        payload.startDate &&
+        payload.endDate &&
+        new Date(payload.startDate) > new Date(payload.endDate)
+      ) {
         toast.error("Start date must be before end date");
         setSaving(false);
         return;
@@ -312,7 +316,7 @@ export default function BannerManager() {
       </div>
 
       {visibleBanners.length === 0 && (
-        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl">
+        <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-xl">
           <Image className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 dark:text-gray-400">
             {statusFilter === "all"

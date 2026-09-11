@@ -11,6 +11,7 @@
 
 import { EventEmitter } from "events";
 import { addJob, isQueueEnabled, QUEUE_NAMES } from "../queue/queueManager.js";
+import logger from "../logger/logger.js";
 
 const eventEmitter = new EventEmitter();
 eventEmitter.setMaxListeners(100);
@@ -82,11 +83,19 @@ export const emitDomainEvent = async (eventName, payload = {}) => {
   let queuedJobs = 0;
 
   for (const target of queueTargets) {
-    await addJob(target.queue, target.jobName, envelope, {
-      // BullMQ custom job IDs cannot contain ":" - use "-" separators
-      jobId: `${eventName}-${target.queue}-${payload.userId || "system"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    });
-    queuedJobs += 1;
+    try {
+      await addJob(target.queue, target.jobName, envelope, {
+        // BullMQ custom job IDs cannot contain ":" - use "-" separators
+        jobId: `${eventName}-${target.queue}-${payload.userId || "system"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      });
+      queuedJobs += 1;
+    } catch (err) {
+      // Queue outage must never fail the user flow — local listeners already
+      // received the event above; degrade to local-emit only.
+      logger.warn(
+        `[EventBus] addJob failed for ${target.queue}/${target.jobName}: ${err.message}`,
+      );
+    }
   }
 
   return {

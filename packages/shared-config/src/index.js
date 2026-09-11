@@ -196,47 +196,157 @@ export function getAssetUrl(path) {
 }
 
 // ===== FORMATTERS & GENERAL UTILITIES =====
-export function formatCurrency(value) {
-  if (value == null || value === 0) return "₹0";
-  const num =
-    typeof value === "string"
-      ? parseFloat(value.replace(/[^0-9.-]/g, ""))
-      : value;
-  if (isNaN(num)) return "₹0";
-  if (num >= 10000000) return "₹" + (num / 10000000).toFixed(1) + "Cr";
-  if (num >= 100000) return "₹" + (num / 100000).toFixed(1) + "L";
-  return "₹" + num.toLocaleString("en-IN");
-}
+// Canonical locale-aware formatters. Single import path:
+//   import { formatCurrency, formatNumber, formatDate, formatTime, formatDuration } from "@trstprep/shared-config";
+// FE `shared/lib/format.js` and ADM `shared/lib/format.js` converge here (both
+// should delegate to these in Phase 2). Locale/currency live here ONLY —
+// change LOCALE/CURRENCY here when localisation is added.
+// Seconds-based clock shapes: `formatTime` = countdown clock ("05:00", "1:02:03"),
+// `formatDuration` = human duration ("0m", "5m 30s", "2h 5m").
+export const LOCALE = "en-IN";
+export const CURRENCY = "INR";
+const FALLBACK = "—";
 
-export function formatNumber(value) {
-  if (value == null) return "0";
-  const num =
-    typeof value === "string"
-      ? parseFloat(value.replace(/[^0-9.-]/g, ""))
-      : value;
-  if (isNaN(num)) return "0";
-  if (num >= 10000000) return (num / 10000000).toFixed(1) + "Cr";
-  if (num >= 100000) return (num / 100000).toFixed(1) + "L";
-  return num.toLocaleString("en-IN");
-}
+// Cache formatters for perf (Intl constructors are expensive)
+const nfCache = new Map();
+const getNumberFormatter = (currency) => {
+  const key = currency || "number";
+  if (!nfCache.has(key)) {
+    nfCache.set(
+      key,
+      currency
+        ? new Intl.NumberFormat(LOCALE, { style: "currency", currency })
+        : new Intl.NumberFormat(LOCALE),
+    );
+  }
+  return nfCache.get(key);
+};
 
-export function formatDate(date, options = {}) {
+export const formatCurrency = (amount, currency = CURRENCY) => {
+  if (amount === null || amount === undefined || amount === "") return FALLBACK;
+  const n = Number(amount);
+  if (Number.isNaN(n)) return FALLBACK;
+  return getNumberFormatter(currency).format(n);
+};
+
+export const formatNumber = (value) => {
+  if (value === null || value === undefined || value === "") return FALLBACK;
+  const n = Number(value);
+  if (Number.isNaN(n)) return FALLBACK;
+  return getNumberFormatter().format(n);
+};
+
+export const formatDate = (
+  date,
+  opts = { year: "numeric", month: "short", day: "numeric" },
+) => {
   if (!date) return "—";
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    ...options,
-  });
-}
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(LOCALE, opts);
+};
 
-export function formatTime(seconds) {
-  if (seconds == null || isNaN(seconds)) return "00:00";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+export const formatDateTime = (date) => {
+  if (!date) return "—";
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(LOCALE, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+export const formatTimeAgo = (date, now = Date.now()) => {
+  if (!date) return FALLBACK;
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return FALLBACK;
+  const diffMs = now - d.getTime();
+  if (diffMs < 0) return "just now";
+  const diffSec = Math.round(diffMs / 1000);
+  if (diffSec < 60) return "just now";
+  const diffMin = Math.round(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHrs = Math.round(diffMin / 60);
+  if (diffHrs < 24) return `${diffHrs}h ago`;
+  const diffDays = Math.round(diffHrs / 24);
+  if (diffDays < 30) return `${diffDays}d ago`;
+  const diffMonths = Math.round(diffDays / 30);
+  if (diffMonths < 12) return `${diffMonths}mo ago`;
+  const diffYears = Math.round(diffMonths / 12);
+  return `${diffYears}y ago`;
+};
+
+/**
+ * Countdown-clock shape used by the test engine ("05:00", "1:02:03").
+ * Hours are included only once the value reaches an hour so short tests
+ * keep the familiar mm:ss display. Input is SECONDS.
+ */
+export const formatTime = (seconds) => {
+  const total = Number(seconds);
+  if (!Number.isFinite(total) || total < 0) return "00:00";
+  const s = Math.floor(total);
+  const hours = Math.floor(s / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  const secs = s % 60;
+  const mm = mins.toString().padStart(2, "0");
+  const ss = secs.toString().padStart(2, "0");
+  if (hours > 0) return `${hours}:${mm}:${ss}`;
+  return `${mm}:${ss}`;
+};
+
+/**
+ * Human duration shape used on result/leaderboard screens
+ * ("0m", "5m", "0m 45s", "5m 30s", "2h 5m"). Input is SECONDS.
+ */
+export const formatDuration = (seconds) => {
+  const total = Number(seconds);
+  if (!Number.isFinite(total) || total <= 0) return "0m";
+  const s = Math.floor(total);
+  const hours = Math.floor(s / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  const secs = s % 60;
+  if (hours > 0) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  // Preserve the historical result-screen shape ("0m", "5m", "0m 45s", "5m 30s").
+  if (mins > 0) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  return secs > 0 ? `0m ${secs}s` : "0m";
+};
+
+// ===== AVATAR GRADIENT (CANONICAL) =====
+// Canonical deterministic avatar gradient. Replaces the three forked copies
+// (Community.jsx, Leaderboard.jsx, TestLeaderboardTab.jsx): charcode-sum hash
+// over a shared 6-stop indigo→violet palette. Forks should delegate here.
+export const AVATAR_GRADIENTS = [
+  "from-indigo-500 to-purple-500",
+  "from-blue-500 to-cyan-500",
+  "from-emerald-500 to-teal-500",
+  "from-amber-500 to-orange-500",
+  "from-rose-500 to-pink-500",
+  "from-violet-500 to-fuchsia-500",
+];
+
+export const getAvatarGradient = (name) => {
+  if (!name) return AVATAR_GRADIENTS[0];
+  const sum = String(name)
+    .split("")
+    .reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return AVATAR_GRADIENTS[sum % AVATAR_GRADIENTS.length];
+};
+
+// ===== PRO-PASS DISPLAY (CANONICAL) =====
+// Canonical remaining-days phrasing. Mirrors shared-hooks `formatRemainingDays`
+// (useProPass.js) so non-React consumers can import it from here without React.
+
+export function formatRemainingDays(days) {
+  if (days === null || days === undefined) return "";
+  if (days === 0) return "Expires today";
+  if (days === 1) return "1 day remaining";
+  if (days < 7) return `${days} days remaining`;
+  if (days < 30) return `${Math.floor(days / 7)} weeks remaining`;
+  if (days < 365) return `${Math.floor(days / 30)} months remaining`;
+  return "1 year+ remaining";
 }
 
 export function timeAgo(ts) {
@@ -251,6 +361,62 @@ export function timeAgo(ts) {
   if (m < 60) return `${m}m ago`;
   if (h < 24) return `${h}h ago`;
   return `${d}d ago`;
+}
+
+export function formatRelativeTime(timestamp) {
+  if (!timestamp) return "Recently active";
+  try {
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return "Recently active";
+    const diffSeconds = Math.max(
+      0,
+      Math.floor((Date.now() - date.getTime()) / 1000),
+    );
+    if (diffSeconds < 60) return "Active just now";
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    if (diffMinutes < 60) return `Active ${diffMinutes}m ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `Active ${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `Active ${diffDays}d ago`;
+  } catch {
+    return "Recently active";
+  }
+}
+
+export function getDeviceType(deviceType, os = "") {
+  const dt = String(deviceType || "").toLowerCase();
+  const lowerOs = String(os || "").toLowerCase();
+  if (
+    dt === "mobile" ||
+    lowerOs.includes("android") ||
+    lowerOs.includes("ios") ||
+    lowerOs.includes("iphone")
+  ) {
+    return "mobile";
+  }
+  if (dt === "tablet" || lowerOs.includes("ipad")) {
+    return "tablet";
+  }
+  if (
+    lowerOs.includes("mac") ||
+    lowerOs.includes("windows") ||
+    lowerOs.includes("linux")
+  ) {
+    return "laptop";
+  }
+  return "desktop";
+}
+
+export function getCategoryLabel(category) {
+  return (
+    category?.label ||
+    category?.name ||
+    category?.slug ||
+    category?.categoryId ||
+    category?.id ||
+    "Not linked"
+  );
 }
 
 export function exportToCSV(filename, rows) {
@@ -302,13 +468,40 @@ export {
 // ===== LOGGER =====
 export { logger } from "./logger.js";
 
-// ===== HTML SANITIZER (ALLOWED_TAGS / ALLOWED_ATTR hygiene) =====
+// ===== HTML SANITIZER (canonical STRICT policy — see htmlSanitizer.js) =====
 export {
   sanitizeHtml,
-  sanitizeHtmlAsync,
   ALLOWED_TAGS,
   ALLOWED_ATTR,
+  ALLOWED_URI_REGEXP,
+  SANITIZE_CONFIG,
 } from "./htmlSanitizer.js";
+
+import {
+  normalizeEnrollmentEntry,
+  getNormalizedEnrolledSeries,
+  hasLegacyEnrolledSeriesIds,
+  isSeriesEnrolled,
+} from "./enrollment.js";
+
+// ===== ENROLLMENT (canonical — replaces FE/ADM forked copies) =====
+export {
+  normalizeEnrollmentEntry,
+  getNormalizedEnrolledSeries,
+  hasLegacyEnrolledSeriesIds,
+  isSeriesEnrolled,
+};
+
+// ===== DATA-SERVICE WRAPPER SIGNATURES — OWNERSHIP NOTE =====
+// Canonical backend-call wrappers live in the apps, NOT here:
+//   FE:  apps/frontend/src/shared/lib/dataService.js (+ apiClient.js)
+//   ADM: apps/admin-panel/src/shared/lib/dataService.js (+ apiClient.js)
+// This package intentionally exports only transport primitives and shared
+// error types (createApiClient, isCancel, DataError, NetworkError,
+// ValidationError, AuthenticationError, NotFoundError — see re-export below).
+// Do NOT implement backend calls, route URLs, or auth flows in this package:
+// edits here would fork the wrappers and bypass MessageBroker/aiRateLimiter
+// audit guards owned by the apps/backend. (No new runtime export — note only.)
 
 // ===== ERROR BOUNDARY =====
 export {
@@ -332,12 +525,27 @@ export default {
   getBannerUrl,
   getImageSizes,
   getAssetUrl,
+  LOCALE,
+  CURRENCY,
   formatCurrency,
   formatNumber,
   formatDate,
+  formatDateTime,
+  formatTimeAgo,
   formatTime,
+  formatDuration,
+  AVATAR_GRADIENTS,
+  getAvatarGradient,
+  formatRemainingDays,
   timeAgo,
+  formatRelativeTime,
+  getDeviceType,
+  getCategoryLabel,
   exportToCSV,
   idsEqual,
   getEntityId,
+  normalizeEnrollmentEntry,
+  getNormalizedEnrolledSeries,
+  hasLegacyEnrolledSeriesIds,
+  isSeriesEnrolled,
 };

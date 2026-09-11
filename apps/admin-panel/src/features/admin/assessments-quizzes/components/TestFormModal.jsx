@@ -22,6 +22,11 @@ import {
   idsEqual,
   normalizeKey,
 } from "../../../../shared/utils/questionHelpers";
+import {
+  getCategoryLabel,
+  getCategoryPath,
+  getCategoryPathLabel,
+} from "../../../../shared/utils/categoryHelpers.js";
 
 const parseIdList = (value) =>
   coerceArray(value)
@@ -33,41 +38,6 @@ const TEST_CATEGORY_TABS = [
   { id: "pyp", label: "Previous Year Papers", icon: FileText },
   { id: "live-tests", label: "Live Tests", icon: Clock },
 ];
-
-const getCategoryLabel = (category) =>
-  category?.label ||
-  category?.name ||
-  category?.slug ||
-  category?.categoryId ||
-  category?.id ||
-  "Not linked";
-
-const getCategoryPath = (categoryId, flatCategories = []) => {
-  const path = [];
-  const visited = new Set();
-  let current = flatCategories.find((cat) =>
-    [cat.id, cat._id, cat.slug, cat.categoryId].some((value) =>
-      idsEqual(value, categoryId),
-    ),
-  );
-  while (current && path.length < 10) {
-    const id = String(getEntityId(current) || "");
-    if (visited.has(id)) break;
-    visited.add(id);
-    path.unshift(current);
-    const parentId = current.parentId || current.parent_id;
-    if (!parentId) break;
-    current = flatCategories.find(
-      (cat) => idsEqual(cat.id, parentId) || idsEqual(cat._id, parentId),
-    );
-  }
-  return path;
-};
-
-const getCategoryPathLabel = (categoryId, flatCategories = []) => {
-  const path = getCategoryPath(categoryId, flatCategories);
-  return path.map((cat) => getCategoryLabel(cat)).join(" / ") || "Not linked";
-};
 
 // ─── Cascading Category Dropdown ────────────────────────────────────────────
 export const CascadingCategorySelect = ({
@@ -397,6 +367,7 @@ export const CompactSectionPicker = ({
           <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
+            aria-label="Filter sections by name"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Filter sections by name..."

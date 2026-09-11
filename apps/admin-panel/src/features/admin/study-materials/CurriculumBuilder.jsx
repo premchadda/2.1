@@ -2321,6 +2321,7 @@ function CurriculumBuilder() {
                         ) && (
                           <input
                             type="checkbox"
+                            aria-label={`Select all items in group ${group.name}`}
                             checked={
                               group.items.length > 0 &&
                               group.items.every((item) =>
@@ -2376,6 +2377,7 @@ function CurriculumBuilder() {
                               ) && (
                                 <input
                                   type="checkbox"
+                                  aria-label={`Select item ${item.name || getEntityId(item)}`}
                                   checked={selectedItemIds.has(
                                     getEntityId(item),
                                   )}

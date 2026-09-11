@@ -28,6 +28,25 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const { confirm, ConfirmDialog } = useConfirm();
 
+  // Lock background scrolling while the sessions modal is open
+  useEffect(() => {
+    if (!showSessionsModal) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [showSessionsModal]);
+
+  const handleSyncProfile = async () => {
+    try {
+      await refreshUser?.();
+      toast.success("Profile synced");
+    } catch {
+      toast.error("Failed to sync profile");
+    }
+  };
+
   const validatePasswordForm = () => {
     const errors = {};
     if (!passwordForm.current) errors.current = "Current password is required";
@@ -139,11 +158,26 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
   return (
     <div className="space-y-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-        <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4">
-          Update Password
-        </h3>
+        <div className="flex items-center gap-2 mb-1">
+          <Lock className="w-4 h-4 text-indigo-500" />
+          <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+            Update Password
+          </h3>
+        </div>
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+            Signed in as {user?.email || "your account"}
+          </p>
+          <button
+            onClick={handleSyncProfile}
+            className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
+          >
+            Sync profile
+          </button>
+        </div>
         <div className="space-y-3">
           <input
+            aria-label="Current Password"
             type={showPasswords ? "text" : "password"}
             placeholder="Current Password"
             value={passwordForm.current}
@@ -154,6 +188,7 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input
+              aria-label="New Password"
               type={showPasswords ? "text" : "password"}
               placeholder="New Password"
               value={passwordForm.new}
@@ -163,6 +198,7 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
               className={`w-full px-4 py-2.5 rounded-xl border ${passwordErrors.new ? "border-red-500" : "border-gray-200 dark:border-gray-600"} bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white`}
             />
             <input
+              aria-label="Confirm New Password"
               type={showPasswords ? "text" : "password"}
               placeholder="Confirm"
               value={passwordForm.confirm}
@@ -172,12 +208,12 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
               className={`w-full px-4 py-2.5 rounded-xl border ${passwordErrors.confirm ? "border-red-500" : "border-gray-200 dark:border-gray-600"} bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white`}
             />
           </div>
-          <button
-            onClick={() => setShowPasswords(!showPasswords)}
-            className="text-xs font-bold text-indigo-600 hover:underline"
-          >
-            {showPasswords ? "Hide" : "Show"} Characters
-          </button>
+          <div className="flex items-center justify-between gap-3 py-1">
+            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+              {showPasswords ? "Hide" : "Show"} Characters
+            </span>
+            <ToggleSwitch checked={showPasswords} onChange={setShowPasswords} />
+          </div>
           <button
             onClick={handlePasswordSave}
             disabled={saving}

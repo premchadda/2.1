@@ -1,75 +1,100 @@
-import { useEffect, useMemo } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { Trophy, Medal, ArrowLeft, Loader2 } from 'lucide-react';
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '../../shared/lib/dataService'
-import { getSocket } from '../../shared/lib/websocket'
-import { useAuth } from '../../shared/providers/AuthContext'
-import { useLiveTestMonitor } from '../../shared/hooks'
+import { useEffect, useMemo } from "react";
+import { useParams, Link } from "react-router-dom";
+import { Trophy, Medal, ArrowLeft, Loader2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "../../shared/lib/dataService";
+import { getSocket } from "../../shared/lib/websocket";
+import { useAuth } from "../../shared/providers/AuthContext";
+import { useLiveTestMonitor } from "../../shared/hooks";
 
 export default function LiveTestLeaderboard() {
-  const { liveTestId } = useParams()
-  const { user } = useAuth()
-  const queryClient = useQueryClient()
+  const { liveTestId } = useParams();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const { participants, isLive } = useLiveTestMonitor(liveTestId)
+  const { participants, isLive } = useLiveTestMonitor(liveTestId);
 
-  const { data: leaderboard = [], isLoading } = useQuery({
-    queryKey: ['live-test-leaderboard', liveTestId],
+  const {
+    data: leaderboard = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
+    queryKey: ["live-test-leaderboard", liveTestId],
     queryFn: async () => {
-      const response = await api.get(`/api/live-tests/${liveTestId}/leaderboard`)
-      return response.data?.data || []
+      const response = await api.get(
+        `/api/live-tests/${liveTestId}/leaderboard`,
+      );
+      return response.data?.data || [];
     },
     staleTime: 1000 * 30,
-  })
+  });
 
   useEffect(() => {
-    const socket = getSocket()
-    if (!socket?.connected) return
+    const socket = getSocket();
+    if (!socket?.connected) return;
 
     const handleLeaderboardUpdate = (payload) => {
       if (String(payload?.testId) === String(liveTestId)) {
-        queryClient.invalidateQueries({ queryKey: ['live-test-leaderboard', liveTestId] })
+        queryClient.invalidateQueries({
+          queryKey: ["live-test-leaderboard", liveTestId],
+        });
       }
-    }
+    };
 
-    socket.on('leaderboard:updated', handleLeaderboardUpdate)
+    socket.on("leaderboard:updated", handleLeaderboardUpdate);
     return () => {
-      socket.off('leaderboard:updated', handleLeaderboardUpdate)
-    }
-  }, [liveTestId, queryClient])
+      socket.off("leaderboard:updated", handleLeaderboardUpdate);
+    };
+  }, [liveTestId, queryClient]);
 
   const userEntry = useMemo(() => {
-    if (!user) return null
-    return leaderboard.find((entry) => String(entry.userId) === String(user.id || user._id))
-  }, [leaderboard, user])
+    if (!user) return null;
+    return leaderboard.find(
+      (entry) => String(entry.userId) === String(user.id || user._id),
+    );
+  }, [leaderboard, user]);
 
   return (
     <div className="min-h-screen bg-slate-50 py-10 px-4">
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <Link to={`/live-test-results/${liveTestId}`} className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 font-medium">
+          <Link
+            to={`/live-test-results/${liveTestId}`}
+            className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 font-medium"
+          >
             <ArrowLeft className="w-4 h-4" />
             Back to Results
           </Link>
-          <Link to={`/live-tests/${liveTestId}/review`} className="text-indigo-600 hover:text-indigo-700 font-semibold">
+          <Link
+            to={`/live-tests/${liveTestId}/review`}
+            className="text-indigo-600 hover:text-indigo-700 font-semibold"
+          >
             Review Answers
           </Link>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-8">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center">
               <Trophy className="w-6 h-6 text-amber-500" />
             </div>
             <div className="flex-1">
-              <h1 className="text-2xl font-black text-slate-900">Live Test Leaderboard</h1>
-              <p className="text-slate-500 text-sm">Real-time standings for this live test.</p>
+              <h1 className="text-2xl font-black text-slate-900">
+                Live Test Leaderboard
+              </h1>
+              <p className="text-slate-500 text-sm">
+                Real-time standings for this live test.
+              </p>
             </div>
             {isLive && (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-sm font-bold text-emerald-700">{participants} online</span>
+                <span className="text-sm font-bold text-emerald-700">
+                  {participants} online
+                </span>
               </div>
             )}
           </div>
@@ -77,61 +102,102 @@ export default function LiveTestLeaderboard() {
           {userEntry && (
             <div className="mt-6 p-4 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-between">
               <div>
-                <div className="text-xs font-bold uppercase tracking-widest text-indigo-500">Your Position</div>
-                <div className="text-xl font-black text-indigo-700">#{userEntry.rank}</div>
+                <div className="text-xs font-bold uppercase tracking-widest text-indigo-500">
+                  Your Position
+                </div>
+                <div className="text-xl font-black text-indigo-700">
+                  #{userEntry.rank}
+                </div>
               </div>
               <div className="text-right">
-                <div className="text-sm font-semibold text-slate-700">{userEntry.score} pts</div>
-                <div className="text-xs text-slate-500">{Math.round(userEntry.percentile || 0)} percentile</div>
+                <div className="text-sm font-semibold text-slate-700">
+                  {userEntry.score} pts
+                </div>
+                <div className="text-xs text-slate-500">
+                  {Math.round(userEntry.percentile || 0)} percentile
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
           {isLoading ? (
-            <div className="py-20 text-center">
+            <div className="py-8 text-center">
               <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mx-auto mb-4" />
               <p className="text-slate-500">Loading leaderboard...</p>
             </div>
+          ) : isError ? (
+            <div className="py-8 text-center">
+              <Medal className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+              <p className="text-slate-600 font-semibold mb-1">
+                Couldn&apos;t load the leaderboard.
+              </p>
+              <p className="text-slate-400 text-sm mb-4">
+                {error?.message ||
+                  "Something went wrong while fetching standings."}
+              </p>
+              <button
+                onClick={() => refetch()}
+                disabled={isFetching}
+                className="px-4 py-2 rounded-2xl bg-indigo-600 text-white font-semibold disabled:opacity-50"
+              >
+                {isFetching ? "Retrying..." : "Try Again"}
+              </button>
+            </div>
           ) : leaderboard.length === 0 ? (
-            <div className="py-20 text-center">
+            <div className="py-8 text-center">
               <Medal className="w-12 h-12 text-slate-300 mx-auto mb-4" />
               <p className="text-slate-500">No submissions yet.</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
               {leaderboard.map((entry, index) => {
-                const isCurrentUser = String(entry.userId) === String(user?.id || user?._id)
+                const isCurrentUser =
+                  String(entry.userId) === String(user?.id || user?._id);
                 return (
                   <div
                     key={`${entry.userId}-${index}`}
-                    className={`px-6 py-4 flex items-center justify-between ${isCurrentUser ? 'bg-indigo-50' : ''}`}
+                    className={`px-6 py-4 flex items-center justify-between ${isCurrentUser ? "bg-indigo-50" : ""}`}
                   >
                     <div className="flex items-center gap-4">
-                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black ${isCurrentUser ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                      <div
+                        className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black ${isCurrentUser ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-700"}`}
+                      >
                         #{entry.rank}
                       </div>
                       <div>
-                        <div className={`font-bold ${isCurrentUser ? 'text-indigo-700' : 'text-slate-900'}`}>
+                        <div
+                          className={`font-bold ${isCurrentUser ? "text-indigo-700" : "text-slate-900"}`}
+                        >
                           {entry.userName}
-                          {isCurrentUser && <span className="ml-2 text-xs font-semibold text-indigo-500">You</span>}
+                          {isCurrentUser && (
+                            <span className="ml-2 text-xs font-semibold text-indigo-500">
+                              You
+                            </span>
+                          )}
                         </div>
-                        <div className="text-xs text-slate-500">{Math.round(entry.percentile || 0)} percentile</div>
+                        <div className="text-xs text-slate-500">
+                          {Math.round(entry.percentile || 0)} percentile
+                        </div>
                       </div>
                     </div>
 
                     <div className="text-right">
-                      <div className="font-black text-slate-900">{entry.score} pts</div>
-                      <div className="text-xs text-slate-500">{Math.round(entry.percentage || 0)}% score</div>
+                      <div className="font-black text-slate-900 dark:text-white font-mono tabular-nums">
+                        {entry.score} pts
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {Math.round(entry.percentage || 0)}% score
+                      </div>
                     </div>
                   </div>
-                )
+                );
               })}
             </div>
           )}
         </div>
       </div>
     </div>
-  )
+  );
 }

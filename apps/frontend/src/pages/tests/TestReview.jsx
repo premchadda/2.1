@@ -17,6 +17,7 @@ import {
   Users,
   Filter,
   Check,
+  HelpCircle,
 } from "lucide-react";
 import sanitizeHtml from "../../shared/lib/sanitizeHtml";
 import MathRenderer from "../../shared/components/MathRenderer";
@@ -26,7 +27,7 @@ export default function TestReview() {
   const navigate = useNavigate();
   const location = useLocation();
   const { testId, seriesSlug } = useParams();
-  const seriesId = seriesSlug || location.state?.seriesId || "ssc-cgl-2026";
+  const seriesId = seriesSlug || location.state?.seriesId || "pyp";
   const attemptId = location.state?.attemptId || null;
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showPalette, setShowPalette] = useState(false);
@@ -801,7 +802,11 @@ export default function TestReview() {
                       Q{currentQuestionIndex + 1}
                     </span>
                     <div>
-                      <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                      <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                        <Eye
+                          className="w-3.5 h-3.5 text-indigo-400"
+                          aria-hidden="true"
+                        />
                         Live Attempt Status
                       </p>
                       <div className="flex items-center gap-1.5 mt-0.5">

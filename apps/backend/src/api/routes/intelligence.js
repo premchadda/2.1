@@ -2,6 +2,7 @@ import express from "express";
 import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import { protect, optionalAuth } from "../../middleware/auth.middleware.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
+import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 import {
   analyticsService,
@@ -24,6 +25,7 @@ import { generateSocraticHint } from "../../services/core/socraticHintService.js
 import { calculateExamReadiness } from "../../services/core/examReadinessService.js";
 
 const router = express.Router();
+const quizSubmissionLimiter = createRateLimiter("moderate");
 
 router.get(
   "/top-performers",
@@ -150,7 +152,7 @@ router.get("/revision-queue", async (req, res) => {
   }
 });
 
-router.put("/revision-queue/:id/complete", async (req, res) => {
+router.put("/revision-queue/:id/complete", protect, async (req, res) => {
   try {
     const isCorrect = req.body?.isCorrect !== false;
     const result = await learningService.completeRevisionItem(
@@ -248,24 +250,29 @@ router.get("/daily-quiz", async (req, res) => {
   }
 });
 
-router.post("/daily-quiz/:quizId/submit", async (req, res) => {
-  try {
-    const answers = Array.isArray(req.body?.answers) ? req.body.answers : [];
-    const result = await learningService.submitDailyQuiz(
-      req.user.id,
-      req.params.quizId,
-      answers,
-    );
-    if (!result.success) {
-      return res.status(404).json({ success: false, message: result.reason });
+router.post(
+  "/daily-quiz/:quizId/submit",
+  protect,
+  quizSubmissionLimiter,
+  async (req, res) => {
+    try {
+      const answers = Array.isArray(req.body?.answers) ? req.body.answers : [];
+      const result = await learningService.submitDailyQuiz(
+        req.user.id,
+        req.params.quizId,
+        answers,
+      );
+      if (!result.success) {
+        return res.status(404).json({ success: false, message: result.reason });
+      }
+      res.json({ success: true, data: result.result });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
     }
-    res.json({ success: true, data: result.result });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+  },
+);
 
 router.get("/questions/:id/calibration", async (req, res) => {
   try {

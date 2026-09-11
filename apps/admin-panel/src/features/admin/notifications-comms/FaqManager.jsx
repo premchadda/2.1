@@ -139,7 +139,9 @@ export default function FaqManager() {
 
   const groupedFaqs = categories.reduce((acc, cat) => {
     acc[cat.value] = faqs.filter(
-      (f) => String(f.category || "general").toLowerCase() === String(cat.value).toLowerCase(),
+      (f) =>
+        String(f.category || "general").toLowerCase() ===
+        String(cat.value).toLowerCase(),
     );
     return acc;
   }, {});
@@ -268,7 +270,7 @@ export default function FaqManager() {
       )}
 
       {faqs.length === 0 && (
-        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl">
+        <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-xl">
           <HelpCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 dark:text-gray-400">No FAQs found</p>
         </div>

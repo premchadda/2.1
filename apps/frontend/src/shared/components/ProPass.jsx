@@ -123,7 +123,7 @@ export function ProPassCard({ onClose: _onClose }) {
 
       {/* CTA Button */}
       <div className="px-6 pb-6">
-        <button className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-xl flex items-center justify-center gap-2 hover:from-purple-700 hover:to-indigo-700 transition-all">
+        <button className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-xl flex items-center justify-center gap-2 hover:from-purple-700 hover:to-indigo-700 transition-all focus:outline-none focus:ring-2 focus:ring-purple-500">
           Get Pro Pass <ArrowRight className="w-4 h-4" />
         </button>
         <p className="text-center text-xs text-gray-500 mt-3">

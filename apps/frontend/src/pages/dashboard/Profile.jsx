@@ -788,10 +788,10 @@ function Profile({ initialTab = "personal" }) {
                 <div className="w-20 h-20 mx-auto mb-4 rounded-full border-2 border-gray-100 dark:border-gray-700 p-1 flex items-center justify-center overflow-hidden">
                   {user.avatar ? (
                     <img
+                      alt="Profile"
                       loading="lazy"
                       decoding="async"
                       src={user.avatar}
-                      alt="Profile"
                       className="w-full h-full rounded-full object-cover"
                       onError={(e) => {
                         e.currentTarget.style.display = "none";

@@ -152,4 +152,55 @@ describe("Central Entitlement Engine", () => {
       expect(cta.to).toBe("/login");
     });
   });
+
+  describe("getTestBadges", () => {
+    it("emits a FREE badge for a free test", () => {
+      const badges = getTestBadges({ test: freeTest, user: freeUser });
+      expect(badges).toContainEqual({
+        key: "access_free",
+        label: "FREE",
+        variant: "free",
+      });
+    });
+
+    it("emits a PRO badge with crown icon for a pro test", () => {
+      const badges = getTestBadges({ test: proTest, user: freeUser });
+      expect(badges).toContainEqual({
+        key: "access_pro",
+        label: "PRO",
+        variant: "pro",
+        icon: "crown",
+      });
+    });
+
+    it("emits LIVE TEST / QUIZ / scheduled / featured / new badges", () => {
+      expect(
+        getTestBadges({ test: freeTest, user: freeUser, isLive: true }),
+      ).toContainEqual({ key: "live", label: "LIVE TEST", variant: "live" });
+      expect(
+        getTestBadges({
+          test: freeTest,
+          user: freeUser,
+          isLive: true,
+          isQuiz: true,
+        }),
+      ).toContainEqual({ key: "live", label: "LIVE QUIZ", variant: "live" });
+      expect(
+        getTestBadges({ test: freeTest, user: freeUser, isQuiz: true }),
+      ).toContainEqual({ key: "quiz", label: "QUIZ", variant: "quiz" });
+      expect(
+        getTestBadges({
+          test: { ...freeTest, isMustAttempt: true },
+          user: freeUser,
+        }),
+      ).toContainEqual({
+        key: "must_attempt",
+        label: "MUST ATTEMPT",
+        variant: "featured",
+      });
+      expect(
+        getTestBadges({ test: { ...freeTest, isNew: true }, user: freeUser }),
+      ).toContainEqual({ key: "new", label: "NEW", variant: "new" });
+    });
+  });
 });

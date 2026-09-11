@@ -132,4 +132,10 @@ describe("TestSolutionsList Multi-Option Question Filter", () => {
     fireEvent.click(resetBtn);
     expect(setSolutionFilterMock).toHaveBeenCalledWith(["all"]);
   });
+
+  it("creates a valid React element for the solutions list tree", () => {
+    const element = <TestSolutionsList {...defaultProps} />;
+    expect(React.isValidElement(element)).toBe(true);
+    expect(element.type).toBe(TestSolutionsList);
+  });
 });

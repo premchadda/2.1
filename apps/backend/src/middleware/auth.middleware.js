@@ -57,7 +57,11 @@ async function getCachedSession(sessionId) {
   return null;
 }
 
-async function setCachedSession(sessionId, session) {
+export async function setCachedSession(
+  sessionId,
+  session,
+  ttlMs = SESSION_CACHE_TTL,
+) {
   // 1. Immediately store in L1 in-memory cache
   if (localSessionCache.size >= SESSION_CACHE_MAX) {
     const firstKey = localSessionCache.keys().next().value;
@@ -65,7 +69,7 @@ async function setCachedSession(sessionId, session) {
   }
   localSessionCache.set(String(sessionId), {
     session,
-    expiresAt: Date.now() + SESSION_CACHE_TTL,
+    expiresAt: Date.now() + ttlMs,
   });
 
   // 2. Asynchronously update L2 Redis without blocking HTTP response
@@ -73,7 +77,12 @@ async function setCachedSession(sessionId, session) {
     const redis = getRedisClient();
     if (redis) {
       redis
-        .set(`session:${sessionId}`, JSON.stringify(session), "EX", 300)
+        .set(
+          `session:${sessionId}`,
+          JSON.stringify(session),
+          "EX",
+          Math.max(60, Math.round(ttlMs / 1000)),
+        )
         .catch((err) => {
           console.warn("[Auth] Redis setCachedSession error:", err.message);
         });
@@ -432,8 +441,11 @@ export const isHigherRole = (userRole, requiredRole) => {
  * @returns {Promise<void>}
  */
 export const protect = async (req, res, next) => {
-  // FAST-PATH / IDEMPOTENT: If already authenticated upstream (e.g. by parent admin router), pass through
-  if (req.user && req.authToken) {
+  // FAST-PATH / IDEMPOTENT: only when an upstream middleware has ALREADY
+  // verified the JWT and marked the request with req.authVerified === true
+  // (e.g. a parent admin router that ran protect first). req.user alone is
+  // NOT sufficient — unverified claims must never skip verification.
+  if (req.user && req.authToken && req.authVerified === true) {
     return next();
   }
 
@@ -506,11 +518,20 @@ export const protect = async (req, res, next) => {
             [String(decoded.sessionId)],
           );
           if (sessionCheck.rows.length === 0) {
-            // Treat valid JWT as active and cache
-            console.warn(
-              "[Auth] Session row missing during validation; failing open (JWT is valid)",
+            // Session row missing but JWT is cryptographically valid.
+            // Bounded fail-open: allow with a SHORT (60s) provisional cache
+            // entry + loud alert so ops notices. A missing row usually means
+            // session pruning/race, not compromise; hard fail-closed here
+            // would mass-logout valid users. The 60s TTL bounds exposure.
+            console.error(
+              "[Auth][ALERT] Session row missing during validation; provisional 60s allow (JWT valid). sessionId:",
+              String(decoded.sessionId),
             );
-            await setCachedSession(decoded.sessionId, { isActive: true });
+            await setCachedSession(
+              decoded.sessionId,
+              { isActive: true, provisional: true },
+              60_000,
+            );
           } else if (!sessionCheck.rows[0].is_active) {
             await setCachedSession(decoded.sessionId, { isActive: false });
             return res.status(401).json({
@@ -544,7 +565,11 @@ export const protect = async (req, res, next) => {
             console.warn(
               "[Auth] user_sessions table missing, skipping session check",
             );
-            await setCachedSession(decoded.sessionId, { isActive: true });
+            await setCachedSession(
+              decoded.sessionId,
+              { isActive: true, provisional: true },
+              60_000,
+            );
           } else if (isTransientDbError(sessionErr)) {
             console.warn(
               "[Auth] Session validation temporarily unavailable:",
@@ -627,6 +652,8 @@ export const protect = async (req, res, next) => {
       sessionId: decoded.sessionId || null,
     };
     req.authToken = token;
+    // Mark verified so a downstream duplicate protect() can fast-path safely.
+    req.authVerified = true;
 
     // Cache the user for subsequent requests — cache the password-stripped object
     // (never the full row, which still contains the bcrypt `password`).
@@ -772,13 +799,32 @@ export const requireImageAuth = async (req, res, next) => {
               .json({ success: false, message: "Session revoked" });
           }
         } catch (sessionErr) {
-          // Missing table / transient DB — fail open so a blip does not blank
-          // every image in an in-progress test.
-          if (sessionErr.code !== "42P01") {
+          // Fail-closed: missing table (fresh install) warns + allows, but any
+          // other DB failure rejects the asset request instead of serving exam
+          // imagery to a potentially revoked session. Transient infra blips
+          // get 503 (retryable); definitive errors get 401.
+          if (sessionErr.code === "42P01") {
             console.warn(
-              "[ImageAuth] session check failed (fail-open):",
+              "[ImageAuth] user_sessions table missing, skipping session check",
+            );
+          } else if (isTransientDbError(sessionErr)) {
+            console.warn(
+              "[ImageAuth] session check temporarily unavailable:",
               sessionErr.message,
             );
+            return res.status(503).json({
+              success: false,
+              code: "SERVICE_UNAVAILABLE",
+              message: "Service temporarily unavailable. Please try again.",
+            });
+          } else {
+            console.error(
+              "[ImageAuth] session check failed (fail-closed):",
+              sessionErr.message,
+            );
+            return res
+              .status(401)
+              .json({ success: false, message: "Session revoked" });
           }
         }
       }

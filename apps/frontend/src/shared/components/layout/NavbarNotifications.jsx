@@ -87,7 +87,7 @@ export default function NavbarNotifications() {
       notif.metadata?.seriesSlug ||
       notif.metadata?.series_slug ||
       notif.seriesSlug ||
-      "ssc-cgl-2026";
+      "pyp";
     const attemptId =
       notif.metadata?.attemptId ||
       notif.metadata?.attempt_id ||

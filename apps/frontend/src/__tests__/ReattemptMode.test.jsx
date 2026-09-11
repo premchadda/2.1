@@ -253,5 +253,21 @@ describe("Reattempt Mode Engine", () => {
       // Option 2 shows Correct
       expect(screen.getByTestId("badge-correct-2")).toBeInTheDocument();
     });
+
+    it("renders inside React.StrictMode without crashing (reattempt hidden state)", () => {
+      render(
+        <React.StrictMode>
+          <QuestionViewer
+            {...defaultViewerProps}
+            reattemptMode={true}
+            reviewCurrentResponse={undefined}
+          />
+        </React.StrictMode>,
+      );
+
+      expect(
+        screen.queryByTestId("question-explanation-box"),
+      ).not.toBeInTheDocument();
+    });
   });
 });

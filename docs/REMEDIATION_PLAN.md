@@ -1606,3 +1606,7 @@ save-answer persistence + real rank + admin live-tests router. Residuals: achiev
 **Still OPEN:** Phase 0 + Phase 2.1 git-history scrub (secret rotation + `git filter-repo`
 runbook per `docs/SECURITY.md`); Phase 11 rollout checklist. No code changes required for
 the closures above — verification only.
+
+> **Status note 2026-09-09 (reaudit):** historic secrets rotation + `git filter-repo`
+> history scrub are still OPEN (Phase 0 / Phase 2.1). No secret values are recorded in
+> docs — names only, never values (see `docs/SECURITY_POSTURE.md` §Known Limitations).

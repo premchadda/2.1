@@ -472,6 +472,7 @@ export default function Bookmarks() {
                 <div className="relative flex-1 min-w-0">
                   <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 text-gray-400 shrink-0" />
                   <input
+                    aria-label="Search saved questions"
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}

@@ -22,12 +22,14 @@ import videoTelemetry from "../../lib/telemetry/videoTelemetry";
 import DynamicWatermark from "./VideoPlayer/DynamicWatermark.jsx";
 import { getEmbedInfo } from "./VideoPlayer/EmbedResolver.js";
 import NativePlayer from "./VideoPlayer/NativePlayer.jsx";
+import { formatTime } from "../../lib/format.js";
 
 // FortSpy encrypted video player using canvas + MJPEG stream
 function FortSpyPlayer({ videoData, isPlaying, _onPlayPause, onError }) {
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const [streamUrl, setStreamUrl] = useState(null);
+  const [streamToken, setStreamToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -43,6 +45,7 @@ function FortSpyPlayer({ videoData, isPlaying, _onPlayPause, onError }) {
         });
         if (response.data.success) {
           setStreamUrl(response.data.data.streamUrl);
+          setStreamToken(response.data.data.token);
         } else {
           throw new Error("Failed to generate stream token");
         }
@@ -64,7 +67,7 @@ function FortSpyPlayer({ videoData, isPlaying, _onPlayPause, onError }) {
   }, [videoData?.fortspyId, videoData?.fortspyKey, onError]);
 
   useEffect(() => {
-    if (!streamUrl || !canvasRef.current) return;
+    if (!streamUrl || !streamToken || !canvasRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     const img = new Image();
@@ -76,7 +79,17 @@ function FortSpyPlayer({ videoData, isPlaying, _onPlayPause, onError }) {
     img.onerror = () => setError("Failed to load video frame");
     const startStream = async () => {
       try {
-        const response = await fetch(streamUrl);
+        const response = await fetch(streamUrl, {
+          // Short-lived stream JWT — NOT the user access token (that travels
+          // in the httpOnly cookie). Must never go in a query string.
+          headers: { "X-Stream-Token": streamToken },
+          credentials: "include",
+        });
+        if (!response.ok) {
+          throw new Error(
+            `Stream request failed (${response.status}) — token may be expired`,
+          );
+        }
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
@@ -107,7 +120,7 @@ function FortSpyPlayer({ videoData, isPlaying, _onPlayPause, onError }) {
       }
     };
     if (isPlaying) startStream();
-  }, [streamUrl, isPlaying]);
+  }, [streamUrl, streamToken, isPlaying]);
 
   if (loading) {
     return (
@@ -153,6 +166,7 @@ export default function VideoPlayer({
   onClose,
   videoData,
   inline = false,
+  forcePlayer = "auto",
 }) {
   const { user } = useAuth();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -258,7 +272,8 @@ export default function VideoPlayer({
         }
       })
       .catch((err) => {
-        console.warn("[VideoPlayer] Failed to fetch server progress:", err);
+        if (import.meta.env.DEV)
+          console.warn("[VideoPlayer] Failed to fetch server progress:", err);
       });
   }, [isOpen, videoId]);
 
@@ -267,7 +282,8 @@ export default function VideoPlayer({
     if (!viewRecordedRef.current) {
       viewRecordedRef.current = true;
       api.post(`/api/videos/${videoId}/view`).catch((err) => {
-        console.warn("[VideoPlayer] Failed to record view event:", err);
+        if (import.meta.env.DEV)
+          console.warn("[VideoPlayer] Failed to record view event:", err);
       });
     }
   }, [isPlaying, videoId]);
@@ -278,13 +294,6 @@ export default function VideoPlayer({
       setCurrentTime(0);
     }
   }, [isOpen]);
-
-  const formatTime = (time) => {
-    if (!time || isNaN(time)) return "0:00";
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-  };
 
   const handleMouseMove = useCallback(() => {
     if (throttleRef.current) return;
@@ -346,7 +355,68 @@ export default function VideoPlayer({
 
   const embedInfo = getEmbedInfo(videoData?.url || videoData?.videoUrl || "");
 
-  if (embedInfo && !hasFortSpy) {
+  // Player override: "auto" (default) preserves legacy behavior.
+  // "youtube"/"embed" forces the iframe, "native" forces HTML5 <video>,
+  // "fortspy" forces the encrypted canvas player.
+  const requested = (forcePlayer || "auto").toLowerCase();
+  const resolvedMode =
+    requested === "auto"
+      ? embedInfo && !hasFortSpy
+        ? "embed"
+        : hasFortSpy
+          ? "fortspy"
+          : "native"
+      : requested === "youtube"
+        ? "embed"
+        : requested;
+
+  if (resolvedMode === "embed" && !embedInfo) {
+    return (
+      <div className={overlayCenterClass}>
+        <div className="bg-gray-900 rounded-xl p-8 text-center max-w-sm w-full shadow-2xl">
+          <p className="text-white text-sm font-medium mb-1">
+            YouTube player requested
+          </p>
+          <p className="text-white/50 text-xs mb-6">
+            This video URL is not an embeddable YouTube / Vimeo / Drive link.
+            Switch back to Auto or Native.
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (resolvedMode === "fortspy" && !hasFortSpy) {
+    return (
+      <div className={overlayCenterClass}>
+        <div className="bg-gray-900 rounded-xl p-8 text-center max-w-sm w-full shadow-2xl">
+          <p className="text-white text-sm font-medium mb-1">
+            FortSpy player requested
+          </p>
+          <p className="text-white/50 text-xs mb-6">
+            This video has no encrypted stream (missing fortspyId). Switch back
+            to Auto.
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (resolvedMode === "embed" && embedInfo) {
     return (
       <div className={overlayClass}>
         <div
@@ -416,7 +486,7 @@ export default function VideoPlayer({
     );
   }
 
-  if (hasFortSpy) {
+  if (resolvedMode === "fortspy") {
     return (
       <div className={overlayClass}>
         <div
@@ -576,6 +646,7 @@ export default function VideoPlayer({
                       )}
                     </button>
                     <input
+                      aria-label="Volume"
                       type="range"
                       min="0"
                       max="1"
@@ -583,7 +654,6 @@ export default function VideoPlayer({
                       value={isMuted ? 0 : volume}
                       onChange={handleVolumeChange}
                       className="w-0 group-hover:w-16 transition-all opacity-0 group-hover:opacity-100"
-                      aria-label="Volume"
                     />
                   </div>
                   <span className="text-white text-xs font-medium ml-1">
@@ -682,15 +752,24 @@ export default function VideoPlayer({
   // Native HTML5 video — delegated to extracted component (keeps telemetry wiring via props)
   return (
     <div className={overlayClass}>
-      <NativePlayer
-        videoData={videoData}
-        user={user}
-        onClose={onClose}
-        isEncrypted={isEncrypted}
-        encryptionType={encryptionType}
-        showSecurityInfo={showSecurityInfo}
-        setShowSecurityInfo={setShowSecurityInfo}
-      />
+      <div className={innerBoxClass}>
+        {resolvedMode === "native" && embedInfo && (
+          <p className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-amber-300 text-xs">
+            Native player forced on an embed URL — YouTube / Vimeo watch links
+            need a direct .mp4 / HLS file to play here. Switch back to Auto if
+            playback fails.
+          </p>
+        )}
+        <NativePlayer
+          videoData={videoData}
+          user={user}
+          onClose={onClose}
+          isEncrypted={isEncrypted}
+          encryptionType={encryptionType}
+          showSecurityInfo={showSecurityInfo}
+          setShowSecurityInfo={setShowSecurityInfo}
+        />
+      </div>
     </div>
   );
 }

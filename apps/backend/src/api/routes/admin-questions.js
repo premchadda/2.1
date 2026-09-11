@@ -19,11 +19,13 @@ import logger from "../../infrastructure/logger/logger.js";
 
 import { protect, admin } from "../../middleware/auth.middleware.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
+import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
 import { moderationService } from "../../services/core/moderationService.js";
 import { predictQuestionDifficulty } from "../../modules/questions/questionDifficulty.service.js";
 import questionBuilderService from "../../modules/questions/questionBuilder.service.js";
 
 const router = express.Router();
+const reviewSubmissionLimiter = createRateLimiter("moderate");
 router.use(protect);
 router.use(admin);
 
@@ -761,22 +763,26 @@ router.get("/questions/review-queue", async (req, res) => {
   }
 });
 
-router.post("/questions/:id/submit-for-review", async (req, res) => {
-  try {
-    const result = await moderationService.submitForReview(
-      "question",
-      req.params.id,
-      req.user.id,
-    );
-    if (result.error)
-      return res.status(400).json({ success: false, message: result.error });
-    res.json({ success: true, data: result });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+router.post(
+  "/questions/:id/submit-for-review",
+  reviewSubmissionLimiter,
+  async (req, res) => {
+    try {
+      const result = await moderationService.submitForReview(
+        "question",
+        req.params.id,
+        req.user.id,
+      );
+      if (result.error)
+        return res.status(400).json({ success: false, message: result.error });
+      res.json({ success: true, data: result });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 router.put("/questions/:id/review", async (req, res) => {
   try {

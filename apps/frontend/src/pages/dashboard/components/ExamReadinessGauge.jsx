@@ -1,5 +1,6 @@
 import { useState } from "react";
 import PropTypes from "prop-types";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Target,
@@ -30,7 +31,7 @@ export default function ExamReadinessGauge({ className = "" }) {
   const [selectedExam, setSelectedExam] = useState("ssc_cgl");
   const [selectedCategory, setSelectedCategory] = useState("UR");
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["exam-readiness", selectedExam, selectedCategory],
     queryFn: async () => {
       try {
@@ -96,6 +97,48 @@ export default function ExamReadinessGauge({ className = "" }) {
   );
   const isAboveCutoff = (readiness.cutoffMargin || 0) >= 0;
 
+  if (isLoading && !data) {
+    return (
+      <div
+        className={`bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-indigo-100 dark:border-indigo-900/40 shadow-sm flex items-center justify-center gap-2 py-10 ${className}`}
+        role="status"
+        aria-label="Loading exam readiness"
+      >
+        <Loader2 className="w-6 h-6 text-indigo-600 dark:text-indigo-400 animate-spin" />
+        <span className="text-sm text-gray-500 dark:text-gray-400">
+          Computing readiness…
+        </span>
+      </div>
+    );
+  }
+
+  if (isError && !data) {
+    return (
+      <div
+        className={`bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-red-200 dark:border-red-800 shadow-sm ${className}`}
+        role="alert"
+      >
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-gray-900 dark:text-white">
+              Readiness data unavailable
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              We couldn&apos;t load your cutoff prediction. Please try again.
+            </p>
+            <button
+              onClick={() => refetch()}
+              className="mt-2 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-indigo-100 dark:border-indigo-900/40 shadow-sm space-y-5 ${className}`}
@@ -111,6 +154,10 @@ export default function ExamReadinessGauge({ className = "" }) {
               <span>Exam Readiness & Cutoff Predictor</span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">
                 Gaussian CDF
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 inline-flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                AI-Powered
               </span>
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -178,7 +225,11 @@ export default function ExamReadinessGauge({ className = "" }) {
                   : "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300"
               }`}
             >
-              <TrendingUp className="w-3 h-3" />
+              {isAboveCutoff ? (
+                <CheckCircle2 className="w-3 h-3" />
+              ) : (
+                <AlertTriangle className="w-3 h-3" />
+              )}
               {isAboveCutoff
                 ? `+${readiness.cutoffMargin}`
                 : readiness.cutoffMargin}{" "}
@@ -219,8 +270,11 @@ export default function ExamReadinessGauge({ className = "" }) {
           </div>
 
           <div className="min-w-0">
-            <p className="text-xs font-bold text-gray-500 dark:text-gray-400">
+            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 flex items-center gap-1">
               Qualifying Probability
+              <span title="Estimated from your accuracy and speed distribution">
+                <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
+              </span>
             </p>
             <p className="text-xs font-black text-gray-900 dark:text-white mt-0.5 truncate">
               {readiness.readinessTier?.replace("_", " ") || "HIGH PROBABILITY"}
@@ -268,19 +322,23 @@ export default function ExamReadinessGauge({ className = "" }) {
                 className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 flex flex-col justify-between"
               >
                 <div>
-                  <p
-                    className="font-bold text-xs text-gray-900 dark:text-white line-clamp-2"
-                    title={rec.topic}
-                  >
-                    {rec.topic}
-                  </p>
+                  <div className="flex items-start gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
+                    <p
+                      className="font-bold text-xs text-gray-900 dark:text-white line-clamp-2"
+                      title={rec.topic}
+                    >
+                      {rec.topic}
+                    </p>
+                  </div>
                   <p className="text-[11px] text-gray-400 mt-0.5">
                     Current Accuracy: {rec.accuracy}%
                   </p>
                 </div>
                 <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between text-[11px] font-bold">
-                  <span className="text-emerald-600 dark:text-emerald-400">
-                    +{rec.projectedLiftMarks} marks lift
+                  <span className="text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3" />+{rec.projectedLiftMarks}{" "}
+                    marks lift
                   </span>
                   <span className="text-gray-400">
                     {rec.recommendedStudyMinutes}m study
@@ -291,6 +349,16 @@ export default function ExamReadinessGauge({ className = "" }) {
           </div>
         </div>
       )}
+
+      <div className="pt-1 flex justify-end">
+        <Link
+          to="/dashboard/insights"
+          className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+        >
+          View detailed insights
+          <ChevronRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
     </div>
   );
 }

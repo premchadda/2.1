@@ -186,7 +186,8 @@ export default function NavbarSearch({ isOpen, onClose }) {
       )
         return;
       if (searchGenerationRef.current !== generation) return;
-      console.warn("Backend search failed, showing local results only:", err);
+      if (import.meta.env.DEV)
+        console.warn("Backend search failed, showing local results only:", err);
     }
 
     const combined = [...localResults, ...contentResults].slice(0, 8);
@@ -217,7 +218,7 @@ export default function NavbarSearch({ isOpen, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-20 animate-fade-in"
+      className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-10 animate-fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           handleClose();
@@ -235,6 +236,7 @@ export default function NavbarSearch({ isOpen, onClose }) {
             aria-hidden="true"
           />
           <input
+            aria-label="Search tests, topics, exams"
             ref={searchInputRef}
             type="text"
             value={searchQuery}
@@ -242,7 +244,6 @@ export default function NavbarSearch({ isOpen, onClose }) {
             placeholder="Search tests, topics, exams..."
             className="flex-1 text-lg outline-none bg-transparent dark:text-white dark:placeholder-gray-400"
             autoFocus
-            aria-label="Search input"
             onKeyDown={(e) => {
               if (e.key === "Enter" && searchQuery.trim()) {
                 e.preventDefault();

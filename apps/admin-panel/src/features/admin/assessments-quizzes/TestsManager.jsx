@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, memo } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  memo,
+  lazy,
+  Suspense,
+} from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams, Link } from "react-router-dom";
 import {
@@ -24,6 +32,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { logger } from "../../../shared/lib/logger";
 import { adminAPI, apiClient } from "../../../shared/lib/dataService";
 import {
   coerceArray,
@@ -32,6 +41,11 @@ import {
   flattenCategories,
   getEntityId,
 } from "../../../shared/utils/questionHelpers";
+import {
+  getCategoryLabel,
+  getCategoryPath,
+  getCategoryPathLabel,
+} from "../../../shared/utils/categoryHelpers.js";
 import {
   getSeriesId,
   getTestId,
@@ -43,6 +57,7 @@ import {
   getSeriesExamCategoryId,
 } from "./components/questionHelpers.js";
 import { useExamCategories } from "../../../shared/hooks/useExamCategories";
+import ExamHierarchyFilters from "./components/ExamHierarchyFilters";
 
 // Revived helpers (were missing after dedup - P0 fix)
 const parseIdList = (value) =>
@@ -59,14 +74,21 @@ const normalizeSectionForForm = (s) => ({
   name: getSectionName(s),
   ...s,
 });
-const getTestQuestionsCount = (testId, questions) =>
-  Array.isArray(questions)
-    ? questions.filter((q) => String(q.testId || q.test_id) === String(testId))
-        .length
-    : 0;
-const getLinkedTestCategoryId = () => null;
-import FullTestImportModal from "./components/FullTestImportModal";
+const getTestQuestionsCount = (test) =>
+  // `question_count`/`linked_question_count` come from the section-enriched
+  // queries; the plain admin tests list returns camelCased `totalQuestions`
+  // (snake `total_questions` via toCamel) — cover all three so counts never
+  // silently zero out.
+  test?.question_count ??
+  test?.linked_question_count ??
+  test?.totalQuestions ??
+  test?.total_questions ??
+  0;
 import TestFormModal from "./components/TestFormModal";
+// Heavy JSON import flow (hierarchy tree + preview renderer) loads on demand.
+const FullTestImportModal = lazy(
+  () => import("./components/FullTestImportModal"),
+);
 import SECTION_PRESETS from "../../../shared/config/sectionPresets.js";
 
 const TEST_CATEGORY_TABS = [
@@ -357,41 +379,6 @@ const categoryLinksSeries = (category, seriesId) =>
       category.series_id,
   ).some((id) => idsEqual(id, seriesId));
 
-const getCategoryLabel = (category) =>
-  category?.label ||
-  category?.name ||
-  category?.slug ||
-  category?.categoryId ||
-  category?.id ||
-  "Not linked";
-
-const getCategoryPath = (categoryId, flatCategories = []) => {
-  const path = [];
-  const visited = new Set();
-  let current = flatCategories.find((cat) =>
-    [cat.id, cat._id, cat.slug, cat.categoryId].some((value) =>
-      idsEqual(value, categoryId),
-    ),
-  );
-  while (current && path.length < 10) {
-    const id = String(getEntityId(current) || "");
-    if (visited.has(id)) break;
-    visited.add(id);
-    path.unshift(current);
-    const parentId = current.parentId || current.parent_id;
-    if (!parentId) break;
-    current = flatCategories.find(
-      (cat) => idsEqual(cat.id, parentId) || idsEqual(cat._id, parentId),
-    );
-  }
-  return path;
-};
-
-const getCategoryPathLabel = (categoryId, flatCategories = []) => {
-  const path = getCategoryPath(categoryId, flatCategories);
-  return path.map((cat) => getCategoryLabel(cat)).join(" / ") || "Not linked";
-};
-
 const getCategoryId = (category) =>
   getEntityId(category) || category?.categoryId || category?.slug || null;
 
@@ -438,7 +425,7 @@ const Badge = ({ children, tone = "gray" }) => {
 };
 
 const EmptyState = ({ title, description, icon: Icon = FileText }) => (
-  <div className="bg-white rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center py-14 text-center px-4">
+  <div className="bg-white rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center py-8 text-center px-4">
     <Icon className="w-12 h-12 text-gray-300 mb-3" />
     <h3 className="text-base font-semibold text-gray-900">{title}</h3>
     <p className="text-sm text-gray-500 mt-1">{description}</p>
@@ -837,7 +824,7 @@ function TestsManager() {
       }
     } catch (error) {
       if (signal?.aborted) return;
-      console.error("Tests fetch error:", error);
+      logger.error("Tests fetch error:", error);
       toast.error("Failed to load tests");
     } finally {
       if (!signal?.aborted) setLoading(false);
@@ -1962,7 +1949,7 @@ function TestsManager() {
                   editingTest.test_category_id ||
                   editingTest.subCategory ||
                   editingTest.sub_category
-                : getLinkedTestCategoryId();
+                : null;
 
       const parsedDuration = Number(data.duration);
       const payload = {
@@ -2076,8 +2063,6 @@ function TestsManager() {
     if (examId) fd.append("examId", String(examId));
 
     if (activeStageId) fd.append("stageId", String(activeStageId));
-    const linkedCategoryId = getLinkedTestCategoryId();
-    if (linkedCategoryId) fd.append("testCategoryId", String(linkedCategoryId));
 
     if (options.validateOnly) {
       fd.append("validateOnly", "true");
@@ -2125,8 +2110,6 @@ function TestsManager() {
     const vExamId = getSeriesExamId(selectedSeries) || activeExamId;
     if (vExamId) fd.append("examId", String(vExamId));
     if (activeStageId) fd.append("stageId", String(activeStageId));
-    const vLinkedCat = getLinkedTestCategoryId();
-    if (vLinkedCat) fd.append("testCategoryId", String(vLinkedCat));
     fd.append("validateOnly", "true");
 
     try {
@@ -2406,7 +2389,7 @@ function TestsManager() {
 
   if (isLoading && tests.length === 0) {
     return (
-      <div className="p-12 flex flex-col items-center justify-center min-h-[400px]">
+      <div className="p-6 sm:p-8 flex flex-col items-center justify-center min-h-[400px]">
         <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
         <p className="mt-4 text-sm text-gray-600 dark:text-gray-400 font-medium">
           Loading tests and resources...
@@ -2488,147 +2471,24 @@ function TestsManager() {
         />
       </div>
 
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs mb-3.5 overflow-hidden">
-        <div className="p-3 sm:p-4 flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-indigo-500" />
-            <h3 className="text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-              Manager Filters
-            </h3>
-          </div>
-
-          <div className="flex overflow-x-auto flex-nowrap items-center gap-2 scrollbar-none pb-0.5">
-            <span className="text-xs font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-              Exam Category:
-            </span>
-            {examCategories.length === 0 ? (
-              <span className="text-xs text-gray-400 whitespace-nowrap">
-                No exam categories found
-              </span>
-            ) : (
-              examCategories.map((category) => {
-                const categoryValue =
-                  category.categoryId || category.slug || category.id;
-                const isActive = idsEqual(activeExamCategoryId, categoryValue);
-                return (
-                  <button
-                    key={categoryValue}
-                    type="button"
-                    onClick={() => {
-                      setActiveExamCategoryId(categoryValue);
-                      setActiveExamId("");
-                    }}
-                    className={`px-2.5 py-1 text-xs rounded-xl border transition-all whitespace-nowrap tap-feedback ${
-                      isActive
-                        ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 font-bold"
-                        : "bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750"
-                    }`}
-                  >
-                    {category.label || category.name || categoryValue}
-                  </button>
-                );
-              })
-            )}
-          </div>
-
-          <div className="flex overflow-x-auto flex-nowrap items-center gap-2 scrollbar-none pb-0.5">
-            <span className="text-xs font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-              Exam:
-            </span>
-            {examsForActiveCategory.length === 0 ? (
-              <span className="text-xs text-gray-400 whitespace-nowrap">
-                No exams found
-              </span>
-            ) : (
-              examsForActiveCategory
-                .filter((exam) => {
-                  const display = String(
-                    exam.label || exam.fullName || "",
-                  ).trim();
-                  if (!display) return false;
-                  if (display === String(exam.value)) return false;
-                  if (/^\d+$/.test(display)) return false;
-                  return true;
-                })
-                .map((exam) => {
-                  const isActive = idsEqual(activeExamId, exam.value);
-                  return (
-                    <button
-                      key={exam.value}
-                      type="button"
-                      onClick={() => {
-                        setActiveExamId(exam.value);
-                      }}
-                      className={`px-2.5 py-1 text-xs rounded-xl border transition-all whitespace-nowrap tap-feedback ${
-                        isActive
-                          ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 font-bold"
-                          : "bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750"
-                      }`}
-                    >
-                      {exam.label || exam.fullName || exam.value}
-                    </button>
-                  );
-                })
-            )}
-          </div>
-
-          <div className="flex overflow-x-auto flex-nowrap items-center gap-2 scrollbar-none pb-0.5">
-            <span className="text-xs font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-              Stage:
-            </span>
-            {stagesForActiveExam.length === 0 ? (
-              <span className="text-xs text-gray-400 dark:text-gray-500 italic whitespace-nowrap">
-                No stages configured
-              </span>
-            ) : (
-              stagesForActiveExam.map((stage) => {
-                const stageId = getEntityId(stage);
-                const isActive = idsEqual(activeStageId, stageId);
-                return (
-                  <button
-                    key={stageId}
-                    type="button"
-                    onClick={() => setActiveStageId(stageId)}
-                    className={`px-2.5 py-1 text-xs rounded-xl border transition-all whitespace-nowrap tap-feedback ${isActive ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 font-bold" : "bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750"}`}
-                  >
-                    {stage.name || stage.title || stage.slug || stageId}
-                  </button>
-                );
-              })
-            )}
-          </div>
-
-          <div className="flex overflow-x-auto flex-nowrap items-center gap-2 pt-2.5 border-t border-gray-100 dark:border-gray-800 scrollbar-none pb-0.5">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider whitespace-nowrap">
-              Selected Path
-            </span>
-            {[
-              selectedExamCategoryLabel,
-              selectedExamLabel,
-              selectedSeries?.title || selectedSeries?.name,
-              selectedStageLabel,
-              activeCatLabel,
-              selectedTestSubCategoryLabel,
-            ]
-              .filter((label) => label)
-              .map((label, index) => (
-                <span
-                  key={`${label}-${index}`}
-                  className="inline-flex items-center gap-1.5 whitespace-nowrap"
-                >
-                  {index > 0 && (
-                    <ChevronRight className="w-3 h-3 text-gray-300 dark:text-gray-600 shrink-0" />
-                  )}
-                  <span
-                    className={`px-2 py-0.5 border rounded-lg text-[11px] font-bold whitespace-nowrap ${label === activeCatLabel ? "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300" : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"}`}
-                  >
-                    {label}
-                  </span>
-                </span>
-              ))}
-          </div>
-        </div>
-      </div>
+      <ExamHierarchyFilters
+        examCategories={examCategories}
+        examsForActiveCategory={examsForActiveCategory}
+        stagesForActiveExam={stagesForActiveExam}
+        activeExamCategoryId={activeExamCategoryId}
+        activeExamId={activeExamId}
+        activeStageId={activeStageId}
+        setActiveExamCategoryId={setActiveExamCategoryId}
+        setActiveExamId={setActiveExamId}
+        setActiveStageId={setActiveStageId}
+        selectedExamCategoryLabel={selectedExamCategoryLabel}
+        selectedExamLabel={selectedExamLabel}
+        selectedSeries={selectedSeries}
+        selectedStageLabel={selectedStageLabel}
+        activeCatLabel={activeCatLabel}
+        selectedTestSubCategoryLabel={selectedTestSubCategoryLabel}
+        examFiltersLoading={false}
+      />
 
       {hasNoTests && (
         <div className="p-4 sm:p-6">
@@ -3262,6 +3122,7 @@ function TestsManager() {
                             >
                               <input
                                 type="checkbox"
+                                aria-label={`Select test ${test.title || testId}`}
                                 checked={isSelected}
                                 onChange={() => toggleSelectTest(testId)}
                                 className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
@@ -3421,11 +3282,13 @@ function TestsManager() {
         contextLabel={contextLabel}
         linkingInfo={linkingInfo}
       />
-      <FullTestImportModal
-        isOpen={showFullTestImport}
-        onClose={() => setShowFullTestImport(false)}
-        onImported={fetchData}
-      />
+      <Suspense fallback={null}>
+        <FullTestImportModal
+          isOpen={showFullTestImport}
+          onClose={() => setShowFullTestImport(false)}
+          onImported={fetchData}
+        />
+      </Suspense>
 
       {deleteTarget &&
         typeof document !== "undefined" &&

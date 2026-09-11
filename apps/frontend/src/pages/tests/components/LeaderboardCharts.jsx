@@ -23,7 +23,7 @@ export default function LeaderboardCharts({
   ExportMenu,
 }) {
   return (
-    <>
+    <React.Fragment key="leaderboard-charts">
       {/* Rank Progress Chart Card */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all p-5 md:col-span-2">
         <div className="flex items-center justify-between mb-4">
@@ -124,7 +124,7 @@ export default function LeaderboardCharts({
           </div>
         )}
       </div>
-    </>
+    </React.Fragment>
   );
 }
 

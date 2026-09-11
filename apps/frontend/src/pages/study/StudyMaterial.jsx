@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import ComingSoon from "../../shared/components/common/ComingSoon";
 import SearchBox from "../../shared/components/common/SearchBox";
+import { getStudyProgressMap, formatTimeAgo } from "./studyMaterialUtils";
 
 // Display order and metadata for "Browse by Category" groups
 const GROUP_ORDER = [
@@ -86,39 +87,133 @@ function StudyMaterial() {
 
         if (controller.signal.aborted) return;
 
-        setSubjects(materials);
+        const progressMap = getStudyProgressMap();
+
+        // Enrich materials with real reading progress if available
+        const enrichedMaterials = materials.map((m) => {
+          const key = m.slug || m._id || m.id;
+          const prog =
+            progressMap[key] ||
+            progressMap[String(m._id)] ||
+            progressMap[String(m.id)];
+          if (prog && (prog.totalChapters || prog.completedChapters?.length)) {
+            const total =
+              prog.totalChapters || m.chapters?.length || m.chapterCount || 1;
+            const completedCount = Array.isArray(prog.completedChapters)
+              ? prog.completedChapters.length
+              : 0;
+            return {
+              ...m,
+              userProgress: Math.min(
+                100,
+                Math.round((completedCount / Math.max(1, total)) * 100),
+              ),
+            };
+          }
+          return m;
+        });
+
+        setSubjects(enrichedMaterials);
         setLastUpdated(new Date());
 
         // Auto-expand all groups
         const groups = {};
-        materials.forEach((m) => {
+        enrichedMaterials.forEach((m) => {
           if (m.subjectGroup) groups[m.subjectGroup] = true;
         });
         setExpandedGroups(groups);
 
-        // Process real study history from analytics
-        if (analytics?.subjectWise && materials.length > 0) {
-          // Find subjects the user has actually interacted with (attempted > 0)
-          const interactedSubjectNames = analytics.subjectWise
-            .filter((s) => s.attempted > 0)
-            .map((s) => s.name);
+        // Build accurate study history:
+        // Prioritize actual chapter study progress, then practice test analytics
+        const historyList = [];
+        const seenSubjectKeys = new Set();
 
-          const history = materials
-            .filter((m) => interactedSubjectNames.includes(m.title))
-            .map((m) => {
-              const stats = analytics.subjectWise.find(
-                (s) => s.name === m.title,
+        // 1. Process subjects with actual chapter reading progress recorded
+        const trackedKeys = Object.keys(progressMap).sort(
+          (a, b) =>
+            (progressMap[b]?.updatedAt || 0) - (progressMap[a]?.updatedAt || 0),
+        );
+
+        for (const key of trackedKeys) {
+          const record = progressMap[key];
+          if (!record) continue;
+
+          const mat = enrichedMaterials.find(
+            (m) =>
+              String(m.slug) === String(key) ||
+              String(m._id) === String(key) ||
+              String(m.id) === String(key) ||
+              (m.title &&
+                record.subjectTitle &&
+                m.title.toLowerCase() === record.subjectTitle.toLowerCase()),
+          );
+
+          if (mat) {
+            const matKey = String(mat.slug || mat._id || mat.id);
+            if (!seenSubjectKeys.has(matKey)) {
+              seenSubjectKeys.add(matKey);
+              const totalChaps =
+                mat.chapters?.length ||
+                mat.chapterCount ||
+                record.totalChapters ||
+                1;
+              const completedCount = Array.isArray(record.completedChapters)
+                ? record.completedChapters.length
+                : 0;
+              const pct = Math.min(
+                100,
+                Math.round((completedCount / Math.max(1, totalChaps)) * 100),
               );
-              return {
-                ...m,
-                lastAccessed: "Recent activity", // Analytics doesn't give us timestamp yet
-                progress: stats ? stats.accuracy : 0,
-              };
-            })
-            .slice(0, 5);
 
-          setStudyHistory(history);
+              historyList.push({
+                ...mat,
+                isRealStudy: true,
+                lastAccessed: record.updatedAt
+                  ? formatTimeAgo(record.updatedAt)
+                  : "Recently",
+                progress: pct,
+                progressLabel: "Chapters",
+                progressDetail: `${completedCount}/${totalChaps} Chapters`,
+                resumeUrl:
+                  record.lastChapterSlug || record.lastChapterId
+                    ? `/study/${mat.slug || mat._id}/${record.lastChapterSlug || record.lastChapterId}`
+                    : `/study/${mat.slug || mat._id}`,
+              });
+            }
+          }
         }
+
+        // 2. Add subjects with test practice activity (clearly labeled as Practice, NOT Chapters)
+        if (analytics?.subjectWise && enrichedMaterials.length > 0) {
+          const testInteracted = analytics.subjectWise.filter(
+            (s) => s.attempted > 0,
+          );
+          for (const s of testInteracted) {
+            const mat = enrichedMaterials.find(
+              (m) =>
+                m.title?.toLowerCase() === s.name?.toLowerCase() ||
+                m.slug?.toLowerCase() === s.name?.toLowerCase(),
+            );
+
+            if (mat) {
+              const matKey = String(mat.slug || mat._id || mat.id);
+              if (!seenSubjectKeys.has(matKey)) {
+                seenSubjectKeys.add(matKey);
+                historyList.push({
+                  ...mat,
+                  isRealStudy: false,
+                  lastAccessed: `${s.attempted} Qs Practiced`,
+                  progress: Math.min(100, Math.round(s.accuracy || 0)),
+                  progressLabel: "Practice Accuracy",
+                  progressDetail: `${s.correct}/${s.attempted} Correct`,
+                  resumeUrl: `/study/${mat.slug || mat._id}`,
+                });
+              }
+            }
+          }
+        }
+
+        setStudyHistory(historyList.slice(0, 6));
 
         // Process popular materials: sort by total content (videos + pdfs + tests)
         // Content depth is used as the popularity proxy until real view counts exist
@@ -471,27 +566,27 @@ function StudyMaterial() {
                   studyHistory.map((item, idx) => (
                     <Link
                       key={item._id || idx}
-                      to={`/study/${item.slug || item._id}`}
-                      className="flex-shrink-0 w-60 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-all group"
+                      to={item.resumeUrl || `/study/${item.slug || item._id}`}
+                      className="flex-shrink-0 w-64 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 shadow-sm hover:shadow-md hover:border-brand-start/40 transition-all group"
                     >
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-xl">
+                        <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-xl shrink-0">
                           {item.icon || "📚"}
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <h3 className="font-bold text-gray-900 dark:text-white truncate group-hover:text-brand-start transition-colors">
                             {item.title}
                           </h3>
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium truncate">
                             Last: {item.lastAccessed}
                           </p>
                         </div>
                       </div>
 
                       <div className="space-y-1.5">
-                        <div className="flex justify-between text-[10px] font-bold">
+                        <div className="flex justify-between items-center text-[10px] font-bold">
                           <span className="text-gray-400 dark:text-gray-500">
-                            Chapters
+                            {item.progressLabel || "Chapters"}
                           </span>
                           <span className="text-indigo-600 dark:text-indigo-400">
                             {item.progress}%
@@ -499,10 +594,15 @@ function StudyMaterial() {
                         </div>
                         <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
+                            className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
                             style={{ width: `${item.progress}%` }}
                           />
                         </div>
+                        {item.progressDetail && (
+                          <div className="text-[9px] text-gray-400 dark:text-gray-500 font-medium text-right">
+                            {item.progressDetail}
+                          </div>
+                        )}
                       </div>
                     </Link>
                   ))

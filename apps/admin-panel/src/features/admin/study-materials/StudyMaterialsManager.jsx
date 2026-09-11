@@ -454,7 +454,7 @@ function SubjectsPanel() {
 
       <div className="space-y-3">
         {rootSubjects.length === 0 ? (
-          <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
+          <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
             <BookOpen className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">
               No Subjects Found
@@ -564,6 +564,7 @@ function SubjectsPanel() {
                   <div className="relative">
                     <input
                       type="text"
+                      aria-label="Subject name"
                       required
                       value={formData.name}
                       onChange={handleNameChange}
@@ -588,6 +589,7 @@ function SubjectsPanel() {
                     </span>
                     <input
                       type="text"
+                      aria-label="Slug"
                       required
                       value={formData.slug}
                       onChange={(e) =>
@@ -617,6 +619,7 @@ function SubjectsPanel() {
                       </div>
                       <input
                         type="text"
+                        aria-label="Icon"
                         value={formData.icon}
                         onChange={(e) =>
                           setFormData({ ...formData, icon: e.target.value })
@@ -641,6 +644,7 @@ function SubjectsPanel() {
                       >
                         <input
                           type="color"
+                          aria-label="Theme color"
                           value={formData.color}
                           onChange={(e) =>
                             setFormData({ ...formData, color: e.target.value })
@@ -699,6 +703,7 @@ function SubjectsPanel() {
                       </button>
                       <input
                         type="number"
+                        aria-label="Display order"
                         value={formData.order}
                         onChange={(e) =>
                           setFormData({

@@ -1,4 +1,5 @@
 import express from "express";
+import path from "path";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import logger from "../../infrastructure/logger/logger.js";
 import {
@@ -36,15 +37,13 @@ const rejectOnServerless = (req, res, next) => {
 // directory components and verifies the resolved path stays inside the
 // backups directory, preventing path traversal on restore/delete/download.
 const resolveBackupFilePath = (fileName) => {
-  const pathNode = require("path");
-  const backupDir = pathNode.join(process.cwd(), "backups");
-  const safeFileName = pathNode.basename(fileName || "");
+  const backupDir = path.join(process.cwd(), "backups");
+  const safeFileName = path.basename(fileName || "");
   if (!safeFileName || safeFileName !== (fileName || "")) return null;
-  const filePath = pathNode.join(backupDir, safeFileName);
-  const resolvedBackupDir = pathNode.resolve(backupDir);
-  const resolvedFilePath = pathNode.resolve(filePath);
-  if (!resolvedFilePath.startsWith(resolvedBackupDir + pathNode.sep))
-    return null;
+  const filePath = path.join(backupDir, safeFileName);
+  const resolvedBackupDir = path.resolve(backupDir);
+  const resolvedFilePath = path.resolve(filePath);
+  if (!resolvedFilePath.startsWith(resolvedBackupDir + path.sep)) return null;
   return filePath;
 };
 
@@ -82,13 +81,11 @@ router.post("/", rejectOnServerless, async (req, res) => {
       name || `Backup_${new Date().toISOString().split("T")[0]}`;
     const backupName = backupNameRaw.replace(/[^a-zA-Z0-9_-]/g, "_");
     if (!/^[a-zA-Z0-9_-]+$/.test(backupName)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            "Invalid backup name: only alphanumeric, underscore, and hyphen characters allowed",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid backup name: only alphanumeric, underscore, and hyphen characters allowed",
+      });
     }
     const timestamp = Date.now();
     const backupFile = `${backupName}_${timestamp}`;
@@ -455,13 +452,11 @@ router.post("/trigger", rejectOnServerless, superAdmin, async (req, res) => {
       name || `Auto_Backup_${new Date().toISOString().split("T")[0]}`;
     const backupName = backupNameRaw.replace(/[^a-zA-Z0-9_-]/g, "_");
     if (!/^[a-zA-Z0-9_-]+$/.test(backupName)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            "Invalid backup name: only alphanumeric, underscore, and hyphen characters allowed",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid backup name: only alphanumeric, underscore, and hyphen characters allowed",
+      });
     }
     const timestamp = Date.now();
     const backupFile = `${backupName}_${timestamp}`;

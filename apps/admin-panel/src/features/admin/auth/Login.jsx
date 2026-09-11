@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "../../../shared/providers/AuthContext";
 import { useTheme } from "../../../shared/context/ThemeContext";
 import Logo from "../../../shared/components/common/Logo";
+import { DEV_FALLBACK_URL } from "../../../shared/lib/apiBase.js";
 import {
   Mail,
   Lock,
@@ -32,50 +33,17 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-const formatRelativeTime = (timestamp) => {
-  if (!timestamp) return "Recently active";
-  try {
-    const date = new Date(timestamp);
-    if (isNaN(date.getTime())) return "Recently active";
-    const diffSeconds = Math.max(
-      0,
-      Math.floor((Date.now() - date.getTime()) / 1000),
-    );
-    if (diffSeconds < 60) return "Active just now";
-    const diffMinutes = Math.floor(diffSeconds / 60);
-    if (diffMinutes < 60) return `Active ${diffMinutes}m ago`;
-    const diffHours = Math.floor(diffMinutes / 60);
-    if (diffHours < 24) return `Active ${diffHours}h ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `Active ${diffDays}d ago`;
-  } catch {
-    return "Recently active";
-  }
+import { formatRelativeTime, getDeviceType } from "@trstprep/shared-config";
+
+const DEVICE_ICON_MAP = {
+  mobile: SmartphoneIcon,
+  tablet: Tablet,
+  laptop: Laptop,
+  desktop: Monitor,
 };
 
-const getDeviceIcon = (deviceType, os = "") => {
-  const dt = String(deviceType || "").toLowerCase();
-  const lowerOs = String(os || "").toLowerCase();
-  if (
-    dt === "mobile" ||
-    lowerOs.includes("android") ||
-    lowerOs.includes("ios") ||
-    lowerOs.includes("iphone")
-  ) {
-    return SmartphoneIcon;
-  }
-  if (dt === "tablet" || lowerOs.includes("ipad")) {
-    return Tablet;
-  }
-  if (
-    lowerOs.includes("mac") ||
-    lowerOs.includes("windows") ||
-    lowerOs.includes("linux")
-  ) {
-    return Laptop;
-  }
-  return Monitor;
-};
+const getDeviceIcon = (deviceType, os = "") =>
+  DEVICE_ICON_MAP[getDeviceType(deviceType, os)] || Monitor;
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -149,7 +117,7 @@ function Login() {
   const mainSiteUrl =
     import.meta.env.VITE_FRONTEND_URL ||
     import.meta.env.VITE_MAIN_SITE_URL ||
-    (import.meta.env.DEV ? "http://localhost:3000" : "/");
+    (import.meta.env.DEV ? DEV_FALLBACK_URL : "/");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -283,7 +251,7 @@ function Login() {
 
       {/* Main Content Area: Responsive Split Showcase + Login Card */}
       <main className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 flex-1 flex items-center justify-center">
-        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 items-center">
           {/* Left Column: Command Hub Showcase (Desktop only ≥ 1024px) */}
           <div className="hidden lg:flex lg:col-span-7 flex-col justify-center space-y-6 pr-4">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-500/10 dark:to-purple-500/10 border border-indigo-200/80 dark:border-indigo-500/20 text-xs font-semibold text-indigo-700 dark:text-indigo-300 w-fit backdrop-blur-sm">
