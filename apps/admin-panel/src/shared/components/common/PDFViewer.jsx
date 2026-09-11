@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X, Download, ExternalLink } from "lucide-react";
 
@@ -23,7 +24,9 @@ function getEmbedUrl(url) {
   const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
   if (driveMatch)
     return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
-  // Convert absolute localhost URLs to relative paths so the Vite proxy serves them
+  // Convert absolute localhost URLs to relative paths so the Vite proxy serves them.
+  // DEV-only: in PROD an absolute URL must be used as-is so localhost can
+  // never leak into (or rewrite) production embeds.
   try {
     const parsed = new URL(
       url,
@@ -31,7 +34,10 @@ function getEmbedUrl(url) {
         ? window.location.origin
         : "http://localhost",
     );
-    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+    if (
+      import.meta.env.DEV &&
+      (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1")
+    ) {
       return parsed.pathname + parsed.search + parsed.hash;
     }
     return parsed.href;
@@ -41,6 +47,24 @@ function getEmbedUrl(url) {
 }
 
 export default function PDFViewer({ isOpen, onClose, pdfData }) {
+  const closeRef = useRef(null);
+  const prevFocusRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    prevFocusRef.current =
+      typeof document !== "undefined" ? document.activeElement : null;
+    closeRef.current?.focus?.();
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      prevFocusRef.current?.focus?.();
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen || typeof document === "undefined") return null;
 
   const rawUrl = pdfData?.url || null;
@@ -58,11 +82,17 @@ export default function PDFViewer({ isOpen, onClose, pdfData }) {
   };
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-xs z-[9999] flex flex-col animate-fade-in">
+    <div
+      className="fixed inset-0 bg-black/90 backdrop-blur-xs z-[9999] flex flex-col animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-label={pdfData?.title || "PDF Document viewer"}
+    >
       {/* Header */}
       <div className="bg-gray-900/95 backdrop-blur border-b border-gray-700 px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <button
+            ref={closeRef}
             onClick={onClose}
             className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors shrink-0"
             aria-label="Close PDF viewer"
@@ -112,7 +142,9 @@ export default function PDFViewer({ isOpen, onClose, pdfData }) {
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-white/60 gap-3">
-            <div className="text-5xl">📄</div>
+            <div className="text-5xl" aria-hidden="true">
+              📄
+            </div>
             <p className="text-sm">No PDF file loaded</p>
           </div>
         )}

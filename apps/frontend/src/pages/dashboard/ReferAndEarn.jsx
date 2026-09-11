@@ -23,7 +23,7 @@ const DEFAULT_REWARDS = [
 ];
 
 export default function ReferAndEarn() {
-  const { _user } = useAuth();
+  const { user: _user } = useAuth();
   const [referralCode, setReferralCode] = useState("");
   const [copied, setCopied] = useState(false);
   const [stats, setStats] = useState({

@@ -183,7 +183,10 @@ const CurrentAffairsDetail = () => {
 
               {/* Quiz Button */}
               <div className="ca-detail-quiz-section">
-                <button className="ca-detail-btn-quiz" onClick={fetchQuiz}>
+                <button
+                  className="ca-detail-btn-quiz focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  onClick={fetchQuiz}
+                >
                   📝 Take Quiz on this Article
                 </button>
               </div>
@@ -232,6 +235,7 @@ const CurrentAffairsDetail = () => {
                           }`}
                         >
                           <input
+                            aria-label={`Option ${option}`}
                             type="radio"
                             name={`question-${idx}`}
                             value={option}

@@ -391,7 +391,7 @@ export default function ExamYear() {
                         {paper.questions} Questions
                       </p>
                     </div>
-                    <button className="p-2 text-brand-start hover:bg-brand-start/10 rounded-lg">
+                    <button className="p-2 text-brand-start hover:bg-brand-start/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                       <Download className="w-5 h-5" />
                     </button>
                   </div>

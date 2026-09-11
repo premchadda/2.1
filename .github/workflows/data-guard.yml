@@ -38,14 +38,33 @@ jobs:
           fi
           echo "\u2705 No PII keys found in committed JSON."
 
+      - name: Fail on tracked secrets or secret values
+        run: |
+          # Never track .env files or the removed MiniMax key file.
+          TRACKED_ENV=$(git ls-files | grep -E '(^|/)\.env$|(^|/)M3 Key\.txt$' || true)
+          if [ -n "$TRACKED_ENV" ]; then
+            echo "\u274c Secret files tracked by git:"
+            echo "$TRACKED_ENV"
+            exit 1
+          fi
+          # High-confidence secret VALUE patterns in tracked code/config.
+          # Docs and tests are excluded: they discuss key names and placeholders.
+          HITS=$(git ls-files | grep -vE '^docs/|\.md$|__tests__|/test/|SECURITY_POSTURE|REMEDIATION_PLAN|AGENTS\.md' | xargs -I{} grep -lE 'rzp_live_[A-Za-z0-9]+|AKIA[0-9A-Z]{16}|-----BEGIN (RSA )?PRIVATE KEY-----|sk-live-[A-Za-z0-9]+' {} 2>/dev/null || true)
+          if [ -n "$HITS" ]; then
+            echo "\u274c Secret values found in tracked files:"
+            echo "$HITS"
+            exit 1
+          fi
+          echo "\u2705 No tracked secrets or secret values."
+
       - name: Fail if two migrations share a numeric prefix
         run: |
           cd apps/backend/src/infrastructure/database/migrations
-          DUPES=$(ls | awk -F'_' '/^[0-9]/{print $1}' | sort | uniq -d)
+          DUPES=$(ls | awk -F'_' '/^[0-9]/{print $1}' | sed 's/[a-zA-Z]$//' | sort | uniq -d)
           if [ -n "$DUPES" ]; then
             echo "\u274c Duplicate numeric prefixes in migration filenames:"
             echo "$DUPES"
-            ls | grep -E "^($DUPES)_" || true
+            ls | grep -E "^($DUPES)[a-zA-Z]?_" || true
             exit 1
           fi
           echo "\u2705 No duplicate numeric prefixes."

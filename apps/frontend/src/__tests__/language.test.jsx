@@ -195,4 +195,39 @@ describe("Language utilities", () => {
       expect(pickDefaultLanguage(q)).toBe("en");
     });
   });
+
+  describe("LANGUAGE_DISPLAY_NAMES map", () => {
+    it("covers core en/hi codes used across the app", () => {
+      expect(LANGUAGE_DISPLAY_NAMES.en).toBe("English");
+      expect(LANGUAGE_DISPLAY_NAMES.eng).toBe("English");
+      expect(LANGUAGE_DISPLAY_NAMES.hi).toBe("Hindi");
+      expect(LANGUAGE_DISPLAY_NAMES.hin).toBe("Hindi");
+      expect(LANGUAGE_DISPLAY_NAMES.bn).toBe("Bengali");
+      expect(LANGUAGE_DISPLAY_NAMES.ta).toBe("Tamil");
+    });
+  });
+
+  describe("hasDevanagari / hasLatin", () => {
+    it("detects Devanagari vs Latin scripts", () => {
+      expect(hasDevanagari("भारत")).toBe(true);
+      expect(hasDevanagari("India")).toBe(false);
+      expect(hasDevanagari("")).toBe(false);
+      expect(hasDevanagari(null)).toBe(false);
+      expect(hasLatin("India")).toBe(true);
+      expect(hasLatin("भारत")).toBe(false);
+      expect(hasLatin("")).toBe(false);
+      expect(hasLatin(123)).toBe(false);
+    });
+  });
+
+  describe("detectScript", () => {
+    it("classifies hi / en / mixed / unknown text", () => {
+      expect(detectScript("भारत का राष्ट्रीय पक्षी")).toBe("hi");
+      expect(detectScript("What is the capital?")).toBe("en");
+      expect(detectScript("Capital राजधानी")).toBe("mixed");
+      expect(detectScript("12345")).toBe("unknown");
+      expect(detectScript("")).toBe("unknown");
+      expect(detectScript(null)).toBe("unknown");
+    });
+  });
 });

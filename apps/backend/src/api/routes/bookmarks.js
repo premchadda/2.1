@@ -93,6 +93,120 @@ const resolveBookmarkEntity = async (itemType, itemId) => {
   }
 };
 
+const batchResolveBookmarkEntities = async (bookmarks = []) => {
+  if (!bookmarks.length) return new Map();
+
+  const byType = new Map();
+  for (const b of bookmarks) {
+    if (!b.itemType || !b.itemId) continue;
+    if (!byType.has(b.itemType)) byType.set(b.itemType, new Set());
+    byType.get(b.itemType).add(String(b.itemId));
+  }
+
+  const resultMap = new Map();
+
+  await Promise.all(
+    Array.from(byType.entries()).map(async ([itemType, idSet]) => {
+      const ids = Array.from(idSet);
+      if (!ids.length) return;
+
+      try {
+        if (itemType === "question") {
+          const numericIds = ids
+            .map(Number)
+            .filter((n) => Number.isInteger(n) && n > 0);
+          const stringIds = ids;
+          const cleanUuids = ids
+            .map((id) => id.replace(/^qst_/, ""))
+            .filter(Boolean);
+          const allStringLookups = [...new Set([...stringIds, ...cleanUuids])];
+
+          const qRes = await dbHelpers.pool.query(
+            `SELECT id, public_id, question_text, question_text_hi, options, options_hi, correct_answer, explanation, explanation_hi,
+                    subject, topic, chapter, difficulty, marks, negative_marks, tags
+             FROM questions
+             WHERE (id = ANY($1::int[]) OR public_id = ANY($2::text[]))
+               AND (is_deleted = false OR is_deleted IS NULL)`,
+            [numericIds.length ? numericIds : [-1], allStringLookups],
+          );
+
+          for (const row of qRes.rows) {
+            const camel = dbHelpers.toCamel(row);
+            resultMap.set(`question:${row.id}`, camel);
+            resultMap.set(`question:${String(row.id)}`, camel);
+            if (row.public_id) {
+              resultMap.set(`question:${row.public_id}`, camel);
+              resultMap.set(
+                `question:qst_${row.public_id.replace(/^qst_/, "")}`,
+                camel,
+              );
+              resultMap.set(
+                `question:${row.public_id.replace(/^qst_/, "")}`,
+                camel,
+              );
+            }
+          }
+        } else if (itemType === "test") {
+          const numericIds = ids
+            .map(Number)
+            .filter((n) => Number.isInteger(n) && n > 0);
+          const tRes = await dbHelpers.pool.query(
+            `SELECT * FROM tests
+             WHERE (id = ANY($1::int[]) OR slug = ANY($2::text[]) OR id::text = ANY($2::text[]))
+               AND (is_deleted = false OR is_deleted IS NULL)`,
+            [numericIds.length ? numericIds : [-1], ids],
+          );
+          for (const row of tRes.rows) {
+            const camel = dbHelpers.toCamel(row);
+            resultMap.set(`test:${row.id}`, camel);
+            resultMap.set(`test:${String(row.id)}`, camel);
+            if (row.slug) resultMap.set(`test:${row.slug}`, camel);
+          }
+        } else if (itemType === "study-material" || itemType === "chapter") {
+          const numericIds = ids
+            .map(Number)
+            .filter((n) => Number.isInteger(n) && n > 0);
+          const smRes = await dbHelpers.pool.query(
+            `SELECT * FROM study_materials
+             WHERE (id = ANY($1::int[]) OR slug = ANY($2::text[]) OR id::text = ANY($2::text[]))
+               AND (is_deleted = false OR is_deleted IS NULL)`,
+            [numericIds.length ? numericIds : [-1], ids],
+          );
+          for (const row of smRes.rows) {
+            const camel = dbHelpers.toCamel(row);
+            resultMap.set(`${itemType}:${row.id}`, camel);
+            resultMap.set(`${itemType}:${String(row.id)}`, camel);
+            if (row.slug) resultMap.set(`${itemType}:${row.slug}`, camel);
+          }
+        } else if (itemType === "video") {
+          const numericIds = ids
+            .map(Number)
+            .filter((n) => Number.isInteger(n) && n > 0);
+          const vRes = await dbHelpers.pool.query(
+            `SELECT * FROM subject_videos
+             WHERE (id = ANY($1::int[]) OR slug = ANY($2::text[]) OR id::text = ANY($2::text[]))
+               AND (is_deleted = false OR is_deleted IS NULL)`,
+            [numericIds.length ? numericIds : [-1], ids],
+          );
+          for (const row of vRes.rows) {
+            const camel = dbHelpers.toCamel(row);
+            resultMap.set(`video:${row.id}`, camel);
+            resultMap.set(`video:${String(row.id)}`, camel);
+            if (row.slug) resultMap.set(`video:${row.slug}`, camel);
+          }
+        }
+      } catch (err) {
+        console.warn(
+          `[Bookmarks Batch Enrichment] failed for ${itemType}:`,
+          err.message,
+        );
+      }
+    }),
+  );
+
+  return resultMap;
+};
+
 // All bookmark routes require authentication
 router.use(protect);
 
@@ -153,30 +267,16 @@ router.get("/", async (req, res) => {
       });
     }
 
-    // Enrich bookmark data with actual item details
-    const enrichedBookmarks = await Promise.all(
-      bookmarks.map(async (bookmark) => {
-        let itemDetails = null;
+    // Batch enrich bookmark data with actual item details in 1-2 queries total
+    const resultMap = await batchResolveBookmarkEntities(bookmarks);
 
-        try {
-          // Fetch details based on item type
-          itemDetails = await resolveBookmarkEntity(
-            bookmark.itemType,
-            bookmark.itemId,
-          );
-        } catch (error) {
-          console.warn(
-            `Failed to enrich bookmark ${bookmark._id}:`,
-            error.message,
-          );
-        }
-
-        return {
-          ...bookmark,
-          item: itemDetails,
-        };
-      }),
-    );
+    const enrichedBookmarks = bookmarks.map((bookmark) => ({
+      ...bookmark,
+      item:
+        resultMap.get(`${bookmark.itemType}:${bookmark.itemId}`) ||
+        resultMap.get(`${bookmark.itemType}:${String(bookmark.itemId)}`) ||
+        null,
+    }));
 
     res.json({
       success: true,

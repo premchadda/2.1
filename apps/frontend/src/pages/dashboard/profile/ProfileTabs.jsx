@@ -20,13 +20,26 @@ function ProfileTabs({
   onSettingsTabChange,
   onLogout,
 }) {
+  const handleTabClick = useCallback((id) => onTabChange(id), [onTabChange]);
+  const handleBackToPersonal = useCallback(
+    () => onTabChange("personal"),
+    [onTabChange],
+  );
+  const handleSettingsTabClick = useCallback(
+    (id) => onSettingsTabChange(id),
+    [onSettingsTabChange],
+  );
+  const handleOpenSettings = useCallback(
+    () => onTabChange("settings", "security"),
+    [onTabChange],
+  );
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-4 p-1.5 overflow-hidden">
       <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar py-0.5 px-0.5">
         {activeTab === "settings" ? (
           <>
             <button
-              onClick={() => onTabChange("personal")}
+              onClick={handleBackToPersonal}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 shrink-0"
             >
               <ChevronRight className="w-3.5 h-3.5 rotate-180" />
@@ -41,7 +54,7 @@ function ProfileTabs({
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => onSettingsTabChange(tab.id)}
+                onClick={() => handleSettingsTabClick(tab.id)}
                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                   settingsTab === tab.id
                     ? "bg-indigo-600 text-white shadow-sm font-black"
@@ -63,7 +76,7 @@ function ProfileTabs({
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => onTabChange(tab.id)}
+                onClick={() => handleTabClick(tab.id)}
                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                   activeTab === tab.id
                     ? "bg-indigo-600 text-white shadow-sm font-black"
@@ -76,7 +89,7 @@ function ProfileTabs({
             ))}
             <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5 self-center shrink-0"></div>
             <button
-              onClick={() => onTabChange("settings", "security")}
+              onClick={handleOpenSettings}
               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                 activeTab === "settings"
                   ? "bg-indigo-600 text-white shadow-sm font-black"

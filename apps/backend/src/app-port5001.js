@@ -1,4 +1,4 @@
-import express from "express"; // server-boot-v7
+import express from "express"; // server-boot-v8
 import dns from "dns";
 
 // Force IPv4-first DNS resolution (Supabase IPv6 often fails to resolve locally)
@@ -614,6 +614,9 @@ app.use(
       // (SessionCaptureService). Required in preflight when clients call the
       // API cross-origin (direct API_BASE_URL, not through the dev proxy).
       "X-Client-App",
+      // Short-lived FortSpy stream JWT (fortspy.js /stream/:id) — must be
+      // preflight-allowed or cross-origin browsers reject the stream fetch.
+      "X-Stream-Token",
     ],
     exposedHeaders: ["X-CSRF-Token"],
     maxAge: 86400,
@@ -972,7 +975,7 @@ app.use("/api/exam-yearly", examYearlyRoutes);
 app.use("/api/exam-seasons", examSeasonsRoutes);
 app.use("/api/series", seriesRoutes);
 app.use("/api/exam-info", examInfoRoutes);
-app.use("/api/test-categories", testCategoryRoutes);
+app.use("/api/test-categories", validateCsrfToken, testCategoryRoutes);
 app.use("/api/exam-categories", examCategoryRoutes);
 app.use("/api/bookmarks", validateCsrfToken, bookmarksRoutes);
 app.use("/api/notifications", validateCsrfToken, notificationsRoutes);
@@ -990,12 +993,12 @@ app.use("/api/practice", validateCsrfToken, practiceRoutes);
 app.use("/api/notifications-pref", validateCsrfToken, notificationsPrefRoutes);
 app.use("/api/auth/phone", authLimiter, phoneAuthRoutes);
 app.use("/api/sessions", sessionRoutes);
-app.use("/api/subscriptions", subscriptionRoutes);
+app.use("/api/subscriptions", validateCsrfToken, subscriptionRoutes);
 app.use("/api/admin/subscriptions", validateCsrfToken, subscriptionAdminRoutes);
 app.use("/api/intelligence", validateCsrfToken, intelligenceRoutes);
 app.use("/api/discussions", validateCsrfToken, discussionsRoutes);
-app.use("/api/promotions", promotionsRoutes);
-app.use("/api/tag-configs", tagConfigRoutes);
+app.use("/api/promotions", validateCsrfToken, promotionsRoutes);
+app.use("/api/tag-configs", validateCsrfToken, tagConfigRoutes);
 app.use("/api/pyps", pypHierarchyRoutes);
 // Compatibility alias — same router, chain-complete. LeaderboardResultsUnified.jsx
 // (out of scope) still calls /leaderboards/admin/list + /stats; remove this mount
@@ -1011,7 +1014,7 @@ app.use("/api/node-engine", validateCsrfToken, nodeEngineRoutes);
 
 // AI & adaptive routes (previously only at /api/v1/*)
 app.use("/api/math", mathRoutes);
-app.use("/api/adaptive", adaptiveTestRoutes);
+app.use("/api/adaptive", validateCsrfToken, adaptiveTestRoutes);
 app.use("/api/ai/mentor", aiMentorRoutes);
 app.use("/api/ai/explanation", aiExplanationRoutes);
 app.use("/api/ai/logs", aiGenerationLogRoutes);

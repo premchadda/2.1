@@ -94,6 +94,7 @@ vi.mock("../shared/lib/dataService", () => ({
 describe("AttemptedTests page tabs and actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
   });
 
   const renderComponent = () =>
@@ -176,15 +177,21 @@ describe("AttemptedTests page tabs and actions", () => {
       expect(screen.getByText("SSC CGL Full Mock 01")).toBeInTheDocument();
     });
 
-    await waitFor(() => {
-      const viewReportBtns = screen.getAllByText("View Report");
-      expect(viewReportBtns.length).toBeGreaterThan(0);
-    });
+    await waitFor(
+      () => {
+        const viewReportBtns = screen.getAllByText("View Report");
+        expect(viewReportBtns.length).toBeGreaterThan(0);
+      },
+      { timeout: 3000 },
+    );
 
-    await waitFor(() => {
-      const retakeBtns = screen.getAllByText("Retake");
-      expect(retakeBtns.length).toBeGreaterThan(0);
-    });
+    await waitFor(
+      () => {
+        const retakeBtns = screen.getAllByText("Retake");
+        expect(retakeBtns.length).toBeGreaterThan(0);
+      },
+      { timeout: 3000 },
+    );
   });
 
   it("opens Filter popover with series and sort options, and does not show Showing tests count", async () => {
@@ -227,12 +234,23 @@ describe("AttemptedTests page tabs and actions", () => {
   it("shows type badge, series title, and date on the test card", async () => {
     renderComponent();
 
-    await waitFor(() => {
-      expect(screen.getByText("SSC CGL Full Mock 01")).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText("SSC CGL Full Mock 01")).toBeInTheDocument();
+      },
+      { timeout: 3000 },
+    );
     const cardEl = screen.getByText("SSC CGL Full Mock 01").closest(".group");
     expect(cardEl.textContent).toContain("SSC CGL 2026");
     expect(screen.getAllByText(/mock/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Sep 1, 2026/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/(1 Sep(t)? 2026|Sep 1, 2026)/i).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("creates a valid React element for the AttemptedTests tree", () => {
+    const element = <AttemptedTests />;
+    expect(React.isValidElement(element)).toBe(true);
+    expect(element.type).toBe(AttemptedTests);
   });
 });

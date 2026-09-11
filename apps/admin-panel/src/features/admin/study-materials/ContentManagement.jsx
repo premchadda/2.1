@@ -33,10 +33,13 @@ import {
   Archive,
   Clock,
   BadgeCheck,
+  Shield,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { apiClient as api } from "../../../shared/lib/dataService";
+import { logger } from "../../../shared/lib/logger";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
+import { copyToClipboard } from "../../../shared/utils/clipboard";
 
 // Auto-generate a URL-safe slug from a title string
 const toSlug = (str) =>
@@ -280,11 +283,8 @@ export default function ContentManagement() {
 
         setStudyMaterials(deduped);
         if (deduped.length === 0) {
-          console.warn("No study materials found — check DB seeding");
-        } else if (deduped.length > 4) {
-          console.log(
-            `Loaded ${deduped.length} study materials (was showing 4)`,
-          );
+          // logger.warn is DEV-only internally — no prod log spam.
+          logger.warn("No study materials found — check DB seeding");
         }
       } catch (err) {
         console.error("Failed to load study materials:", err);
@@ -446,6 +446,10 @@ export default function ContentManagement() {
       studyMaterialId: smId,
       chapterId: cId,
       topicId: tId,
+      // FortSpy (videos tab; migration 141)
+      fortspyId: item.fortspyId || item.fortspy_id || "",
+      fortspyKey: item.fortspyKey || item.fortspy_key || "",
+      isEncrypted: !!(item.isEncrypted ?? item.is_encrypted),
     });
     // Pre-load chapters for the item's study material
     if (smId) {
@@ -513,13 +517,22 @@ export default function ContentManagement() {
       setSaving(true);
       const endpoint = getEndpoint();
       const itemId = editingItem._id || editingItem.id;
-      await api.put(`${endpoint}/${itemId}`, {
+      const payload = {
         title: String(editForm.title || "").trim(),
         description: String(editForm.description || "").trim(),
         studyMaterialId: editForm.studyMaterialId || null,
         chapterId: editForm.chapterId || null,
         topicId: editForm.topicId || null,
-      });
+      };
+      // FortSpy linkage for videos (migration 141). Key is write-only.
+      if (activeTab === "videos") {
+        payload.fortspyId = editForm.fortspyId?.trim() || null;
+        if (editForm.fortspyKey?.trim()) {
+          payload.fortspyKey = editForm.fortspyKey.trim();
+        }
+        payload.isEncrypted = !!editForm.isEncrypted;
+      }
+      await api.put(`${endpoint}/${itemId}`, payload);
       toast.success("Content updated successfully");
       setShowEditModal(false);
       setEditingItem(null);
@@ -571,6 +584,10 @@ export default function ContentManagement() {
       videoUrl: "",
       thumbnail: "",
       duration: "",
+      // FortSpy encrypted stream (migration 141)
+      fortspyId: "",
+      fortspyKey: "",
+      isEncrypted: false,
       // pdf-specific
       pdfUrl: "",
       fileSize: "",
@@ -622,6 +639,12 @@ export default function ContentManagement() {
           thumbnail: addForm.thumbnail || "",
           duration: Number(addForm.duration) || 0,
           isPro: addForm.isPro,
+          // FortSpy encrypted stream (migration 141). The key is write-only:
+          // public APIs never return it; the stream token endpoint resolves
+          // it server-side.
+          fortspyId: addForm.fortspyId?.trim() || null,
+          fortspyKey: addForm.fortspyKey?.trim() || null,
+          isEncrypted: !!addForm.isEncrypted,
         };
       } else if (activeTab === "pdfs") {
         if (!addForm.title || !addForm.pdfUrl || !addForm.studyMaterialId)
@@ -810,28 +833,6 @@ export default function ContentManagement() {
       toast.error("Bulk delete failed");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const copyToClipboard = async (text) => {
-    if (!text) return;
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(String(text));
-      } else {
-        // Fallback for http or old browsers
-        const ta = document.createElement("textarea");
-        ta.value = String(text);
-        ta.style.position = "fixed";
-        ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-      }
-      toast.success("Copied to clipboard");
-    } catch {
-      toast.error("Copy failed — please copy manually");
     }
   };
 
@@ -1202,6 +1203,7 @@ export default function ContentManagement() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                       type="text"
+                      aria-label={`Search ${tabs.find((t) => t.id === activeTab)?.label.toLowerCase()} by title or slug`}
                       placeholder={`Search ${tabs.find((t) => t.id === activeTab)?.label.toLowerCase()} by title, slug...`}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
@@ -1366,7 +1368,7 @@ export default function ContentManagement() {
                   ))}
                 </div>
               ) : filteredContent.length === 0 ? (
-                <div className="text-center py-8 sm:py-12 bg-gray-50 dark:bg-gray-900/50 rounded-b-2xl px-4">
+                <div className="text-center py-8 sm:py-8 bg-gray-50 dark:bg-gray-900/50 rounded-b-2xl px-4">
                   {(() => {
                     const activeTabData = tabs.find((t) => t.id === activeTab);
                     const Icon = activeTabData?.icon || Layers;
@@ -1598,6 +1600,7 @@ export default function ContentManagement() {
                         <th className="px-4 py-3 w-8">
                           <input
                             type="checkbox"
+                            aria-label="Select all content items"
                             checked={
                               paginatedContent.length > 0 &&
                               paginatedContent.every((it) =>
@@ -1629,6 +1632,7 @@ export default function ContentManagement() {
                             <td className="px-4 py-3">
                               <input
                                 type="checkbox"
+                                aria-label={`Select content ${item.title || idStr}`}
                                 checked={isSelected}
                                 onChange={() => toggleSelectOne(idStr)}
                                 className="rounded border-gray-300 text-indigo-600"
@@ -1773,7 +1777,7 @@ export default function ContentManagement() {
         editingItem &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-start justify-center z-[9999] p-4 pt-14 overflow-y-auto animate-fade-in">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-start justify-center z-[9999] p-4 pt-8 overflow-y-auto animate-fade-in">
             <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl my-4 border border-gray-200 dark:border-gray-700 overflow-hidden">
               {/* Header */}
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50/75 dark:bg-gray-800/75">
@@ -1838,6 +1842,75 @@ export default function ContentManagement() {
                     </div>
                   </div>
                 </div>
+
+                {/* ── FortSpy encrypted stream (videos tab, migration 141) ── */}
+                {activeTab === "videos" && (
+                  <div>
+                    <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5" /> FortSpy Encryption
+                    </h3>
+                    <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-900/10 p-4 space-y-3">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={!!editForm.isEncrypted}
+                          onChange={(e) =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              isEncrypted: e.target.checked,
+                            }))
+                          }
+                          className="rounded accent-emerald-600"
+                        />
+                        <span className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+                          Encrypted — play via FortSpy player
+                        </span>
+                      </label>
+                      {editForm.isEncrypted && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              FortSpy Video ID
+                            </label>
+                            <input
+                              type="text"
+                              value={editForm.fortspyId || ""}
+                              onChange={(e) =>
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  fortspyId: e.target.value,
+                                }))
+                              }
+                              placeholder="Encrypted asset ID from POST /api/fortspy/encrypt"
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Decryption Key{" "}
+                              <span className="text-xs font-normal text-gray-400">
+                                (leave blank to keep stored key)
+                              </span>
+                            </label>
+                            <input
+                              type="password"
+                              autoComplete="new-password"
+                              value={editForm.fortspyKey || ""}
+                              onChange={(e) =>
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  fortspyKey: e.target.value,
+                                }))
+                              }
+                              placeholder="•••••••• (stored server-side)"
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 font-mono"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* ── Curriculum Linking (not for study-material notes tab) ── */}
                 {activeTab !== "notes" && (
@@ -2274,6 +2347,7 @@ export default function ContentManagement() {
                       >
                         <input
                           type="file"
+                          aria-label="Upload video file"
                           accept="video/*"
                           className="hidden"
                           onChange={(e) =>
@@ -2312,6 +2386,7 @@ export default function ContentManagement() {
                         <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                         <input
                           type="url"
+                          aria-label="Video URL"
                           value={addForm.videoUrl}
                           onChange={(e) => setAdd("videoUrl", e.target.value)}
                           placeholder="…or paste a YouTube / direct URL"
@@ -2338,6 +2413,7 @@ export default function ContentManagement() {
                         >
                           <input
                             type="file"
+                            aria-label="Upload thumbnail image"
                             accept="image/*"
                             className="hidden"
                             onChange={(e) =>
@@ -2373,6 +2449,7 @@ export default function ContentManagement() {
                         </label>
                         <input
                           type="url"
+                          aria-label="Thumbnail image URL"
                           value={addForm.thumbnail}
                           onChange={(e) => setAdd("thumbnail", e.target.value)}
                           placeholder="…or paste image URL"
@@ -2404,6 +2481,59 @@ export default function ContentManagement() {
                         Pro content only
                       </span>
                     </label>
+                    {/* ── FortSpy encrypted stream (migration 141) ── */}
+                    <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-900/10 p-3 space-y-3">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={!!addForm.isEncrypted}
+                          onChange={(e) =>
+                            setAdd("isEncrypted", e.target.checked)
+                          }
+                          className="rounded accent-emerald-600"
+                        />
+                        <span className="text-sm font-medium text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                          <Shield className="w-4 h-4" />
+                          FortSpy encrypted (AES-256)
+                        </span>
+                      </label>
+                      {addForm.isEncrypted && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              FortSpy Video ID
+                            </label>
+                            <input
+                              type="text"
+                              value={addForm.fortspyId}
+                              onChange={(e) =>
+                                setAdd("fortspyId", e.target.value)
+                              }
+                              placeholder="Encrypted asset ID from POST /api/fortspy/encrypt"
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Decryption Key{" "}
+                              <span className="text-xs font-normal text-gray-400">
+                                (stored server-side, never sent to clients)
+                              </span>
+                            </label>
+                            <input
+                              type="password"
+                              autoComplete="new-password"
+                              value={addForm.fortspyKey}
+                              onChange={(e) =>
+                                setAdd("fortspyKey", e.target.value)
+                              }
+                              placeholder="AES-256 key from /api/fortspy/keygen"
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 font-mono"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </>
                 )}
 
@@ -2429,6 +2559,7 @@ export default function ContentManagement() {
                       >
                         <input
                           type="file"
+                          aria-label="Upload PDF file"
                           accept="application/pdf"
                           className="hidden"
                           onChange={(e) =>
@@ -2463,6 +2594,7 @@ export default function ContentManagement() {
                         <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                         <input
                           type="url"
+                          aria-label="PDF URL"
                           value={addForm.pdfUrl}
                           onChange={(e) => setAdd("pdfUrl", e.target.value)}
                           placeholder="…or paste a direct PDF URL"

@@ -17,6 +17,7 @@ import QRCode from "qrcode";
 import { authAPI, adminAPI } from "../../../shared/lib/dataService.js";
 import { toast } from "react-hot-toast";
 import { useConfirm } from "../../../shared/components/common/ConfirmModal";
+import { copyToClipboard } from "../../../shared/utils/clipboard";
 
 export default function TwoFactorManager() {
   const [status, setStatus] = useState(null);
@@ -206,11 +207,6 @@ export default function TwoFactorManager() {
     }
   };
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard?.writeText(text);
-    toast.success("Copied to clipboard");
-  };
-
   const handleGlobalToggle = async (nextVal) => {
     setTogglingGlobal(true);
     try {
@@ -333,6 +329,7 @@ export default function TwoFactorManager() {
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
+                aria-label="Search name, email"
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
                 placeholder="Search name, email..."

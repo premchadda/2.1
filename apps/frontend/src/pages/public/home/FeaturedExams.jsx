@@ -21,7 +21,7 @@ function FeaturedExams({
   );
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
       <ScrollReveal>
         <div className="flex justify-between items-end mb-5 md:mb-6">
           <div>
@@ -84,7 +84,7 @@ function FeaturedExams({
           </div>
         </ScrollReveal>
       ) : (
-        <div className="text-center py-8 md:py-12 bg-gray-50 dark:bg-gray-800 rounded-xl md:rounded-2xl">
+        <div className="text-center py-8 md:py-10 bg-gray-50 dark:bg-gray-800 rounded-xl md:rounded-2xl">
           <BookOpen className="w-10 h-10 md:w-12 md:h-12 text-gray-300 dark:text-gray-600 mx-auto mb-2 md:mb-3" />
           <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">
             No featured exams available

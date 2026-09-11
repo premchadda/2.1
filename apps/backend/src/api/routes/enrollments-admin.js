@@ -4,10 +4,12 @@ import {
   pool,
 } from "../../infrastructure/database/postgres-helpers.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
+import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
 import EnrollmentService from "../../services/EnrollmentService.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
+const adminEnrollLimiter = createRateLimiter("moderate");
 
 router.use(protect);
 router.use(admin);
@@ -134,7 +136,7 @@ router.get("/admin/list", async (req, res) => {
   }
 });
 
-router.post("/admin/enroll", async (req, res) => {
+router.post("/admin/enroll", adminEnrollLimiter, async (req, res) => {
   try {
     const { userId, seriesId, seriesIds, sendNotification } = req.body;
 

@@ -13,6 +13,10 @@ jest.unstable_mockModule(
   }),
 );
 
+jest.unstable_mockModule("../../config/database-replicas.js", () => ({
+  getReadPool: () => null,
+}));
+
 jest.unstable_mockModule("../services/core/notificationService.js", () => ({
   notificationService: {
     dispatchNotification: (...args) => mockDispatchNotification(...args),

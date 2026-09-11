@@ -70,16 +70,25 @@ export default function QuickStats({ stats: initialStats }) {
   ];
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <h3 className="font-semibold text-gray-900 mb-4">Quick Stats</h3>
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+      <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
+        Quick Stats
+      </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {statItems.map((item, idx) => (
-          <div key={idx} className="text-center p-4 bg-gray-50 rounded-lg">
+          <div
+            key={idx}
+            className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"
+          >
             <div className={`inline-flex p-2 rounded-lg mb-2 ${item.color}`}>
               <item.icon className="w-5 h-5" />
             </div>
-            <p className="text-lg font-bold text-gray-900">{item.value}</p>
-            <p className="text-xs text-gray-500">{item.label}</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-white">
+              {item.value}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {item.label}
+            </p>
           </div>
         ))}
       </div>

@@ -1,35 +1,35 @@
-import { Navigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../../providers/AuthContext'
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../providers/AuthContext";
+import { TrstprepLoading } from "../common/TrstprepLoading";
 
 function ProtectedRoute({ children, adminOnly = false }) {
-  const { user, loading, authResolved } = useAuth()
-  const location = useLocation()
+  const { user, loading, authResolved } = useAuth();
+  const location = useLocation();
 
-  // Show loading until the AuthProvider has finished its initial /api/auth/me probe.
-  // Without authResolved we would briefly redirect unauthenticated users to /login
-  // while the rehydration is still in flight (the bug behind AC1).
-  if (loading || !authResolved) {
+  // Only block if we do NOT have an existing/cached user session
+  // and initial authentication resolution is still in flight.
+  // When a user session exists from cache, children render in 1ms while /me revalidates.
+  if (!user && (loading || !authResolved)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3 will-change-transform"></div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Checking authentication...</p>
-        </div>
-      </div>
-    )
+      <TrstprepLoading
+        fullscreen
+        message="Verifying session..."
+        subtext="Securely restoring your learning workspace"
+      />
+    );
   }
 
   // Redirect to login if not authenticated
   if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // Check for admin access if required
-  if (adminOnly && (!user.role || user.role !== 'admin')) {
-    return <Navigate to="/dashboard" replace />
+  if (adminOnly && (!user.role || user.role !== "admin")) {
+    return <Navigate to="/dashboard" replace />;
   }
 
-  return children
+  return children;
 }
 
-export default ProtectedRoute
+export default ProtectedRoute;

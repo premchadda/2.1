@@ -1,6 +1,7 @@
 import express from "express";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { protect } from "../../middleware/auth.middleware.js";
+import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
 import { idsMatch } from "../../shared/utils/db-utils.js";
 import {
   findEntityByIdentifier,
@@ -11,52 +12,85 @@ import {
   mapLookupId,
 } from "../../shared/utils/public-id-response.js";
 import EnrollmentService from "../../services/EnrollmentService.js";
+import { invalidateResponseCache } from "../../middleware/responseCache.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
+const enrollmentLimiter = createRateLimiter("moderate");
 
-router.post("/enroll-study-material/:materialId", protect, async (req, res) => {
-  try {
-    const { materialId } = req.params;
-    console.log(
-      "[Enroll Study Material] Request received for materialId:",
-      materialId,
-      "userId:",
-      req.user.id,
-    );
+router.post(
+  "/enroll-study-material/:materialId",
+  protect,
+  enrollmentLimiter,
+  async (req, res) => {
+    try {
+      const { materialId } = req.params;
+      console.log(
+        "[Enroll Study Material] Request received for materialId:",
+        materialId,
+        "userId:",
+        req.user.id,
+      );
 
-    const material = await findEntityByIdentifier(
-      dbHelpers,
-      "studyMaterials",
-      materialId,
-      {
-        slugFields: ["slug"],
-      },
-    );
+      const material = await findEntityByIdentifier(
+        dbHelpers,
+        "studyMaterials",
+        materialId,
+        {
+          slugFields: ["slug"],
+        },
+      );
 
-    if (!material) {
-      console.log("[Enroll Study Material] Material not found:", materialId);
-      return res.status(404).json({
-        success: false,
-        message: "Study material not found",
-      });
-    }
-    console.log(
-      "[Enroll Study Material] Material found:",
-      material._id || material.id,
-      material.title,
-    );
+      if (!material) {
+        console.log("[Enroll Study Material] Material not found:", materialId);
+        return res.status(404).json({
+          success: false,
+          message: "Study material not found",
+        });
+      }
+      console.log(
+        "[Enroll Study Material] Material found:",
+        material._id || material.id,
+        material.title,
+      );
 
-    const canonicalMaterialId = getInternalId(material);
+      const canonicalMaterialId = getInternalId(material);
 
-    const result = await EnrollmentService.enrollInStudyMaterial(
-      dbHelpers,
-      req.user.id,
-      canonicalMaterialId,
-    );
+      const result = await EnrollmentService.enrollInStudyMaterial(
+        dbHelpers,
+        req.user.id,
+        canonicalMaterialId,
+      );
 
-    if (result.alreadyEnrolled) {
-      console.log("[Enroll Study Material] User already enrolled");
+      if (result.alreadyEnrolled) {
+        console.log("[Enroll Study Material] User already enrolled");
+        const enrolledMaterialIds =
+          await EnrollmentService.getEnrolledStudyMaterialIds(
+            dbHelpers,
+            req.user.id,
+          );
+        const enrolledStudyMaterialsLookup = await buildPublicIdLookup(
+          dbHelpers,
+          "studyMaterials",
+          enrolledMaterialIds,
+        );
+        return res.json({
+          success: true,
+          message: "Already enrolled in this study material",
+          alreadyEnrolled: true,
+          data: enrolledMaterialIds.map((value) =>
+            mapLookupId(value, enrolledStudyMaterialsLookup, value),
+          ),
+        });
+      }
+
+      console.log(
+        "[Enroll Study Material] Created enrollment record in enrollments table",
+      );
+
+      // /me caches the enrolledStudyMaterials list — evict after enrollment.
+      invalidateResponseCache("auth-me").catch(() => {});
+
       const enrolledMaterialIds =
         await EnrollmentService.getEnrolledStudyMaterialIds(
           dbHelpers,
@@ -67,47 +101,24 @@ router.post("/enroll-study-material/:materialId", protect, async (req, res) => {
         "studyMaterials",
         enrolledMaterialIds,
       );
-      return res.json({
+
+      res.json({
         success: true,
-        message: "Already enrolled in this study material",
-        alreadyEnrolled: true,
+        message: "Successfully enrolled in study material",
+        alreadyEnrolled: false,
         data: enrolledMaterialIds.map((value) =>
           mapLookupId(value, enrolledStudyMaterialsLookup, value),
         ),
       });
+    } catch (error) {
+      console.error("[Enroll Study Material] Error:", error);
+      res.status(500).json({
+        success: false,
+        message: sanitizeErrorMessage(error),
+      });
     }
-
-    console.log(
-      "[Enroll Study Material] Created enrollment record in enrollments table",
-    );
-
-    const enrolledMaterialIds =
-      await EnrollmentService.getEnrolledStudyMaterialIds(
-        dbHelpers,
-        req.user.id,
-      );
-    const enrolledStudyMaterialsLookup = await buildPublicIdLookup(
-      dbHelpers,
-      "studyMaterials",
-      enrolledMaterialIds,
-    );
-
-    res.json({
-      success: true,
-      message: "Successfully enrolled in study material",
-      alreadyEnrolled: false,
-      data: enrolledMaterialIds.map((value) =>
-        mapLookupId(value, enrolledStudyMaterialsLookup, value),
-      ),
-    });
-  } catch (error) {
-    console.error("[Enroll Study Material] Error:", error);
-    res.status(500).json({
-      success: false,
-      message: sanitizeErrorMessage(error),
-    });
-  }
-});
+  },
+);
 
 router.delete(
   "/unenroll-study-material/:materialId",
@@ -196,6 +207,8 @@ router.delete(
 
       console.log("[Unenroll Study Material] Successfully unenrolled");
 
+      // /me caches the enrolledStudyMaterials list — evict after unenrollment.
+      invalidateResponseCache("auth-me").catch(() => {});
       const enrolledMaterialIds =
         await EnrollmentService.getEnrolledStudyMaterialIds(
           dbHelpers,

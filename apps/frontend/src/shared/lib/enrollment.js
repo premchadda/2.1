@@ -1,23 +1,23 @@
-import { clearDashboardCache } from './dashboardCache.js'
+import { clearDashboardCache } from "./dashboardCache.js";
 
 export const invalidateDashboardCache = () => {
-  clearDashboardCache()
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('trstprep:data-invalidated'))
+  clearDashboardCache();
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("trstprep:data-invalidated"));
   }
-}
+};
 
 const normalizeEnrollmentEntry = (entry) => {
   if (entry === null || entry === undefined) {
-    return null
+    return null;
   }
 
-  if (typeof entry === 'object') {
-    return entry.id || entry._id || entry.slug || null
+  if (typeof entry === "object") {
+    return entry.id || entry._id || entry.slug || null;
   }
 
-  return entry
-}
+  return entry;
+};
 
 /**
  * Parse enrolledSeries from various formats:
@@ -28,60 +28,66 @@ const normalizeEnrollmentEntry = (entry) => {
  */
 const parseEnrolledSeriesRaw = (enrolledSeries) => {
   if (enrolledSeries === null || enrolledSeries === undefined) {
-    return []
+    return [];
   }
 
   if (Array.isArray(enrolledSeries)) {
-    return enrolledSeries
+    return enrolledSeries;
   }
 
-  if (typeof enrolledSeries === 'string') {
-    const trimmed = enrolledSeries.trim()
-    if (!trimmed) return []
+  if (typeof enrolledSeries === "string") {
+    const trimmed = enrolledSeries.trim();
+    if (!trimmed) return [];
 
     // PostgreSQL array format: "{1,2,3}"
-    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-      const inner = trimmed.slice(1, -1)
-      if (!inner.trim()) return []
-      return inner.split(',').map((s) => s.trim()).filter(Boolean)
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      const inner = trimmed.slice(1, -1);
+      if (!inner.trim()) return [];
+      return inner
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
     }
 
     // JSON array format: "[1,2,3]"
-    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
       try {
-        const parsed = JSON.parse(trimmed)
-        return Array.isArray(parsed) ? parsed : []
+        const parsed = JSON.parse(trimmed);
+        return Array.isArray(parsed) ? parsed : [];
       } catch {
-        return []
+        return [];
       }
     }
 
     // Comma-separated format: "1,2,3"
-    if (trimmed.includes(',')) {
-      return trimmed.split(',').map((s) => s.trim()).filter(Boolean)
+    if (trimmed.includes(",")) {
+      return trimmed
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
     }
 
     // Single value: "1"
-    return [trimmed]
+    return [trimmed];
   }
 
   // Single number
-  return [enrolledSeries]
-}
+  return [enrolledSeries];
+};
 
 export const getNormalizedEnrolledSeries = (enrolledSeries) => {
   const parsed = Array.isArray(enrolledSeries)
     ? enrolledSeries
-    : parseEnrolledSeriesRaw(enrolledSeries)
+    : parseEnrolledSeriesRaw(enrolledSeries);
 
   if (!Array.isArray(parsed)) {
-    return []
+    return [];
   }
 
-  const result = []
+  const result = [];
   for (const entry of parsed) {
-    if (entry === null || entry === undefined) continue
-    if (typeof entry === 'object') {
+    if (entry === null || entry === undefined) continue;
+    if (typeof entry === "object") {
       const keys = [
         entry.id,
         entry._id,
@@ -91,38 +97,44 @@ export const getNormalizedEnrolledSeries = (enrolledSeries) => {
         entry.slug,
         entry.series_id,
         entry.seriesId,
-      ].filter((k) => k !== null && k !== undefined && String(k).trim() !== '')
-      keys.forEach((k) => result.push(String(k).trim()))
+      ].filter((k) => k !== null && k !== undefined && String(k).trim() !== "");
+      keys.forEach((k) => result.push(String(k).trim()));
     } else {
-      const s = String(entry).trim()
-      if (s) result.push(s)
+      const s = String(entry).trim();
+      if (s) result.push(s);
     }
   }
-  return result
-}
+  return result;
+};
 
 export const hasLegacyEnrolledSeriesIds = (enrolledSeries) => {
-  return getNormalizedEnrolledSeries(enrolledSeries).some((entry) => /^\d+$/.test(String(entry)))
-}
+  return getNormalizedEnrolledSeries(enrolledSeries).some((entry) =>
+    /^\d+$/.test(String(entry)),
+  );
+};
 
-export const isSeriesEnrolled = (userOrEnrolledSeries, series, extraIdentifiers = []) => {
-  if (!series) return false
+export const isSeriesEnrolled = (
+  userOrEnrolledSeries,
+  series,
+  extraIdentifiers = [],
+) => {
+  if (!series) return false;
 
   const rawEnrolled = Array.isArray(userOrEnrolledSeries)
     ? userOrEnrolledSeries
-    : (
-        userOrEnrolledSeries?.enrolledSeries ??
-        userOrEnrolledSeries?.enrolled_series ??
-        userOrEnrolledSeries?.enrolled ??
-        userOrEnrolledSeries?.series ??
-        []
-      )
+    : (userOrEnrolledSeries?.enrolledSeries ??
+      userOrEnrolledSeries?.enrolled_series ??
+      userOrEnrolledSeries?.enrolled ??
+      userOrEnrolledSeries?.series ??
+      []);
 
   const enrolledIds = new Set(
-    getNormalizedEnrolledSeries(rawEnrolled).map((entry) => String(entry).trim())
-  )
+    getNormalizedEnrolledSeries(rawEnrolled).map((entry) =>
+      String(entry).trim(),
+    ),
+  );
 
-  if (enrolledIds.size === 0) return false
+  if (enrolledIds.size === 0) return false;
 
   const candidateIds = [
     series._id,
@@ -133,10 +145,13 @@ export const isSeriesEnrolled = (userOrEnrolledSeries, series, extraIdentifiers 
     series.slug,
     series.series_id,
     series.seriesId,
-    ...extraIdentifiers,
-  ]
+    ...extraIdentifiers.map((extra) => normalizeEnrollmentEntry(extra)),
+  ];
 
   return candidateIds
-    .filter((entry) => entry !== null && entry !== undefined && String(entry).trim() !== '')
-    .some((entry) => enrolledIds.has(String(entry).trim()))
-}
+    .filter(
+      (entry) =>
+        entry !== null && entry !== undefined && String(entry).trim() !== "",
+    )
+    .some((entry) => enrolledIds.has(String(entry).trim()));
+};

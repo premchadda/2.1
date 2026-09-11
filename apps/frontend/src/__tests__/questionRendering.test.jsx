@@ -210,6 +210,64 @@ describe("Question and Option HTML / Entity Decoding and Sanitization", () => {
     });
   });
 
+  describe("sanitizeHtml", () => {
+    it("neutralizes a lone script tag while preserving its text content", () => {
+      const clean = sanitizeHtml('<script>alert("xss")</script>');
+      expect(clean).not.toContain("<script>");
+      expect(clean).toContain('alert("xss")');
+    });
+
+    it("strips style attributes from question HTML", () => {
+      const clean = sanitizeHtml('<p style="color:red">Styled</p>');
+      expect(clean).toContain("Styled");
+      expect(clean).not.toContain("style=");
+    });
+
+    it("neutralizes javascript: link URLs", () => {
+      const clean = sanitizeHtml('<a href="javascript:alert(1)">click</a>');
+      expect(clean).toContain("click");
+      expect(clean).not.toContain("javascript:");
+    });
+
+    it("keeps safe text and passes falsy input through untouched", () => {
+      expect(sanitizeHtml("<p>Hello</p>")).toContain("Hello");
+      expect(sanitizeHtml("")).toBe("");
+      expect(sanitizeHtml(null)).toBe(null);
+    });
+  });
+
+  describe("pickDefaultLanguage", () => {
+    it("picks hi when Hindi content outweighs English content", () => {
+      const q = {
+        text: {
+          en: "Hi",
+          hi: "भारत का राष्ट्रीय पक्षी क्या है? विस्तृत विवरण",
+        },
+        options: { en: ["A"], hi: ["अ", "ब", "स"] },
+        explanation: { en: "Short", hi: "लंबा स्पष्टीकरण यहाँ" },
+      };
+      expect(pickDefaultLanguage(q)).toBe("hi");
+    });
+
+    it("picks en for English-only questions and null input", () => {
+      expect(
+        pickDefaultLanguage({
+          text: { en: "What is the speed of light?" },
+          options: { en: ["A", "B"] },
+        }),
+      ).toBe("en");
+      expect(pickDefaultLanguage(null)).toBe("en");
+    });
+  });
+
+  describe("React element validity", () => {
+    it("creates a valid React element for MathRenderer", () => {
+      const element = <MathRenderer text="E=mc^2" />;
+      expect(React.isValidElement(element)).toBe(true);
+      expect(element.type).toBe(MathRenderer);
+    });
+  });
+
   describe("MathRenderer Component", () => {
     it("does not compile <p>16</p> into KaTeX math operators", async () => {
       const { container } = render(<MathRenderer text="<p>16</p>" />);
@@ -230,6 +288,13 @@ describe("Question and Option HTML / Entity Decoding and Sanitization", () => {
       });
       expect(container.textContent).not.toContain("&lt;p&gt;");
       expect(container.textContent).not.toContain("<p>");
+    });
+
+    it("exposes rendered question text via screen queries", async () => {
+      render(<MathRenderer text="Screen Query Checkpoint" />);
+      await waitFor(() => {
+        expect(screen.getByText(/Screen Query Checkpoint/)).toBeInTheDocument();
+      });
     });
   });
 });

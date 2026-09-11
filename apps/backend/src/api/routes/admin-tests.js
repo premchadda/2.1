@@ -739,12 +739,22 @@ router.post("/tests/bulk-status", async (req, res) => {
       status === "published" || status === "active" ? "published" : "draft";
     const isActive = targetStatus === "published";
 
-    await pool.query(
+    // Validate ids are positive integers
+    const validIds = ids.filter(
+      (id) => Number.isInteger(Number(id)) && Number(id) > 0,
+    );
+    if (validIds.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "No valid test IDs provided" });
+    }
+
+    const result = await pool.query(
       `UPDATE tests SET status = $1, is_active = $2, updated_at = NOW() WHERE id = ANY($3)`,
-      [targetStatus, isActive, ids],
+      [targetStatus, isActive, validIds],
     );
 
-    res.json({ success: true, updated: ids.length, status: targetStatus });
+    res.json({ success: true, updated: result.rowCount, status: targetStatus });
   } catch (error) {
     res
       .status(500)

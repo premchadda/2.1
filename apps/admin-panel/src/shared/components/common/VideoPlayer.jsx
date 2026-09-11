@@ -275,6 +275,7 @@ export default function VideoPlayer({ isOpen, onClose, videoData }) {
                     )}
                   </button>
                   <input
+                    aria-label="Volume"
                     type="range"
                     min="0"
                     max="1"

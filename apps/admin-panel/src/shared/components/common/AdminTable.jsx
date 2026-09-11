@@ -101,7 +101,7 @@ export const AdminTable = ({
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+      <div className="flex flex-col items-center justify-center py-8 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 dark:border-indigo-400"></div>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 font-medium">
           Loading data...
@@ -175,7 +175,7 @@ export const AdminTable = ({
         /* Responsive Card View for mobile and high-density browsing */
         <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
           {displayData.length === 0 ? (
-            <div className="col-span-full py-12 text-center text-xs text-gray-500 dark:text-gray-400">
+            <div className="col-span-full py-8 text-center text-xs text-gray-500 dark:text-gray-400">
               {searchQuery
                 ? `No items matching "${searchQuery}"`
                 : emptyMessage}

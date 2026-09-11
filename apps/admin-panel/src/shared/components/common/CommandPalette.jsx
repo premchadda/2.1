@@ -32,6 +32,7 @@ import {
   removeRecentSearch,
   clearRecentSearches,
 } from "../../utils/searchUtils";
+import { DEV_FALLBACK_URL } from "../../lib/apiBase.js";
 
 const CMD_KEY = navigator.platform?.includes("Mac") ? "⌘" : "Ctrl";
 
@@ -156,7 +157,7 @@ export default function CommandPalette({ isOpen, onClose }) {
             import.meta.env.VITE_STUDENT_PORTAL_URL ||
             import.meta.env.VITE_FRONTEND_URL ||
             (import.meta.env.DEV
-              ? "http://localhost:3000"
+              ? DEV_FALLBACK_URL
               : "https://trstprep.vercel.app");
           window.open(portalUrl, "_blank", "noopener,noreferrer");
         },
@@ -339,6 +340,7 @@ export default function CommandPalette({ isOpen, onClose }) {
           <input
             ref={inputRef}
             type="text"
+            aria-label="Search commands and pages"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -348,6 +350,14 @@ export default function CommandPalette({ isOpen, onClose }) {
             placeholder="Type a command, page, or prefix (> for actions, # for tests)..."
             className="flex-1 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm sm:text-base outline-none font-medium"
             aria-autocomplete="list"
+            aria-expanded="true"
+            aria-controls="admin-command-listbox"
+            aria-activedescendant={
+              filteredItems[selectedIndex]
+                ? `admin-cmd-${filteredItems[selectedIndex].id || selectedIndex}`
+                : undefined
+            }
+            role="combobox"
           />
           {query && (
             <button
@@ -399,8 +409,10 @@ export default function CommandPalette({ isOpen, onClose }) {
         {/* Results List */}
         <div
           ref={listRef}
+          id="admin-command-listbox"
           className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-thin max-h-[50vh]"
           role="listbox"
+          aria-label="Command results"
         >
           {/* Recent Searches Header (if no query typed) */}
           {!query &&
@@ -449,7 +461,7 @@ export default function CommandPalette({ isOpen, onClose }) {
             )}
 
           {filteredItems.length === 0 ? (
-            <div className="py-12 text-center text-gray-400 dark:text-gray-500">
+            <div className="py-8 text-center text-gray-400 dark:text-gray-500">
               <Search className="w-8 h-8 mx-auto mb-2 opacity-40 text-gray-400" />
               <p className="text-sm font-bold text-gray-600 dark:text-gray-400">
                 No results found for "{query}"
@@ -465,6 +477,7 @@ export default function CommandPalette({ isOpen, onClose }) {
               return (
                 <button
                   key={item.id || idx}
+                  id={`admin-cmd-${item.id || idx}`}
                   ref={(el) => (itemRefs.current[idx] = el)}
                   onClick={() => executeItem(item)}
                   onMouseEnter={() => setSelectedIndex(idx)}
@@ -495,12 +508,12 @@ export default function CommandPalette({ isOpen, onClose }) {
                         title={item.name}
                       />
                       {item.group === "Actions" && (
-                        <span className="px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 rounded-md shrink-0">
+                        <span className="px-1.5 py-0.2 text-[11px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 rounded-md shrink-0">
                           Action
                         </span>
                       )}
                       {item.category && item.group !== "Actions" && (
-                        <span className="px-1.5 py-0.2 text-[9px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-md shrink-0 hidden sm:inline">
+                        <span className="px-1.5 py-0.2 text-[11px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-md shrink-0 hidden sm:inline">
                           {item.category}
                         </span>
                       )}

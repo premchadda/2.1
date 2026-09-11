@@ -282,6 +282,7 @@ function App() {
               path="leaderboards"
               element={<LeaderboardResultsUnified />}
             />
+            <Route path="deep-analytics" element={<DeepAnalytics />} />
             <Route path="content-management" element={<ContentManagement />} />
             <Route path="system-health" element={<SystemHealthMonitor />} />
             <Route path="logs" element={<ServerLogsManager />} />

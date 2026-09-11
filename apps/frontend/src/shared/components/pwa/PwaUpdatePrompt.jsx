@@ -83,8 +83,9 @@ export default function PwaUpdatePrompt() {
             New Version Available
           </h4>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
-            Trstprep has been updated with performance improvements and new
-            features.
+            {deferredUpdate
+              ? "An update was postponed while you were in a test. Apply it now for the latest fixes and improvements."
+              : "Trstprep has been updated with performance improvements and new features."}
           </p>
 
           <div className="flex items-center gap-2">
@@ -92,8 +93,10 @@ export default function PwaUpdatePrompt() {
               onClick={handleUpdate}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm shadow-indigo-600/30 transition-all duration-200 active:scale-95"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Update Now</span>
+              <React.Fragment>
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Update Now</span>
+              </React.Fragment>
             </button>
             <button
               onClick={handleDismiss}

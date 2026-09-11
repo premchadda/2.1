@@ -4,7 +4,7 @@ export default function Terms() {
   const supportEmail =
     import.meta.env.VITE_SUPPORT_EMAIL || "support@trstprep.com";
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-gray-50 py-8">
       <Helmet>
         <title>Terms of Service | Trstprep</title>
         <meta

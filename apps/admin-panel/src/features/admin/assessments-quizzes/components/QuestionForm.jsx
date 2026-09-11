@@ -19,17 +19,11 @@ import { QUESTION_CATEGORIES } from "../../../../shared/config/questionCategorie
 import { OptionEditor } from "./OptionEditor";
 import MathRenderer from "../../../../shared/components/MathRenderer";
 import { isSafeImageUrl } from "../../../../shared/lib/sanitizeHtml.js";
-
-const getSectionId = (section = {}) => section._id ?? section.id ?? null;
-const getSectionName = (section = {}) =>
-  section.name || section.title || section.label || "";
-const sectionValueMatches = (section, value) => {
-  if (value === null || value === undefined || value === "") return false;
-  return (
-    String(getSectionId(section)) === String(value) ||
-    getSectionName(section) === String(value)
-  );
-};
+import {
+  getSectionId,
+  getSectionName,
+  sectionValueMatches,
+} from "./questionHelpers.js";
 
 export default function QuestionForm({
   isOpen,
@@ -513,6 +507,7 @@ export default function QuestionForm({
                         <input
                           key={i}
                           type="text"
+                          aria-label={`Option ${["A", "B", "C", "D", "E", "F"][i]} (Hindi)`}
                           value={opt}
                           onChange={(e) => {
                             const newOptsHi = [...(formData.optionsHi || [])];

@@ -221,6 +221,7 @@ export default function EmailTemplatesManager() {
         <div className="flex items-center gap-3">
           <input
             type="email"
+            aria-label="Test email address"
             placeholder="Test email address"
             value={testEmail}
             onChange={(e) => setTestEmail(e.target.value)}
@@ -244,7 +245,7 @@ export default function EmailTemplatesManager() {
       {/* Templates List */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         {safeTemplates.length === 0 ? (
-          <div className="p-12 text-center text-gray-500">
+          <div className="p-6 sm:p-8 text-center text-gray-500">
             <Mail className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p className="font-medium">No email templates found</p>
             <p className="text-sm">Create your first template to get started</p>
@@ -264,6 +265,7 @@ export default function EmailTemplatesManager() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <input
                           type="text"
+                          aria-label="Template name"
                           placeholder="Template name"
                           value={formData.name}
                           onChange={(e) =>
@@ -295,6 +297,7 @@ export default function EmailTemplatesManager() {
                         </select>
                         <input
                           type="text"
+                          aria-label="Email subject"
                           placeholder="Email subject"
                           value={formData.subject}
                           onChange={(e) =>

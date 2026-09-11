@@ -48,7 +48,7 @@ export function validateEnvVars() {
     }
   }
 
-  if (warnings.length > 0) {
+  if (warnings.length > 0 && import.meta.env.DEV) {
     console.warn(
       `[Env Validation] Missing optional env vars: ${warnings.map((w) => `${w.key} (${w.description})`).join(", ")}`,
     );

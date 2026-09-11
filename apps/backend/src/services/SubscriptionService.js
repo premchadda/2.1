@@ -1,6 +1,11 @@
 import crypto from "crypto";
 import { pool } from "../infrastructure/database/postgres-helpers.js";
+import { getReadPool } from "../../config/database-replicas.js";
 
+// TODO: move fisherYatesShuffle to a shared utils module (e.g.
+// src/shared/utils/array.js) — kept here minimally to avoid cross-module churn.
+// NOTE: fisherYatesShuffle is currently unused in this service; retained to
+// avoid breaking any external import until the move lands.
 function fisherYatesShuffle(arr) {
   const shuffled = [...arr];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -10,8 +15,16 @@ function fisherYatesShuffle(arr) {
   return shuffled;
 }
 
-// Get the shared pool directly
+// Read/write split: reads via readPool (replica when DATABASE_READ_URL is set,
+// else falls back to primary); writes/transactions stay on the write pool.
 const getPool = () => pool;
+const getRead = () => {
+  try {
+    return getReadPool() || pool;
+  } catch {
+    return pool;
+  }
+};
 
 let notificationServiceInstance = null;
 const getNotificationService = async () => {
@@ -76,7 +89,7 @@ export const FREE_LIMITS = {
 
 class SubscriptionService {
   async getUserSubscription(userId) {
-    const result = await getPool().query(
+    const result = await getRead().query(
       `SELECT *,
               CASE plan_type
                 WHEN 'pro_monthly' THEN 'Pro Monthly'
@@ -102,7 +115,7 @@ class SubscriptionService {
     const sub = await this.getUserSubscription(userId);
     if (!sub) {
       // Also check legacy pro_expiry field
-      const userResult = await getPool().query(
+      const userResult = await getRead().query(
         "SELECT pro_expiry, is_pro_user FROM users WHERE id = $1",
         [userId],
       );
@@ -126,7 +139,7 @@ class SubscriptionService {
       return false;
     }
 
-    const featureResult = await getPool().query(
+    const featureResult = await getRead().query(
       `SELECT is_enabled FROM subscription_features 
        WHERE plan_type = $1 AND feature_key = $2`,
       [sub.plan_type, feature],
@@ -141,7 +154,7 @@ class SubscriptionService {
       return {};
     }
 
-    const featuresResult = await getPool().query(
+    const featuresResult = await getRead().query(
       `SELECT feature_key, is_enabled, limit_value 
        FROM subscription_features WHERE plan_type = $1`,
       [sub.plan_type],
@@ -156,8 +169,12 @@ class SubscriptionService {
   }
 
   async getAttemptCount(userId, testId) {
+    // LIMIT-ENFORCEMENT READ — must go to the PRIMARY pool: with a read
+    // replica configured, replication lag can hide a just-created attempt
+    // and let users exceed reattempt/free-attempt limits. Display-only reads
+    // stay on the read pool.
     const result = await getPool().query(
-      `SELECT COUNT(*) as count FROM attempts 
+      `SELECT COUNT(*) as count FROM attempts
        WHERE user_id = $1 AND test_id = $2`,
       [userId, testId],
     );
@@ -242,42 +259,8 @@ class SubscriptionService {
   }
 
   async getSubscriptionPlans() {
-    const result = await getPool().query(
+    const result = await getRead().query(
       `SELECT plan_id, name, price, original_price, period, features, button_text, button_class, popular, savings, is_active, sort_order, created_at, updated_at FROM subscription_plans WHERE is_active = true ORDER BY sort_order`,
-    );
-    return result.rows;
-  }
-
-  // Reattempt logic
-  async getWrongQuestions(attemptId) {
-    const result = await getPool().query(
-      `SELECT aa.question_id, q.*
-       FROM attempt_answers aa
-       JOIN questions q ON q.id = aa.question_id
-       WHERE aa.attempt_id = $1 AND aa.is_correct = false`,
-      [attemptId],
-    );
-    return result.rows;
-  }
-
-  async getUnattemptedQuestions(attemptId) {
-    const result = await getPool().query(
-      `SELECT aa.question_id, q.*
-       FROM attempt_answers aa
-       JOIN questions q ON q.id = aa.question_id
-       WHERE aa.attempt_id = $1 AND (aa.selected_option_id IS NULL OR aa.is_unattempted = true)`,
-      [attemptId],
-    );
-    return result.rows;
-  }
-
-  async getSlowQuestions(attemptId, avgTimePerQuestion = 60) {
-    const result = await getPool().query(
-      `SELECT aa.question_id, q.*
-       FROM attempt_answers aa
-       JOIN questions q ON q.id = aa.question_id
-       WHERE aa.attempt_id = $1 AND aa.time_spent_seconds > $2`,
-      [attemptId, avgTimePerQuestion],
     );
     return result.rows;
   }
@@ -304,7 +287,7 @@ class SubscriptionService {
                HAVING SUM(CASE WHEN aa.is_correct = false THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric > 0.5
                ORDER BY wrong_percentage DESC`;
 
-    const result = await getPool().query(query, params);
+    const result = await getRead().query(query, params);
     return result.rows;
   }
 
@@ -315,6 +298,8 @@ class SubscriptionService {
 
     const { attemptService } =
       await import("../modules/attempts/attempt.service.js");
+    // Primary pool: this existence check gates a write (attempt creation) —
+    // replica lag must not influence it.
     const parentAttempt = await getPool().query(
       `SELECT user_id FROM attempts WHERE id = $1`,
       [parentAttemptId],
@@ -344,14 +329,14 @@ class SubscriptionService {
       isNaN(numericTestId) ||
       String(numericTestId) !== String(testId).trim()
     ) {
-      const testRes = await getPool().query(
+      const testRes = await getRead().query(
         `SELECT id FROM tests WHERE public_id = $1 OR public_id_uuid::text = $1 OR slug = $1 LIMIT 1`,
         [testId],
       );
       if (testRes.rows.length === 0) return [];
       numericTestId = testRes.rows[0].id;
     }
-    const result = await getPool().query(
+    const result = await getRead().query(
       `SELECT id,
               ROW_NUMBER() OVER (ORDER BY created_at DESC) AS attempt_number,
               score, total_marks,
@@ -370,6 +355,8 @@ class SubscriptionService {
     gracePeriodHours = 48,
     notify = true,
   } = {}) {
+    // Guard: ensure gracePeriodHours is a positive number to prevent mass expiry
+    gracePeriodHours = Math.max(1, Number(gracePeriodHours) || 48);
     const pool = getPool();
     let inGracePeriod = [];
     let downgradedToFree = [];

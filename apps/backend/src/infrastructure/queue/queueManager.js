@@ -42,10 +42,12 @@ export const initQueues = () => {
     return false;
   }
 
-  const connection = getRedisClient();
+  const baseConnection = getRedisClient();
   const queueNames = Object.values(QUEUE_NAMES);
 
   for (const queueName of queueNames) {
+    // BullMQ requires separate connections per Queue/Worker (docs: "Don't share connections")
+    const connection = baseConnection.duplicate();
     const queue = new Queue(queueName, {
       connection,
       defaultJobOptions: DEFAULT_JOB_OPTIONS,
@@ -92,14 +94,11 @@ export const getQueueStatus = async () => {
     const queueEntries = Array.from(queueMap.entries());
     const queuePromises = queueEntries.map(async ([name, queue]) => {
       try {
+        const jobCountsPromise = queue
+          .getJobCounts("waiting", "active", "completed", "failed", "delayed")
+          .catch(() => null);
         const counts = await Promise.race([
-          queue.getJobCounts(
-            "waiting",
-            "active",
-            "completed",
-            "failed",
-            "delayed",
-          ),
+          jobCountsPromise,
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error("Queue status timeout")), 500),
           ),
@@ -131,7 +130,7 @@ export const startWorkers = (handlersByQueue = {}, concurrencyByQueue = {}) => {
     throw new Error("Cannot start workers because Redis is not ready");
   }
 
-  const connection = getRedisClient();
+  const baseConnection = getRedisClient();
   const queueNames = Object.values(QUEUE_NAMES);
 
   for (const queueName of queueNames) {
@@ -144,6 +143,8 @@ export const startWorkers = (handlersByQueue = {}, concurrencyByQueue = {}) => {
       continue;
     }
 
+    // BullMQ requires separate connections per Worker
+    const connection = baseConnection.duplicate();
     const worker = new Worker(queueName, async (job) => handler(job), {
       connection,
       concurrency: concurrencyByQueue[queueName] || 5,

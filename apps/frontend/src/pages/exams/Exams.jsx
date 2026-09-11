@@ -695,7 +695,7 @@ function Exams() {
                     />
                   ))
                 ) : (
-                  <div className="col-span-full py-20 text-center bg-gray-50 dark:bg-gray-900 rounded-[2rem] border border-dashed border-gray-200 dark:border-gray-700">
+                  <div className="col-span-full py-10 text-center bg-gray-50 dark:bg-gray-900 rounded-[2rem] border border-dashed border-gray-200 dark:border-gray-700">
                     <p className="text-2xl sm:text-3xl lg:text-4xl mb-4">🔎</p>
                     <p className="font-bold text-gray-500 dark:text-gray-400">
                       No exams found in this category.
@@ -764,7 +764,7 @@ function Exams() {
         )}
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 pb-12 flex flex-col gap-4 sm:gap-6">
+      <div className="max-w-6xl mx-auto px-4 pb-8 flex flex-col gap-4 sm:gap-6">
         {/* ── DAILY PRACTICE ── */}
         {!searchQuery && (
           <section>

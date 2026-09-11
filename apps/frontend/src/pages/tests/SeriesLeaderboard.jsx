@@ -209,7 +209,7 @@ export default function SeriesLeaderboard() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Top 3 Podium - Refined */}
         {topThree.length > 0 && (
           <div className="mb-16">

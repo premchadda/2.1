@@ -6,8 +6,15 @@ import {
   responseCache,
   invalidateResponseCache,
 } from "../../middleware/responseCache.middleware.js";
+import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
 
 const router = express.Router();
+const adminActionLimiter = createRateLimiter("strict");
+
+// Auth chain first: every route in this router requires protect → admin.
+// (Mounted before any route definitions so no endpoint is exposed unauthenticated.)
+router.use(protect);
+router.use(admin);
 
 const DEFAULT_NAVIGATION = Object.freeze([
   {
@@ -327,10 +334,6 @@ const DEFAULT_NAVIGATION = Object.freeze([
   },
 ]);
 
-// Apply authentication and admin authorization to all routes
-router.use(protect);
-router.use(admin);
-
 /**
  * GET /admin/navigation
  * Get complete navigation structure
@@ -511,7 +514,7 @@ router.put("/", async (req, res) => {
  * POST /admin/navigation/reset
  * Reset navigation to default configuration
  */
-router.post("/reset", async (req, res) => {
+router.post("/reset", adminActionLimiter, async (req, res) => {
   const client = await pool.connect();
 
   try {
@@ -977,12 +980,10 @@ router.post("/", async (req, res) => {
     });
   } catch (error) {
     if (error.code === "23505") {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          error: "Navigation item with this ID already exists",
-        });
+      return res.status(409).json({
+        success: false,
+        error: "Navigation item with this ID already exists",
+      });
     }
     console.error("Create navigation item error:", error);
     res

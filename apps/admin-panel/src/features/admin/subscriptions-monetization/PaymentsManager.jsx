@@ -239,6 +239,7 @@ export default function PaymentsManager() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
             <input
               type="text"
+              aria-label="Search by user, email, or gateway reference"
               placeholder="Search by user, email, or gateway reference..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -261,11 +262,11 @@ export default function PaymentsManager() {
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-16">
+          <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
           </div>
         ) : transactions.length === 0 ? (
-          <div className="text-center py-16">
+          <div className="text-center py-8">
             <CreditCard className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">
               No Transactions Found

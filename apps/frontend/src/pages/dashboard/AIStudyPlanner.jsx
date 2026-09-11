@@ -277,13 +277,14 @@ function AIStudyPlanner() {
       const suggestions = rawData.dashboardSuggestions || [];
       const tests = (rawData.recommendedTests || []).map((t) => ({
         title: `Practice Test: ${t.title}`,
-        recommendation: `Attempt ${t.title} under ${t.category || ""}`,
+        recommendation:
+          t.reason || `Attempt ${t.title} under ${t.category || ""}`,
         actionUrl: `/test-series`,
         type: "test",
       }));
       const chapters = (rawData.recommendedChapters || []).map((c) => ({
         title: `Study Chapter: ${c.name}`,
-        recommendation: `Revise ${c.name} in ${c.subject}`,
+        recommendation: c.reason || `Revise ${c.name} in ${c.subject}`,
         actionUrl: `/study`,
         type: "study",
       }));
@@ -377,7 +378,7 @@ function AIStudyPlanner() {
     );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20 md:pb-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-10 md:pb-8">
       <AnimatedHero pageType="dashboard" compact>
         <div className="flex items-center gap-3">
           <Link
@@ -574,9 +575,15 @@ function AIStudyPlanner() {
         {/* Detailed Schedule for Today */}
         <ScrollReveal delay={0.2}>
           <Card variant="elevated" className="mb-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-              Today's Schedule
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+              Today&apos;s Schedule
             </h3>
+            <p
+              className="text-xs text-gray-500 dark:text-gray-400 mb-4"
+              title="Local calendar date used for today's schedule"
+            >
+              {localKey()}
+            </p>
             {getDaySchedule(today).length > 0 ? (
               <div className="space-y-3">
                 {getDaySchedule(today).map((item, i) => {
@@ -761,6 +768,7 @@ function AIStudyPlanner() {
 
             <div className="p-3 border-t border-gray-200 dark:border-gray-700 flex items-center gap-2">
               <input
+                aria-label="Ask a question"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) =>

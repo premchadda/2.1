@@ -1,5 +1,12 @@
 // Environment variable validation for admin panel
 // Called during app initialization to ensure required env vars are set
+//
+// DIVERGENCE FROM FRONTEND (intentional): the admin panel treats
+// VITE_API_URL and VITE_ADMIN_SITE_URL as REQUIRED. A missing required var
+// is a hard error in PROD (throw — fail fast, never silently call an
+// empty/wrong API origin with admin credentials) and warn-only in DEV
+// (return false so the Vite proxy same-origin fallback still works locally).
+// PROD builds must also never point these vars at localhost (throws).
 
 const REQUIRED_ENV_VARS = ["VITE_API_URL", "VITE_ADMIN_SITE_URL"];
 const OPTIONAL_ENV_VARS_WITH_FALLBACK = ["VITE_BACKEND_URL", "VITE_SOCKET_URL"];

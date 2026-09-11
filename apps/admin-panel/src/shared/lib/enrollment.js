@@ -1,39 +1,29 @@
-const normalizeEnrollmentEntry = (entry) => {
-  if (entry === null || entry === undefined) {
-    return null
-  }
+/**
+ * Admin-panel enrollment helpers — canonical delegation.
+ *
+ * Canonical implementation lives in `@trstprep/shared-config` (superset that
+ * handles PG `{1,2,3}` / JSON / CSV / single-value / object-array shapes).
+ * This module re-exports it so existing `shared/lib/enrollment.js` imports
+ * keep working. Do NOT fork logic here.
+ */
 
-  if (typeof entry === 'object') {
-    return entry.id || entry._id || entry.slug || null
-  }
+import {
+  normalizeEnrollmentEntry,
+  getNormalizedEnrolledSeries,
+  hasLegacyEnrolledSeriesIds,
+  isSeriesEnrolled,
+} from "@trstprep/shared-config";
 
-  return entry
-}
+export {
+  normalizeEnrollmentEntry,
+  getNormalizedEnrolledSeries,
+  hasLegacyEnrolledSeriesIds,
+  isSeriesEnrolled,
+};
 
-export const getNormalizedEnrolledSeries = (enrolledSeries) => {
-  if (!Array.isArray(enrolledSeries)) {
-    return []
-  }
-
-  return enrolledSeries
-    .map(normalizeEnrollmentEntry)
-    .filter((entry) => entry !== null && entry !== undefined && String(entry).trim() !== '')
-}
-
-export const hasLegacyEnrolledSeriesIds = (enrolledSeries) => {
-  return getNormalizedEnrolledSeries(enrolledSeries).some((entry) => /^\d+$/.test(String(entry)))
-}
-
-export const isSeriesEnrolled = (userOrEnrolledSeries, series, extraIdentifiers = []) => {
-  const enrolledSeries = Array.isArray(userOrEnrolledSeries)
-    ? userOrEnrolledSeries
-    : userOrEnrolledSeries?.enrolledSeries
-
-  const enrolledIds = new Set(
-    getNormalizedEnrolledSeries(enrolledSeries).map((entry) => String(entry))
-  )
-
-  return [series?._id, series?.id, series?.slug, ...extraIdentifiers]
-    .filter((entry) => entry !== null && entry !== undefined && String(entry).trim() !== '')
-    .some((entry) => enrolledIds.has(String(entry)))
-}
+export default {
+  normalizeEnrollmentEntry,
+  getNormalizedEnrolledSeries,
+  hasLegacyEnrolledSeriesIds,
+  isSeriesEnrolled,
+};

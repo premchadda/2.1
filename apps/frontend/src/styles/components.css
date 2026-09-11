@@ -436,8 +436,8 @@ img, video {
     border-radius: 16px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     transition: all 0.3s;
-    width: 260px;
-    min-width: 260px;
+    width: 250px;
+    min-width: 240px;
     min-height: 280px;
     flex-shrink: 0;
     border: 1px solid #e5e7eb;

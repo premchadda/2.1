@@ -399,6 +399,7 @@ export default function SubjectRelationsManager() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
             <input
               type="text"
+              aria-label="Search subjects"
               placeholder="Search subjects…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -459,7 +460,7 @@ export default function SubjectRelationsManager() {
                 <tr>
                   <td
                     colSpan="8"
-                    className="px-4 py-12 text-center text-gray-500 dark:text-gray-400"
+                    className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                   >
                     <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     <p className="font-medium">No subjects found</p>

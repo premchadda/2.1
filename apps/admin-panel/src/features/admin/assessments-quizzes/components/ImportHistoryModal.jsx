@@ -85,7 +85,7 @@ const ImportHistoryModal = ({ isOpen, onClose }) => {
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 min-h-0">
           {loading && (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
               <span className="ml-2 text-sm text-gray-500">
                 Loading import history...
@@ -105,7 +105,7 @@ const ImportHistoryModal = ({ isOpen, onClose }) => {
           )}
 
           {!loading && !error && history.length === 0 && (
-            <div className="text-center py-12">
+            <div className="text-center py-8">
               <FileText className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                 No import history found

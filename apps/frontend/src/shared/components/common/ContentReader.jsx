@@ -231,7 +231,7 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
             </div>
           )}
 
-          <div className="p-8 md:p-4 sm:p-6">
+          <div className="p-4 sm:p-6">
             {/* Category Badge */}
             {contentData?.category && (
               <div className="mb-4">
@@ -243,7 +243,7 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
             )}
 
             {/* Title */}
-            <h1 className="text-xl sm:text-2xl lg:text-3xl md:text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-6">
+            <h1 className="text-xl sm:text-2xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-6">
               {contentData?.title && String(contentData.title).trim() ? (
                 contentData.title
               ) : (

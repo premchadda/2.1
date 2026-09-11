@@ -98,7 +98,8 @@ const VideoCard = ({ video, index = 0, progress = null }) => {
         )}
 
         {video.duration && (
-          <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/80 backdrop-blur-sm text-white text-[10px] font-semibold rounded-md shadow">
+          <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/80 backdrop-blur-sm text-white text-[10px] font-semibold rounded-md shadow flex items-center gap-1">
+            <Clock className="w-3 h-3 text-white/80" aria-hidden="true" />
             {video.duration}
           </div>
         )}
@@ -259,7 +260,7 @@ const VideoSkeleton = () => (
 
 // ── Empty State ─────────────────────────────────────────────
 const EmptyState = ({ onClear, query }) => (
-  <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+  <div className="text-center py-8 bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 shadow-sm">
     <div className="text-3xl sm:text-4xl lg:text-5xl mb-4">📺</div>
     <h3 className="text-lg font-bold text-slate-900 dark:text-white">
       {query ? `No Videos Found for "${query}"` : "No Videos Found"}
@@ -295,13 +296,14 @@ function Videos() {
     searchParams.get("topic") ||
     "";
   const initialSubject = searchParams.get("subject") || "all";
+  const initialChapter = searchParams.get("chapter") || "all";
 
   const [hierarchicalData, setHierarchicalData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [selectedSubject, setSelectedSubject] = useState(initialSubject);
-  const [selectedChapter, setSelectedChapter] = useState("all");
+  const [selectedChapter, setSelectedChapter] = useState(initialChapter);
   const [showFreeOnly, setShowFreeOnly] = useState(false);
   const [sortBy, setSortBy] = useState("newest");
   const [viewMode, setViewMode] = useState("grid");
@@ -317,6 +319,8 @@ function Videos() {
     if (q && q !== searchQuery) setSearchQuery(q);
     const s = searchParams.get("subject") || "all";
     if (s && s !== selectedSubject) setSelectedSubject(s);
+    const c = searchParams.get("chapter") || "all";
+    if (c && c !== selectedChapter) setSelectedChapter(c);
   }, [searchParams]);
 
   // Load user video activity & progress checkpoints
@@ -490,7 +494,12 @@ function Videos() {
         );
         if (video.subject !== subj?.title) return false;
       }
-      if (selectedChapter !== "all" && video.chapter !== selectedChapter) {
+      if (
+        selectedChapter !== "all" &&
+        video.chapter !== selectedChapter &&
+        video.chapterSlug !== selectedChapter &&
+        String(video.chapterId) !== String(selectedChapter)
+      ) {
         return false;
       }
       if (showFreeOnly && video.isFree === false) return false;
@@ -718,6 +727,7 @@ function Videos() {
                 <div className="relative flex-1 min-w-0">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input
+                    aria-label="Search videos, formulas, instructors, and chapters"
                     type="text"
                     placeholder="Search Number system, formulas, instructors, chapters..."
                     value={searchQuery}
@@ -798,7 +808,8 @@ function Videos() {
               {/* Topic & Chapter quick filters */}
               {availableChapters.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                  <span className="text-[11px] font-bold text-slate-400 shrink-0 uppercase tracking-wider mr-1">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 dark:text-slate-500 shrink-0 uppercase tracking-wider mr-1">
+                    <Filter className="w-3 h-3" aria-hidden="true" />
                     Topics:
                   </span>
                   <button
@@ -836,7 +847,7 @@ function Videos() {
             {loading ? (
               <VideoSkeleton />
             ) : error ? (
-              <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-red-200 dark:border-red-900/50 p-8 shadow-sm">
+              <div className="text-center py-8 bg-white dark:bg-slate-900 rounded-2xl border border-red-200 dark:border-red-900/50 p-8 shadow-sm">
                 <div className="text-red-500 mb-4">
                   <RefreshCw className="w-12 h-12 mx-auto animate-spin" />
                 </div>
@@ -944,6 +955,7 @@ function Videos() {
                             >
                               <div className="relative w-36 sm:w-44 aspect-video rounded-xl overflow-hidden bg-slate-950 shrink-0">
                                 <img
+                                  alt={video.title || "Video thumbnail"}
                                   loading="lazy"
                                   decoding="async"
                                   src={
@@ -955,7 +967,6 @@ function Videos() {
                                         : null;
                                     })()
                                   }
-                                  alt={video.title}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                 />
                                 <div className="absolute inset-0 bg-black/20 flex items-center justify-center">

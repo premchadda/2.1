@@ -6,13 +6,13 @@ import {
   Trophy,
   Wind,
   Brain,
-  ChevronRight,
   AlertCircle,
   Timer,
   BookOpen,
   Target,
   Zap,
 } from "lucide-react";
+import RecommendationCard from "../../../shared/components/RecommendationCard";
 
 export function generateRecommendations({
   analytics,
@@ -200,26 +200,26 @@ export default function InsightsTab({
           <div className="relative z-10">
             <div className="grid grid-cols-3 gap-4 mb-4">
               <div className="text-center">
-                <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider mb-1">
+                <p className="text-[11px] font-bold text-white/70 uppercase tracking-wider mb-1">
                   Your Score
                 </p>
-                <p className="text-xl sm:text-2xl lg:text-3xl font-black text-white">
+                <p className="text-xl sm:text-2xl lg:text-3xl font-black text-white font-mono tabular-nums">
                   {topperComparison.userScore}
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider mb-1">
+                <p className="text-[11px] font-bold text-white/70 uppercase tracking-wider mb-1">
                   Gap
                 </p>
-                <p className="text-xl sm:text-2xl lg:text-3xl font-black text-amber-400">
+                <p className="text-xl sm:text-2xl lg:text-3xl font-black text-amber-400 font-mono tabular-nums">
                   -{topperComparison.gap}
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider mb-1">
+                <p className="text-[11px] font-bold text-white/70 uppercase tracking-wider mb-1">
                   Topper
                 </p>
-                <p className="text-xl sm:text-2xl lg:text-3xl font-black text-emerald-400">
+                <p className="text-xl sm:text-2xl lg:text-3xl font-black text-emerald-400 font-mono tabular-nums">
                   {topperComparison.topperScore}
                 </p>
               </div>
@@ -318,6 +318,10 @@ export default function InsightsTab({
           <h3 className="font-bold text-gray-900 dark:text-white">
             Smart Recommendations
           </h3>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-3">
+            Why we recommend: every suggestion is driven by your measured
+            accuracy, speed, and topper gap.
+          </p>
         </div>
         <div className="space-y-3">
           {generateRecommendations({
@@ -326,34 +330,16 @@ export default function InsightsTab({
             difficultyBreakdown,
             topperComparison,
           }).map((rec, i) => (
-            <div
-              key={i}
-              className={`flex items-start gap-3 p-4 rounded-xl border ${rec.severity === "high" ? "bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800/60" : rec.severity === "medium" ? "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800" : "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800"}`}
-            >
-              <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${rec.severity === "high" ? "bg-red-100 dark:bg-red-900/30" : rec.severity === "medium" ? "bg-amber-100 dark:bg-amber-900/30" : "bg-emerald-100 dark:bg-emerald-900/30"}`}
-              >
-                <rec.icon
-                  className={`w-4 h-4 ${rec.severity === "high" ? "text-red-600 dark:text-red-400" : rec.severity === "medium" ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}
-                />
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-sm text-gray-900 dark:text-white">
-                  {rec.title}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
-                  {rec.message}
-                </p>
-                {rec.action && (
-                  <Link
-                    to={rec.action}
-                    className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline mt-1.5 inline-flex items-center gap-1"
-                  >
-                    {rec.actionLabel} <ChevronRight className="w-3 h-3" />
-                  </Link>
-                )}
-              </div>
-            </div>
+            <React.Fragment key={`rec-${i}`}>
+              <RecommendationCard
+                icon={rec.icon}
+                title={rec.title}
+                message={rec.message}
+                action={rec.action}
+                actionLabel={rec.actionLabel}
+                severity={rec.severity}
+              />
+            </React.Fragment>
           ))}
         </div>
       </div>

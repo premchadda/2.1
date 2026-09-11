@@ -137,15 +137,25 @@ export default function SubjectHierarchyManager() {
       toast.error("Name is required");
       return;
     }
-    if (formLevel !== "subject" && !formParentId && !editingItem?.subject && !editingItem?.subjectId && !editingItem?.parentTopic && !editingItem?.parentId) {
-      toast.error(`Please select a parent ${formLevel === "subtopic" ? "topic" : "subject"}`);
+    if (
+      formLevel !== "subject" &&
+      !formParentId &&
+      !editingItem?.subject &&
+      !editingItem?.subjectId &&
+      !editingItem?.parentTopic &&
+      !editingItem?.parentId
+    ) {
+      toast.error(
+        `Please select a parent ${formLevel === "subtopic" ? "topic" : "subject"}`,
+      );
       return;
     }
 
     const slug = formData.slug || generateSlug(formData.name);
 
     if (formLevel === "topic" || formLevel === "subtopic") {
-      const effectiveSubjectId = formParentId || editingItem?.subjectId || editingItem?.subject || "";
+      const effectiveSubjectId =
+        formParentId || editingItem?.subjectId || editingItem?.subject || "";
       // Only validate subjectId for topic level; subtopic validates via parentTopic
       if (formLevel === "topic") {
         const validationData = {
@@ -552,7 +562,7 @@ export default function SubjectHierarchyManager() {
                 {subjectChapters.map((ch) => (
                   <div
                     key={ch.id || ch._id}
-                    className="flex items-center gap-2 py-2 px-4 pl-12 hover:bg-gray-50 dark:hover:bg-gray-800 group border-b border-gray-50"
+                    className="flex items-center gap-2 py-2 px-4 pl-8 hover:bg-gray-50 dark:hover:bg-gray-800 group border-b border-gray-50"
                   >
                     <span className="text-sm">📄</span>
                     <span className="text-sm text-gray-700 dark:text-gray-300 flex-1 truncate">
@@ -646,6 +656,7 @@ export default function SubjectHierarchyManager() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
+            aria-label="Search subjects and topics"
             placeholder="Search subjects and topics..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -657,7 +668,7 @@ export default function SubjectHierarchyManager() {
       {/* Tree */}
       <div className="space-y-2">
         {displaySubjects.length === 0 ? (
-          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <FolderOpen className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <p className="text-gray-500 dark:text-gray-400">
               No subjects found

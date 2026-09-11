@@ -95,12 +95,12 @@ export default function CompactStatsCards({ stats = {}, customStats }) {
             </div>
             <div className="flex flex-col min-w-0">
               <span
-                className={`text-sm sm:text-base font-black leading-tight ${colors.value}`}
+                className={`text-sm sm:text-base font-black leading-tight font-mono tabular-nums ${colors.value}`}
               >
                 {card.value}
               </span>
               <span
-                className="text-[10px] sm:text-[11px] font-bold leading-tight text-gray-500 dark:text-gray-400 truncate"
+                className="text-[11px] font-bold leading-tight text-gray-500 dark:text-gray-400 truncate"
                 title={card.label}
               >
                 {card.label}

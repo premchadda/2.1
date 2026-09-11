@@ -23,55 +23,22 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { formatRelativeTime, getDeviceType } from "@trstprep/shared-config";
 import { useAuth } from "../../shared/providers/AuthContext";
 import AnimatedHero from "../../shared/components/common/AnimatedHero";
 import { Logo } from "../../shared/components";
+import { TrstprepLoading } from "../../shared/components/common/TrstprepLoading.jsx";
 import { getPublicStats } from "../../shared/lib/dataService";
 
-const formatRelativeTime = (timestamp) => {
-  if (!timestamp) return "Recently active";
-  try {
-    const date = new Date(timestamp);
-    if (isNaN(date.getTime())) return "Recently active";
-    const diffSeconds = Math.max(
-      0,
-      Math.floor((Date.now() - date.getTime()) / 1000),
-    );
-    if (diffSeconds < 60) return "Active just now";
-    const diffMinutes = Math.floor(diffSeconds / 60);
-    if (diffMinutes < 60) return `Active ${diffMinutes}m ago`;
-    const diffHours = Math.floor(diffMinutes / 60);
-    if (diffHours < 24) return `Active ${diffHours}h ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `Active ${diffDays}d ago`;
-  } catch {
-    return "Recently active";
-  }
+const DEVICE_ICON_MAP = {
+  mobile: SmartphoneIcon,
+  tablet: Tablet,
+  laptop: Laptop,
+  desktop: Monitor,
 };
 
-const getDeviceIcon = (deviceType, os = "") => {
-  const dt = String(deviceType || "").toLowerCase();
-  const lowerOs = String(os || "").toLowerCase();
-  if (
-    dt === "mobile" ||
-    lowerOs.includes("android") ||
-    lowerOs.includes("ios") ||
-    lowerOs.includes("iphone")
-  ) {
-    return SmartphoneIcon;
-  }
-  if (dt === "tablet" || lowerOs.includes("ipad")) {
-    return Tablet;
-  }
-  if (
-    lowerOs.includes("mac") ||
-    lowerOs.includes("windows") ||
-    lowerOs.includes("linux")
-  ) {
-    return Laptop;
-  }
-  return Monitor;
-};
+const getDeviceIcon = (deviceType, os = "") =>
+  DEVICE_ICON_MAP[getDeviceType(deviceType, os)] || Monitor;
 
 function Login() {
   const navigate = useNavigate();
@@ -179,34 +146,20 @@ function Login() {
     };
   }, []);
 
-  // AC1 + AC3: If the user is already authenticated, send them to the protected route.
-  // Covers three cases:
-  //   1) They just logged in successfully in this tab (`justLoggedIn` flag)
-  //   2) They hard-refreshed while authenticated (AuthProvider rehydrated `user`)
-  //   3) They typed /login into the address bar while still logged in
-  // We must wait for `authResolved` so we don't redirect before the initial /me call
-  // completes (which would briefly flash the login modal on every refresh).
-  if (
-    authResolved &&
-    !loading &&
-    !isSubmitting &&
-    user &&
-    !showSessionConflict
-  ) {
+  // If the user is already authenticated (including from cached session),
+  // send them to the protected route immediately in 1ms.
+  if (user && !isSubmitting && !showSessionConflict) {
     return <Navigate to={from} replace state={{}} />;
   }
 
-  // Show loading spinner only during initial session determination before auth state is resolved
+  // Show branded Trstprep loading animation only during initial session determination before auth state is resolved
   if (!authResolved && loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-500 dark:text-gray-400">
-            Verifying session...
-          </p>
-        </div>
-      </div>
+      <TrstprepLoading
+        fullscreen
+        message="Verifying session..."
+        subtext="Connecting to Trstprep secure authentication"
+      />
     );
   }
 
@@ -444,6 +397,7 @@ function Login() {
                       );
                     }
                   } catch (err) {
+                    console.error("Failed to logout other sessions:", err);
                     toast.error("Failed to logout other sessions");
                   } finally {
                     setRevoking(false);
@@ -560,6 +514,9 @@ function Login() {
                     <div className="relative">
                       <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                       <input
+                        aria-label={
+                          useBackupCode ? "Backup Code" : "Verification Code"
+                        }
                         id="login-totp"
                         type="text"
                         inputMode={useBackupCode ? "text" : "numeric"}
@@ -657,6 +614,7 @@ function Login() {
                 <form onSubmit={handleSubmit} className="space-y-3">
                   {/* Invisible Bot Honeypot Trap */}
                   <input
+                    aria-label="Do not fill this field"
                     type="text"
                     name="_hp_website_trap"
                     value={honeypot}
@@ -684,6 +642,7 @@ function Login() {
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                       <input
+                        aria-label="Email Address"
                         id="login-email"
                         type="email"
                         value={email}
@@ -705,6 +664,7 @@ function Login() {
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                       <input
+                        aria-label="Password"
                         id="login-password"
                         type={showPassword ? "text" : "password"}
                         value={password}

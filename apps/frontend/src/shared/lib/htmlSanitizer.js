@@ -133,7 +133,10 @@ export const sanitizeHtml = (html) => {
       "role",
       "tabindex",
       "xmlns",
-      "viewbox",
+      // SVG attributes are case-sensitive (viewBox / preserveAspectRatio) —
+      // lowercase duplicates are intentionally NOT listed: DOMPurify matches
+      // SVG attributes case-sensitively and the lowercase forms would widen
+      // the allowlist without rendering benefit.
       "viewBox",
       "d",
       "width",
@@ -143,7 +146,6 @@ export const sanitizeHtml = (html) => {
       "stroke-width",
       "stroke-linecap",
       "stroke-linejoin",
-      "preserveaspectratio",
       "preserveAspectRatio",
       "clip-path",
     ],

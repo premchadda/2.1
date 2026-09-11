@@ -76,7 +76,7 @@ const BLOOMS_TAXONOMY_KEYWORDS = [
     depth: 3,
     patterns: [
       /\b(calculate|find the value|solve|determine|compute|what is the remainder|find the speed|what will be the amount|work done|ratio of|sum of money|probability of|algebraic|equation)\b/i,
-      /\b\d+\s*[\+\-\*\/]\s*\d+\b/,
+      /\b\d+\s*[+\-*/]\s*\d+\b/,
       /[√∑∏∫≤≥≠]/,
     ],
     keywords: [
@@ -176,7 +176,7 @@ export function classifyBloomsTaxonomy(question = {}) {
 
   // Fallback: If no explicit keyword matched, use sentence length & mathematical tokens
   if (highestScore <= 0) {
-    if (/[0-9xXyY=+\-*\/%]/.test(text) && text.length > 30) {
+    if (/[0-9xXyY=+\-*/%]/.test(text) && text.length > 30) {
       bestMatch = {
         level: BLOOMS_LEVELS.APPLY,
         depth: 3,

@@ -368,6 +368,37 @@ export const drainEmailQueue = async () => {
 // Replay any persisted mail on module load (M9).
 replaySpool();
 
+/**
+ * Send email directly via transporter
+ */
+export const sendDirect = async (email, subject, htmlContent) => {
+  const mailOptions = {
+    from: process.env.SMTP_FROM || "Trstprep <noreply@trstprep.com>",
+    to: email,
+    subject,
+    html: htmlContent,
+  };
+  const t = getTransporter();
+  if (!t) {
+    console.log(`[Email] DEV mode - Direct email to ${email}: ${subject}`);
+    return { success: true, messageId: "dev-mock-id" };
+  }
+  return t.sendMail(mailOptions);
+};
+
+/**
+ * Send email via background queue
+ */
+export const send = async (email, subject, htmlContent) => {
+  const mailOptions = {
+    from: process.env.SMTP_FROM || "Trstprep <noreply@trstprep.com>",
+    to: email,
+    subject,
+    html: htmlContent,
+  };
+  return queueEmail(mailOptions);
+};
+
 export const getEmailQueueStatus = () => ({
   pending: emailQueue.length,
   processing,
@@ -375,6 +406,8 @@ export const getEmailQueueStatus = () => ({
 });
 
 export default {
+  send,
+  sendDirect,
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendWelcomeEmail,

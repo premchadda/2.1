@@ -17,18 +17,18 @@ const parseInteger = (value, fallback) => {
 };
 
 const redisTimeout = () =>
-  Math.min(parseInteger(process.env.REDIS_CONNECT_TIMEOUT_MS, 1000), 2000);
+  Math.min(parseInteger(process.env.REDIS_CONNECT_TIMEOUT_MS, 2000), 10000);
 const redisCommandTimeout = () =>
-  Math.min(parseInteger(process.env.REDIS_COMMAND_TIMEOUT_MS, 150), 500);
+  Math.min(parseInteger(process.env.REDIS_COMMAND_TIMEOUT_MS, 1500), 10000);
 const redisRetries = () =>
-  Math.min(parseInteger(process.env.REDIS_MAX_RETRIES_PER_REQUEST, 0), 1);
+  Math.min(parseInteger(process.env.REDIS_MAX_RETRIES_PER_REQUEST, 1), 3);
 
 let consecutiveTimeouts = 0;
 let circuitOpenUntil = 0;
 
 export const recordRedisFailure = () => {
   consecutiveTimeouts++;
-  if (consecutiveTimeouts >= 2 && Date.now() > circuitOpenUntil) {
+  if (consecutiveTimeouts >= 5 && Date.now() > circuitOpenUntil) {
     circuitOpenUntil = Date.now() + 30_000;
     logger.warn(
       "[Redis] Circuit breaker tripped: Redis is timing out. Pausing remote Redis calls for 30s to preserve fast response times.",
@@ -219,8 +219,9 @@ export const closeRedis = async () => {
   try {
     // Race quit() against a 5-second timeout — if Redis is unresponsive,
     // the QUIT command could hang indefinitely, blocking gracefulShutdown.
+    const quitPromise = redisClient.quit().catch(() => {});
     await Promise.race([
-      redisClient.quit(),
+      quitPromise,
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Redis quit timeout")), 5000),
       ),

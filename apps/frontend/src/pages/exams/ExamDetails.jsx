@@ -321,7 +321,7 @@ export default function ExamDetails() {
       </div>
 
       {/* Hero Section */}
-      <div className="relative py-16 md:py-24 overflow-hidden bg-slate-950 text-white">
+      <div className="relative py-8 md:py-10 overflow-hidden bg-slate-950 text-white">
         <div className="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none"></div>
         <div className="absolute top-0 right-0 w-full max-w-[500px] sm:w-[500px] h-[500px] bg-indigo-600/20 rounded-full blur-[120px] -mr-64 -mt-64" />
         <div className="absolute bottom-0 left-0 w-full max-w-[300px] sm:w-[300px] h-[300px] bg-purple-600/10 rounded-full blur-[100px] -ml-32 -mb-32" />
@@ -482,7 +482,7 @@ export default function ExamDetails() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           <div className="lg:col-span-2 space-y-10">
             {activeTab === "overview" && (
@@ -565,7 +565,7 @@ export default function ExamDetails() {
                     </div>
                   ))
                 ) : (
-                  <div className="py-20 text-center bg-white dark:bg-gray-800 rounded-[3rem] border border-dashed border-gray-200 dark:border-gray-700">
+                  <div className="py-10 text-center bg-white dark:bg-gray-800 rounded-[3rem] border border-dashed border-gray-200 dark:border-gray-700">
                     <p className="text-2xl sm:text-3xl lg:text-4xl mb-4">📢</p>
                     <p className="font-black text-gray-500 dark:text-gray-400">
                       No recent official updates recorded.
@@ -579,7 +579,7 @@ export default function ExamDetails() {
               <div className="animate-fade-in space-y-8">
                 <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-10 border border-gray-100 dark:border-gray-700 shadow-sm relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-8">
-                    <button className="flex items-center gap-2 text-xs font-black text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
+                    <button className="flex items-center gap-2 text-xs font-black text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-lg p-1">
                       <Download className="w-4 h-4" /> DOWNLOAD PDF SYLLABUS
                     </button>
                   </div>

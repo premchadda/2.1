@@ -99,6 +99,12 @@ const LiveTestResults = () => {
               </span>
             </div>
             <div className="test-results-detail">
+              <span className="test-results-detail-label">Total Questions</span>
+              <span className="test-results-detail-value">
+                {totalQuestions}
+              </span>
+            </div>
+            <div className="test-results-detail">
               <span className="test-results-detail-label">All India Rank</span>
               <span className="test-results-detail-value">#{result.air}</span>
             </div>

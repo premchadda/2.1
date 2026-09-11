@@ -71,15 +71,18 @@ export function usePublicSettings() {
         const res = await api.get("/api/settings/public", { timeout: 4000 });
         return res.data?.data || FALLBACK_SETTINGS;
       } catch (err) {
+        if (import.meta.env.DEV)
+          console.warn("[PublicSettings] Using fallback settings:", err);
         return FALLBACK_SETTINGS;
       }
     },
     placeholderData: FALLBACK_SETTINGS,
-    staleTime: 1000 * 60,
-    refetchInterval: 1000 * 60,
+    staleTime: 1000 * 60 * 10, // 10 minutes cache
+    refetchInterval: false, // Don't aggressively poll every 60s
     retry: 0,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const settings = data || FALLBACK_SETTINGS;

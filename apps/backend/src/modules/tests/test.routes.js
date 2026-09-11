@@ -1,7 +1,10 @@
 import express from "express";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { protect, optionalAuth } from "../../middleware/auth.middleware.js";
-import { responseCache } from "../../middleware/responseCache.middleware.js";
+import {
+  responseCache,
+  invalidateResponseCache,
+} from "../../middleware/responseCache.middleware.js";
 import { checkAttemptLimit } from "../../shared/utils/attempt-limits.js";
 import { emitDomainEvent } from "../../infrastructure/events/eventBus.js";
 import { isQueueEnabled } from "../../infrastructure/queue/queueManager.js";
@@ -1371,6 +1374,12 @@ router.put("/:testId/submit", protect, async (req, res) => {
       score: attemptData.score,
       totalMarks: attemptData.totalMarks,
     });
+
+    // The user just completed a test — drop the cached /api/auth/me (which
+    // carries attemptedTests/attemptedTestIds used by TestCard to render the
+    // "Result" CTA instead of "Start Now"). The frontend calls refreshUser()
+    // right after submit; without this it would serve the stale 120s cache.
+    invalidateResponseCache("auth-me").catch(() => {});
 
     // When queue is enabled, the event bus (test_submitted) routes to analytics,
     // leaderboard, recommendations, and notifications via BullMQ workers.

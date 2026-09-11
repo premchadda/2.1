@@ -124,6 +124,8 @@ function TestInstructions() {
   const sectionalTimerEnabled = sectionalTimerOverride ?? hasSectionalTiming;
 
   const effectiveSections = useMemo(() => {
+    const totalDuration = Number(test?.duration) || 60;
+
     if (Array.isArray(test?.sections) && test.sections.length > 0) {
       return test.sections.map((s) => {
         const qCount =
@@ -136,11 +138,27 @@ function TestInstructions() {
           (qCount
             ? qCount * (test.marksPerQuestion || 2)
             : Math.round((test.totalMarks || 200) / test.sections.length));
-        const tLimit = sectionalTimerEnabled
-          ? (s.timeLimit ??
-            s.time_limit ??
-            Math.round((test.duration || 60) / test.sections.length))
-          : null;
+
+        // Resolve section duration in minutes
+        let secDurationMinutes = null;
+        const d = Number(s.duration ?? s.durationMinutes);
+        if (d > 0 && d <= totalDuration) {
+          secDurationMinutes = d;
+        } else if (d >= 60) {
+          secDurationMinutes = Math.round(d / 60);
+        } else if (s.timeLimit || s.time_limit) {
+          const rawLimit = Number(s.timeLimit ?? s.time_limit);
+          // If rawLimit is in seconds (e.g. >= 60, like 900s), convert to minutes: 900 / 60 = 15
+          secDurationMinutes =
+            rawLimit >= 60 ? Math.round(rawLimit / 60) : rawLimit;
+        } else {
+          secDurationMinutes = Math.max(
+            1,
+            Math.round(totalDuration / test.sections.length),
+          );
+        }
+
+        const tLimit = sectionalTimerEnabled ? secDurationMinutes : null;
         return {
           name: s.name || s.section_name || "General Section",
           questionCount: qCount,
@@ -187,13 +205,14 @@ function TestInstructions() {
           name: "Full Test",
           questionCount: totalQs || 0,
           totalMarks: totalM || 0,
-          timeLimit: sectionalTimerEnabled ? Number(test?.duration || 0) : null,
+          timeLimit: sectionalTimerEnabled ? totalDuration : null,
         },
       ];
     }
 
     const qPerSec = Math.floor(totalQs / names.length);
     const mPerSec = Math.floor(totalM / names.length);
+    const secDuration = Math.max(1, Math.round(totalDuration / names.length));
 
     return names.map((name, i) => ({
       name,
@@ -205,9 +224,7 @@ function TestInstructions() {
         i === names.length - 1
           ? totalM - mPerSec * (names.length - 1)
           : mPerSec,
-      timeLimit: sectionalTimerEnabled
-        ? Math.round((test?.duration || 60) / names.length)
-        : null,
+      timeLimit: sectionalTimerEnabled ? secDuration : null,
     }));
   }, [test, displayQuestionCount, sectionalTimerEnabled]);
 
@@ -265,6 +282,26 @@ function TestInstructions() {
 
         if (currentTest) {
           setTest(currentTest);
+
+          // If the page was loaded with a numeric testId, normalize URL to canonical public_id (UUID)
+          const canonicalId = currentTest.public_id || currentTest.publicId;
+          if (
+            canonicalId &&
+            testId &&
+            String(testId) !== String(canonicalId) &&
+            /^\d+$/.test(String(testId))
+          ) {
+            const currentPath = window.location.pathname;
+            const updatedPath = currentPath.replace(
+              new RegExp(`/${testId}(/instructions)?$`),
+              `/${canonicalId}$1`,
+            );
+            if (updatedPath !== currentPath) {
+              navigate(`${updatedPath}${window.location.search}`, {
+                replace: true,
+              });
+            }
+          }
 
           // Fetch series details
           try {
@@ -335,11 +372,7 @@ function TestInstructions() {
     }
     if (agreedToRules && !noQuestions) {
       const targetTestId =
-        test?.public_id_uuid ||
-        test?.public_id ||
-        test?.id ||
-        test?._id ||
-        testId;
+        test?.public_id || test?.publicId || test?.public_id_uuid || testId;
       const isReattempt = Boolean(
         location.state?.isReattempt ||
         new URLSearchParams(location.search).get("attempt") ||
@@ -367,7 +400,7 @@ function TestInstructions() {
             isReattempt,
           };
         } catch (err) {
-          console.warn("Preload test error:", err);
+          if (import.meta.env.DEV) console.warn("Preload test error:", err);
           return null;
         }
       })();
@@ -399,16 +432,8 @@ function TestInstructions() {
           : null;
         if (!isSubscribed) return;
         setCountdown(null);
-        const slug =
-          series?.slug ||
-          routeParams.seriesSlug ||
-          (seriesId && seriesId !== "undefined" ? seriesId : "test");
         const targetTestId =
-          test?.public_id_uuid ||
-          test?.public_id ||
-          test?.id ||
-          test?._id ||
-          testId;
+          test?.public_id || test?.publicId || test?.public_id_uuid || testId;
         const searchParams = new URLSearchParams(location.search);
         const currentAttemptNo =
           searchParams.get("attemptNo") || attemptNo || 1;
@@ -417,7 +442,17 @@ function TestInstructions() {
           sectionalTimerEnabled ? "on" : "off",
         );
         searchParams.set("attemptNo", currentAttemptNo);
-        const targetUrl = `/${slug}/tests/${targetTestId}?${searchParams.toString()}`;
+
+        let targetUrl;
+        if (series?.slug) {
+          targetUrl = `/${series.slug}/tests/${targetTestId}?${searchParams.toString()}`;
+        } else if (routeParams.seriesSlug) {
+          targetUrl = `/${routeParams.seriesSlug}/tests/${targetTestId}?${searchParams.toString()}`;
+        } else if (seriesId) {
+          targetUrl = `/test/${seriesId}/${targetTestId}?${searchParams.toString()}`;
+        } else {
+          targetUrl = `/tests/${targetTestId}?${searchParams.toString()}`;
+        }
         navigate(targetUrl, {
           replace: true,
           state: {
@@ -645,7 +680,7 @@ function TestInstructions() {
   const _isQuestionsReady = !noQuestions && actualQuestionCount > 0;
 
   return (
-    <div className="min-h-screen flex flex-col bg-tcs-surface pb-16 lg:pb-3 overscroll-none overscroll-y-none touch-pan-y">
+    <div className="min-h-screen flex flex-col bg-tcs-surface pb-10 lg:pb-3 overscroll-none overscroll-y-none touch-pan-y">
       {/* Top Header Bar - Non Sticky on Desktop */}
       <header className="bg-white border-b border-tcs-border shrink-0 z-10">
         <div className="w-full px-4 sm:px-6 lg:px-8">
@@ -755,6 +790,38 @@ function TestInstructions() {
                   {series?.title ||
                     (isHindi ? "परीक्षण श्रृंखला" : "Test Series")}
                 </p>
+                <p
+                  className="mt-1.5 flex flex-wrap items-center gap-1.5"
+                  aria-live="polite"
+                >
+                  {checkIsLive(test) && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-500/20 text-rose-200 border border-rose-400/40">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
+                      {isHindi ? "लाइव टेस्ट" : "Live Test"}
+                    </span>
+                  )}
+                  {isTestPro && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/40">
+                      <Crown className="w-3 h-3" aria-hidden="true" />
+                      {isHindi ? "प्रो टेस्ट" : "Pro Test"}
+                    </span>
+                  )}
+                  {isUserPro && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40">
+                      <Award className="w-3 h-3" aria-hidden="true" />
+                      {isHindi ? "प्रो सदस्य" : "Pro Member"}
+                    </span>
+                  )}
+                  {checkFeatureAccess(
+                    "leaderboard",
+                    user?.passType || "free",
+                  ) && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-sky-500/20 text-sky-200 border border-sky-400/40">
+                      <BarChart3 className="w-3 h-3" aria-hidden="true" />
+                      {isHindi ? "रैंकिंग उपलब्ध" : "Rankings Unlocked"}
+                    </span>
+                  )}
+                </p>
               </div>
             </div>
           </div>
@@ -840,40 +907,55 @@ function TestInstructions() {
                       <div className="text-tcs-text-secondary text-[10px] uppercase font-semibold">
                         {isHindi ? "अंकन" : "Marking"}
                       </div>
-                      <div className="font-bold text-emerald-600 text-xs sm:text-sm">
-                        +
-                        {test.marksPerQuestion ||
-                          (test?.totalMarks && test?.totalQuestions
-                            ? Math.round(test.totalMarks / test.totalQuestions)
-                            : 2)}{" "}
-                        / -
-                        {Number(
-                          test.negativeMarking ?? test.negative_marking ?? 0.5,
-                        )}
+                      <div className="font-bold text-xs sm:text-sm flex items-center gap-1">
+                        <span className="text-emerald-600 font-bold">
+                          +
+                          {test.marksPerQuestion ||
+                            (test?.totalMarks && test?.totalQuestions
+                              ? Math.round(
+                                  test.totalMarks / test.totalQuestions,
+                                )
+                              : 2)}
+                        </span>
+                        <span className="text-slate-400 font-normal">/</span>
+                        <span className="text-rose-600 font-bold">
+                          -
+                          {Number(
+                            test.negativeMarking ??
+                              test.negative_marking ??
+                              0.5,
+                          )}
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Section Breakdown Table */}
-                <div className="p-3">
-                  <h3 className="text-xs font-bold text-tcs-text-secondary uppercase tracking-wider mb-2">
+                <div className="p-3 sm:p-4">
+                  <h3 className="text-xs font-bold text-tcs-text-secondary uppercase tracking-wider mb-2.5">
                     {isHindi ? "अनुभाग-वार विवरण" : "Section-wise Details"}
                   </h3>
-                  <div className="overflow-x-auto rounded-lg border border-tcs-border">
-                    <table className="w-full text-xs text-left">
+                  <div className="w-full overflow-hidden rounded-lg border border-tcs-border bg-white shadow-2xs">
+                    <table className="w-full text-xs text-left table-fixed border-collapse">
+                      <colgroup>
+                        <col className="w-[36%] sm:w-[38%]" />
+                        <col className="w-[20%] sm:w-[19%]" />
+                        <col className="w-[20%] sm:w-[19%]" />
+                        <col className="w-[24%]" />
+                      </colgroup>
                       <thead>
-                        <tr className="bg-tcs-surface border-b border-tcs-border text-tcs-text-secondary font-semibold uppercase text-xs">
-                          <th className="py-2 px-3">
+                        <tr className="bg-slate-50 border-b border-tcs-border text-tcs-text-secondary font-semibold uppercase text-[11px] tracking-wider">
+                          <th className="py-2.5 px-4 text-left whitespace-nowrap">
                             {isHindi ? "# अनुभाग का नाम" : "# Section Name"}
                           </th>
-                          <th className="py-2 px-3 text-center">
+                          <th className="py-2.5 px-2 text-center whitespace-nowrap">
                             {isHindi ? "प्रश्न" : "Questions"}
                           </th>
-                          <th className="py-2 px-3 text-center">
+                          <th className="py-2.5 px-2 text-center whitespace-nowrap">
                             {isHindi ? "अंक" : "Marks"}
                           </th>
-                          <th className="py-2 px-3 text-center">
+                          <th className="py-2.5 px-3 text-center whitespace-nowrap">
                             {isHindi ? "समय सीमा" : "Section Time Limit"}
                           </th>
                         </tr>
@@ -882,30 +964,40 @@ function TestInstructions() {
                         {effectiveSections.map((sec, idx) => (
                           <tr
                             key={idx}
-                            className="hover:bg-indigo-50/30 transition-colors"
+                            className="hover:bg-indigo-50/40 transition-colors"
                           >
-                            <td className="py-2 px-3 font-semibold text-tcs-text-primary flex items-center gap-2 text-xs sm:text-sm">
-                              <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold flex items-center justify-center shrink-0">
-                                {idx + 1}
-                              </span>
-                              {getSectionNameInLanguage(sec.name)}
+                            <td className="py-2.5 px-4 font-semibold text-tcs-text-primary text-xs sm:text-sm align-middle">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold flex items-center justify-center shrink-0">
+                                  {idx + 1}
+                                </span>
+                                <span
+                                  className="truncate whitespace-nowrap"
+                                  title={sec.name}
+                                >
+                                  {getSectionNameInLanguage(sec.name)}
+                                </span>
+                              </div>
                             </td>
-                            <td className="py-2 px-3 text-center font-mono font-medium text-tcs-text-primary text-xs sm:text-sm">
+                            <td className="py-2.5 px-2 text-center font-mono font-medium text-tcs-text-primary text-xs sm:text-sm align-middle whitespace-nowrap">
                               {sec.questionCount} {isHindi ? "प्रश्न" : "Qs"}
                             </td>
-                            <td className="py-2 px-3 text-center font-mono font-medium text-tcs-text-primary text-xs sm:text-sm">
+                            <td className="py-2.5 px-2 text-center font-mono font-medium text-tcs-text-primary text-xs sm:text-sm align-middle whitespace-nowrap">
                               {sec.totalMarks} {isHindi ? "अंक" : "Marks"}
                             </td>
-                            <td className="py-2 px-3 text-center font-medium text-xs">
+                            <td className="py-2.5 px-3 text-center font-medium text-xs align-middle whitespace-nowrap">
                               {sec.timeLimit ? (
-                                <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
-                                  {sec.timeLimit} {isHindi ? "मिनट" : "Mins"}
+                                <span className="font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-200 inline-flex items-center gap-1.5 whitespace-nowrap">
+                                  <Timer className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                  <span>
+                                    {sec.timeLimit} {isHindi ? "मिनट" : "Mins"}
+                                  </span>
                                 </span>
                               ) : (
-                                <span className="text-gray-500 italic text-xs">
+                                <span className="text-gray-500 font-medium text-xs whitespace-nowrap">
                                   {isHindi
-                                    ? `कोई अनुभाग सीमा नहीं (साझा ${test?.duration || 60} मिनट)`
-                                    : `No Sectional Limit (Shared ${test?.duration || 60} Mins)`}
+                                    ? `साझा (${test?.duration || 60} मिनट)`
+                                    : `Shared (${test?.duration || 60} Mins)`}
                                 </span>
                               )}
                             </td>

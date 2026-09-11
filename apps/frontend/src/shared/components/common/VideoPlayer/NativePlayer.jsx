@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import DynamicWatermark from "./DynamicWatermark.jsx";
 import videoTelemetry from "../../../lib/telemetry/videoTelemetry";
+import { formatTime } from "../../../lib/format.js";
 
 /**
  * NativePlayer — HTML5 video element with custom controls + telemetry.
@@ -51,13 +52,6 @@ export default function NativePlayer({
   const viewRecordedRef = useRef(false);
 
   const videoId = videoData?.publicId || videoData?.id || videoData?._id;
-
-  const formatTime = (time) => {
-    if (!time || isNaN(time)) return "0:00";
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-  };
 
   // throttle helper for mousemove ( ~100ms )
   const throttleRef = useRef(null);
@@ -118,7 +112,8 @@ export default function NativePlayer({
       viewRecordedRef.current = true;
       import("../../../lib/api").then(({ default: api }) => {
         api.post(`/api/videos/${videoId}/view`).catch((err) => {
-          console.warn("[NativePlayer] Failed to record view event:", err);
+          if (import.meta.env.DEV)
+            console.warn("[NativePlayer] Failed to record view event:", err);
         });
       });
     }
@@ -393,6 +388,7 @@ export default function NativePlayer({
                   )}
                 </button>
                 <input
+                  aria-label="Volume"
                   type="range"
                   min="0"
                   max="1"
@@ -400,7 +396,6 @@ export default function NativePlayer({
                   value={isMuted ? 0 : volume}
                   onChange={handleVolumeChange}
                   className="w-0 group-hover:w-16 transition-all opacity-0 group-hover:opacity-100"
-                  aria-label="Volume"
                 />
               </div>
               <span className="text-white text-xs font-medium ml-1">

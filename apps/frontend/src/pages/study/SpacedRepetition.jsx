@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { useAuth } from "../../shared/providers/AuthContext";
 import { aiAPI } from "../../shared/lib/dataService";
 import { AnimatedHero } from "../../shared/components";
 import MathRenderer from "../../shared/components/MathRenderer";
@@ -332,7 +331,6 @@ function RevisionPlanCard({ plan, loading }) {
 
 // Main SpacedRepetition component
 export default function SpacedRepetition() {
-  const { user: _user } = useAuth();
   const [dueCards, setDueCards] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -435,7 +433,7 @@ export default function SpacedRepetition() {
       : 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20 md:pb-8 page-transition fade-in">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-10 md:pb-8 page-transition fade-in">
       <Helmet>
         <title>Spaced Repetition | Trstprep</title>
         <meta

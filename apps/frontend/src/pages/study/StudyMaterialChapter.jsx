@@ -40,7 +40,11 @@ import {
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
 import PDFViewer from "../../shared/components/common/PDFViewer";
 import VideoPlayer from "../../shared/components/common/VideoPlayer";
-import { getChapterPath, matchesChapterIdentifier } from "./studyMaterialUtils";
+import {
+  getChapterPath,
+  matchesChapterIdentifier,
+  recordChapterVisit,
+} from "./studyMaterialUtils";
 
 const formatDuration = (value, fallback = "") => {
   if (value === undefined || value === null || value === "") return fallback;
@@ -54,6 +58,9 @@ const getPreferredTab = (chapter) => {
   const pdfCount = chapter?.pdfCount || chapter?.pdfsList?.length || 0;
   const testCount = chapter?.testCount || chapter?.testsList?.length || 0;
 
+  if (topicCount > 0) return "overview";
+  if (videoCount > 0) return "videos";
+  if (pdfCount > 0) return "notes";
   if (testCount > 0) return "tests";
   return "overview";
 };
@@ -133,7 +140,11 @@ export default function StudyMaterialChapter() {
   const [showAllChapters, setShowAllChapters] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [videoPlayer, setVideoPlayer] = useState({ isOpen: false, data: null });
+  const [videoPlayer, setVideoPlayer] = useState({
+    isOpen: false,
+    data: null,
+    isClosed: false,
+  });
   const [pdfViewer, setPdfViewer] = useState({ isOpen: false, data: null });
   const [activeTab, setActiveTab] = useState("overview");
   const [activeTopicIndex, setActiveTopicIndex] = useState(0);
@@ -157,17 +168,43 @@ export default function StudyMaterialChapter() {
     matchesChapterIdentifier(item, chapterId, chapters, index),
   );
   const chapter = chapterIndex >= 0 ? chapters[chapterIndex] : null;
+  const isExtraChapter =
+    chapter?.id === "general" ||
+    chapter?.isExtra ||
+    chapter?.slug === "general" ||
+    chapterId === "general";
+  const chapterDisplayTitle =
+    isExtraChapter &&
+    (chapter?.title === "General" || chapter?.name === "General")
+      ? "Additional Resources"
+      : chapter?.title || chapter?.name || "Chapter";
   const previousChapter = chapterIndex > 0 ? chapters[chapterIndex - 1] : null;
   const nextChapter =
     chapterIndex >= 0 && chapterIndex < chapters.length - 1
       ? chapters[chapterIndex + 1]
       : null;
-  const completedCount = chapters.filter((item) => item.isCompleted).length;
+  const completedCount = chapters.filter((item) => {
+    if (item.isCompleted) return true;
+    const key = `chapter-scroll-${item._id || item.id || item.slug}`;
+    const stored = localStorage.getItem(key);
+    return stored && parseFloat(stored) >= 80;
+  }).length;
   const _subjectProgress =
     chapters.length > 0
       ? Math.round((completedCount / chapters.length) * 100)
       : 0;
-  const chapterProgress = chapter?.progress || (chapter?.isCompleted ? 100 : 0);
+  const storedChapterProgress = (() => {
+    if (!chapterIdKey) return null;
+    const stored = localStorage.getItem(chapterIdKey);
+    return stored ? Math.min(100, Math.round(parseFloat(stored))) : null;
+  })();
+  const chapterProgress =
+    chapter?.progress ||
+    (storedChapterProgress !== null
+      ? storedChapterProgress
+      : chapter?.isCompleted
+        ? 100
+        : 0);
   const chapterTopics = chapter?.topics || [];
 
   const currentTopic = chapterTopics[activeTopicIndex];
@@ -193,6 +230,12 @@ export default function StudyMaterialChapter() {
       (!t.topicId && !t.topic_id) ||
       String(t.topicId || t.topic_id) === currentTopicId,
   );
+
+  const displayedVideos =
+    chapterVideos.length > 0 ? chapterVideos : chapter?.videosList || [];
+  const activeVideo =
+    videoPlayer.data ||
+    (displayedVideos.length > 0 ? displayedVideos[0] : null);
 
   useEffect(() => {
     if (!chapter) return;
@@ -329,6 +372,23 @@ export default function StudyMaterialChapter() {
     : null;
 
   useEffect(() => {
+    if (!subject || !chapter) return;
+    const subKey = subject.slug || subject.id || subject._id || subjectId;
+    const chapKey = chapter.slug || chapter._id || chapter.id || chapterId;
+    const stored = chapterIdKey ? localStorage.getItem(chapterIdKey) : null;
+    const pct = stored ? parseFloat(stored) : 0;
+    recordChapterVisit(subKey, chapKey, {
+      subjectTitle: subject.title || subject.name,
+      subjectSlug: subject.slug || subjectId,
+      subjectIcon: subject.icon,
+      chapterTitle: chapter.title || chapter.name,
+      chapterSlug: chapter.slug || chapterId,
+      totalChapters: chapters.length,
+      isCompleted: pct >= 80 || !!chapter.isCompleted,
+    });
+  }, [subject, chapter, chapterIdKey, subjectId, chapterId, chapters.length]);
+
+  useEffect(() => {
     if (!chapterIdKey) return;
     const stored = localStorage.getItem(chapterIdKey);
     if (stored && !dismissed) {
@@ -363,6 +423,21 @@ export default function StudyMaterialChapter() {
           const pct = Math.round((scrollTop / docHeight) * 100);
           setScrollProgress(Math.min(pct, 100));
           localStorage.setItem(chapterIdKey, String(pct));
+          if (subject && chapter) {
+            const subKey =
+              subject.slug || subject.id || subject._id || subjectId;
+            const chapKey =
+              chapter.slug || chapter._id || chapter.id || chapterId;
+            recordChapterVisit(subKey, chapKey, {
+              subjectTitle: subject.title || subject.name,
+              subjectSlug: subject.slug || subjectId,
+              subjectIcon: subject.icon,
+              chapterTitle: chapter.title || chapter.name,
+              chapterSlug: chapter.slug || chapterId,
+              totalChapters: chapters.length,
+              isCompleted: pct >= 80 || !!chapter.isCompleted,
+            });
+          }
         }
         ticking = false;
         timer = null;
@@ -540,12 +615,19 @@ export default function StudyMaterialChapter() {
   };
 
   const handleVideoClick = (videoData) => {
+    setActiveTab("videos");
     setVideoPlayer({
       isOpen: true,
+      isClosed: false,
       data: {
         title: videoData.title || videoData.name || "Educational Video",
         description: videoData.description || "",
         url: videoData.videoUrl || videoData.url || "",
+        duration: videoData.duration || 0,
+        fortspyId: videoData.fortspyId,
+        fortspyKey: videoData.fortspyKey,
+        isEncrypted: videoData.isEncrypted,
+        ...videoData,
       },
     });
   };
@@ -630,7 +712,7 @@ export default function StudyMaterialChapter() {
       id: "videos",
       label: "Video Lessons",
       icon: Play,
-      count: chapterVideos.length,
+      count: displayedVideos.length,
       color: "text-blue-600 dark:text-blue-400",
       bg: "bg-blue-50 dark:bg-blue-900/20",
     },
@@ -674,7 +756,7 @@ export default function StudyMaterialChapter() {
                 label: subject.title || subject.name,
                 path: `/study/${subjectId}`,
               },
-              { label: chapter.title || chapter.name || "Chapter" },
+              { label: chapterDisplayTitle },
             ]}
           />
         </div>
@@ -695,18 +777,27 @@ export default function StudyMaterialChapter() {
                   Back
                 </button>
                 <div className="h-3 w-px bg-white/10 mx-1"></div>
-                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/10 border border-white/15 text-[9px] sm:text-[10px] font-black uppercase tracking-widest">
-                  <BookOpen className="w-3 h-3 text-cyan-400" />
-                  CH {chapterIndex + 1} / {chapters.length}
-                </div>
+                {isExtraChapter ? (
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/10 border border-white/15 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-cyan-300">
+                    <Sparkles className="w-3 h-3 text-cyan-400" />
+                    Supplementary Content
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/10 border border-white/15 text-[9px] sm:text-[10px] font-black uppercase tracking-widest">
+                    <BookOpen className="w-3 h-3 text-cyan-400" />
+                    CH {chapterIndex + 1} / {chapters.length}
+                  </div>
+                )}
               </div>
 
               <h1 className="text-2xl sm:text-3xl md:text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight mb-2 sm:mb-4">
-                {chapter.title || chapter.name}
+                {chapterDisplayTitle}
               </h1>
               <p className="text-xs sm:text-sm md:text-base text-white/60 max-w-[95vw] sm:max-w-2xl leading-relaxed mb-4 sm:mb-6 line-clamp-2 sm:line-clamp-none">
                 {chapter.description ||
-                  "Chapter resources, notes, and practice items are collected here."}
+                  (isExtraChapter
+                    ? "Supplementary study material, extra video lessons, and resources for this subject."
+                    : "Chapter resources, notes, and practice items are collected here.")}
               </p>
 
               {/* Mobile: Progress card LEFT + Save/Share buttons stacked RIGHT — one row */}
@@ -914,15 +1005,6 @@ export default function StudyMaterialChapter() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Main Content Area (3/4 on desktop) */}
           <div className="lg:col-span-3 space-y-6">
-            {videoPlayer.isOpen && (
-              <VideoPlayer
-                isOpen={videoPlayer.isOpen}
-                inline
-                onClose={() => setVideoPlayer({ isOpen: false, data: null })}
-                videoData={videoPlayer.data}
-              />
-            )}
-
             {/* Unified Content Card */}
             <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden flex flex-col">
               {/* TOP: Topic No & Name */}
@@ -930,6 +1012,10 @@ export default function StudyMaterialChapter() {
                 <div className="px-6 py-4 border-b border-gray-50 dark:border-gray-700 bg-indigo-50/30 dark:bg-indigo-900/30 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="px-3 py-1.5 rounded-xl border border-indigo-100 dark:border-indigo-800/60 bg-white dark:bg-gray-800 shadow-sm flex items-center gap-3">
+                      <Layers
+                        className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0"
+                        aria-hidden="true"
+                      />
                       <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] whitespace-nowrap">
                         Topic {String(activeTopicIndex + 1).padStart(2, "0")}
                       </span>
@@ -1112,8 +1198,29 @@ export default function StudyMaterialChapter() {
                                       <span className="text-gray-300 dark:text-gray-600">
                                         •
                                       </span>
+                                      <Award
+                                        className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400"
+                                        aria-hidden="true"
+                                      />
                                       <span className="text-amber-600 dark:text-amber-400">
-                                        {details.weightage}
+                                        {details.weightage} weightage
+                                      </span>
+                                      <span className="text-gray-300 dark:text-gray-600">
+                                        •
+                                      </span>
+                                      <Zap
+                                        className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400"
+                                        aria-hidden="true"
+                                      />
+                                      <span>{details.expectedQuestions}</span>
+                                      <span
+                                        className="inline-flex items-center"
+                                        title={`Includes ${details.objectives.length} learning objectives and ${details.highlights.length} exam tips`}
+                                      >
+                                        <Info
+                                          className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500"
+                                          aria-label="About this topic"
+                                        />
                                       </span>
                                     </div>
                                   </div>
@@ -1185,8 +1292,15 @@ export default function StudyMaterialChapter() {
                                     <div className="flex items-center gap-1.5 mb-2 text-emerald-700 dark:text-emerald-400">
                                       <CheckCircle2 className="w-4 h-4" />
                                       <h4 className="text-xs font-bold text-gray-900 dark:text-white">
-                                        What You'll Learn
+                                        What You&apos;ll Learn
                                       </h4>
+                                      <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
+                                        <ListChecks
+                                          className="w-3 h-3"
+                                          aria-hidden="true"
+                                        />
+                                        {details.objectives.length}
+                                      </span>
                                     </div>
                                     <ul className="space-y-2">
                                       {details.objectives.map((obj, i) => (
@@ -1231,7 +1345,7 @@ export default function StudyMaterialChapter() {
                           })()}
                         </>
                       ) : (
-                        <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                        <div className="text-center py-8 bg-gray-50 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
                           <BookOpen className="w-12 h-12 text-gray-300 dark:text-gray-500 mx-auto mb-3" />
                           <h3 className="font-bold text-gray-900 dark:text-white">
                             Chapter Summary
@@ -1247,64 +1361,197 @@ export default function StudyMaterialChapter() {
                 )}
 
                 {activeTab === "videos" && (
-                  <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-50 dark:border-gray-700 overflow-hidden page-transition fade-in">
-                    <div className="p-2 border-b border-gray-50 dark:border-gray-700 bg-gradient-to-r from-white to-blue-50/30 dark:from-gray-800 dark:to-blue-900/30">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
-                          <Play className="w-5 h-5 fill-current" />
+                  <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden page-transition fade-in">
+                    <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-white to-blue-50/30 dark:from-gray-800 dark:to-blue-900/30">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
+                            <Play className="w-5 h-5 fill-current" />
+                          </div>
+                          <div>
+                            <h2 className="text-lg sm:text-xl font-black text-gray-900 dark:text-white">
+                              Video Lessons
+                            </h2>
+                            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                              Master the concepts through expert video lectures.
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h2 className="text-xl font-black text-gray-900 dark:text-white">
-                            Video Lessons
-                          </h2>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Master the concepts through expert video lectures.
-                          </p>
-                        </div>
+                        {displayedVideos.length > 0 && (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                            {displayedVideos.length}{" "}
+                            {displayedVideos.length === 1
+                              ? "Lesson"
+                              : "Lessons"}
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    <div className="p-2">
-                      {chapterVideos.length > 0 ? (
-                        <div className="space-y-8">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {chapterVideos.map((video, index) => (
-                              <button
-                                key={`video-${video.publicId || video.id || video._id || index}`}
-                                type="button"
-                                onClick={() => handleVideoClick(video)}
-                                className="group flex flex-col items-stretch p-4 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-200 dark:hover:border-blue-800 hover:shadow-md transition-all duration-300 text-left"
-                              >
-                                <div className="relative aspect-video rounded-xl bg-gray-900 overflow-hidden mb-4 group-hover:scale-[1.02] transition-transform">
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors">
-                                    <div className="w-12 h-12 rounded-full bg-white/90 dark:bg-gray-800/90 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                                      <Play className="w-5 h-5 fill-current ml-0.5" />
-                                    </div>
-                                  </div>
-                                  <div className="absolute bottom-3 right-3 px-2 py-1 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider">
-                                    {formatDuration(video.duration, "Lesson")}
-                                  </div>
+                    <div className="p-4 sm:p-6">
+                      {displayedVideos.length > 0 && activeVideo ? (
+                        <div className="space-y-6">
+                          {/* Full-size Video Player Frame directly inside tab */}
+                          {!videoPlayer.isClosed ? (
+                            <div className="w-full rounded-2xl overflow-hidden shadow-md border border-gray-200 dark:border-gray-700 bg-black">
+                              <VideoPlayer
+                                isOpen={true}
+                                inline
+                                onClose={() =>
+                                  setVideoPlayer((prev) => ({
+                                    ...prev,
+                                    isClosed: true,
+                                    data: activeVideo,
+                                  }))
+                                }
+                                videoData={activeVideo}
+                              />
+                            </div>
+                          ) : (
+                            <div
+                              onClick={() =>
+                                setVideoPlayer({
+                                  isOpen: true,
+                                  isClosed: false,
+                                  data: activeVideo,
+                                })
+                              }
+                              className="group relative aspect-video w-full rounded-2xl bg-gray-900 border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer shadow-md flex items-center justify-center transition-all"
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                              <div className="relative z-10 flex flex-col items-center gap-3 text-center p-6">
+                                <div className="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+                                  <Play className="w-8 h-8 fill-current ml-1" />
                                 </div>
-                                <div className="min-w-0">
-                                  <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">
-                                    {video.title}
-                                  </h3>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 line-clamp-2 leading-relaxed">
-                                    {video.description ||
-                                      "Watch and learn core concepts."}
+                                <p className="text-white font-bold text-base sm:text-lg max-w-md">
+                                  Click to Play:{" "}
+                                  {activeVideo.title || "Video Lesson"}
+                                </p>
+                                {activeVideo.duration ? (
+                                  <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm text-xs text-white font-medium">
+                                    {formatDuration(
+                                      activeVideo.duration,
+                                      "Lesson",
+                                    )}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Active Video Meta Details */}
+                          <div className="p-4 sm:p-5 rounded-2xl bg-gray-50/80 dark:bg-gray-900/60 border border-gray-100 dark:border-gray-700/60">
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+                                    Now Playing
+                                  </span>
+                                  {activeVideo.duration ? (
+                                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                      <Clock className="w-3.5 h-3.5" />
+                                      {formatDuration(
+                                        activeVideo.duration,
+                                        "Lesson",
+                                      )}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <h3 className="text-base sm:text-lg font-black text-gray-900 dark:text-white leading-snug">
+                                  {activeVideo.title || "Video Lesson"}
+                                </h3>
+                                {activeVideo.description && (
+                                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 leading-relaxed">
+                                    {activeVideo.description}
                                   </p>
-                                </div>
-                              </button>
-                            ))}
+                                )}
+                              </div>
+                            </div>
                           </div>
+
+                          {/* Playlist (when > 1 lesson) */}
+                          {displayedVideos.length > 1 && (
+                            <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                              <h4 className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
+                                More Lessons in this Chapter (
+                                {displayedVideos.length})
+                              </h4>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {displayedVideos.map((video, index) => {
+                                  const isSelected =
+                                    String(
+                                      video.id ||
+                                        video._id ||
+                                        video.publicId ||
+                                        index,
+                                    ) ===
+                                      String(
+                                        activeVideo.id ||
+                                          activeVideo._id ||
+                                          activeVideo.publicId ||
+                                          "",
+                                      ) || video.url === activeVideo.url;
+
+                                  return (
+                                    <button
+                                      key={`playlist-video-${video.publicId || video.id || video._id || index}`}
+                                      type="button"
+                                      onClick={() => handleVideoClick(video)}
+                                      className={`group flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                                        isSelected
+                                          ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/20 shadow-sm"
+                                          : "border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-200 dark:hover:border-blue-800 hover:shadow-sm"
+                                      }`}
+                                    >
+                                      <div
+                                        className={`relative w-20 aspect-video rounded-lg shrink-0 flex items-center justify-center overflow-hidden ${
+                                          isSelected
+                                            ? "bg-blue-600 text-white"
+                                            : "bg-gray-900 text-white group-hover:bg-blue-600 transition-colors"
+                                        }`}
+                                      >
+                                        <Play className="w-5 h-5 fill-current" />
+                                        {video.duration ? (
+                                          <span className="absolute bottom-1 right-1 text-[8px] font-bold bg-black/70 text-white px-1 rounded">
+                                            {formatDuration(video.duration)}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500">
+                                            Lesson {index + 1}
+                                          </span>
+                                          {isSelected && (
+                                            <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                                              • Playing
+                                            </span>
+                                          )}
+                                        </div>
+                                        <h5
+                                          className={`text-xs font-bold line-clamp-2 ${
+                                            isSelected
+                                              ? "text-blue-600 dark:text-blue-400"
+                                              : "text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400"
+                                          }`}
+                                        >
+                                          {video.title}
+                                        </h5>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : (
-                        <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                        <div className="text-center py-12 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
                           <Play className="w-12 h-12 text-gray-300 dark:text-gray-500 mx-auto mb-3" />
                           <h3 className="font-bold text-gray-900 dark:text-white">
                             No Videos Available
                           </h3>
-                          <p className="text-gray-500 dark:text-gray-400 text-sm">
+                          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
                             Use the overview tab to browse the chapter topics
                             while video lessons are being added.
                           </p>
@@ -1369,7 +1616,7 @@ export default function StudyMaterialChapter() {
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                        <div className="text-center py-8 bg-gray-50 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
                           <FileText className="w-12 h-12 text-gray-300 dark:text-gray-500 mx-auto mb-3" />
                           <h3 className="font-bold text-gray-900 dark:text-white">
                             No PDFs Available
@@ -1441,7 +1688,7 @@ export default function StudyMaterialChapter() {
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                        <div className="text-center py-8 bg-gray-50 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
                           <BarChartBig className="w-12 h-12 text-gray-300 dark:text-gray-500 mx-auto mb-3" />
                           <h3 className="font-bold text-gray-900 dark:text-white">
                             No Tests Available
@@ -1624,8 +1871,17 @@ export default function StudyMaterialChapter() {
                       <MessageSquare className="w-5 h-5" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-black text-gray-900 dark:text-white">
+                      <h2 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-1.5">
                         Chapter Forum
+                        <span
+                          className="inline-flex items-center"
+                          title="Ask doubts about this chapter — replies from peers and faculty appear here"
+                        >
+                          <HelpCircle
+                            className="w-4 h-4 text-amber-500 dark:text-amber-400"
+                            aria-label="About the chapter forum"
+                          />
+                        </span>
                       </h2>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         Discuss concepts and clear your doubts with peers.
@@ -1666,7 +1922,7 @@ export default function StudyMaterialChapter() {
                       value={newDiscussion}
                       onChange={(e) => setNewDiscussion(e.target.value)}
                       placeholder="Share your thoughts or ask a question about this chapter..."
-                      className="w-full p-4 pr-14 rounded-2xl bg-gray-50 dark:bg-gray-900 dark:text-gray-200 dark:placeholder:text-gray-500 border-none focus:ring-2 focus:ring-indigo-100 text-sm font-medium min-h-[100px] resize-none transition-all"
+                      className="w-full p-4 pr-10 rounded-2xl bg-gray-50 dark:bg-gray-900 dark:text-gray-200 dark:placeholder:text-gray-500 border-none focus:ring-2 focus:ring-indigo-100 text-sm font-medium min-h-[100px] resize-none transition-all"
                     />
                     <button
                       onClick={handleDiscussionSubmit}
@@ -1806,7 +2062,7 @@ export default function StudyMaterialChapter() {
                             >
                               Reply
                             </button>
-                            <button className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 tracking-widest font-bold">
+                            <button className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 tracking-widest font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded">
                               {item.upvotes || 0} Likes
                             </button>
                           </div>
@@ -1824,7 +2080,7 @@ export default function StudyMaterialChapter() {
                 </div>
 
                 <div className="mt-10 pt-6 border-t border-gray-50 dark:border-gray-700 text-center">
-                  <button className="text-xs font-black text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 uppercase tracking-[0.2em] transition-all">
+                  <button className="text-xs font-black text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 uppercase tracking-[0.2em] transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded p-1">
                     View All Discussions
                   </button>
                 </div>
@@ -1883,29 +2139,56 @@ export default function StudyMaterialChapter() {
             )}
 
             {/* Practice Drill Interlink CTA */}
-            <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-indigo-950 rounded-3xl p-6 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 border border-indigo-700/50">
-              <div className="space-y-1 text-center sm:text-left">
-                <div className="flex items-center justify-center sm:justify-start gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-900 via-indigo-850 to-slate-900 p-5 text-white shadow-lg border border-indigo-700/40 group">
+              <div className="absolute -top-12 -right-12 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-500/30 transition-all duration-500" />
+              <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
+
+              <div className="relative z-10 flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1 rounded-md bg-amber-400/15 border border-amber-400/30 text-amber-300">
+                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-200">
                     Retention Check
                   </span>
                 </div>
-                <h3 className="text-base sm:text-lg font-black tracking-tight">
-                  Test your understanding on this Chapter
-                </h3>
-                <p className="text-xs text-indigo-200/90 leading-relaxed">
-                  Launch a tailored 10-question drill in Practice Lab to
-                  reinforce what you just read.
-                </p>
+
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-white tracking-tight leading-snug">
+                    Test your understanding on this Chapter
+                  </h3>
+                  <p className="text-xs text-indigo-200/80 leading-relaxed mt-1">
+                    Launch a tailored 10-question drill in Practice Lab to
+                    reinforce what you just read.
+                  </p>
+                </div>
+
+                {(() => {
+                  const chapterSlug =
+                    chapter?.slug ||
+                    chapter?.title
+                      ?.toLowerCase()
+                      .trim()
+                      .replace(/[^a-z0-9]+/g, "-")
+                      .replace(/^-+|-+$/g, "") ||
+                    chapter?.id ||
+                    "";
+                  const practiceUrl =
+                    subjectId && chapterSlug
+                      ? `/practice/subject/${encodeURIComponent(subjectId)}/${encodeURIComponent(chapterSlug)}`
+                      : "/practice";
+                  return (
+                    <Link
+                      to={practiceUrl}
+                      className="w-full mt-1 py-2.5 px-4 rounded-xl bg-white dark:bg-gray-800 text-indigo-950 dark:text-white hover:bg-indigo-50 dark:hover:bg-gray-700 font-black text-xs uppercase tracking-wider shadow-md hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 group/btn active:scale-[0.98]"
+                    >
+                      <Target className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover/btn:rotate-45 transition-transform duration-300" />
+                      <span>Practice Now</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-indigo-400 group-hover/btn:translate-x-0.5 transition-transform" />
+                    </Link>
+                  );
+                })()}
               </div>
-              <Link
-                to={`/practice?mode=subject&subjectId=${subjectId}&chapterId=${chapter?.id || chapter?._id || ""}`}
-                className="px-5 py-2.5 bg-white dark:bg-gray-800 text-indigo-900 dark:text-white hover:bg-indigo-50 dark:hover:bg-indigo-900/30 font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg transition-all shrink-0 flex items-center gap-2 hover:scale-105 active:scale-95"
-              >
-                <Target className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                <span>Practice Now</span>
-              </Link>
             </div>
 
             {/* All Chapters List */}

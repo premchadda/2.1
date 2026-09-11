@@ -67,7 +67,7 @@ function StatsSection({
 }) {
   return (
     <section
-      className="py-8 sm:py-10 md:py-12 relative overflow-hidden"
+      className="py-8 sm:py-10 md:py-10 relative overflow-hidden"
       style={{
         background:
           "linear-gradient(160deg, #0f0a1e 0%, #1a1040 50%, #0f0a1e 100%)",

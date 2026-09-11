@@ -668,14 +668,14 @@ export default function TagConfigsManager() {
 
       {/* 4. Tag Configs Content Display */}
       {loading ? (
-        <div className="p-12 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+        <div className="p-6 sm:p-8 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
           <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
           <p className="text-xs text-gray-500 font-bold">
             Loading tag configurations...
           </p>
         </div>
       ) : filteredTags.length === 0 ? (
-        <div className="p-12 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 space-y-3">
+        <div className="p-6 sm:p-8 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 space-y-3">
           <Tag className="mx-auto h-12 w-12 text-gray-300 dark:text-gray-700" />
           <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">
             No tag configurations found

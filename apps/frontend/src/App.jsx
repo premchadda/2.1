@@ -3,6 +3,7 @@ import {
   Route,
   useLocation,
   useParams,
+  useSearchParams,
   Navigate,
 } from "react-router-dom";
 import { Suspense } from "react";
@@ -289,6 +290,19 @@ const layoutRoutes = [
   createRoute("/leaderboard", <Leaderboard />),
   createRoute("/refer-and-earn", <ReferAndEarn />, { pageKey: "referAndEarn" }),
   createRoute("/practice", <PracticeLab />, { protected: true }),
+  createRoute("/practice/subject/:subjectSlug/:chapterSlug", <PracticeLab />, {
+    protected: true,
+  }),
+  createRoute("/practice/subject/:subjectSlug", <PracticeLab />, {
+    protected: true,
+  }),
+  createRoute("/practice/chapter/:chapterSlug", <PracticeLab />, {
+    protected: true,
+  }),
+  createRoute("/practice/exam/:examSlug", <PracticeLab />, {
+    protected: true,
+  }),
+  createRoute("/practice/:subpage", <PracticeLab />, { protected: true }),
   createRoute("/quizzes", <TagPage tagProp="quizzes" />),
   createRoute("/blog", <Blog />),
   createRoute("/blog/:id", <BlogDetail />),

@@ -15,6 +15,7 @@ import {
   getWritePool,
 } from "../../../config/database-replicas.js";
 import { ValidationError } from "../../middleware/error.middleware.js";
+import { getRedisClient, isRedisReady } from "../cache/redisClient.js";
 
 const ENCRYPTION_ALGORITHM = "aes-256-gcm";
 const GCM_IV_LENGTH = 12;
@@ -340,10 +341,20 @@ class PostgresHelpers {
     }
   }
 
-  async withTransaction(callback) {
+  async withTransaction(callback, options = {}) {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
+      // Default lock_timeout (10s, overridable via options or 'none'):
+      // without it, one stuck row/advisory lock pins a pool client
+      // indefinitely — repeated hits exhaust the pool and stall the app.
+      const lockTimeout =
+        options.lockTimeout !== undefined ? options.lockTimeout : "10s";
+      if (lockTimeout && lockTimeout !== "none") {
+        await client.query("SELECT set_config('lock_timeout', $1, true)", [
+          String(lockTimeout),
+        ]);
+      }
       const result = await callback(client);
       await client.query("COMMIT");
       return result;
@@ -705,7 +716,10 @@ class PostgresHelpers {
   toSnake(obj, collection = null) {
     if (!obj) return null;
     if (typeof obj === "string") {
-      return obj.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`);
+      return obj
+        .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+        .replace(/([A-Z])([A-Z][a-z])/g, "$1_$2")
+        .toLowerCase();
     }
     const newObj = {};
     // Accept both phone/mobile spellings; map to canonical `phone` column and keep *_enc in sync via DB trigger
@@ -825,6 +839,7 @@ class PostgresHelpers {
     limit = null,
     offset = null,
     columns = null,
+    client = null,
   ) {
     const table = this.getTableName(collection);
 
@@ -931,10 +946,13 @@ class PostgresHelpers {
     }
 
     try {
-      const result = await this.pool.query(sql, values);
+      const conn = client || this.pool;
+      const result = await conn.query(sql, values);
       return result.rows.map((row) => this.toCamel(row));
     } catch (error) {
-      console.error(`DB Find Error (${collection}):`, error.message);
+      // Log full error (not just message) so DB bugs are visible in logs.
+      // Callers receive [] to avoid crashing, but the error is not silent.
+      console.error(`DB Find Error (${collection}):`, error);
       return [];
     }
   }
@@ -1059,7 +1077,7 @@ class PostgresHelpers {
     }
   }
 
-  async findById(collection, id, columns = null) {
+  async findById(collection, id, columns = null, client = null) {
     const table = this.getTableName(collection);
 
     if (typeof id === "string") {
@@ -1084,7 +1102,8 @@ class PostgresHelpers {
 
     try {
       const selectCols = await this.getSelectColumns(table, columns);
-      const result = await this.pool.query(
+      const conn = client || this.pool;
+      const result = await conn.query(
         `SELECT ${selectCols} FROM "${table}" WHERE id = $1`,
         [numericId],
       );
@@ -1531,15 +1550,20 @@ class PostgresHelpers {
    */
   incrementMetric(metricName) {
     if (!metricName) return;
-    import("../cache/redisClient.js")
-      .then(({ getRedisClient, isRedisReady }) => {
-        if (isRedisReady()) {
-          getRedisClient()
+    try {
+      if (isRedisReady && isRedisReady()) {
+        const client = getRedisClient();
+        if (client && typeof client.incr === "function") {
+          client
             .incr(`metrics:${metricName}`)
-            .catch(() => {});
+            .catch((err) =>
+              console.error(`[metrics] incr failed: ${err?.message || err}`),
+            );
         }
-      })
-      .catch(() => {});
+      }
+    } catch (err) {
+      console.error(`[metrics] check failed: ${err?.message || err}`);
+    }
   }
 
   async count(table, filter = {}) {
@@ -1798,6 +1822,9 @@ class PostgresHelpers {
 
   async deleteById(collection, id) {
     const table = this.getTableName(collection);
+    if (!table || !/^[a-zA-Z0-9_]+$/.test(table)) {
+      return false;
+    }
     try {
       const numericId = await this.resolveInternalId(collection, id);
       if (numericId === null) {
@@ -1810,9 +1837,8 @@ class PostgresHelpers {
           numericId || id,
         );
       }
-      await this.pool.query(`DELETE FROM "${table}" WHERE id = $1`, [
-        numericId,
-      ]);
+      const deleteSql = `DELETE FROM ${quoteIdentifier(table)} WHERE id = $1`;
+      await this.pool.query(deleteSql, [numericId]);
       if (subjectId) {
         this.resequenceAndPrefixCurriculum(subjectId).catch(console.error);
       }
@@ -2061,7 +2087,8 @@ class PostgresHelpers {
       try {
         const table = this.getTableName(collection);
         if (!table || !/^[a-zA-Z0-9_]+$/.test(table)) continue;
-        await this.pool.query(`DELETE FROM "${table}" WHERE is_active = false`);
+        const purgeSql = `DELETE FROM ${quoteIdentifier(table)} WHERE is_active = false`;
+        await this.pool.query(purgeSql);
       } catch (e) {
         // Collection might not exist, skip
       }
@@ -2352,7 +2379,9 @@ export const withTransaction = async (fn, options = {}) => {
           `Invalid lockTimeout value: ${lockTimeoutStr}`,
         );
       }
-      await client.query(`SET LOCAL lock_timeout = '${lockTimeoutStr}'`);
+      await client.query("SELECT set_config('lock_timeout', $1, true)", [
+        lockTimeoutStr,
+      ]);
     }
     const result = await fn(client);
     await client.query("COMMIT");

@@ -246,7 +246,9 @@ export async function getAttemptProctoringReport(attemptId, dbHelpers = null) {
               typeof r.eventData === "string"
                 ? JSON.parse(r.eventData)
                 : r.eventData || {};
-          } catch (e) {}
+          } catch {
+            // malformed event payload — treat as empty
+          }
           return {
             type,
             timestamp: r.eventTimestamp,
@@ -254,7 +256,9 @@ export async function getAttemptProctoringReport(attemptId, dbHelpers = null) {
             details: parsedData.details || {},
           };
         });
-    } catch (err) {}
+    } catch {
+      // events unavailable — fall through with empty list
+    }
   }
 
   return calculateProctoringRisk(events);

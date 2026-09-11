@@ -35,6 +35,21 @@ export default {
     "mobile-overlay",
     "mobile-drawer",
     "open",
+    // Avatar gradient class pairs returned by shared-config getAvatarGradient().
+    // The class strings live in packages/shared-config (outside this app's
+    // content scan), so purge would otherwise strip them in prod builds.
+    "from-indigo-500",
+    "to-purple-500",
+    "from-blue-500",
+    "to-cyan-500",
+    "from-emerald-500",
+    "to-teal-500",
+    "from-amber-500",
+    "to-orange-500",
+    "from-rose-500",
+    "to-pink-500",
+    "from-violet-500",
+    "to-fuchsia-500",
   ],
   theme: {
     screens: {

@@ -68,10 +68,16 @@ export default function SubscriptionPlansManager() {
       const dedupedFeatures = [];
       const seen = new Set();
       for (const f of formData.features || []) {
-        const key = (typeof f === "string" ? f : f.text || "").toLowerCase().trim();
+        const key = (typeof f === "string" ? f : f.text || "")
+          .toLowerCase()
+          .trim();
         if (!key || seen.has(key)) continue;
         seen.add(key);
-        dedupedFeatures.push(typeof f === "string" ? { text: f, included: true } : { text: String(f.text || "").trim(), included: !!f.included });
+        dedupedFeatures.push(
+          typeof f === "string"
+            ? { text: f, included: true }
+            : { text: String(f.text || "").trim(), included: !!f.included },
+        );
       }
       const payload = {
         ...formData,
@@ -152,7 +158,13 @@ export default function SubscriptionPlansManager() {
   const addFeature = () => {
     const text = String(newFeature.text || "").trim();
     if (!text) return;
-    if (formData.features.some((f) => (typeof f === "string" ? f : f.text)?.toLowerCase() === text.toLowerCase())) {
+    if (
+      formData.features.some(
+        (f) =>
+          (typeof f === "string" ? f : f.text)?.toLowerCase() ===
+          text.toLowerCase(),
+      )
+    ) {
       toast.error("Feature already added");
       return;
     }
@@ -162,7 +174,10 @@ export default function SubscriptionPlansManager() {
     }
     setFormData({
       ...formData,
-      features: [...formData.features, { text, included: !!newFeature.included }],
+      features: [
+        ...formData.features,
+        { text, included: !!newFeature.included },
+      ],
     });
     setNewFeature({ text: "", included: true });
   };
@@ -290,7 +305,7 @@ export default function SubscriptionPlansManager() {
       </div>
 
       {plans.length === 0 && (
-        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
+        <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
           <Star className="w-12 h-12 mx-auto mb-4 text-gray-300" />
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">
             No Plans Found
@@ -503,6 +518,7 @@ export default function SubscriptionPlansManager() {
                     <div className="flex gap-2">
                       <input
                         type="text"
+                        aria-label="Add a feature"
                         value={newFeature.text}
                         onChange={(e) =>
                           setNewFeature((prev) => ({

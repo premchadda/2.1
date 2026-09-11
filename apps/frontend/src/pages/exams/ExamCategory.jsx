@@ -228,10 +228,10 @@ export default function ExamCategory() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
             Category Not Found
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
             {error || "This exam category does not exist."}
           </p>
           <button
@@ -246,7 +246,7 @@ export default function ExamCategory() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-12">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-8">
       {/* Header */}
       <div
         className={`relative overflow-hidden bg-gradient-to-br ${config.color} text-white`}
@@ -258,7 +258,7 @@ export default function ExamCategory() {
           <div className="absolute top-1/2 left-1/4 w-64 h-64 bg-white/5 rounded-full blur-2xl"></div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 relative z-10">
           <Breadcrumb
             items={[
               { label: "Home", path: "/" },
@@ -378,7 +378,7 @@ export default function ExamCategory() {
                         >
                           Explore Exam
                         </button>
-                        <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-gray-700 flex items-center justify-center text-gray-400 group-hover:bg-brand-light group-hover:text-brand-start transition-colors">
+                        <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500 group-hover:bg-brand-light group-hover:text-brand-start transition-colors">
                           {isExpanded ? (
                             <ChevronUp className="w-5 h-5" />
                           ) : (
@@ -444,10 +444,12 @@ export default function ExamCategory() {
         </div>
 
         {(!categoryData.exams || categoryData.exams.length === 0) && (
-          <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
+          <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
             <div className="text-2xl sm:text-3xl lg:text-4xl mb-4">📚</div>
-            <h3 className="text-xl font-bold text-gray-900">No Exams Found</h3>
-            <p className="text-gray-500 mt-2">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+              No Exams Found
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 mt-2">
               No exams available in this category yet.
             </p>
             <button

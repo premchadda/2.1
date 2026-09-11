@@ -6,6 +6,7 @@ import { toast } from "react-hot-toast";
 import { apiClient } from "../../shared/lib/dataService";
 import sanitizeHtml from "../../shared/lib/sanitizeHtml";
 import { getLocalizedField } from "../../shared/lib/language";
+import { formatDuration } from "../../shared/lib/format.js";
 import MathRenderer from "../../shared/components/MathRenderer";
 import {
   Trophy,
@@ -58,8 +59,6 @@ function TestResult() {
   const [solutionSectionFilter, setSolutionSectionFilter] = useState("all");
   const [expandedSolutions, setExpandedSolutions] = useState({});
   const [isProUser, setIsProUser] = useState(false);
-  const [_reportingQuestionId, _setReportingQuestionId] = useState(null);
-  const [_reportReason, _setReportReason] = useState("");
   const [reportedQuestions, setReportedQuestions] = useState(new Set());
   const [language, setLanguage] = useState(() => {
     const saved = localStorage.getItem("trstprep_language");
@@ -78,6 +77,7 @@ function TestResult() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showMobileActions, setShowMobileActions] = useState(false);
   const [showReattemptModal, setShowReattemptModal] = useState(false);
+  const [showAttemptBreakdown, setShowAttemptBreakdown] = useState(false);
   const mainScrollRef = useRef(null);
   const sectionRefs = useRef({});
   const confettiShownRef = useRef(new Set());
@@ -136,7 +136,7 @@ function TestResult() {
 
   const confirmReattempt = () => {
     setShowReattemptModal(false);
-    const seriesSlug = result?.seriesSlug || seriesId || "ssc-cgl-2026";
+    const seriesSlug = result?.seriesSlug || seriesId || "pyp";
     const targetTestId = result?.testId || result?.id || testId;
     navigate(
       `/${seriesSlug}/tests/${targetTestId}?attempt=${nextAttemptNumber}`,
@@ -159,7 +159,10 @@ function TestResult() {
   useEffect(() => {
     if (result) {
       const maxScore =
-        result.maxScore || result.totalMarks || result.totalQuestions * 2;
+        result.maxScore ||
+        result.totalMarks ||
+        (result.totalQuestions || 0) *
+          (result.marksPerQuestion || result.positiveMarks || 2);
       const pct =
         result.totalQuestions > 0 ? (result.score / maxScore) * 100 : 0;
       const attemptKey =
@@ -335,9 +338,12 @@ function TestResult() {
       }
     };
 
-    if (testId && seriesId) {
+    if (testId) {
       fetchResult();
       fetchSubscriptionStatus(controller.signal);
+    } else {
+      setLoading(false);
+      setError("Invalid test ID");
     }
     return () => controller.abort();
   }, [testId, seriesId, attemptIdFromState]);
@@ -450,7 +456,7 @@ function TestResult() {
                 Back
               </Link>
               <Link
-                to={`/test/${seriesId}/${testId}`}
+                to={`/${seriesId || result?.seriesSlug || "pyp"}/tests/${testId}`}
                 className="px-4 py-2 bg-brand-start text-white rounded-lg text-sm font-medium"
               >
                 Take Test
@@ -461,22 +467,6 @@ function TestResult() {
       </div>
     );
   }
-
-  const formatTime = (seconds) => {
-    if (!seconds) return "0m";
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
-  };
-
-  const _getScoreColor = () => {
-    const maxScore =
-      result.maxScore || result.totalMarks || result.totalQuestions * 2;
-    const percentage = (result.score / maxScore) * 100;
-    if (percentage >= 70) return "text-green-600 dark:text-green-400";
-    if (percentage >= 50) return "text-yellow-600 dark:text-yellow-400";
-    return "text-red-600 dark:text-red-400";
-  };
 
   const getAccuracyColor = (accValue) => {
     const val = accValue ?? (result.accuracy || 0);
@@ -801,7 +791,7 @@ function TestResult() {
       };
     })
     .sort((a, b) => b.accuracy - a.accuracy)[0];
-  const weakestSubject = Object.entries(subjectBreakdown)
+  const rawWeakest = Object.entries(subjectBreakdown)
     .map(([subject, data]) => {
       const attempted = data.correct + data.wrong;
       return {
@@ -811,21 +801,13 @@ function TestResult() {
       };
     })
     .sort((a, b) => a.accuracy - b.accuracy)[0];
-
-  const _handleReviewMode = () => {
-    const seriesSlug = result?.seriesSlug || seriesId || "ssc-cgl-2026";
-    const targetTestId = result?.testId || result?.id || testId;
-    navigate(`/${seriesSlug}/tests/${targetTestId}`, {
-      state: {
-        reviewMode: true,
-        attemptId: attemptIdFromState,
-        resultData: result,
-      },
-    });
-  };
+  const weakestSubject =
+    rawWeakest && rawWeakest.subject !== strongestSubject?.subject
+      ? rawWeakest
+      : null;
 
   const handleSolutionMode = () => {
-    const seriesSlug = result?.seriesSlug || seriesId || "ssc-cgl-2026";
+    const seriesSlug = result?.seriesSlug || seriesId || "pyp";
     const targetTestId = result?.testId || result?.id || testId;
     navigate(`/${seriesSlug}/tests/${targetTestId}/review`, {
       state: {
@@ -873,12 +855,21 @@ function TestResult() {
     qId,
     reason = "Incorrect answer/solution",
   ) => {
+    if (!qId) return;
+    if (reportedQuestions.has(qId)) return;
+
     setReportedQuestions((prev) => new Set([...prev, qId]));
     try {
       await apiClient.post(`/api/practice/questions/${qId}/report`, { reason });
       toast.success("Question reported for review", { id: `report-${qId}` });
     } catch (err) {
-      console.warn("API report fallback:", err?.message);
+      setReportedQuestions((prev) => {
+        const next = new Set(prev);
+        next.delete(qId);
+        return next;
+      });
+      if (import.meta.env.DEV)
+        console.warn("API report fallback:", err?.message);
       toast.error("Failed to report question. Please try again.", {
         id: `report-${qId}`,
       });
@@ -886,7 +877,10 @@ function TestResult() {
   };
 
   const maxScore =
-    result.maxScore || result.totalMarks || (result.totalQuestions || 0) * 2;
+    result.maxScore ||
+    result.totalMarks ||
+    (result.totalQuestions || 0) *
+      (result.marksPerQuestion || result.positiveMarks || 2);
   const scorePct = maxScore > 0 ? ((result.score || 0) / maxScore) * 100 : 0;
   const getBadge = (pct) => {
     if (pct >= 85)
@@ -921,28 +915,32 @@ function TestResult() {
   const BadgeIcon = perfBadge.icon;
 
   const getEncouragingCopy = () => {
-    if (scorePct >= 90) return "Outstanding! You're exam-ready!";
-    if (scorePct >= 70)
-      return "Great performance! A bit more practice and you'll ace it.";
-    if (scorePct >= 50)
-      return "Good foundation. Focus on your weak areas to level up.";
-    return "Keep going! Every attempt makes you stronger.";
+    if (scorePct >= 85) return "Outstanding! You're exam-ready!";
+    if (scorePct >= 60)
+      return `Great performance! A bit more practice and you'll ace it.`;
+    if (scorePct >= 40)
+      return weakestSubject
+        ? `Good foundation. Your accuracy in ${weakestSubject.subject} is ${weakestSubject.accuracy}% — focus there to level up.`
+        : "Good foundation. Focus on your weak areas to level up.";
+    return weakestSubject
+      ? `Every attempt makes you stronger. ${weakestSubject.subject} (${weakestSubject.accuracy}% accuracy) is your biggest opportunity right now.`
+      : "Keep going! Every attempt makes you stronger.";
   };
 
   const getAttemptDelta = () => {
     if (result.previousScore === undefined || result.previousScore === null)
       return null;
-    if (maxScore <= 0) return null;
-    const previousPct = (result.previousScore / maxScore) * 100;
+    const prev = Number(result.previousScore);
+    if (isNaN(prev) || maxScore <= 0) return null;
+    const previousPct = (prev / maxScore) * 100;
     return Math.round(scorePct - previousPct);
   };
 
   const attemptDelta = getAttemptDelta();
-  const sectionTimings = result.sectionTimings || null;
 
   // Sidebar sections
   const sections = [
-    { id: "score", label: "Score", icon: Trophy },
+    { id: "score", label: "Score", icon: Target },
     { id: "cutoff", label: "Cutoff Matrix", icon: Award },
     { id: "subjects", label: "Subjects", icon: Layers },
     { id: "difficulty", label: "Difficulty", icon: Zap },
@@ -1016,7 +1014,7 @@ function TestResult() {
       ? activeQuestionsWithTime.reduce((min, q) =>
           q.time < min.time ? q : min,
         )
-      : questionTimeData[0] || null;
+      : null;
 
   // Slowest question with max time spent
   const slowestQ =
@@ -1024,7 +1022,7 @@ function TestResult() {
       ? activeQuestionsWithTime.reduce((max, q) =>
           q.time > max.time ? q : max,
         )
-      : questionTimeData[0] || null;
+      : null;
 
   // Section Scorecard data with high-precision analytics
   const subjectAccuracies = Object.entries(subjectBreakdown).map(
@@ -1053,12 +1051,26 @@ function TestResult() {
         unattempted: data.unattempted,
         total: data.total,
         score: data.score,
-        maxScore: data.maxScore || data.total * 2,
+        maxScore:
+          data.maxScore ||
+          data.total *
+            (data.positiveMarks ||
+              result?.marksPerQuestion ||
+              result?.positiveMarks ||
+              2),
         timeSpent: data.timeSpent,
         avgSpeed: avgSecSpeed,
-        positiveMarks: data.positiveMarks || 2,
+        positiveMarks:
+          data.positiveMarks ||
+          result?.marksPerQuestion ||
+          result?.positiveMarks ||
+          2,
         negativeMarks:
-          data.negativeMarks !== undefined ? data.negativeMarks : 0.5,
+          data.negativeMarks !== undefined
+            ? data.negativeMarks
+            : result?.negativeMarks !== undefined
+              ? result?.negativeMarks
+              : 0.5,
       };
     },
   );
@@ -1314,6 +1326,87 @@ function TestResult() {
                     SCORE
                   </span>
                 </div>
+
+                {/* Attempt summary strip: attempt rate, marked-for-review, subject bars (display-only) */}
+                <div className="relative z-10 bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl border border-indigo-100 dark:border-slate-700/70 shadow-2xs mt-2.5 sm:mt-4 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowAttemptBreakdown((v) => !v)}
+                    aria-expanded={showAttemptBreakdown}
+                    className="w-full flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 text-left cursor-pointer"
+                    title={
+                      showAttemptBreakdown
+                        ? "Hide attempt breakdown"
+                        : "Show attempt breakdown"
+                    }
+                  >
+                    <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] sm:text-xs font-bold text-slate-600 dark:text-slate-300">
+                      <span>
+                        Attempt rate:{" "}
+                        <span className="text-indigo-600 dark:text-indigo-400">
+                          {attemptRate.toFixed(1)}%
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        Marked:{" "}
+                        <span className="text-purple-600 dark:text-purple-300">
+                          {markedCount}
+                        </span>
+                        <HelpCircle
+                          className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500"
+                          aria-hidden="true"
+                        />
+                      </span>
+                      <span className="text-slate-400 dark:text-slate-500 font-semibold">
+                        {correctCount + wrongCount}/{totalQuestions} attempted
+                      </span>
+                    </span>
+                    {showAttemptBreakdown ? (
+                      <ChevronUp
+                        className="w-4 h-4 text-slate-400 shrink-0"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <ChevronDown
+                        className="w-4 h-4 text-slate-400 shrink-0"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </button>
+                  {showAttemptBreakdown && (
+                    <div className="px-3 sm:px-4 pb-3 space-y-2 border-t border-indigo-100 dark:border-slate-700/70 pt-2.5">
+                      {subjectAccuracies.map((s, idx) => {
+                        const attempted = s.correct + s.wrong;
+                        const pct =
+                          s.total > 0
+                            ? Math.round((attempted / s.total) * 100)
+                            : 0;
+                        return (
+                          <div
+                            key={s.subject}
+                            className="flex items-center gap-2"
+                          >
+                            <span
+                              className="w-28 truncate text-[11px] font-bold text-slate-600 dark:text-slate-300"
+                              title={s.subject}
+                            >
+                              {s.subject}
+                            </span>
+                            <div className="flex-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${subjectBarClasses[idx % subjectBarClasses.length]}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 tabular-nums w-9 text-right">
+                              {pct}%
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex justify-center gap-3 mt-3 text-[10px] font-bold">
@@ -1377,7 +1470,7 @@ function TestResult() {
           }`}
         >
           <div
-            className={`pb-16 ${
+            className={`pb-10 ${
               mobileTab === "solution"
                 ? "w-full space-y-0"
                 : "max-w-5xl mx-auto space-y-4 sm:space-y-6 md:space-y-8"
@@ -1445,7 +1538,7 @@ function TestResult() {
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
                         <span
-                          className={`text-xl sm:text-2xl md:text-xl sm:text-2xl lg:text-3xl font-black tracking-tighter ${
+                          className={`text-xl sm:text-2xl lg:text-3xl font-black tracking-tighter ${
                             (result.score || 0) < 0
                               ? "text-rose-600 dark:text-rose-400"
                               : "text-slate-900 dark:text-white"
@@ -1455,7 +1548,12 @@ function TestResult() {
                           {formatScoreValue(result.score || 0)}
                         </span>
                         <span className="text-[9px] sm:text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">
-                          / {result.maxScore || totalQuestions * 2}
+                          /{" "}
+                          {maxScore ||
+                            totalQuestions *
+                              (result.marksPerQuestion ||
+                                result.positiveMarks ||
+                                2)}
                         </span>
                       </div>
                     </div>
@@ -1463,7 +1561,14 @@ function TestResult() {
                     {/* Right Side: Title + Performance Badge + Rank/Percentile */}
                     <div className="flex-1 min-w-0 flex flex-col justify-center space-y-1.5 sm:space-y-2">
                       <h2 className="text-sm sm:text-lg md:text-xl font-black text-slate-900 dark:text-white leading-tight truncate">
-                        {result.testTitle || "Test Completed!"}
+                        <MathRenderer
+                          text={sanitizeHtml(
+                            getLocalizedField(
+                              result.testTitle || "Test Completed!",
+                              language,
+                            ),
+                          )}
+                        />
                       </h2>
 
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -1476,13 +1581,15 @@ function TestResult() {
                         </div>
 
                         {/* Rank Badge */}
-                        <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-black bg-amber-400/20 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-600 shadow-2xs">
-                          <Trophy className="w-3.5 h-3.5 text-amber-500" /> Rank{" "}
-                          {result.rank || 1}
-                          {result.totalParticipants
-                            ? ` / ${result.totalParticipants.toLocaleString()}`
-                            : ""}
-                        </span>
+                        {result.rank ? (
+                          <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-black bg-amber-400/20 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-600 shadow-2xs">
+                            <Trophy className="w-3.5 h-3.5 text-amber-500" />{" "}
+                            Rank {result.rank}
+                            {result.totalParticipants
+                              ? ` / ${result.totalParticipants.toLocaleString()}`
+                              : ""}
+                          </span>
+                        ) : null}
 
                         {/* Category Rank */}
                         {result.categoryRank && (
@@ -1507,12 +1614,17 @@ function TestResult() {
                         {/* Attempt Delta */}
                         {attemptDelta !== null && (
                           <span
-                            className={`inline-flex items-center px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-black ${
+                            className={`inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-black ${
                               attemptDelta >= 0
                                 ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30"
                                 : "bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30"
                             }`}
+                            title={`Score change vs previous attempt: ${attemptDelta >= 0 ? "+" : ""}${attemptDelta}%`}
                           >
+                            <TrendingUp
+                              className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${attemptDelta >= 0 ? "" : "rotate-180"}`}
+                              aria-hidden="true"
+                            />
                             {attemptDelta >= 0 ? "+" : ""}
                             {attemptDelta}% vs Previous
                           </span>
@@ -1533,9 +1645,13 @@ function TestResult() {
                   <div className="relative z-10 grid grid-cols-4 gap-1.5 sm:gap-3 mt-2.5 sm:mt-4">
                     <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
                       <p
-                        className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate"
+                        className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate flex items-center gap-1 justify-center sm:justify-start"
                         title="Correct"
                       >
+                        <CheckCircle
+                          className="w-3 h-3 text-emerald-500"
+                          aria-hidden="true"
+                        />
                         Correct
                       </p>
                       <p className="text-sm sm:text-lg md:text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
@@ -1561,27 +1677,39 @@ function TestResult() {
                     </div>
                     <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
                       <p
-                        className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate"
+                        className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate flex items-center gap-1 justify-center sm:justify-start"
                         title="Accuracy"
                       >
+                        <PieChart
+                          className="w-3 h-3 text-amber-500"
+                          aria-hidden="true"
+                        />
                         Accuracy
                       </p>
-                      <p className="text-sm sm:text-lg md:text-xl font-black text-amber-600 dark:text-amber-400 mt-0.5">
+                      <p
+                        className={`text-sm sm:text-lg md:text-xl font-black mt-0.5 ${getAccuracyColor(overallAccuracy)}`}
+                      >
                         {overallAccuracy.toFixed(1)}%
                       </p>
                     </div>
                     <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
                       <p
-                        className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate"
+                        className="text-[10px] sm:text-xs md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate flex items-center gap-1 justify-center sm:justify-start"
                         title="Time Taken"
                       >
+                        <Clock
+                          className="w-3 h-3 text-blue-500"
+                          aria-hidden="true"
+                        />
                         Time Taken
                       </p>
                       <p
                         className="text-sm sm:text-lg md:text-xl font-black text-blue-600 dark:text-blue-400 mt-0.5 truncate"
-                        title={formatTime(result.timeSpent || result.timeTaken)}
+                        title={formatDuration(
+                          result.timeSpent || result.timeTaken,
+                        )}
                       >
-                        {formatTime(result.timeSpent || result.timeTaken)}
+                        {formatDuration(result.timeSpent || result.timeTaken)}
                       </p>
                     </div>
                   </div>
@@ -1607,7 +1735,7 @@ function TestResult() {
                         <p className="text-white/90 text-xs mt-0.5">
                           {wrongCount > 0
                             ? `Directly re-practice all ${wrongCount} incorrect questions from this test in Practice Lab.`
-                            : "Review all test questions or practice missed questions across previous tests."}
+                            : `You answered every question in this test — practice questions you missed across your previous tests${weakestSubject ? `, especially ${weakestSubject.subject} (${weakestSubject.accuracy}% accuracy)` : ""}.`}
                         </p>
                       </div>
                     </div>
@@ -1665,7 +1793,7 @@ function TestResult() {
                 subjectBreakdown={subjectBreakdown}
                 subjectAccuracies={subjectAccuracies}
                 formatScoreValue={formatScoreValue}
-                formatTime={formatTime}
+                formatTime={formatDuration}
                 totalQuestions={totalQuestions}
                 correctCount={correctCount}
                 wrongCount={wrongCount}
@@ -1779,7 +1907,7 @@ function TestResult() {
                       Total Time
                     </p>
                     <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-white">
-                      {formatTime(result.timeSpent || result.timeTaken)}
+                      {formatDuration(result.timeSpent || result.timeTaken)}
                     </p>
                     <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium mt-1">
                       Full test session
@@ -1823,7 +1951,7 @@ function TestResult() {
                       <p className="text-base sm:text-xl font-black text-rose-700 dark:text-rose-300">
                         Q{slowestQ.index}{" "}
                         <span className="text-xs font-semibold text-rose-600">
-                          ({formatTime(slowestQ.time)})
+                          ({formatDuration(slowestQ.time)})
                         </span>
                       </p>
                       <p
@@ -1934,6 +2062,8 @@ function TestResult() {
                 isSkippedQuestion={isSkippedQuestion}
                 normalizeResultOption={normalizeResultOption}
                 navigate={navigate}
+                onReportQuestion={handleReportQuestion}
+                reportedQuestions={reportedQuestions}
               />
             </div>
 
@@ -1978,14 +2108,14 @@ function TestResult() {
               .
             </p>
 
-            <div className="bg-slate-50 dark:bg-gray-900 rounded-2xl p-3.5 mb-6 border border-slate-200/80 dark:border-gray-700/80 text-left space-y-2">
+            <div className="bg-slate-50 dark:bg-gray-900 rounded-2xl p-3.5 mb-4 border border-slate-200/80 dark:border-gray-700/80 text-left space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-gray-500 dark:text-gray-400 font-medium">
                   Previous Best Score
                 </span>
                 <span className="font-bold text-gray-900 dark:text-white">
                   {(result?.score || 0).toFixed(1)} / {maxScore} (
-                  {Math.round(scorePct)}%)
+                  {Math.max(0, Math.round(scorePct))}%)
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
@@ -1996,6 +2126,15 @@ function TestResult() {
                   Attempt #{nextAttemptNumber}
                 </span>
               </div>
+            </div>
+
+            <div className="mb-6 text-left">
+              <ReattemptOptions
+                testId={result?.testId || result?.id || testId}
+                attemptId={attemptIdFromState}
+                isProUser={isProUser}
+                seriesId={result?.seriesSlug || seriesId}
+              />
             </div>
 
             <div className="flex gap-3">

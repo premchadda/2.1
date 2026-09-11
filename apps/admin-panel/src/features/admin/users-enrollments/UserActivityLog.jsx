@@ -665,7 +665,7 @@ export default function UserActivityLog() {
 
       {/* 4. Main Content Area */}
       {loading ? (
-        <div className="p-16 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+        <div className="p-6 sm:p-8 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
           <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
             Synchronizing Activity Feed...
@@ -978,7 +978,7 @@ export default function UserActivityLog() {
           </div>
         </div>
       ) : filteredActivities.length === 0 ? (
-        <div className="p-16 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+        <div className="p-6 sm:p-8 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
           <Activity className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
           <h3 className="text-base font-bold text-gray-900 dark:text-white">
             No activities match your filters

@@ -11,7 +11,7 @@ const LazyImage = ({
   decoding = "async",
   ...props
 }) => {
-  if (!alt) {
+  if (!alt && import.meta.env.DEV) {
     console.warn("[LazyImage] alt prop is required for accessibility");
   }
   const [isLoaded, setIsLoaded] = useState(false);

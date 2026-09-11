@@ -1,9 +1,11 @@
 import express from "express";
 import { protect, admin } from "../../middleware/auth.middleware.js";
+import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
 import liveMockService from "./liveMock.service.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
+const liveTestLimiter = createRateLimiter("moderate");
 
 router.get("/", async (req, res) => {
   try {
@@ -67,7 +69,7 @@ router.post("/", protect, admin, async (req, res) => {
   }
 });
 
-router.post("/:id/register", protect, async (req, res) => {
+router.post("/:id/register", protect, liveTestLimiter, async (req, res) => {
   try {
     const result = await liveMockService.register(req.user.id, req.params.id);
     res.json({ success: true, data: result });
@@ -78,7 +80,7 @@ router.post("/:id/register", protect, async (req, res) => {
   }
 });
 
-router.post("/:id/start", protect, async (req, res) => {
+router.post("/:id/start", protect, liveTestLimiter, async (req, res) => {
   try {
     const result = await liveMockService.startAttempt(
       req.user.id,
@@ -92,7 +94,7 @@ router.post("/:id/start", protect, async (req, res) => {
   }
 });
 
-router.post("/:id/submit", protect, async (req, res) => {
+router.post("/:id/submit", protect, liveTestLimiter, async (req, res) => {
   try {
     const { answers } = req.body;
     const result = await liveMockService.submitAttempt(

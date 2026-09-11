@@ -104,6 +104,11 @@ vi.mock("../shared/lib/sanitizeHtml", () => ({
 }));
 
 describe("TestLeaderboardTab", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
   const mockResult = {
     rank: 2,
     score: 172,
@@ -142,6 +147,14 @@ describe("TestLeaderboardTab", () => {
 
     // Check filter button
     expect(screen.getByText(/Top 10/i)).toBeInTheDocument();
+  });
+
+  it("creates a valid React element for the leaderboard tab", () => {
+    const element = (
+      <TestLeaderboardTab testId="test-123" seriesId="ssc-cgl" result={{}} />
+    );
+    expect(React.isValidElement(element)).toBe(true);
+    expect(element.type).toBe(TestLeaderboardTab);
   });
 });
 

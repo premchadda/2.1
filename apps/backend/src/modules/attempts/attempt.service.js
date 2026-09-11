@@ -10,6 +10,7 @@ import {
   dbHelpers,
   pool,
 } from "../../infrastructure/database/postgres-helpers.js";
+import logger from "../../infrastructure/logger/logger.js";
 import {
   resolveQuestionMarks,
   scoreMcqAnswer,
@@ -54,11 +55,18 @@ export const attemptService = {
       startedAt: new Date().toISOString(),
     });
 
-    await addJob(QUEUE_NAMES.ANALYTICS, "analytics.test-started", {
-      userId,
-      testId: test.id,
-      attemptId: attempt.id,
-    });
+    // Analytics emit is best-effort — a queue outage must never fail start().
+    try {
+      await addJob(QUEUE_NAMES.ANALYTICS, "analytics.test-started", {
+        userId,
+        testId: test.id,
+        attemptId: attempt.id,
+      });
+    } catch (err) {
+      logger.warn(
+        `[attempt.service] analytics.test-started enqueue failed (non-fatal): ${err.message}`,
+      );
+    }
 
     return { attempt, resumed: false };
   },
@@ -379,6 +387,59 @@ export const attemptService = {
       client.release();
     }
 
+    // Engine signals (best-effort, batched): feed each evaluated answer into
+    // NodeEngine spaced-repetition state + adaptive-difficulty EMA. A queue or
+    // engine outage must never fail submission — failures only warn.
+    try {
+      const [{ nodeEngineService }] = await Promise.all([
+        import("../../services/core/NodeEngineService.js"),
+      ]);
+      let adaptiveDifficultyService = null;
+      try {
+        ({ default: adaptiveDifficultyService } =
+          await import("../ai/adaptiveDifficulty.js"));
+      } catch {
+        adaptiveDifficultyService = null;
+      }
+      const byId = new Map(questions.map((q) => [String(q.id), q]));
+      const jobs = [];
+      for (const a of evaluatedAnswers) {
+        const q = byId.get(String(a.questionId)) || {};
+        const rawTopicId = q.topic_id ?? q.topicId ?? null;
+        // Only real numeric topic ids feed the engine — question ids or
+        // topic-name strings would create orphan user_node_skill rows.
+        const topicId = Number(rawTopicId);
+        const t = Number(a.timeSpent) || 0;
+        if (Number.isInteger(topicId) && topicId > 0) {
+          jobs.push(
+            nodeEngineService
+              .recordAttempt(userId, topicId, a.isCorrect, t || 45)
+              .catch((e) =>
+                logger.warn(
+                  `[attempt.service] NodeEngine bridge non-fatal: ${e.message}`,
+                ),
+              ),
+          );
+          if (adaptiveDifficultyService) {
+            jobs.push(
+              adaptiveDifficultyService
+                .updatePerformance(userId, topicId, a.isCorrect, t)
+                .catch((e) =>
+                  logger.warn(
+                    `[attempt.service] AdaptiveDifficulty bridge non-fatal: ${e.message}`,
+                  ),
+                ),
+            );
+          }
+        }
+      }
+      await Promise.all(jobs);
+    } catch (bridgeErr) {
+      logger.warn(
+        `[attempt.service] engine bridge non-fatal: ${bridgeErr.message}`,
+      );
+    }
+
     await emitDomainEvent("test_submitted", {
       userId,
       testId: test.id,
@@ -447,142 +508,161 @@ export const attemptService = {
       );
     }
 
-    const { rows: parentRows } = await pool.query(
-      `SELECT * FROM attempts WHERE id = $1`,
-      [parentAttemptId],
-    );
-    const parent = parentRows[0];
-    if (!parent) {
-      throw new Error("Parent attempt not found");
-    }
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    if (String(parent.user_id) !== String(userId) && userId !== "admin") {
-      throw new Error("Not authorized to reattempt this attempt");
-    }
-
-    const allQuestions = await testRepo.getQuestions(parent.test_id);
-    const { rows: parentAnswers } = await pool.query(
-      `SELECT * FROM attempt_answers WHERE attempt_id = $1`,
-      [parentAttemptId],
-    );
-
-    let eligibleQuestions = [];
-    let titleSuffix = "Reattempt";
-
-    switch (normalizedType) {
-      case "full":
-        eligibleQuestions = allQuestions;
-        titleSuffix = "Full Reattempt";
-        break;
-
-      case "wrong": {
-        const wrongQIds = new Set(
-          parentAnswers
-            .filter((a) => a.is_correct === false)
-            .map((a) => String(a.question_id)),
-        );
-        eligibleQuestions = allQuestions.filter((q) =>
-          wrongQIds.has(String(q.id)),
-        );
-        titleSuffix = "Wrong Questions";
-        break;
-      }
-
-      case "unattempted": {
-        const answeredQIds = new Set(
-          parentAnswers
-            .filter(
-              (a) =>
-                a.selected_option !== null && a.selected_option !== undefined,
-            )
-            .map((a) => String(a.question_id)),
-        );
-        eligibleQuestions = allQuestions.filter(
-          (q) => !answeredQIds.has(String(q.id)),
-        );
-        titleSuffix = "Unattempted Questions";
-        break;
-      }
-
-      case "slow": {
-        const slowQIds = new Set(
-          parentAnswers
-            .filter((a) => Number(a.time_spent || 0) > 90)
-            .map((a) => String(a.question_id)),
-        );
-        eligibleQuestions = allQuestions.filter((q) =>
-          slowQIds.has(String(q.id)),
-        );
-        titleSuffix = "Slow Questions";
-        break;
-      }
-
-      case "smart": {
-        const wrongQIds = new Set(
-          parentAnswers
-            .filter((a) => a.is_correct === false)
-            .map((a) => String(a.question_id)),
-        );
-        const answeredQIds = new Set(
-          parentAnswers
-            .filter(
-              (a) =>
-                a.selected_option !== null && a.selected_option !== undefined,
-            )
-            .map((a) => String(a.question_id)),
-        );
-        const slowQIds = new Set(
-          parentAnswers
-            .filter((a) => Number(a.time_spent || 0) > 90)
-            .map((a) => String(a.question_id)),
-        );
-
-        eligibleQuestions = allQuestions.filter(
-          (q) =>
-            wrongQIds.has(String(q.id)) ||
-            !answeredQIds.has(String(q.id)) ||
-            slowQIds.has(String(q.id)),
-        );
-        titleSuffix = "Smart Improvement";
-        break;
-      }
-
-      default:
-        eligibleQuestions = allQuestions;
-    }
-
-    if (!eligibleQuestions || eligibleQuestions.length === 0) {
-      const err = new Error(
-        "No eligible questions available for this reattempt mode.",
+      // Lock parent attempt row to prevent duplicate attempt_number on concurrent requests
+      const { rows: parentRows } = await client.query(
+        `SELECT * FROM attempts WHERE id = $1 FOR UPDATE`,
+        [parentAttemptId],
       );
-      err.code = "NO_QUESTIONS_FOR_REATTEMPT";
-      throw err;
-    }
+      const parent = parentRows[0];
+      if (!parent) {
+        throw new Error("Parent attempt not found");
+      }
 
-    const testTitle = `${parent.test_title || "Practice Test"} - ${titleSuffix}`;
-    const nextAttemptNo = (Number(parent.attempt_number) || 1) + 1;
+      if (String(parent.user_id) !== String(userId) && userId !== "admin") {
+        throw new Error("Not authorized to reattempt this attempt");
+      }
 
-    // Single atomic INSERT
-    const { rows: newAttemptRows } = await pool.query(
-      `INSERT INTO attempts (
+      if (parent.is_completed !== true && parent.status !== "completed") {
+        throw new Error(
+          "Cannot reattempt an in-progress attempt. Please complete the attempt first.",
+        );
+      }
+
+      const allQuestions = await testRepo.getQuestions(parent.test_id);
+      const { rows: parentAnswers } = await client.query(
+        `SELECT * FROM attempt_answers WHERE attempt_id = $1`,
+        [parentAttemptId],
+      );
+
+      let eligibleQuestions = [];
+      let titleSuffix = "Reattempt";
+
+      switch (normalizedType) {
+        case "full":
+          eligibleQuestions = allQuestions;
+          titleSuffix = "Full Reattempt";
+          break;
+
+        case "wrong": {
+          const wrongQIds = new Set(
+            parentAnswers
+              .filter((a) => a.is_correct === false)
+              .map((a) => String(a.question_id)),
+          );
+          eligibleQuestions = allQuestions.filter((q) =>
+            wrongQIds.has(String(q.id)),
+          );
+          titleSuffix = "Wrong Questions";
+          break;
+        }
+
+        case "unattempted": {
+          const answeredQIds = new Set(
+            parentAnswers
+              .filter(
+                (a) =>
+                  a.selected_option !== null && a.selected_option !== undefined,
+              )
+              .map((a) => String(a.question_id)),
+          );
+          eligibleQuestions = allQuestions.filter(
+            (q) => !answeredQIds.has(String(q.id)),
+          );
+          titleSuffix = "Unattempted Questions";
+          break;
+        }
+
+        case "slow": {
+          const slowQIds = new Set(
+            parentAnswers
+              .filter((a) => Number(a.time_spent || 0) > 90)
+              .map((a) => String(a.question_id)),
+          );
+          eligibleQuestions = allQuestions.filter((q) =>
+            slowQIds.has(String(q.id)),
+          );
+          titleSuffix = "Slow Questions";
+          break;
+        }
+
+        case "smart": {
+          const wrongQIds = new Set(
+            parentAnswers
+              .filter((a) => a.is_correct === false)
+              .map((a) => String(a.question_id)),
+          );
+          const answeredQIds = new Set(
+            parentAnswers
+              .filter(
+                (a) =>
+                  a.selected_option !== null && a.selected_option !== undefined,
+              )
+              .map((a) => String(a.question_id)),
+          );
+          const slowQIds = new Set(
+            parentAnswers
+              .filter((a) => Number(a.time_spent || 0) > 90)
+              .map((a) => String(a.question_id)),
+          );
+
+          eligibleQuestions = allQuestions.filter(
+            (q) =>
+              wrongQIds.has(String(q.id)) ||
+              !answeredQIds.has(String(q.id)) ||
+              slowQIds.has(String(q.id)),
+          );
+          titleSuffix = "Smart Improvement";
+          break;
+        }
+
+        default:
+          eligibleQuestions = allQuestions;
+      }
+
+      if (!eligibleQuestions || eligibleQuestions.length === 0) {
+        const err = new Error(
+          "No eligible questions available for this reattempt mode.",
+        );
+        err.code = "NO_QUESTIONS_FOR_REATTEMPT";
+        throw err;
+      }
+
+      const testTitle = `${parent.test_title || "Practice Test"} - ${titleSuffix}`;
+      const nextAttemptNo = (Number(parent.attempt_number) || 1) + 1;
+
+      // Atomic INSERT within locked transaction
+      const { rows: newAttemptRows } = await client.query(
+        `INSERT INTO attempts (
         user_id, test_id, test_title, attempt_number, is_reattempt, reattempt_type,
         parent_attempt_id, series_id, status, is_completed, started_at, created_at
       ) VALUES ($1, $2, $3, $4, true, $5, $6, $7, 'in_progress', false, NOW(), NOW())
       RETURNING *`,
-      [
-        parent.user_id,
-        parent.test_id,
-        testTitle,
-        nextAttemptNo,
-        normalizedType,
-        parent.id,
-        parent.series_id || null,
-      ],
-    );
+        [
+          parent.user_id,
+          parent.test_id,
+          testTitle,
+          nextAttemptNo,
+          normalizedType,
+          parent.id,
+          parent.series_id || null,
+        ],
+      );
 
-    return {
-      attempt: newAttemptRows[0],
-      questions: eligibleQuestions,
-    };
+      await client.query("COMMIT");
+
+      return {
+        attempt: newAttemptRows[0],
+        questions: eligibleQuestions,
+      };
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
   },
 };

@@ -46,7 +46,7 @@ export default function ExamHero({ exam, selectedYear, onYearChange, years }) {
           <div className="relative">
             <button
               onClick={() => setShowYearDropdown(!showYearDropdown)}
-              className="flex items-center gap-3 bg-white text-indigo-900 px-6 py-3 rounded-lg font-medium hover:bg-indigo-50 transition-colors shadow-lg"
+              className="flex items-center gap-3 bg-white dark:bg-gray-800 text-indigo-900 px-6 py-3 rounded-lg font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors shadow-lg"
             >
               <Calendar className="w-5 h-5" />
               <span>{selectedYear || "Select Year"}</span>
@@ -56,7 +56,7 @@ export default function ExamHero({ exam, selectedYear, onYearChange, years }) {
             </button>
 
             {showYearDropdown && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-10">
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-10">
                 {years?.map((year) => (
                   <button
                     key={year}
@@ -64,9 +64,9 @@ export default function ExamHero({ exam, selectedYear, onYearChange, years }) {
                       onYearChange(year);
                       setShowYearDropdown(false);
                     }}
-                    className={`w-full text-left px-4 py-2 hover:bg-indigo-50 transition-colors ${
+                    className={`w-full text-left px-4 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors ${
                       selectedYear === year
-                        ? "bg-indigo-100 text-indigo-700 font-medium"
+                        ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-medium"
                         : "text-gray-700"
                     }`}
                   >

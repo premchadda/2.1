@@ -187,6 +187,7 @@ export default function ResultsManager() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
           <input
             type="text"
+            aria-label="Search by user or test"
             placeholder="Search by user or test..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -301,7 +302,7 @@ export default function ResultsManager() {
           </table>
         </div>
         {filteredResults.length === 0 && (
-          <div className="text-center py-12">
+          <div className="text-center py-8">
             <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500 dark:text-gray-400">No results found</p>
           </div>

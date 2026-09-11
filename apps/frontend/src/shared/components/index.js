@@ -18,8 +18,6 @@ export { default as ProtectedRoute } from "./auth/ProtectedRoute.jsx";
 export { default as TestSeriesCard } from "./test/TestSeriesCard.jsx";
 export { default as TestCard } from "./test/TestCard.jsx";
 
-export { default as AdminLayout } from "./admin/AdminLayout.jsx";
-
 export { default as CompactStatsCards } from "./common/CompactStatsCards.jsx";
 export { default as LoadingSpinner } from "./common/LoadingSpinner.jsx";
 export { default as ErrorMessage } from "./common/ErrorMessage.jsx";

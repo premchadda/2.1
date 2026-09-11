@@ -123,12 +123,12 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
                   aria-hidden="true"
                 />
                 <input
+                  aria-label="Open search"
                   type="text"
                   placeholder="Search for tests, exams, study materials..."
-                  className="w-full pl-12 pr-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-start/20 focus:border-brand-start transition-all dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-400"
+                  className="w-full pl-8 pr-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-start/20 focus:border-brand-start transition-all dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-400"
                   onClick={() => setIsSearchOpen(true)}
                   readOnly
-                  aria-label="Open search"
                 />
                 <kbd
                   className="absolute right-4 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-400 bg-white border border-gray-200 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-500"

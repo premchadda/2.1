@@ -1,113 +1,72 @@
-import { pool } from '../infrastructure/database/postgres-helpers.js'
-
 /**
- * DB-backed CSRF token store
- * Falls back to in-memory Map (never filesystem) when DB is unavailable
+ * DB-backed CSRF token store adapter
+ * Delegated directly to canonical src/middleware/csrf.middleware.js
+ * No duplicate interval or separate table creation needed.
+ *
+ * Keying contract (canonical): both storeCsrfToken and getCsrfToken key
+ * storage by HMAC(authToken) — NOT by user id. The previous implementation
+ * stored under HMAC(userId) but retrieved under HMAC(token), which could
+ * never match, so verifyCsrfToken() always returned false.
  */
-
-// In-memory fallback — never persists tokens to disk
-const memoryStore = new Map()
+import {
+  storeCsrfToken,
+  getCsrfToken,
+  generateCsrfToken,
+  cleanupExpiredCsrfTokens as canonicalCleanup,
+} from "../middleware/csrf.middleware.js";
 
 /**
- * Initialize CSRF token table if not exists
+ * Initialize CSRF table (handled by DB migrations)
  */
 export async function initCsrfTable() {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS csrf_tokens (
-        id SERIAL PRIMARY KEY,
-        csrf_token TEXT UNIQUE NOT NULL,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        expires_at TIMESTAMP NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `)
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_csrf_tokens_token ON csrf_tokens(csrf_token)')
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_csrf_tokens_expires ON csrf_tokens(expires_at)')
-    console.log('✅ CSRF token table initialized')
-  } catch (e) {
-    console.warn('⚠️  Using in-memory CSRF token store (table creation failed)')
-  }
+  return Promise.resolve();
 }
 
 /**
- * Create a CSRF token
+ * Create a CSRF token bound to an auth token.
+ * @param {string} userId - owner (unused for keying; kept for API compat)
+ * @param {string} authToken - the auth token that keys storage
+ * @param {Date} [expiresAt] - ignored; canonical expiry applies
+ * @returns {Promise<{token: string}>} the generated CSRF token
  */
-export async function createCsrfToken(userId, token, expiresAt) {
-  try {
-    await pool.query(
-      'INSERT INTO csrf_tokens (csrf_token, user_id, expires_at) VALUES ($1, $2, $3)',
-      [token, userId, expiresAt]
-    )
-  } catch (e) {
-    // Fallback to in-memory storage
-    memoryStore.set(token, { userId, expiresAt: expiresAt.toISOString() })
-  }
+export async function createCsrfToken(userId, authToken, expiresAt) {
+  void userId;
+  void expiresAt;
+  const token = generateCsrfToken();
+  await storeCsrfToken(authToken, token);
+  return { token };
 }
 
 /**
- * Verify a CSRF token (returns true if valid, deletes token if one-time-use)
+ * Verify a CSRF token against the one stored for its auth token.
+ * @param {string} authToken - auth token whose stored CSRF token to compare
+ * @param {string} csrfToken - CSRF token supplied by the client
  */
-export async function verifyCsrfToken(token) {
-  try {
-    const result = await pool.query(
-      'SELECT id, expires_at FROM csrf_tokens WHERE csrf_token = $1 AND expires_at > NOW()',
-      [token]
-    )
-    if (result.rows.length > 0) {
-      await pool.query('DELETE FROM csrf_tokens WHERE id = $1', [result.rows[0].id])
-      return true
-    }
-    return false
-  } catch {
-    // Fallback to in-memory storage
-    const entry = memoryStore.get(token)
-    if (entry && new Date(entry.expiresAt) > new Date()) {
-      memoryStore.delete(token)
-      return true
-    }
-    return false
+export async function verifyCsrfToken(authToken, csrfToken) {
+  if (!authToken || !csrfToken) return false;
+  const stored = await getCsrfToken(authToken);
+  if (!stored) return false;
+  if (typeof crypto !== "undefined" && crypto.timingSafeEqual) {
+    const a = Buffer.from(String(stored));
+    const b = Buffer.from(String(csrfToken));
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
   }
+  return stored === csrfToken;
 }
 
 /**
- * Cleanup expired CSRF tokens older than 1 hour
+ * Cleanup expired CSRF tokens
  */
 export async function cleanupExpiredCsrfTokens() {
-  try {
-    const result = await pool.query(
-      "DELETE FROM csrf_tokens WHERE expires_at < NOW() - INTERVAL '1 hour'"
-    )
-    console.log(`🧹 Cleaned up ${result.rowCount} expired CSRF tokens`)
-    return result.rowCount
-  } catch {
-    // Fallback to in-memory storage
-    const now = new Date()
-    let cleaned = 0
-    for (const [key, value] of memoryStore.entries()) {
-      if (new Date(value.expiresAt) < now) {
-        memoryStore.delete(key)
-        cleaned++
-      }
-    }
-    return cleaned
+  if (typeof canonicalCleanup === "function") {
+    return canonicalCleanup();
   }
+  return 0;
 }
 
-// Periodic cleanup: purge expired tokens from the in-memory fallback every 5 min
-const CLEANUP_INTERVAL_MS = 5 * 60 * 1000
-setInterval(() => {
-  const now = new Date()
-  let cleaned = 0
-  for (const [key, value] of memoryStore.entries()) {
-    if (new Date(value.expiresAt) < now) {
-      memoryStore.delete(key)
-      cleaned++
-    }
-  }
-  if (cleaned > 0) {
-    console.log(`🧹 In-memory CSRF cleanup: removed ${cleaned} expired token(s)`)
-  }
-}, CLEANUP_INTERVAL_MS).unref()
-
-export default { initCsrfTable, createCsrfToken, verifyCsrfToken, cleanupExpiredCsrfTokens }
+export default {
+  initCsrfTable,
+  createCsrfToken,
+  verifyCsrfToken,
+  cleanupExpiredCsrfTokens,
+};

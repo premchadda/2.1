@@ -2,11 +2,10 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "../../shared/providers/AuthContext";
 import { getTests, getTestSeries } from "../../shared/lib/dataService";
+import { testsAPI } from "../../shared/lib/testsAPI";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
-import { TestCard } from "../../shared/components";
+import { TestCard, AnimatedHero, SEO } from "../../shared/components";
 import { Search, ChevronRight } from "lucide-react";
-
-import { AnimatedHero } from "../../shared/components";
 import {
   checkIsLive,
   checkIsQuiz,
@@ -32,10 +31,11 @@ function TagPage({ tagProp }) {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Fetch test data and tag configuration from backend simultaneously
-        const [tests, series, configRes] = await Promise.all([
-          getTests(),
-          getTestSeries(),
+        // Fetch direct tag tests, fallback test data, series, and tag config in parallel
+        const [tagRes, testsFallback, series, configRes] = await Promise.all([
+          testsAPI.getByTag(tag).catch(() => null),
+          getTests().catch(() => []),
+          getTestSeries().catch(() => []),
           fetch(
             `${import.meta.env.VITE_API_URL || ""}/api/tag-configs/${tag}`,
             { signal: controller.signal },
@@ -45,22 +45,40 @@ function TagPage({ tagProp }) {
         ]);
         if (controller.signal.aborted) return;
 
-        setTestsData(tests);
+        const directTests = tagRes?.data?.data || tagRes?.data;
+        const candidateTests =
+          Array.isArray(directTests) && directTests.length > 0
+            ? directTests
+            : testsFallback;
+
+        setTestsData(candidateTests);
         setSeriesData(series);
 
         if (configRes && configRes.success && configRes.data) {
-          setTagConfig(configRes.data);
+          const c = configRes.data;
+          setTagConfig({
+            ...c,
+            title: c.title || c.label,
+            filterKey: c.filterKey || c.filterType || c.filter_type,
+            filterValue: c.filterValue || c.filter_value,
+          });
         } else {
           // Fallback if tag config is missing or fails to load
           setTagConfig({
             id: tag,
-            label:
-              tag?.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase()) ||
-              "Tests",
-            icon: "📋",
-            description: "Browse all available tests",
-            filterKey: "",
-            filterValue: "",
+            title:
+              tag === "quizzes"
+                ? "Daily Quizzes"
+                : tag
+                    ?.replace("-", " ")
+                    .replace(/\b\w/g, (l) => l.toUpperCase()) || "Tests",
+            icon: tag === "quizzes" ? "❓" : "📋",
+            description:
+              tag === "quizzes"
+                ? "Quick practice quizzes to sharpen your skills"
+                : "Browse all available tests",
+            filterKey: tag === "quizzes" ? "category" : "",
+            filterValue: tag === "quizzes" ? "Quizzes,Quiz" : "",
           });
         }
       } catch (error) {
@@ -77,9 +95,16 @@ function TagPage({ tagProp }) {
 
   // Map backend configuration fields to UI
   const config = {
-    title: tagConfig?.label || "Tests",
-    icon: tagConfig?.icon || "📋",
-    desc: tagConfig?.description || "Browse all available tests",
+    title:
+      tagConfig?.title ||
+      tagConfig?.label ||
+      (tag === "quizzes" ? "Daily Quizzes" : "Tests"),
+    icon: tagConfig?.icon || (tag === "quizzes" ? "❓" : "📋"),
+    desc:
+      tagConfig?.description ||
+      (tag === "quizzes"
+        ? "Quick practice quizzes to sharpen your skills"
+        : "Browse all available tests"),
   };
 
   // ALL useMemo hooks must be called before any conditional returns
@@ -93,10 +118,18 @@ function TagPage({ tagProp }) {
           return checkIsLive(test);
         }
 
+        // Special multi-property matching for quizzes tag
+        if (tag === "quizzes") {
+          return checkIsQuiz(test);
+        }
+
         // Dynamic filtering based on config filterKey and filterValue
-        if (tagConfig.filterKey && tagConfig.filterValue) {
-          const testVal = test[tagConfig.filterKey];
-          // Support comma-separated filterValue (e.g. "6,7,8" for multiple testCategoryIds)
+        const filterKey = tagConfig.filterKey || tagConfig.filterType;
+        if (filterKey && tagConfig.filterValue) {
+          const testVal =
+            test[filterKey] ??
+            test[tagConfig.filterKey] ??
+            test[tagConfig.filterType];
           const allowedValues = String(tagConfig.filterValue)
             .split(",")
             .map((v) => v.trim())
@@ -115,18 +148,14 @@ function TagPage({ tagProp }) {
         }
 
         // Fallback to legacy static filtering if the configuration was not dynamic enough
-        if (tag === "live-tests" && !tagConfig.filterKey) {
-          return checkIsLive(test);
-        } else if (tag === "pyps" && !tagConfig.filterKey) {
+        if (tag === "pyps") {
           return test.category === "PYPs" || test.tags?.includes("PYP");
-        } else if (tag === "quizzes" && !tagConfig.filterKey) {
-          return checkIsQuiz(test);
-        } else if (tag === "practice" && !tagConfig.filterKey) {
+        } else if (tag === "practice") {
           return (
             test.subCategory?.includes("Chapter") ||
             test.subCategory?.includes("Sectional")
           );
-        } else if (tag === "mock-tests" && !tagConfig.filterKey) {
+        } else if (tag === "mock-tests") {
           return (
             test.category === "Mock Tests" && test.subCategory?.includes("Full")
           );
@@ -135,10 +164,19 @@ function TagPage({ tagProp }) {
         return true;
       })
       .map((test) => {
-        const series = seriesData.find((s) => s._id === test.seriesId);
-        return { ...test, seriesTitle: series?.title };
+        const testSeriesId = test.seriesId ?? test.series_id;
+        const series = seriesData.find(
+          (s) => String(s._id || s.id) === String(testSeriesId),
+        );
+        return {
+          ...test,
+          id: test.id || test._id,
+          _id: test._id || test.id,
+          seriesId: testSeriesId,
+          seriesTitle: series?.title || test.seriesTitle,
+        };
       });
-  }, [testsData, seriesData, tag, loading]);
+  }, [testsData, seriesData, tag, tagConfig, loading]);
 
   // Filter tests - called unconditionally
   const filteredTests = useMemo(() => {
@@ -150,11 +188,15 @@ function TagPage({ tagProp }) {
       ) {
         return false;
       }
-      if (selectedSeries !== "all" && test.seriesId !== selectedSeries) {
-        return false;
+      if (selectedSeries !== "all") {
+        const sId = String(test.seriesId ?? test.series_id ?? "");
+        if (sId !== String(selectedSeries)) return false;
       }
-      if (selectedType !== "all" && test.type !== selectedType) {
-        return false;
+      if (selectedType !== "all") {
+        const isFree =
+          test.isFree === true || String(test.type).toLowerCase() === "free";
+        if (selectedType === "Free" && !isFree) return false;
+        if (selectedType === "Pro" && isFree) return false;
       }
       return true;
     });
@@ -205,6 +247,11 @@ function TagPage({ tagProp }) {
 
   return (
     <div className="min-h-screen bg-gray-50 page-transition fade-in">
+      <SEO
+        title={`${config.title} | Trstprep`}
+        description={config.desc}
+        canonical={tagProp === "quizzes" ? "/quizzes" : `/tag/${tag}`}
+      />
       {/* Breadcrumb Section */}
       <div className="bg-white border-b border-gray-100 mb-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -241,6 +288,7 @@ function TagPage({ tagProp }) {
             <div className="relative flex-1 min-w-0">
               <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               <input
+                aria-label={`Search ${config.title.toLowerCase()}`}
                 type="text"
                 placeholder={`Search ${config.title.toLowerCase()}...`}
                 value={searchQuery}
@@ -319,7 +367,7 @@ function TagPage({ tagProp }) {
         </div>
 
         {filteredTests.length === 0 && (
-          <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
+          <div className="text-center py-8 bg-white rounded-2xl border border-dashed border-gray-200">
             <div className="text-2xl sm:text-3xl lg:text-4xl mb-4">📭</div>
             <h3 className="text-lg font-bold text-gray-900">No Tests Found</h3>
             <p className="text-gray-500 mt-2">

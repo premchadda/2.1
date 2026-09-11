@@ -13,7 +13,7 @@
 export function normalizeStem(text = "") {
   if (typeof text !== "string") return "";
   return text
-    .replace(/^(\d+[\.\)]|\(?[a-zA-Z0-9]+\))\s*/, "") // Strip leading numbers/labels like "1.", "(a)", "Q1:"
+    .replace(/^(\d+[.)]|\(?[a-zA-Z0-9]+\))\s*/, "") // Strip leading numbers/labels like "1.", "(a)", "Q1:"
     .toLowerCase()
     .replace(/[^\w\s]/g, "") // Strip punctuation
     .replace(/\s+/g, " ") // Collapse whitespace

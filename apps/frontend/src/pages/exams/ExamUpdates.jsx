@@ -100,7 +100,7 @@ function ExamUpdates() {
       case "cutoff":
         return <AlertCircle className="w-5 h-5 text-amber-600" />;
       default:
-        return <Bell className="w-5 h-5 text-gray-600" />;
+        return <Bell className="w-5 h-5 text-gray-600 dark:text-gray-300" />;
     }
   };
 
@@ -173,10 +173,12 @@ function ExamUpdates() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-brand-start border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading updates...</p>
+          <p className="text-gray-600 dark:text-gray-300 font-medium">
+            Loading updates...
+          </p>
         </div>
       </div>
     );
@@ -193,7 +195,7 @@ function ExamUpdates() {
           <div className="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none"></div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 relative z-10">
           <div className="mb-8">
             <Breadcrumb
               items={[
@@ -225,7 +227,7 @@ function ExamUpdates() {
             </div>
 
             <div className="flex items-center gap-3 animate-slide-in-up md:pb-2">
-              <button className="px-6 py-3 bg-white/10 backdrop-blur-md rounded-xl hover:bg-white/20 transition-all flex items-center gap-2 border border-white/20 shadow-xl font-bold hover:-translate-y-1">
+              <button className="px-6 py-3 bg-white/10 backdrop-blur-md rounded-xl hover:bg-white/20 transition-all flex items-center gap-2 border border-white/20 shadow-xl font-bold hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-white">
                 <Share2 className="w-5 h-5" />
                 Share
               </button>
@@ -241,7 +243,7 @@ function ExamUpdates() {
             {/* Filter Bar */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
               <div className="flex items-center gap-4 overflow-x-auto">
-                <Filter className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                <Filter className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                 {[
                   { key: "all", label: "All Updates" },
                   { key: "high", label: "High Priority" },
@@ -312,12 +314,12 @@ function ExamUpdates() {
                       </div>
                     </div>
 
-                    <p className="text-gray-600 dark:text-gray-300 mb-6 relative z-10 leading-relaxed pl-0 sm:pl-16">
+                    <p className="text-gray-600 dark:text-gray-300 mb-6 relative z-10 leading-relaxed pl-0 sm:pl-8">
                       {update.description}
                     </p>
 
                     {update.link && (
-                      <div className="pl-0 sm:pl-16 relative z-10">
+                      <div className="pl-0 sm:pl-8 relative z-10">
                         <a
                           href={update.link}
                           className="inline-flex items-center gap-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-5 py-2.5 rounded-xl text-sm text-indigo-600 dark:text-indigo-400 font-bold hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:shadow-sm transition-all group/btn"
@@ -330,7 +332,7 @@ function ExamUpdates() {
                   </div>
                 ))
               ) : (
-                <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
+                <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
                   <Bell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
                     No Updates Found
@@ -364,7 +366,7 @@ function ExamUpdates() {
                   <span className="text-gray-700 dark:text-gray-300">
                     Exam Details
                   </span>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                  <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                 </Link>
                 <Link
                   to={`/exam/${examId}/year/2026`}
@@ -373,7 +375,7 @@ function ExamUpdates() {
                   <span className="text-gray-700 dark:text-gray-300">
                     2026 Information
                   </span>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                  <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                 </Link>
                 <Link
                   to={`/exam/${examId}/compare`}
@@ -382,7 +384,7 @@ function ExamUpdates() {
                   <span className="text-gray-700 dark:text-gray-300">
                     Year Comparison
                   </span>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                  <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                 </Link>
               </div>
             </div>
@@ -395,7 +397,7 @@ function ExamUpdates() {
               <p className="text-sm text-indigo-700 dark:text-indigo-400 mb-4">
                 Get notified about important updates and deadlines.
               </p>
-              <button className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition">
+              <button className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 Subscribe to Updates
               </button>
             </div>
@@ -412,7 +414,7 @@ function ExamUpdates() {
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
                       Notification Release
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       Expected: March 2026
                     </p>
                   </div>
@@ -423,7 +425,7 @@ function ExamUpdates() {
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
                       Application Start
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       Expected: April 2026
                     </p>
                   </div>
@@ -434,7 +436,9 @@ function ExamUpdates() {
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
                       Exam Date
                     </p>
-                    <p className="text-xs text-gray-500">Expected: June 2026</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Expected: June 2026
+                    </p>
                   </div>
                 </div>
               </div>

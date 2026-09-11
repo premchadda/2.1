@@ -1424,6 +1424,7 @@ export default function SiteSettingsManager() {
                       />
                       <input
                         type="text"
+                        aria-label="Primary color hex code"
                         value={settings.appearance.primaryColor}
                         onChange={(e) =>
                           handleInputChange(
@@ -1453,6 +1454,7 @@ export default function SiteSettingsManager() {
                       />
                       <input
                         type="text"
+                        aria-label="Secondary color hex code"
                         value={settings.appearance.secondaryColor}
                         onChange={(e) =>
                           handleInputChange(

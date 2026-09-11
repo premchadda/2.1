@@ -365,7 +365,7 @@ export default function AdminAnalytics() {
 
   if (loading && !hasAnyData) {
     return (
-      <div className="p-12 flex items-center justify-center min-h-[60vh]">
+      <div className="p-6 sm:p-8 flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
           <p className="text-xs font-bold text-gray-500">

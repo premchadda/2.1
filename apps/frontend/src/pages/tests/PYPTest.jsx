@@ -7,7 +7,8 @@ import {
   getQuestionsByTestId,
 } from "../../shared/lib/dataService";
 import { getLocalizedField } from "../../shared/lib/language";
-import { sanitizeHtml } from "../../shared/lib/htmlSanitizer";
+import { sanitizeHtml } from "../../shared/lib/htmlSanitizer.js";
+import { formatTime } from "../../shared/lib/format.js";
 import MathRenderer from "../../shared/components/MathRenderer";
 import Telemetry from "../../shared/lib/telemetry";
 import { toast } from "react-hot-toast";
@@ -82,7 +83,8 @@ const PYPTest = () => {
           }
         } catch (startErr) {
           // Non-fatal: test can still be displayed without a tracked attempt
-          console.warn("Could not start PYP attempt:", startErr.message);
+          if (import.meta.env.DEV)
+            console.warn("Could not start PYP attempt:", startErr.message);
         }
       } catch (error) {
         console.error("Error loading PYP test:", error);
@@ -181,13 +183,8 @@ const PYPTest = () => {
     return () => clearInterval(timer);
   }, [test, isSubmitted]);
 
-  const formatTime = (seconds) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
+  // Countdown clock — centralized in shared/lib/format.js
+  // (renders h:mm:ss once >= 1h, mm:ss otherwise).
   const handleAnswerChange = (optionIndex) => {
     setAnswers({
       ...answers,

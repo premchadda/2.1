@@ -1,6 +1,6 @@
-import { io } from 'socket.io-client'
+import { io } from "socket.io-client";
 
-let socket = null
+let socket = null;
 
 /**
  * Initialize the WebSocket connection
@@ -10,139 +10,158 @@ let socket = null
  * @param {Function} options.onConnect - Callback when connected
  * @param {Function} options.onDisconnect - Callback when disconnected
  */
-export const initWebSocket = ({ url, token, onConnect, onDisconnect, onReconnect, onReconnectError } = {}) => {
+export const initWebSocket = ({
+  url,
+  token,
+  onConnect,
+  onDisconnect,
+  onReconnect,
+  onReconnectError,
+} = {}) => {
   if (socket?.connected) {
-    return socket
+    return socket;
   }
 
-  // If no URL provided, try to use same origin
-  const wsUrl = url || (typeof window !== 'undefined' ? window.location.origin : '')
+  // If no URL provided, prefer the configured socket host, else same origin.
+  // (Deliberately no localhost default: in production that would point at the
+  // user's own machine. Local dev passes an explicit URL or relies on origin.)
+  const wsUrl =
+    url ||
+    (typeof import.meta !== "undefined" && import.meta.env?.VITE_SOCKET_URL) ||
+    (typeof window !== "undefined" ? window.location.origin : "");
 
   const socketOptions = {
-    transports: ['polling', 'websocket'],
+    transports: ["polling", "websocket"],
     autoConnect: true,
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
     reconnectionAttempts: Infinity,
+    withCredentials: true,
     auth: {},
-  }
+  };
 
   if (token) {
-    socketOptions.auth.token = token
+    socketOptions.auth.token = token;
   }
 
   try {
-    socket = io(wsUrl, socketOptions)
+    socket = io(wsUrl, socketOptions);
 
-    socket.on('connect', () => {
-      onConnect?.(socket.id)
-    })
+    socket.on("connect", () => {
+      onConnect?.(socket.id);
+    });
 
-    socket.on('disconnect', (reason) => {
-      onDisconnect?.(reason)
-    })
+    socket.on("disconnect", (reason) => {
+      onDisconnect?.(reason);
+    });
 
-    socket.on('connect_error', (err) => {
-      console.warn('[WebSocket] Connection error:', err.message)
-    })
+    socket.on("connect_error", (err) => {
+      if (import.meta.env.DEV)
+        console.warn("[WebSocket] Connection error:", err.message);
+    });
 
     if (onReconnect) {
-      socket.on('reconnect', (attemptNumber) => {
-        onReconnect(attemptNumber)
-      })
+      socket.on("reconnect", (attemptNumber) => {
+        onReconnect(attemptNumber);
+      });
     }
 
     if (onReconnectError) {
-      socket.on('reconnect_error', (err) => {
-        console.warn('[WebSocket] Reconnection error:', err.message)
-        onReconnectError(err)
-      })
+      socket.on("reconnect_error", (err) => {
+        if (import.meta.env.DEV)
+          console.warn("[WebSocket] Reconnection error:", err.message);
+        onReconnectError(err);
+      });
     }
 
     // Setup default event listeners
-    setupEventListeners()
+    setupEventListeners();
 
-    return socket
+    return socket;
   } catch (err) {
-    console.warn('[WebSocket] Failed to initialize:', err)
-    return null
+    if (import.meta.env.DEV)
+      console.warn("[WebSocket] Failed to initialize:", err);
+    return null;
   }
-}
+};
 
 /**
  * Setup default event listeners for real-time notifications
  */
 const setupEventListeners = () => {
-  if (!socket) return
+  if (!socket) return;
 
-  socket.on('test:result_ready', (data) => {
-    dispatchCustomEvent('testResultReady', data)
-  })
+  socket.on("test:result_ready", (data) => {
+    dispatchCustomEvent("testResultReady", data);
+  });
 
-  socket.on('leaderboard:updated', (data) => {
-    dispatchCustomEvent('leaderboardUpdated', data)
-  })
+  socket.on("leaderboard:updated", (data) => {
+    dispatchCustomEvent("leaderboardUpdated", data);
+  });
 
-  socket.on('notification:new', (data) => {
-    dispatchCustomEvent('newNotification', data)
-  })
+  socket.on("notification:new", (data) => {
+    dispatchCustomEvent("newNotification", data);
+  });
 
-  socket.on('live-test:attempt_submitted', (data) => {
-    dispatchCustomEvent('liveTestAttemptSubmitted', data)
-  })
+  socket.on("live-test:attempt_submitted", (data) => {
+    dispatchCustomEvent("liveTestAttemptSubmitted", data);
+  });
 
-  socket.on('live-test:participant_count', (data) => {
-    dispatchCustomEvent('liveTestParticipantCount', data)
-  })
+  socket.on("live-test:participant_count", (data) => {
+    dispatchCustomEvent("liveTestParticipantCount", data);
+  });
 
-  socket.on('series:updated', (data) => {
-    dispatchCustomEvent('seriesUpdated', data)
-  })
-}
+  socket.on("series:updated", (data) => {
+    dispatchCustomEvent("seriesUpdated", data);
+  });
+};
 
 /**
  * Dispatch a custom event that components can listen to
  */
 const dispatchCustomEvent = (eventName, data) => {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(`trstprep:${eventName}`, { detail: data }))
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(`trstprep:${eventName}`, { detail: data }),
+    );
   }
-}
+};
 
 /**
  * Get the current socket instance
  */
-export const getSocket = () => socket
+export const getSocket = () => socket;
 
 /**
  * Disconnect the WebSocket
  */
 export const disconnectWebSocket = () => {
   if (socket) {
-    socket.disconnect()
-    socket = null
+    socket.disconnect();
+    socket = null;
   }
-}
+};
 
 /**
  * Join a test room for live updates
  */
 export const joinTestRoom = (testId) => {
   if (!socket?.connected) {
-    console.warn('[WebSocket] Cannot join room - not connected')
-    return
+    if (import.meta.env.DEV)
+      console.warn("[WebSocket] Cannot join room - not connected");
+    return;
   }
-  socket.emit('live-tests:join', { testId })
-}
+  socket.emit("live-tests:join", { testId });
+};
 
 /**
  * Leave a test room
  */
 export const leaveTestRoom = (testId) => {
-  if (!socket?.connected) return
-  socket.emit('live-tests:leave', { testId })
-}
+  if (!socket?.connected) return;
+  socket.emit("live-tests:leave", { testId });
+};
 
 /**
  * Subscribe to leaderboard updates for a specific test
@@ -150,37 +169,37 @@ export const leaveTestRoom = (testId) => {
  * @param {Function} callback - Callback when leaderboard updates
  */
 export const subscribeToLeaderboard = (testId, callback) => {
-  if (!socket?.connected) return null
+  if (!socket?.connected) return null;
 
   const handler = (data) => {
     if (data.testId === testId) {
-      callback(data)
+      callback(data);
     }
-  }
+  };
 
-  socket.on('leaderboard:updated', handler)
-  joinTestRoom(testId)
+  socket.on("leaderboard:updated", handler);
+  joinTestRoom(testId);
 
   return () => {
-    socket.off('leaderboard:updated', handler)
-    leaveTestRoom(testId)
-  }
-}
+    socket.off("leaderboard:updated", handler);
+    leaveTestRoom(testId);
+  };
+};
 
 /**
  * Subscribe to notification updates
  * @param {Function} callback - Callback when new notification arrives
  */
 export const subscribeToNotifications = (callback) => {
-  if (!socket?.connected) return null
+  if (!socket?.connected) return null;
 
   const handler = (data) => {
-    callback(data)
-  }
+    callback(data);
+  };
 
-  socket.on('notification:new', handler)
+  socket.on("notification:new", handler);
 
   return () => {
-    socket.off('notification:new', handler)
-  }
-}
+    socket.off("notification:new", handler);
+  };
+};

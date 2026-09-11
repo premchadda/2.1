@@ -941,7 +941,7 @@ function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20 md:pb-8 page-transition fade-in">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-10 md:pb-8 page-transition fade-in">
       <Helmet>
         <title>Dashboard | Trstprep</title>
         <meta
@@ -968,10 +968,10 @@ function Dashboard() {
               <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden bg-white/20 backdrop-blur-sm border-2 border-white/40 flex items-center justify-center text-white shadow-lg group-hover:scale-105 group-hover:border-white/80 transition-all duration-300">
                 {user?.avatar || user?.avatarUrl || user?.photoURL ? (
                   <img
+                    alt={userName || "Profile"}
                     loading="lazy"
                     decoding="async"
                     src={user.avatar || user.avatarUrl || user.photoURL}
-                    alt={userName}
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       e.currentTarget.style.display = "none";
@@ -1198,7 +1198,7 @@ function Dashboard() {
                               {progress >= 70
                                 ? "🎯 Almost done!"
                                 : progress >= 40
-                                  ? "💪 Keep going!"
+                                  ? `💪 ${progress}% done — almost there!`
                                   : attempted > 0
                                     ? "👍 In progress"
                                     : "🚀 Just started"}

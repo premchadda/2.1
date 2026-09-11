@@ -17,6 +17,8 @@ import { getRedisClient } from "../cache/redisClient.js";
 import logger from "../logger/logger.js";
 
 let io = null;
+let redisPubClient = null;
+let redisSubClient = null;
 
 // Rate limiting configuration for socket events
 const SOCKET_RATE_LIMIT = {
@@ -176,6 +178,8 @@ export const initWebSocket = async (server) => {
       const { createAdapter } = await import("@socket.io/redis-adapter");
       const pubClient = redisClient.duplicate();
       const subClient = redisClient.duplicate();
+      redisPubClient = pubClient;
+      redisSubClient = subClient;
       pubClient.on("error", (err) =>
         logger.warn("[WebSocket] Redis pubClient error:", err.message),
       );
@@ -656,5 +660,27 @@ export const notifyUser = (userId, event, data) => {
     });
   } catch (error) {
     logger.error(`[WebSocket] Error notifying user ${userId}:`, error.message);
+  }
+};
+
+/**
+ * Clean up Redis adapter connections on shutdown.
+ */
+export const closeWebSocket = async () => {
+  try {
+    if (redisPubClient) {
+      await redisPubClient.quit().catch(() => {});
+      redisPubClient = null;
+    }
+    if (redisSubClient) {
+      await redisSubClient.quit().catch(() => {});
+      redisSubClient = null;
+    }
+    if (io) {
+      io.close();
+      io = null;
+    }
+  } catch (err) {
+    logger.warn("[WebSocket] Cleanup error:", err.message);
   }
 };

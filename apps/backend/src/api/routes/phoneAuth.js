@@ -151,217 +151,222 @@ router.post("/send-otp", authRateLimiter, async (req, res) => {
  * POST /api/auth/phone/verify-otp
  * Verify OTP and create/login user
  */
-router.post("/verify-otp", lockoutMiddleware, async (req, res) => {
-  try {
-    // FIX 2.7: Reject if OTP store unavailable (Redis required in prod)
-    const store = resolveOtpStore();
-    if (!store) {
-      return res.status(503).json({
-        success: false,
-        error: "Phone authentication is temporarily unavailable",
-      });
-    }
+router.post(
+  "/verify-otp",
+  lockoutMiddleware,
+  authRateLimiter,
+  async (req, res) => {
+    try {
+      // FIX 2.7: Reject if OTP store unavailable (Redis required in prod)
+      const store = resolveOtpStore();
+      if (!store) {
+        return res.status(503).json({
+          success: false,
+          error: "Phone authentication is temporarily unavailable",
+        });
+      }
 
-    const { phoneNumber, otp, name, email } = req.body;
+      const { phoneNumber, otp, name, email } = req.body;
 
-    if (!phoneNumber || !otp) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Phone and OTP required" });
-    }
-
-    // Get stored OTP data
-    const otpKey = `otp:${phoneNumber}`;
-    const otpDataStr = await getFromStore(otpKey);
-
-    if (!otpDataStr) {
-      return res
-        .status(400)
-        .json({ success: false, error: "OTP expired or not requested" });
-    }
-
-    const otpData = JSON.parse(otpDataStr);
-
-    // Check if OTP is expired
-    if (otpData.expiresAt < Date.now()) {
-      await deleteFromStore(otpKey);
-      return res.status(400).json({ success: false, error: "OTP expired" });
-    }
-
-    // Verify OTP (timing-safe comparison to prevent timing attacks)
-    const otpBuf = Buffer.from(otpData.otp, "utf8");
-    const inputBuf = Buffer.from(String(otp), "utf8");
-    if (
-      otpBuf.length !== inputBuf.length ||
-      !crypto.timingSafeEqual(otpBuf, inputBuf)
-    ) {
-      otpData.attempts++;
-      if (otpData.attempts >= 3) {
-        await deleteFromStore(otpKey);
+      if (!phoneNumber || !otp) {
         return res
           .status(400)
-          .json({ success: false, error: "Too many failed attempts" });
+          .json({ success: false, error: "Phone and OTP required" });
       }
-      // Update attempts counter
-      await setInStore(otpKey, JSON.stringify(otpData), 600);
-      return res.status(400).json({ success: false, error: "Invalid OTP" });
-    }
 
-    // OTP is valid, find or create user — fetch role/limit for session enforcement
-    let userResult = await dbHelpers.query(
-      "SELECT id, email, name, phone_verified, role, is_pro_user, session_limit FROM users WHERE phone = $1",
-      [phoneNumber],
-    );
+      // Get stored OTP data
+      const otpKey = `otp:${phoneNumber}`;
+      const otpDataStr = await getFromStore(otpKey);
 
-    let userId,
-      isNewUser = false;
-    if (userResult.rows.length === 0) {
-      // Create new user
-      const createResult = await dbHelpers.query(
-        `INSERT INTO users (phone, email, name, auth_type, phone_verified, last_login, created_at)
+      if (!otpDataStr) {
+        return res
+          .status(400)
+          .json({ success: false, error: "OTP expired or not requested" });
+      }
+
+      const otpData = JSON.parse(otpDataStr);
+
+      // Check if OTP is expired
+      if (otpData.expiresAt < Date.now()) {
+        await deleteFromStore(otpKey);
+        return res.status(400).json({ success: false, error: "OTP expired" });
+      }
+
+      // Verify OTP (timing-safe comparison to prevent timing attacks)
+      const otpBuf = Buffer.from(otpData.otp, "utf8");
+      const inputBuf = Buffer.from(String(otp), "utf8");
+      if (
+        otpBuf.length !== inputBuf.length ||
+        !crypto.timingSafeEqual(otpBuf, inputBuf)
+      ) {
+        otpData.attempts++;
+        if (otpData.attempts >= 3) {
+          await deleteFromStore(otpKey);
+          return res
+            .status(400)
+            .json({ success: false, error: "Too many failed attempts" });
+        }
+        // Update attempts counter
+        await setInStore(otpKey, JSON.stringify(otpData), 600);
+        return res.status(400).json({ success: false, error: "Invalid OTP" });
+      }
+
+      // OTP is valid, find or create user — fetch role/limit for session enforcement
+      let userResult = await dbHelpers.query(
+        "SELECT id, email, name, phone_verified, role, is_pro_user, session_limit FROM users WHERE phone = $1",
+        [phoneNumber],
+      );
+
+      let userId,
+        isNewUser = false;
+      if (userResult.rows.length === 0) {
+        // Create new user
+        const createResult = await dbHelpers.query(
+          `INSERT INTO users (phone, email, name, auth_type, phone_verified, last_login, created_at)
          VALUES ($1, $2, $3, 'phone', true, NOW(), NOW())
          RETURNING id, email, name`,
-        [
-          phoneNumber,
-          email || `${phoneNumber}@trstprep.local`,
-          name || `User${phoneNumber.slice(-4)}`,
-        ],
-      );
-      userId = createResult.rows[0].id;
-      isNewUser = true;
-    } else {
-      userId = userResult.rows[0].id;
-      // Update last login
-      await dbHelpers.query(
-        "UPDATE users SET last_login = NOW(), phone_verified = true WHERE id = $1",
-        [userId],
-      );
-    }
-
-    // Capture session for per-device revocation (was missing — phone-authed
-    // users couldn't be logged out). Falls back gracefully if session capture fails.
-    let sessionId = null;
-    try {
-      sessionId = await captureSession(req, userId, "phone");
-    } catch (sessErr) {
-      logger.error(
-        "[Phone Auth] Session capture failed (non-fatal):",
-        sessErr.message,
-      );
-    }
-
-    // Enforce session limit (admin unlimited) — same policy as email/Google login
-    if (sessionId) {
-      try {
-        const userRow = userResult.rows[0] || {};
-        // For newly created phone user, role defaults to 'user' and no pro
-        const role = userRow.role || "user";
-        const isPro = Boolean(
-          userRow.is_pro_user || userRow.isProUser || userRow.is_pro,
+          [
+            phoneNumber,
+            email || `${phoneNumber}@trstprep.local`,
+            name || `User${phoneNumber.slice(-4)}`,
+          ],
         );
-        const customLimit = userRow.session_limit ?? userRow.sessionLimit;
-        let phoneSessionLimit = 1;
-        if (role === "admin" || role === "super_admin") {
-          phoneSessionLimit = Infinity;
-          if (customLimit !== null && customLimit !== undefined) {
+        userId = createResult.rows[0].id;
+        isNewUser = true;
+      } else {
+        userId = userResult.rows[0].id;
+        // Update last login
+        await dbHelpers.query(
+          "UPDATE users SET last_login = NOW(), phone_verified = true WHERE id = $1",
+          [userId],
+        );
+      }
+
+      // Capture session for per-device revocation (was missing — phone-authed
+      // users couldn't be logged out). Falls back gracefully if session capture fails.
+      let sessionId = null;
+      try {
+        sessionId = await captureSession(req, userId, "phone");
+      } catch (sessErr) {
+        logger.error(
+          "[Phone Auth] Session capture failed (non-fatal):",
+          sessErr.message,
+        );
+      }
+
+      // Enforce session limit (admin unlimited) — same policy as email/Google login
+      if (sessionId) {
+        try {
+          const userRow = userResult.rows[0] || {};
+          // For newly created phone user, role defaults to 'user' and no pro
+          const role = userRow.role || "user";
+          const isPro = Boolean(
+            userRow.is_pro_user || userRow.isProUser || userRow.is_pro,
+          );
+          const customLimit = userRow.session_limit ?? userRow.sessionLimit;
+          let phoneSessionLimit = 1;
+          if (role === "admin" || role === "super_admin") {
+            phoneSessionLimit = Infinity;
+            if (customLimit !== null && customLimit !== undefined) {
+              phoneSessionLimit = customLimit;
+              if (phoneSessionLimit === null) phoneSessionLimit = Infinity;
+            }
+          } else if (customLimit !== null && customLimit !== undefined) {
             phoneSessionLimit = customLimit;
-            if (phoneSessionLimit === null) phoneSessionLimit = Infinity;
+          } else if (isPro) {
+            phoneSessionLimit = 3;
           }
-        } else if (customLimit !== null && customLimit !== undefined) {
-          phoneSessionLimit = customLimit;
-        } else if (isPro) {
-          phoneSessionLimit = 3;
-        }
-        const phoneLimitNum = Number(phoneSessionLimit);
-        if (Number.isFinite(phoneLimitNum)) {
-          const client = await pool.connect();
-          try {
-            await client.query("BEGIN");
-            await client.query(
-              `SELECT 1 FROM user_sessions WHERE user_id = $1 FOR UPDATE`,
-              [String(userId)],
-            );
-            const activeResult = await client.query(
-              `SELECT session_id FROM user_sessions WHERE user_id = $1 AND is_active = true ORDER BY last_active DESC`,
-              [String(userId)],
-            );
-            if (activeResult.rows.length > phoneLimitNum) {
-              const toRevoke = activeResult.rows
-                .filter((s) => s.session_id !== sessionId)
-                .slice(phoneLimitNum - 1);
-              if (toRevoke.length > 0) {
-                const revokeIds = toRevoke.map((s) => s.session_id);
-                await client.query(
-                  `UPDATE user_sessions SET is_active = false WHERE session_id = ANY($1)`,
-                  [revokeIds],
-                );
-                await client.query("COMMIT");
-                for (const row of toRevoke) {
-                  await invalidateSession(
-                    row.session_id,
-                    "system:limit-enforcement",
+          const phoneLimitNum = Number(phoneSessionLimit);
+          if (Number.isFinite(phoneLimitNum)) {
+            const client = await pool.connect();
+            try {
+              await client.query("BEGIN");
+              await client.query(
+                `SELECT 1 FROM user_sessions WHERE user_id = $1 FOR UPDATE`,
+                [String(userId)],
+              );
+              const activeResult = await client.query(
+                `SELECT session_id FROM user_sessions WHERE user_id = $1 AND is_active = true ORDER BY last_active DESC`,
+                [String(userId)],
+              );
+              if (activeResult.rows.length > phoneLimitNum) {
+                const toRevoke = activeResult.rows
+                  .filter((s) => s.session_id !== sessionId)
+                  .slice(phoneLimitNum - 1);
+                if (toRevoke.length > 0) {
+                  const revokeIds = toRevoke.map((s) => s.session_id);
+                  await client.query(
+                    `UPDATE user_sessions SET is_active = false WHERE session_id = ANY($1)`,
+                    [revokeIds],
                   );
+                  await client.query("COMMIT");
+                  for (const row of toRevoke) {
+                    await invalidateSession(
+                      row.session_id,
+                      "system:limit-enforcement",
+                    );
+                  }
+                } else {
+                  await client.query("COMMIT");
                 }
               } else {
                 await client.query("COMMIT");
               }
-            } else {
-              await client.query("COMMIT");
+            } catch (err) {
+              await client.query("ROLLBACK");
+              throw err;
+            } finally {
+              client.release();
             }
-          } catch (err) {
-            await client.query("ROLLBACK");
-            throw err;
-          } finally {
-            client.release();
           }
+        } catch (limitErr) {
+          logger.warn(
+            "[Phone Auth] Session limit enforcement failed (non-fatal): " +
+              limitErr.message,
+          );
         }
-      } catch (limitErr) {
-        logger.warn(
-          "[Phone Auth] Session limit enforcement failed (non-fatal): " +
-            limitErr.message,
-        );
       }
-    }
 
-    // Generate JWT token — embed sessionId so protect middleware can validate it.
-    // Use a dedicated phone-auth secret (JWT_2FA_SECRET) to keep session,
-    // password reset, and phone-auth token namespaces isolated. Falls back to
-    // JWT_SECRET for backward compat during the migration window.
-    const phoneSecret = process.env.JWT_2FA_SECRET || process.env.JWT_SECRET;
-    const token = jwt.sign(
-      { id: userId, phone: phoneNumber, type: "phone", sessionId },
-      phoneSecret,
-      { expiresIn: "30d" },
-    );
+      // Generate JWT token — embed sessionId so protect middleware can validate it.
+      // Use a dedicated phone-auth secret (JWT_2FA_SECRET) to keep session,
+      // password reset, and phone-auth token namespaces isolated. Falls back to
+      // JWT_SECRET for backward compat during the migration window.
+      const phoneSecret = process.env.JWT_2FA_SECRET || process.env.JWT_SECRET;
+      const token = jwt.sign(
+        { id: userId, phone: phoneNumber, type: "phone", sessionId },
+        phoneSecret,
+        { expiresIn: "30d" },
+      );
 
-    // Clear OTP from store
-    await deleteFromStore(otpKey);
+      // Clear OTP from store
+      await deleteFromStore(otpKey);
 
-    // Send welcome email for new users
-    if (isNewUser && email) {
-      try {
-        EmailService.sendWelcomeEmail(email, name || "User");
-      } catch (err) {
-        console.error("Error sending welcome email:", err);
+      // Send welcome email for new users
+      if (isNewUser && email) {
+        try {
+          await EmailService.sendWelcomeEmail(email, name || "User");
+        } catch (err) {
+          console.error("Error sending welcome email:", err);
+        }
       }
-    }
 
-    res.json({
-      success: true,
-      token,
-      isNewUser,
-      user: {
-        id: userId,
-        phone: phoneNumber,
-        email: userResult.rows[0]?.email || email,
-        name,
-      },
-    });
-  } catch (error) {
-    console.error("Error verifying OTP:", error);
-    res.status(500).json({ success: false, error: "Failed to verify OTP" });
-  }
-});
+      res.json({
+        success: true,
+        token,
+        isNewUser,
+        user: {
+          id: userId,
+          phone: phoneNumber,
+          email: userResult.rows[0]?.email || email,
+          name,
+        },
+      });
+    } catch (error) {
+      console.error("Error verifying OTP:", error);
+      res.status(500).json({ success: false, error: "Failed to verify OTP" });
+    }
+  },
+);
 
 /**
  * POST /api/auth/phone/link-phone

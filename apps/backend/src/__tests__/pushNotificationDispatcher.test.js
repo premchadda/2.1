@@ -91,7 +91,7 @@ describe("Push Notification Dispatcher & Quiet Hours Engine", () => {
           "101",
           "fcm-device-token-xyz",
           "android",
-          "p256dh-key" ? expect.anything() : null,
+          expect.anything(),
           expect.anything(),
         ],
       );

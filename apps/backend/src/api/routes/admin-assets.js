@@ -8,12 +8,16 @@ import {
 } from "../../infrastructure/storage/storageProvider.js";
 import { upload } from "../../infrastructure/storage/upload.js";
 import logger from "../../infrastructure/logger/logger.js";
-import { protect, admin, superAdmin } from '../../middleware/auth.middleware.js';
+import {
+  protect,
+  admin,
+  superAdmin,
+} from "../../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.use(protect)
-router.use(admin)
+router.use(protect);
+router.use(admin);
 
 // ===== UNIFIED ASSET MANAGEMENT =====
 const inferAssetCategory = (mimeType = "") => {
@@ -161,7 +165,10 @@ router.get("/assets/tree", async (req, res) => {
 
     const tree = { tests: {}, series: {}, unscoped: [] };
     for (const asset of allAssets) {
-      const meta = asset.metadata && typeof asset.metadata === "object" ? asset.metadata : {};
+      const meta =
+        asset.metadata && typeof asset.metadata === "object"
+          ? asset.metadata
+          : {};
       const tId = meta.testId ?? meta.test_id ?? null;
       const sId = meta.testSeriesId ?? meta.test_series_id ?? null;
       const record = normalizeAssetRecord(asset);
@@ -190,12 +197,15 @@ router.get("/assets/by-test/:testId", async (req, res) => {
   try {
     const testId = parseAssetId(req.params.testId);
     if (!testId) {
-      return res.status(400).json({ success: false, message: "Invalid test id" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid test id" });
     }
     const allAssets = await dbHelpers.find("assets", { isActive: true });
     const assets = allAssets
       .filter((a) => {
-        const meta = a.metadata && typeof a.metadata === "object" ? a.metadata : {};
+        const meta =
+          a.metadata && typeof a.metadata === "object" ? a.metadata : {};
         return String(meta.testId ?? meta.test_id ?? "") === String(testId);
       })
       .map(normalizeAssetRecord);
@@ -207,7 +217,7 @@ router.get("/assets/by-test/:testId", async (req, res) => {
 });
 
 // Get single asset
-router.get("/assets/:id", async (req, res) => {
+router.get("/assets/:id", protect, admin, async (req, res) => {
   try {
     const asset = await dbHelpers.findById("assets", req.params.id);
     if (!asset || asset.isActive === false) {
@@ -223,7 +233,7 @@ router.get("/assets/:id", async (req, res) => {
 });
 
 // Backward-compatible endpoint
-router.get("/media/:id", async (req, res) => {
+router.get("/media/:id", protect, admin, async (req, res) => {
   try {
     const asset = await dbHelpers.findById("assets", req.params.id);
     if (!asset || asset.isActive === false) {
@@ -239,7 +249,7 @@ router.get("/media/:id", async (req, res) => {
 });
 
 // Update asset metadata (name/category)
-router.patch("/assets/:id", async (req, res) => {
+router.patch("/assets/:id", protect, admin, async (req, res) => {
   try {
     const updates = {};
     if (typeof req.body.name === "string" && req.body.name.trim()) {
@@ -274,7 +284,7 @@ router.patch("/assets/:id", async (req, res) => {
 });
 
 // Delete asset
-router.delete("/assets/:id", async (req, res) => {
+router.delete("/assets/:id", protect, admin, async (req, res) => {
   try {
     const existingAsset = await dbHelpers.findById("assets", req.params.id);
     if (!existingAsset || existingAsset.isActive === false) {
@@ -307,7 +317,7 @@ router.delete("/assets/:id", async (req, res) => {
 });
 
 // Backward-compatible delete endpoint
-router.delete("/media/:id", async (req, res) => {
+router.delete("/media/:id", protect, admin, async (req, res) => {
   try {
     const existingAsset = await dbHelpers.findById("assets", req.params.id);
     if (!existingAsset || existingAsset.isActive === false) {
@@ -354,7 +364,9 @@ const handleAssetUpload = async (req, res) => {
     // assets/tests/<testId>/ (or assets/series/<id>/tests/<id>/) so every
     // image belonging to one test lives under a single prefix/folder.
     const testId = parseAssetId(req.body.testId ?? req.body.test_id);
-    const testSeriesId = parseAssetId(req.body.testSeriesId ?? req.body.test_series_id ?? req.body.seriesId);
+    const testSeriesId = parseAssetId(
+      req.body.testSeriesId ?? req.body.test_series_id ?? req.body.seriesId,
+    );
 
     const category =
       typeof req.body.category === "string" && req.body.category.trim()
@@ -366,7 +378,11 @@ const handleAssetUpload = async (req, res) => {
       typeof req.body.name === "string" && req.body.name.trim()
         ? req.body.name.trim().slice(0, 255)
         : req.file.originalname;
-    const storedFile = await storeUploadedAssetFile(req.file, { category, testId, testSeriesId });
+    const storedFile = await storeUploadedAssetFile(req.file, {
+      category,
+      testId,
+      testSeriesId,
+    });
 
     const assetRecord = await dbHelpers.insertOne("assets", {
       name: assetName,
@@ -398,8 +414,26 @@ const handleAssetUpload = async (req, res) => {
   }
 };
 
-router.post("/assets/upload", upload.single("file"), handleAssetUpload);
-router.post("/upload", upload.single("file"), handleAssetUpload);
-router.post("/media/upload", upload.single("file"), handleAssetUpload);
+router.post(
+  "/assets/upload",
+  protect,
+  admin,
+  upload.single("file"),
+  handleAssetUpload,
+);
+router.post(
+  "/upload",
+  protect,
+  admin,
+  upload.single("file"),
+  handleAssetUpload,
+);
+router.post(
+  "/media/upload",
+  protect,
+  admin,
+  upload.single("file"),
+  handleAssetUpload,
+);
 
 export default router;

@@ -143,7 +143,7 @@ export default function Blog() {
         compact={true}
       />
 
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Search & Categories Bar */}
         <div className="flex flex-col lg:flex-row gap-6 mb-16 items-center">
           <SearchBox
@@ -175,14 +175,14 @@ export default function Blog() {
         </div>
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-32 gap-4">
+          <div className="flex flex-col items-center justify-center py-10 gap-4">
             <Loader2 className="w-12 h-12 text-indigo-600 dark:text-indigo-400 animate-spin" />
             <p className="text-gray-400 dark:text-gray-500 font-black uppercase tracking-widest text-[10px]">
               Syncing Knowledge Base...
             </p>
           </div>
         ) : isError ? (
-          <div className="py-24 text-center bg-white dark:bg-gray-800 rounded-[3rem] border border-red-100 dark:border-red-800/60 shadow-inner">
+          <div className="py-10 text-center bg-white dark:bg-gray-800 rounded-[3rem] border border-red-100 dark:border-red-800/60 shadow-inner">
             <div className="w-20 h-20 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
               <AlertCircle className="w-10 h-10 text-red-400" />
             </div>
@@ -214,7 +214,7 @@ export default function Blog() {
             </p>
           </div>
         ) : blogs.length === 0 ? (
-          <div className="py-24 text-center bg-white dark:bg-gray-800 rounded-[3rem] border border-dashed border-gray-200 dark:border-gray-700 shadow-inner">
+          <div className="py-10 text-center bg-white dark:bg-gray-800 rounded-[3rem] border border-dashed border-gray-200 dark:border-gray-700 shadow-inner">
             <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
               <BookOpen className="w-10 h-10 text-indigo-200 dark:text-indigo-300" />
             </div>
@@ -389,6 +389,7 @@ export default function Blog() {
 
             <form className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto bg-white/5 p-2 rounded-[2rem] border border-white/10 group focus-within:border-white/20 transition-all">
               <input
+                aria-label="Email address for subscription"
                 type="email"
                 placeholder="Intelligence@your-domain.com"
                 className="flex-1 px-8 py-4 bg-transparent border-none focus:ring-0 text-sm font-bold text-white placeholder-gray-500"

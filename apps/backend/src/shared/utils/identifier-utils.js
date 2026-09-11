@@ -1,8 +1,11 @@
 import { parseNumericId } from "./db-utils.js";
+import { ENTITY_PREFIXES } from "../../infrastructure/database/db/constants.js";
 
 // 24-char hex strings are MongoDB ObjectIds — they cannot exist as Postgres PKs.
 // We retain the pattern only for fast rejection (no DB lookup needed).
 const LEGACY_OBJECT_ID_PATTERN = /^[0-9a-fA-F]{24}$/;
+const RAW_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const getInternalId = (record) => {
   if (!record || typeof record !== "object") return null;
@@ -43,6 +46,22 @@ export async function findEntityByIdentifier(
     );
     if (byPublicId) {
       return byPublicId;
+    }
+  }
+
+  if (RAW_UUID_PATTERN.test(normalizedIdentifier)) {
+    const prefix =
+      ENTITY_PREFIXES[entityType] ||
+      ENTITY_PREFIXES[collection] ||
+      (entityType === "tests" ? "tst_" : null);
+    if (prefix) {
+      const byPrefixed = await dbHelpers.findByPublicId(
+        collection,
+        `${prefix}${normalizedIdentifier}`,
+      );
+      if (byPrefixed) {
+        return byPrefixed;
+      }
     }
   }
 

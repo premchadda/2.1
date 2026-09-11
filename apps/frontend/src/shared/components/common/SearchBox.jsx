@@ -67,6 +67,14 @@ const SearchBox = ({
     inputRef.current?.focus();
   };
 
+  // actionText may be a plain string or a React node — normalize so both render.
+  const renderActionLabel = (label) =>
+    React.isValidElement(label) ? (
+      label
+    ) : (
+      <React.Fragment>{label}</React.Fragment>
+    );
+
   if (compact) {
     return (
       <form
@@ -84,12 +92,13 @@ const SearchBox = ({
           />
         )}
         <input
+          aria-label={placeholder || "Search"}
           ref={inputRef}
           type="text"
           placeholder={placeholder}
           value={value}
           onChange={onChange}
-          className={`w-full pl-9 pr-8 py-2 rounded-lg border-0 focus:ring-2 focus:ring-white/20 text-gray-800 dark:text-white bg-white dark:bg-gray-800 text-sm outline-none transition-all ${inputClass} ${showAction ? "pr-24" : ""}`}
+          className={`w-full pl-9 pr-8 py-2 rounded-lg border-0 focus:ring-2 focus:ring-white/20 text-gray-800 dark:text-white bg-white dark:bg-gray-800 text-sm outline-none transition-all ${inputClass} ${showAction ? "pr-10" : ""}`}
           {...props}
         />
         <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
@@ -108,7 +117,7 @@ const SearchBox = ({
               type="submit"
               className="px-3 py-1 bg-brand-start text-white text-xs font-bold rounded-md hover:shadow-lg transition-all flex items-center gap-1"
             >
-              {actionText}
+              {renderActionLabel(actionText)}
               <ArrowRight className="w-3 h-3" />
             </button>
           )}
@@ -133,12 +142,13 @@ const SearchBox = ({
         />
       )}
       <input
+        aria-label={placeholder || "Search"}
         ref={inputRef}
         type="text"
         placeholder={placeholder}
         value={value}
         onChange={onChange}
-        className={`w-full pl-10 md:pl-12 pr-10 md:pr-4 py-2.5 md:py-4 rounded-xl md:rounded-2xl border-0 focus:ring-4 focus:ring-white/20 text-gray-800 dark:text-white bg-white dark:bg-gray-800 text-sm md:text-lg outline-none transition-all ${inputClass} ${showAction ? "pr-20 md:pr-32" : ""}`}
+        className={`w-full pl-10 pr-10 md:pr-4 py-2.5 md:py-4 rounded-xl md:rounded-2xl border-0 focus:ring-4 focus:ring-white/20 text-gray-800 dark:text-white bg-white dark:bg-gray-800 text-sm md:text-lg outline-none transition-all ${inputClass} ${showAction ? "pr-10 md:pr-10" : ""}`}
         {...props}
       />
       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -157,7 +167,7 @@ const SearchBox = ({
             type="submit"
             className="px-3 md:px-5 py-1.5 md:py-2 bg-brand-start text-white text-[10px] md:text-sm font-bold rounded-lg md:rounded-xl hover:shadow-lg transition-all flex items-center gap-1.5"
           >
-            {actionText}
+            {renderActionLabel(actionText)}
             <ArrowRight className="w-3 h-3 md:w-4 md:h-4" />
           </button>
         )}

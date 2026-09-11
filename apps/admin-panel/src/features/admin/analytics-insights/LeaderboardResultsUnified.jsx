@@ -53,6 +53,7 @@ import { useAuth } from "../../../shared/providers/AuthContext";
 import { toast } from "react-hot-toast";
 import SearchInput from "../../../shared/components/ui/SearchInput";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
+import { copyToClipboard } from "../../../shared/utils/clipboard";
 
 const TYPE_COLORS = {
   test: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800",
@@ -317,12 +318,6 @@ export default function LeaderboardResultsUnified() {
     } catch (err) {
       toast.error("Failed to create leaderboard");
     }
-  };
-
-  const copyToClipboard = (text, label = "Data") => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    toast.success(`${label} copied to clipboard!`);
   };
 
   // -------------------------------------------------------------
@@ -771,14 +766,14 @@ export default function LeaderboardResultsUnified() {
           {/* Real-time Rankings Table */}
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-hidden">
             {realtimeLoading ? (
-              <div className="p-12 text-center">
+              <div className="p-6 sm:p-8 text-center">
                 <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                 <p className="text-xs text-gray-500 font-bold">
                   Computing live candidate standings...
                 </p>
               </div>
             ) : filteredRealtimeRankings.length === 0 ? (
-              <div className="p-12 text-center">
+              <div className="p-6 sm:p-8 text-center">
                 <Trophy className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-700 mb-2" />
                 <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
                   No test attempts recorded yet
@@ -930,12 +925,12 @@ export default function LeaderboardResultsUnified() {
 
           {/* Configs List */}
           {loadingConfigs ? (
-            <div className="p-12 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+            <div className="p-6 sm:p-8 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
               <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
               <p className="text-xs text-gray-500">Loading leaderboards...</p>
             </div>
           ) : leaderboards.length === 0 ? (
-            <div className="p-12 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+            <div className="p-6 sm:p-8 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
               <Trophy className="mx-auto h-10 w-10 text-gray-300 mb-2" />
               <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
                 No leaderboard configurations found

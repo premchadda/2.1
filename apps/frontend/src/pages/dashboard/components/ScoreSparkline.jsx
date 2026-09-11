@@ -51,14 +51,17 @@ export default function ScoreSparkline({ data = [] }) {
         const x = (i / (data.length - 1)) * width;
         const y = height - ((v - min) / range) * height;
         return (
-          <circle
-            key={i}
-            cx={x}
-            cy={y}
-            r="1.5"
-            fill="#667eea"
-            vectorEffect="non-scaling-stroke"
-          />
+          <React.Fragment key={i}>
+            <circle
+              cx={x}
+              cy={y}
+              r="1.5"
+              fill="#667eea"
+              vectorEffect="non-scaling-stroke"
+            >
+              <title>{`Score ${v}`}</title>
+            </circle>
+          </React.Fragment>
         );
       })}
     </svg>

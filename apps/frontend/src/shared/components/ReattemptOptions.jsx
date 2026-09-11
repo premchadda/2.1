@@ -27,23 +27,26 @@ export function ReattemptOptions({
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (attemptId) {
-      fetchAttemptHistory();
-    }
-  }, [attemptId]);
-
-  const fetchAttemptHistory = async () => {
-    try {
-      const response = await apiClient.get(
-        `/api/subscriptions/attempt-history/${testId}`,
-      );
-      setHistory(response.data);
-    } catch (err) {
-      console.error("Error fetching history:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (!attemptId) return;
+    const controller = new AbortController();
+    const fetchAttemptHistory = async () => {
+      try {
+        const response = await apiClient.get(
+          `/api/subscriptions/attempt-history/${testId}`,
+          { signal: controller.signal },
+        );
+        setHistory(response.data);
+      } catch (err) {
+        if (err.name !== "CanceledError" && err.code !== "ERR_CANCELED") {
+          console.error("Error fetching history:", err);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAttemptHistory();
+    return () => controller.abort();
+  }, [attemptId, testId]);
 
   const handleReattempt = async (type) => {
     if (!isProUser && type !== "full") {

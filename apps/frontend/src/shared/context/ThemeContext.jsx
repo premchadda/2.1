@@ -22,7 +22,10 @@ function applyThemeDom(isDark) {
   }
   try {
     localStorage.setItem("trstprep_theme", isDark ? "dark" : "light");
-  } catch (e) {}
+  } catch (e) {
+    if (import.meta.env.DEV)
+      console.warn("[Theme] Unable to persist theme preference:", e);
+  }
 
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {

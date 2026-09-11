@@ -11,6 +11,12 @@ import App from "./App.jsx";
 import "./styles/tokens.css";
 import "./styles/index.css";
 import { setQueryClient } from "./shared/lib/queryClientRegistry.js";
+import { validateEnvVars } from "./shared/lib/env-validation.js";
+
+// Fail fast on missing/misconfigured required env vars BEFORE the app boots
+// (PROD: hard throw — this is the catchable init gate the apiBase comment
+// references; DEV: warn-only so the Vite proxy fallback keeps working).
+validateEnvVars();
 
 // Register the admin API client INSTANCE globally for shared hooks.
 // NOTE: pass the axios instance (adminAPI.apiClient), not the adminAPI wrapper

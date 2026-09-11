@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { practiceAPI, aiAPI } from "../../../shared/lib/dataService";
 import sanitizeHtml from "../../../shared/lib/sanitizeHtml";
+import { formatTime } from "../../../shared/lib/format.js";
 import MathRenderer from "../../../shared/components/MathRenderer";
 import DifficultyBadge from "../../../shared/components/common/DifficultyBadge";
 import { toast } from "react-hot-toast";
@@ -16,7 +17,9 @@ import {
   Brain,
   X,
   Layers,
+  Tag,
 } from "lucide-react";
+import { formatPyqSourceLabel } from "../../../shared/lib/questionUtils.js";
 
 export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
   const questions = session?.questions || [];
@@ -104,7 +107,19 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
   };
 
   const [socraticStep, setSocraticStep] = useState(1);
-  const [socraticLanguage, setSocraticLanguage] = useState("en");
+  const [socraticLanguage, setSocraticLanguage] = useState(() => {
+    try {
+      return (
+        localStorage.getItem("trstprep_practice_lang") ||
+        (localStorage.getItem("test_language")?.toLowerCase() === "hi"
+          ? "hi"
+          : "en") ||
+        "en"
+      );
+    } catch {
+      return "en";
+    }
+  });
   const [socraticHints, setSocraticHints] = useState({});
 
   // Progressive Socratic Hint Fetcher
@@ -251,12 +266,6 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
     }
   };
 
-  const formatTime = (totalSec) => {
-    const mins = Math.floor(totalSec / 60);
-    const secs = totalSec % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
   if (!currentQ) return null;
 
   const qId = currentQ.id || currentQ._id;
@@ -360,6 +369,43 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
               </button>
             </div>
           </div>
+
+          {/* Previous-year paper source — exam name year stage date shift */}
+          {(() => {
+            const pyqSource =
+              currentQ?.sourceConfig || currentQ?.source_config || {};
+            const qTags = Array.isArray(currentQ?.tags) ? currentQ.tags : [];
+            const isPyq =
+              qTags.some((t) => String(t).toLowerCase().includes("pyq")) ||
+              String(pyqSource.type || "")
+                .toLowerCase()
+                .includes("pyq") ||
+              String(currentQ?.source || "")
+                .toLowerCase()
+                .includes("pyq") ||
+              Boolean(
+                pyqSource.examName ||
+                pyqSource.exam_name ||
+                pyqSource.year ||
+                pyqSource.shift ||
+                pyqSource.paper,
+              );
+            const pyqLabel = isPyq
+              ? formatPyqSourceLabel(currentQ, pyqSource, currentQ?.source)
+              : null;
+            if (!pyqLabel) return null;
+            return (
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded-lg px-2.5 py-1 shadow-2xs">
+                  <Tag className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                  <span>{pyqLabel}</span>
+                </span>
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                  Asked in previous year paper
+                </span>
+              </div>
+            );
+          })()}
 
           {/* Question Body */}
           <div className="text-slate-900 dark:text-white font-medium text-sm md:text-base leading-relaxed">
@@ -545,6 +591,14 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
                       onClick={() => {
                         const newLang = socraticLanguage === "en" ? "hi" : "en";
                         setSocraticLanguage(newLang);
+                        try {
+                          localStorage.setItem(
+                            "trstprep_practice_lang",
+                            newLang,
+                          );
+                        } catch {
+                          // ignore
+                        }
                         fetchSocraticHint(socraticStep, newLang);
                       }}
                       className="px-2 py-1 text-[11px] font-bold rounded-lg border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition cursor-pointer"
@@ -587,7 +641,7 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
                 </div>
 
                 {aiLoading ? (
-                  <div className="text-center py-12 space-y-3">
+                  <div className="text-center py-8 space-y-3">
                     <Loader2 className="w-8 h-8 text-purple-600 animate-spin mx-auto" />
                     <p className="text-xs text-slate-500">
                       Formulating Step {socraticStep} pedagogical hint...

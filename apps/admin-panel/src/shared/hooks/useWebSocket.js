@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { io } from "socket.io-client";
-import { API_BASE_URL } from "../lib/apiBase.js";
+import { API_BASE_URL, DEV_SOCKET_FALLBACK_URL } from "../lib/apiBase.js";
 
 const SOCKET_URL = (() => {
   if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
@@ -8,10 +8,13 @@ const SOCKET_URL = (() => {
   if (API_BASE_URL) return API_BASE_URL;
   if (import.meta.env.VITE_BACKEND_URL) return import.meta.env.VITE_BACKEND_URL;
   if (typeof window !== "undefined") {
-    // When API_BASE_URL is "" (dev proxy same-origin), socket should also use same origin so /socket.io proxy works
+    // When API_BASE_URL is "" (dev proxy same-origin), socket should also use same origin so /socket.io proxy works.
+    // In PROD this is the served origin (correct for same-origin deploys) — never localhost.
     return window.location.origin;
   }
-  return import.meta.env.DEV ? "http://localhost:5001" : "";
+  // SSR / no-window: localhost fallback exists DEV-only; PROD has no origin
+  // to inherit, so return "" (no silent wrong-host connection).
+  return import.meta.env.DEV ? DEV_SOCKET_FALLBACK_URL : "";
 })();
 
 // Shared socket instance — prevents React StrictMode from creating duplicates

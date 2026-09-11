@@ -11,8 +11,8 @@ const localCache = new Map();
 const LOCAL_CACHE_MAX = 1000;
 const MEMORY_CACHE_TTL = 5 * 60 * 1000;
 const CACHE_IO_TIMEOUT_MS = Math.min(
-  Math.max(Number.parseInt(process.env.CACHE_IO_TIMEOUT_MS, 10) || 100, 10),
-  1000,
+  Math.max(Number.parseInt(process.env.CACHE_IO_TIMEOUT_MS, 10) || 500, 50),
+  2000,
 );
 
 const toNamespacedKey = (namespace, key) => `${namespace}:${key}`;
@@ -169,13 +169,17 @@ const serializeCachedValue = (value) => {
   return JSON.stringify(value);
 };
 
-const withCacheTimeout = (promise, fallback) =>
-  Promise.race([
+const withCacheTimeout = (promise, fallback) => {
+  if (promise && typeof promise.catch === "function") {
+    promise.catch(() => {});
+  }
+  return Promise.race([
     promise,
     new Promise((resolve) =>
       setTimeout(() => resolve(fallback), CACHE_IO_TIMEOUT_MS),
     ),
   ]);
+};
 
 export const getCache = async (namespace, key) => {
   const cacheKey = toNamespacedKey(namespace, key);
@@ -200,14 +204,15 @@ export const getCache = async (namespace, key) => {
             resolve(null);
           }, CACHE_IO_TIMEOUT_MS),
         );
-        const value = await Promise.race([redis.get(cacheKey), timeoutPromise]);
+        const redisPromise = redis.get(cacheKey).catch(() => null);
+        const value = await Promise.race([redisPromise, timeoutPromise]);
         if (timedOut) {
           recordRedisFailure();
           return null;
         }
+        recordRedisSuccess();
         const parsed = parseCachedValue(value);
         if (parsed !== null) {
-          recordRedisSuccess();
           setMemoryCache(cacheKey, parsed, 300 * 1000); // Warm L1 for 5 mins
           return parsed;
         }

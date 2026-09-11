@@ -56,12 +56,14 @@ const CurrentAffairsManager = () => {
     e.preventDefault();
     const payload = {
       ...formData,
-      tags: [...new Set(
-        String(formData.tags || "")
-          .split(",")
-          .map((t) => t.trim().toLowerCase())
-          .filter(Boolean),
-      )].slice(0, 20),
+      tags: [
+        ...new Set(
+          String(formData.tags || "")
+            .split(",")
+            .map((t) => t.trim().toLowerCase())
+            .filter(Boolean),
+        ),
+      ].slice(0, 20),
       title: String(formData.title || "").trim(),
       content: String(formData.content || "").trim(),
       summary: String(formData.summary || "").trim(),
@@ -228,14 +230,14 @@ const CurrentAffairsManager = () => {
 
       {/* Articles Table */}
       {loading ? (
-        <div className="text-center py-12">
+        <div className="text-center py-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
           <p className="text-gray-500 dark:text-gray-400">
             Loading articles...
           </p>
         </div>
       ) : filteredArticles.length === 0 ? (
-        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+        <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
           <BookOpen className="w-12 h-12 mx-auto mb-4 text-gray-300" />
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
             No Articles Found

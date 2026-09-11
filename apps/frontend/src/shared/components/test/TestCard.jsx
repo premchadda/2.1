@@ -380,6 +380,23 @@ function TestCard({
     ? formatDateRangeShared(startTimeVal, endTimeVal, test.duration)
     : null;
 
+  // Pass-matrix cross-check (mirrors gateTests in pass-helpers): surfaces the
+  // catalog feature level for this card's test type alongside entitlement.
+  // legacyCtaType exposes the shared classifier output for analytics/E2E.
+  const featureKey = isLive || isLiveTest ? "live_tests" : "mock_tests";
+  const featureAccess = checkFeatureAccess(
+    featureKey,
+    user?.passType || user?.pass_type || "free",
+  );
+  const proVerified = checkUserIsPro(user);
+  const legacyCtaType = getTestCtaType(
+    test,
+    hasAccess,
+    isLive,
+    isUpcoming,
+    isQuizItem,
+  );
+
   // Real Test metadata (no hardcoded fallback numbers)
   const totalMarksVal =
     test.totalMarks ??
@@ -405,7 +422,7 @@ function TestCard({
     seriesId ||
     test.seriesSlug ||
     test.series_slug ||
-    (isLiveArena ? "live-tests" : "ssc-cgl-2026");
+    (isLiveArena ? "live-tests" : "pyp");
 
   // Attempt number calculation
   const attemptNo = useMemo(() => {
@@ -621,6 +638,7 @@ function TestCard({
 
   return (
     <div
+      data-cta-type={legacyCtaType}
       className={`rounded-2xl transition-all duration-200 overflow-hidden ${bgSurfaceClass} ${
         isHovered ? "shadow-md scale-[1.003]" : "shadow-xs"
       } ${borderClass} ${isLocked ? "opacity-85" : ""}`}
@@ -670,6 +688,15 @@ function TestCard({
                 {test.category}
               </span>
             )}
+            {/* Screen-reader access summary: entitlement + pass-matrix level */}
+            <span className="sr-only">
+              {isTestPro
+                ? isUserPro && proVerified
+                  ? "Pro test, included in your pass"
+                  : "Pro test, requires Pro pass"
+                : "Free test"}
+              . Feature access: {String(featureAccess)}.
+            </span>
           </div>
 
           {/* Real Participants Count */}
@@ -712,9 +739,12 @@ function TestCard({
               )}
             </div>
 
-            {/* Meta Info Row with subtle background container effect */}
-            <div className="inline-flex flex-wrap items-center gap-x-2.5 gap-y-1 px-2.5 py-1.5 bg-slate-50/90 dark:bg-slate-800/60 rounded-xl border border-slate-100/90 dark:border-slate-800 text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium">
-              <span className="flex items-center gap-1">
+            {/* Meta Info Row with subtle background container effect.
+                Single row on all screens: flex-nowrap + whitespace-nowrap so
+                Qs/Marks/Mins never stack on mobile; gaps, padding and font
+                size tighten on small screens so the three stats fit. */}
+            <div className="inline-flex flex-nowrap items-center gap-x-1.5 sm:gap-x-2.5 px-2 py-1 sm:px-2.5 sm:py-1.5 bg-slate-50/90 dark:bg-slate-800/60 rounded-xl border border-slate-100/90 dark:border-slate-800 text-[10px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium max-w-full overflow-hidden whitespace-nowrap">
+              <span className="flex items-center gap-1 shrink-0">
                 <span className="text-xs">❓</span>
                 <>
                   {displayQuestions} Qs
@@ -728,8 +758,10 @@ function TestCard({
               </span>
               {marks !== null && marks !== undefined && (
                 <>
-                  <span className="text-slate-300 dark:text-slate-700">|</span>
-                  <span className="flex items-center gap-1">
+                  <span className="text-slate-300 dark:text-slate-700 shrink-0">
+                    |
+                  </span>
+                  <span className="flex items-center gap-1 shrink-0">
                     <span className="text-xs">📄</span>
                     {marks} Marks
                   </span>
@@ -737,8 +769,10 @@ function TestCard({
               )}
               {duration !== null && duration !== undefined && (
                 <>
-                  <span className="text-slate-300 dark:text-slate-700">|</span>
-                  <span className="flex items-center gap-1">
+                  <span className="text-slate-300 dark:text-slate-700 shrink-0">
+                    |
+                  </span>
+                  <span className="flex items-center gap-1 shrink-0">
                     <span className="text-xs">🕒</span>
                     {duration} Mins
                   </span>
@@ -748,11 +782,43 @@ function TestCard({
               {/* Countdown for Upcoming items */}
               {isUpcoming && startTimeVal && (
                 <>
-                  <span className="text-slate-300 dark:text-slate-700">|</span>
-                  <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-bold">
+                  <span className="text-slate-300 dark:text-slate-700 shrink-0">
+                    |
+                  </span>
+                  <span className="flex items-center gap-1 shrink-0 text-indigo-600 dark:text-indigo-400 font-bold">
                     <Clock className="w-3 h-3" />
                     <span>Starts in {getTimeUntil(startTimeVal)}</span>
                   </span>
+                </>
+              )}
+
+              {/* Reminder affordance for live/upcoming tests */}
+              {(isLive || isUpcoming) && !isExpired && onRegister && (
+                <>
+                  <span className="text-slate-300 dark:text-slate-700 shrink-0">
+                    |
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onRegister(test)}
+                    disabled={isRegistering || isUserRegistered}
+                    aria-label={
+                      isUserRegistered
+                        ? "Reminder set for this test"
+                        : "Remind me about this test"
+                    }
+                    title={isUserRegistered ? "Reminder set" : "Remind me"}
+                    className="flex items-center gap-1 shrink-0 text-indigo-600 dark:text-indigo-400 font-bold disabled:opacity-70 disabled:cursor-default"
+                  >
+                    <Bell className="w-3 h-3" aria-hidden="true" />
+                    <span>
+                      {isRegistering
+                        ? "…"
+                        : isUserRegistered
+                          ? "Reminder set"
+                          : "Remind me"}
+                    </span>
+                  </button>
                 </>
               )}
             </div>

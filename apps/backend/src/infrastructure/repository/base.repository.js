@@ -3,27 +3,94 @@ import { dbHelpers, pool } from "../database/postgres-helpers.js";
 // Table name allowlist — only tables that exist in the schema can be queried.
 // Prevents SQL injection via dynamic table names in count(), queryRaw(), etc.
 const ALLOWED_TABLES = new Set([
-  'users', 'tests', 'questions', 'test_categories', 'test_series', 'test_sections',
-  'test_questions', 'attempts', 'attempt_sections', 'attempt_answers',
-  'enrollments', 'exam_categories', 'exams', 'exam_info', 'exam_seasons',
-  'exam_yearly_data', 'study_materials', 'chapters', 'topics', 'subject_parts',
-  'units', 'subtopics', 'passages', 'stages', 'sections', 'quizzes',
-  'notifications', 'subscriptions', 'subscription_plans', 'results',
-  'doubts', 'bookmarks', 'leaderboards', 'leaderboard_entries',
-  'activity_logs', 'audit_trail', 'study_groups', 'group_posts',
-  'group_post_likes', 'group_messages', 'discussions', 'discussion_replies',
-  'discussion_likes', 'blog_posts', 'referrals', 'achievements',
-  'achievements_user', 'promotions', 'coupons', 'coupon_usage',
-  'referral_codes', 'email_templates', 'navigation_items',
-  'app_settings', 'user_sessions', 'two_factor_secrets', 'backup_codes',
-  'payments', 'user_events', 'recommendations', 'learning_progress',
-  'spaced_repetition', 'daily_quiz_history', 'moderation_queue',
-  'certificates', 'content_moderation', 'tags', 'question_tags',
-  'user_activity', 'current_affairs', 'banners', 'pyp_hierarchy',
-  'roles', 'permissions', 'role_permissions', 'user_roles',
-  'uploads', 'files', 'trash', 'practice_questions', 'practice_tests',
-  'ai_usage_logs', 'ai_cache', 'practice_ai_cache', 'rate_limits',
-  'feature_flags', 'system_health', 'backups',
+  "users",
+  "tests",
+  "questions",
+  "test_categories",
+  "test_series",
+  "test_sections",
+  "test_questions",
+  "attempts",
+  "attempt_sections",
+  "attempt_answers",
+  "enrollments",
+  "exam_categories",
+  "exams",
+  "exam_info",
+  "exam_seasons",
+  "exam_yearly_data",
+  "study_materials",
+  "chapters",
+  "topics",
+  "subject_parts",
+  "units",
+  "subtopics",
+  "passages",
+  "stages",
+  "sections",
+  "quizzes",
+  "notifications",
+  "subscriptions",
+  "subscription_plans",
+  "results",
+  "doubts",
+  "bookmarks",
+  "leaderboards",
+  "leaderboard_entries",
+  "activity_logs",
+  "audit_logs",
+  "study_groups",
+  "group_posts",
+  "group_post_likes",
+  "group_messages",
+  "discussions",
+  "discussion_replies",
+  "discussion_likes",
+  "blog_posts",
+  "referrals",
+  "achievements",
+  "achievements_user",
+  "promotions",
+  "coupons",
+  "coupon_usage",
+  "referral_codes",
+  "email_templates",
+  "navigation_items",
+  "app_settings",
+  "user_sessions",
+  "two_factor_secrets",
+  "backup_codes",
+  "payments",
+  "user_events",
+  "recommendations",
+  "learning_progress",
+  "spaced_repetition",
+  "daily_quiz_history",
+  "moderation_queue",
+  "certificates",
+  "content_moderation",
+  "tags",
+  "question_tags",
+  "user_activity",
+  "current_affairs",
+  "banners",
+  "pyp_hierarchy",
+  "roles",
+  "permissions",
+  "role_permissions",
+  "user_roles",
+  "uploads",
+  "files",
+  "trash",
+  "practice_questions",
+  "practice_tests",
+  "ai_usage_logs",
+  "ai_cache",
+  "practice_ai_cache",
+  "rate_limits",
+  "feature_flags",
+  "system_health",
+  "backups",
 ]);
 
 const assertValidTable = (table) => {
@@ -75,23 +142,25 @@ export class BaseRepository {
     const conditions = [];
     let i = 1;
 
-    const snakeQuery = this.db.toSnake ? this.db.toSnake(query, this.collection) : query;
+    const snakeQuery = this.db.toSnake
+      ? this.db.toSnake(query, this.collection)
+      : query;
 
     for (const key in snakeQuery) {
       const value = snakeQuery[key];
       if (value === null) {
         conditions.push(`"${key}" IS NULL`);
-      } else if (typeof value !== 'object') {
+      } else if (typeof value !== "object") {
         conditions.push(`"${key}" = $${i}`);
         values.push(value);
         i++;
       } else if (value.$in && Array.isArray(value.$in)) {
         if (value.$in.length > 0) {
-          const placeholders = value.$in.map(() => `$${i++}`).join(', ');
+          const placeholders = value.$in.map(() => `$${i++}`).join(", ");
           conditions.push(`"${key}" IN (${placeholders})`);
           values.push(...value.$in);
         } else {
-          conditions.push('1=0');
+          conditions.push("1=0");
         }
       } else if (value.$gt) {
         conditions.push(`"${key}" > $${i}`);
@@ -105,7 +174,7 @@ export class BaseRepository {
     }
 
     if (conditions.length > 0) {
-      sql += ` WHERE ${conditions.join(' AND ')}`;
+      sql += ` WHERE ${conditions.join(" AND ")}`;
     }
 
     try {

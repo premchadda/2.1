@@ -87,15 +87,17 @@ const recordAdminPayment = async ({
   orderId,
   planId,
   metadata = {},
+  client, // optional: reuse transaction client
 }) => {
   await ensureAdminPaymentsTable();
-  const existing = await pool.query(
+  const conn = client || pool;
+  const existing = await conn.query(
     "SELECT id FROM payments WHERE gateway_payment_id = $1 LIMIT 1",
     [gatewayPaymentId],
   );
   if (existing.rows.length > 0) return;
 
-  await pool.query(
+  await conn.query(
     `INSERT INTO payments
       (user_id, amount, currency, status, gateway, gateway_payment_id, metadata)
      VALUES ($1, $2, $3, 'success', 'razorpay', $4, $5::jsonb)`,
@@ -680,9 +682,7 @@ router.post(
                   <p>Thank you for your purchase!</p>
                 `;
 
-            const method =
-              typeof emailService.send === "function" ? "send" : "sendDirect";
-            await emailService[method](
+            await emailService.send(
               user.email,
               `Payment Confirmed — ₹${transactionAmount} — Trstprep Pro Pass`,
               receiptHtml,
@@ -857,21 +857,39 @@ router.post(
         if (userId) {
           const gatewayPaymentId = paymentEntity.id;
 
-          // Idempotency guard: skip if this gateway payment was already processed
-          // (Razorpay retries webhooks on delivery failure).
-          const alreadyProcessed = await dbHelpers.findOne("transactions", {
-            paymentId: gatewayPaymentId,
-          });
-          if (alreadyProcessed) {
-            return res.json({
-              success: true,
-              message: "Webhook already processed",
-            });
-          }
-
           await dbHelpers.withTransaction(async (client) => {
+            // Idempotency guard: pg advisory lock keyed on the gateway payment
+            // id serializes concurrent webhooks for the SAME payment (Razorpay
+            // retries on delivery failure). A row lock cannot do this — there
+            // is no row to lock on first delivery, and payment_id has no
+            // unique constraint, so two concurrent retries could both pass a
+            // SELECT ... FOR UPDATE guard and double-process.
+            const lockKey = crypto
+              .createHash("sha256")
+              .update(`razorpay:payment:${gatewayPaymentId}`)
+              .digest()
+              // Signed 64-bit read: pg_advisory_xact_lock(bigint) takes a
+              // SIGNED int8 (max 2^63-1). An unsigned read overflows the
+              // parameter ~50% of the time ("bigint out of range"), which
+              // would 500 deterministic halves of all webhooks.
+              .readBigInt64BE(0);
+            await client.query("SELECT pg_advisory_xact_lock($1)", [lockKey]);
+
+            const { rows } = await client.query(
+              `SELECT id FROM transactions WHERE payment_id = $1 LIMIT 1`,
+              [gatewayPaymentId],
+            );
+            if (rows.length > 0) {
+              return; // Already processed — skip inside transaction
+            }
+
             // Update user status
-            const user = await dbHelpers.findById("users", userId);
+            const user = await dbHelpers.findById(
+              "users",
+              userId,
+              null,
+              client,
+            );
             if (!user) return;
 
             let expiryDays = 30;
@@ -893,10 +911,17 @@ router.post(
             // Record coupon usage if applied
             if (couponCode) {
               try {
-                const coupons = await dbHelpers.find("coupons", {
-                  code: couponCode,
-                  isActive: true,
-                });
+                const coupons = await dbHelpers.find(
+                  "coupons",
+                  {
+                    code: couponCode,
+                    isActive: true,
+                  },
+                  null,
+                  null,
+                  null,
+                  client,
+                );
                 const coupon = coupons[0];
                 if (coupon) {
                   const usedBy = Array.isArray(coupon.usedByUsers)
@@ -947,11 +972,12 @@ router.post(
               orderId,
               planId,
               metadata: { couponCode: couponCode || null, source: "webhook" },
+              client,
             });
 
             // P0 FIX: webhook receipt email (was missing)
             try {
-              const userRec = await dbHelpers.findById("users", userId);
+              const userRec = user;
               if (userRec?.email) {
                 const { default: emailService } =
                   await import("../../services/EmailService.js");
@@ -970,15 +996,13 @@ router.post(
                       },
                     )
                   : `<p>Payment confirmed: ${orderId} / ${gatewayPaymentId} ₹${paymentEntity.amount / 100}</p>`;
-                const m =
-                  typeof emailService.send === "function"
-                    ? "send"
-                    : "sendDirect";
-                await emailService[m](
-                  userRec.email,
-                  `Payment Confirmed — ₹${paymentEntity.amount / 100} — Trstprep`,
-                  html,
-                ).catch(() => {});
+                await emailService
+                  .send(
+                    userRec.email,
+                    `Payment Confirmed — ₹${paymentEntity.amount / 100} — Trstprep`,
+                    html,
+                  )
+                  .catch(() => {});
               }
             } catch (_e) {
               void _e;

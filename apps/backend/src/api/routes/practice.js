@@ -35,10 +35,12 @@ import {
 import { readQuery } from "../../../config/database-replicas.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
+import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
 import { recordPracticeAnalytics } from "../../services/core/analyticsService.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
+const practiceSubmissionLimiter = createRateLimiter("moderate");
 
 // ═══════════════════════════════════════════════════
 // HELPERS
@@ -62,37 +64,191 @@ async function countPracticeQuestions(extraWhere = "", params = []) {
 }
 
 /**
+ * Resolves slug or string identifiers for exams, subjects, chapters, and topics into integer primary keys.
+ */
+async function resolvePracticeFilters({
+  examId,
+  subjectId,
+  chapterId,
+  topicId,
+} = {}) {
+  let resolvedSubjectId = null;
+  if (subjectId !== undefined && subjectId !== null && subjectId !== "") {
+    if (!isNaN(Number(subjectId))) {
+      resolvedSubjectId = Number(subjectId);
+    } else {
+      try {
+        const sRes = await pool.query(
+          `SELECT id FROM subjects WHERE slug = $1 OR LOWER(name) = LOWER($1) LIMIT 1`,
+          [String(subjectId).trim()],
+        );
+        if (sRes.rows.length) resolvedSubjectId = sRes.rows[0].id;
+      } catch (err) {
+        console.warn(
+          "[resolvePracticeFilters] Subject resolve failed:",
+          err.message,
+        );
+      }
+    }
+  }
+
+  let resolvedChapterId = null;
+  if (chapterId !== undefined && chapterId !== null && chapterId !== "") {
+    if (!isNaN(Number(chapterId))) {
+      resolvedChapterId = Number(chapterId);
+    } else {
+      try {
+        const cRes = await pool.query(
+          `SELECT id FROM subject_chapters 
+           WHERE slug = $1 
+              OR public_id = $1 
+              OR LOWER(title) = LOWER($1) 
+              OR LOWER(REPLACE(title, ' ', '-')) = LOWER($1)
+           LIMIT 1`,
+          [String(chapterId).trim()],
+        );
+        if (cRes.rows.length) resolvedChapterId = cRes.rows[0].id;
+      } catch (err) {
+        console.warn(
+          "[resolvePracticeFilters] Chapter resolve failed:",
+          err.message,
+        );
+      }
+    }
+  }
+
+  let resolvedTopicId = null;
+  if (topicId !== undefined && topicId !== null && topicId !== "") {
+    if (!isNaN(Number(topicId))) {
+      resolvedTopicId = Number(topicId);
+    } else {
+      try {
+        const tRes = await pool.query(
+          `SELECT id FROM subject_topics 
+           WHERE slug = $1 
+              OR LOWER(name) = LOWER($1) 
+              OR LOWER(REPLACE(name, ' ', '-')) = LOWER($1)
+           LIMIT 1`,
+          [String(topicId).trim()],
+        );
+        if (tRes.rows.length) resolvedTopicId = tRes.rows[0].id;
+      } catch (err) {
+        console.warn(
+          "[resolvePracticeFilters] Topic resolve failed:",
+          err.message,
+        );
+      }
+    }
+  }
+
+  let resolvedExamId = null;
+  if (examId !== undefined && examId !== null && examId !== "") {
+    if (!isNaN(Number(examId))) {
+      resolvedExamId = Number(examId);
+    } else {
+      try {
+        const eRes = await pool.query(
+          `SELECT id FROM exams WHERE slug = $1 OR code = $1 OR LOWER(title) = LOWER($1) LIMIT 1`,
+          [String(examId).trim()],
+        );
+        if (eRes.rows.length) resolvedExamId = eRes.rows[0].id;
+      } catch (err) {
+        console.warn(
+          "[resolvePracticeFilters] Exam resolve failed:",
+          err.message,
+        );
+      }
+    }
+  }
+
+  return {
+    examId: resolvedExamId,
+    subjectId: resolvedSubjectId,
+    chapterId: resolvedChapterId,
+    topicId: resolvedTopicId,
+  };
+}
+
+/**
  * Pick N random practice question IDs matching filters.
  */
 async function pickPracticeQuestionIds({
   subjectId,
   chapterId,
   topicId,
+  subtopicId,
   difficulty,
   mode,
   count,
   userId,
   testId,
+  questionId,
 }) {
+  const resolved = await resolvePracticeFilters({
+    subjectId,
+    chapterId,
+    topicId,
+  });
+  let finalSubjectId = resolved.subjectId;
+  let finalChapterId = resolved.chapterId;
+  let finalTopicId = resolved.topicId;
+
   const conditions = [PRACTICE_Q_WHERE];
   const params = [];
   let idx = 1;
 
-  if (topicId && !isNaN(Number(topicId))) {
+  // "similar" deep link: seed the filters from the referenced question's own
+  // topic/chapter/subject so the drill matches the question the user came from.
+  if (mode === "similar" && questionId) {
+    const seedId = Number(questionId);
+    if (Number.isInteger(seedId) && seedId > 0) {
+      try {
+        const seed = await pool.query(
+          `SELECT topic_id, chapter_id, subject_id, difficulty FROM questions WHERE id = $1 LIMIT 1`,
+          [seedId],
+        );
+        const seedRow = seed.rows[0];
+        if (seedRow) {
+          if (!finalTopicId && seedRow.topic_id)
+            finalTopicId = seedRow.topic_id;
+          if (!finalChapterId && seedRow.chapter_id)
+            finalChapterId = seedRow.chapter_id;
+          if (!finalSubjectId && seedRow.subject_id)
+            finalSubjectId = seedRow.subject_id;
+          conditions.push(`q.id <> $${idx}`);
+          params.push(seedId);
+          idx++;
+        }
+      } catch (seedErr) {
+        console.warn("[Practice similar seed]", seedErr.message);
+      }
+    }
+  }
+
+  if (subtopicId) {
+    const sId = Number(subtopicId);
+    if (!isNaN(sId) && sId > 0) {
+      conditions.push(`q.subtopic_id = $${idx}`);
+      params.push(sId);
+      idx++;
+    }
+  }
+
+  if (finalTopicId) {
     conditions.push(`q.topic_id = $${idx}`);
-    params.push(Number(topicId));
+    params.push(finalTopicId);
     idx++;
   }
-  if (chapterId && !isNaN(Number(chapterId))) {
+  if (finalChapterId) {
     // Questions linked to chapter_id directly OR topics under this chapter
     conditions.push(`(
       q.chapter_id = $${idx}
       OR q.topic_id IN (SELECT id FROM subject_topics WHERE chapter_id = $${idx})
     )`);
-    params.push(Number(chapterId));
+    params.push(finalChapterId);
     idx++;
   }
-  if (subjectId && !isNaN(Number(subjectId))) {
+  if (finalSubjectId) {
     conditions.push(`(
       q.subject_id = $${idx}
       OR q.chapter_id IN (SELECT id FROM subject_chapters WHERE subject_id = $${idx} OR study_material_id = $${idx})
@@ -102,7 +258,7 @@ async function pickPracticeQuestionIds({
         WHERE (c.study_material_id = $${idx} OR c.subject_id = $${idx})
       )
     )`);
-    params.push(Number(subjectId));
+    params.push(finalSubjectId);
     idx++;
   }
   if (difficulty && difficulty !== "mixed") {
@@ -205,12 +361,14 @@ async function pickPracticeQuestionIds({
 async function getSafeQuestion(questionId) {
   const r = await pool.query(
     `
-    SELECT q.id, q.question_text, q.options, q.explanation, q.subject, q.topic,
+    SELECT q.id, q.test_id, q.question_text, q.options, q.explanation, q.subject, q.topic,
            q.difficulty, q.language, q.topic_id,
            q.subject_id,
            q.question_text_hi, q.options_hi, q.explanation_hi,
-           q.source_config, q.tags, q.source
+           q.source_config, q.tags, q.source,
+           t.title AS test_title
     FROM questions q
+    LEFT JOIN tests t ON q.test_id = t.id
     WHERE q.id = $1 AND (q.is_active = true OR q.is_active IS NULL)
   `,
     [questionId],
@@ -232,6 +390,12 @@ function toSafeQuestion(rawRow) {
     is_correct,
     ...safe
   } = row;
+  if (rawRow.test_title && !safe.testTitle) {
+    safe.testTitle = rawRow.test_title;
+  }
+  if (safe.testTitle && !safe.test_title) {
+    safe.test_title = safe.testTitle;
+  }
   return safe;
 }
 
@@ -244,11 +408,13 @@ async function getSafeQuestions(questionIds = []) {
 
   const r = await pool.query(
     `
-    SELECT q.id, q.question_text, q.options, q.explanation, q.subject, q.topic,
+    SELECT q.id, q.test_id, q.question_text, q.options, q.explanation, q.subject, q.topic,
            q.difficulty, q.language, q.topic_id, q.subject_id,
            q.question_text_hi, q.options_hi, q.explanation_hi,
-           q.source_config, q.tags, q.source
+           q.source_config, q.tags, q.source,
+           t.title AS test_title
     FROM questions q
+    LEFT JOIN tests t ON q.test_id = t.id
     WHERE q.id = ANY($1::int[])
       AND (q.is_active = true OR q.is_active IS NULL)
     `,
@@ -262,6 +428,20 @@ async function getSafeQuestions(questionIds = []) {
 
 function parsePositiveInt(value) {
   const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function toNullableInt(value) {
+  if (
+    value === undefined ||
+    value === null ||
+    value === "undefined" ||
+    value === "null" ||
+    value === ""
+  ) {
+    return null;
+  }
+  const parsed = parseInt(value, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
@@ -279,25 +459,32 @@ function normalizeOptionIndex(raw) {
 async function getCorrectOption(questionId) {
   const r = await pool.query(
     `
-    SELECT correct_option, correct_option_index, correct_answer, correct
+    SELECT correct_option, correct_answer, options
     FROM questions WHERE id = $1
   `,
     [questionId],
   );
   if (!r.rows.length) return null;
   const row = dbHelpers.toCamel(r.rows[0]);
-  const raw =
-    row.correctOption ??
-    row.correctOptionIndex ??
-    row.correctAnswer ??
-    row.correct;
-  if (raw === undefined || raw === null || raw === "") return null;
-  const n = Number(raw);
-  if (Number.isFinite(n)) return n;
-  // BUGFIX: letter-stored answers ("A".."D") previously broke strict ===
-  // against numeric selections; map them deterministically instead.
-  const s = String(raw).trim().toUpperCase();
-  return /^[A-D]$/.test(s) ? s.charCodeAt(0) - 65 : raw;
+  const raw = row.correctOption ?? row.correctAnswer;
+  if (raw !== undefined && raw !== null && raw !== "") {
+    const n = Number(raw);
+    if (Number.isFinite(n) && Number.isInteger(n)) return n;
+    const s = String(raw).trim().toUpperCase();
+    if (/^[A-D]$/.test(s)) return s.charCodeAt(0) - 65;
+  }
+  const opts = Array.isArray(row.options) ? row.options : [];
+  if (opts.length > 0) {
+    const idx = opts.findIndex((o) => {
+      if (typeof o === "object" && o !== null) {
+        if (o.isCorrect || o.is_correct) return true;
+        if (raw && (o.text === raw || o.id === raw)) return true;
+      }
+      return o === raw;
+    });
+    if (idx !== -1) return idx;
+  }
+  return null;
 }
 
 /**
@@ -384,115 +571,140 @@ async function bumpStreak(userId) {
  * Returns a pruned curriculum tree: exam → subject → chapter → topic,
  * only branches that contain at least one practice question.
  */
-router.get("/tree", protect, async (req, res) => {
-  try {
-    // Practice question counts per topic_id
-    // Curriculum metadata is independent of the question aggregate, so run
-    // both reads together. The old implementation did four serial queries.
-    const [qCounts, curriculum] = await Promise.all([
-      pool.query(`
+let _practiceTreeCache = null;
+let _practiceTreeCacheExpires = 0;
+
+router.get(
+  "/tree",
+  protect,
+  responseCache("practice-tree", 300, { userScoped: false }),
+  async (req, res) => {
+    try {
+      if (_practiceTreeCache && Date.now() < _practiceTreeCacheExpires) {
+        return res.json({
+          success: true,
+          data: { subjects: _practiceTreeCache },
+        });
+      }
+
+      // Practice question counts per topic_id
+      // Curriculum metadata is independent of the question aggregate, so run
+      // both reads together. The old implementation did four serial queries.
+      const [qCounts, curriculum] = await Promise.all([
+        pool.query(`
         SELECT q.topic_id AS topic_id, COUNT(*)::int AS c,
                SUM(CASE WHEN LOWER(q.difficulty)='easy' THEN 1 ELSE 0 END)::int AS easy,
                SUM(CASE WHEN LOWER(q.difficulty)='medium' THEN 1 ELSE 0 END)::int AS medium,
                SUM(CASE WHEN LOWER(q.difficulty)='hard' THEN 1 ELSE 0 END)::int AS hard
         FROM questions q
-        WHERE ${PRACTICE_Q_WHERE} AND q.topic_id IS NOT NULL
+        WHERE q.is_active = true
+          AND (q.is_deleted = false OR q.is_deleted IS NULL)
+          AND q.topic_id IS NOT NULL
         GROUP BY q.topic_id
       `),
-      pool.query(`
+        pool.query(`
         SELECT s.id AS subject_id, s.name AS subject_title, s.slug AS subject_slug, s.color,
                c.id AS chapter_id, c.title AS chapter_title, c.slug AS chapter_slug,
                t.id AS topic_id, t.name AS topic_name, t.slug AS topic_slug
         FROM subjects s
         JOIN subject_chapters c
-          ON COALESCE(c.subject_id, c.study_material_id) = s.id
+          ON (c.subject_id = s.id OR (c.subject_id IS NULL AND c.study_material_id = s.id))
          AND c.is_active = true
+         AND (c.is_deleted = false OR c.is_deleted IS NULL)
         JOIN subject_topics t
           ON t.chapter_id = c.id
          AND t.is_active = true
+         AND (t.is_deleted = false OR t.is_deleted IS NULL)
         WHERE s.is_active = true
+          AND (s.is_deleted = false OR s.is_deleted IS NULL)
         ORDER BY s.sort_order, s.name, c.order_index, c.title, t.order_index, t.name
       `),
-    ]);
-    const topicMap = {};
-    for (const r of qCounts.rows) {
-      topicMap[r.topic_id] = {
-        count: r.c,
-        easy: r.easy,
-        medium: r.medium,
-        hard: r.hard,
-      };
-    }
-
-    if (!Object.keys(topicMap).length) {
-      return res.json({ success: true, data: { subjects: [] } });
-    }
-
-    // Build nested tree
-    const subjectsById = {};
-    const chaptersBySubject = {};
-    const topicsByChapter = {};
-    for (const row of curriculum.rows) {
-      if (!topicMap[row.topic_id]) continue;
-      if (!subjectsById[row.subject_id]) {
-        subjectsById[row.subject_id] = {
-          id: row.subject_id,
-          title: row.subject_title,
-          slug: row.subject_slug,
-          color: row.color,
+      ]);
+      const topicMap = {};
+      for (const r of qCounts.rows) {
+        topicMap[r.topic_id] = {
+          count: r.c,
+          easy: r.easy,
+          medium: r.medium,
+          hard: r.hard,
         };
       }
-      if (!chaptersBySubject[row.subject_id])
-        chaptersBySubject[row.subject_id] = {};
-      if (!chaptersBySubject[row.subject_id][row.chapter_id]) {
-        chaptersBySubject[row.subject_id][row.chapter_id] = {
-          id: row.chapter_id,
-          title: row.chapter_title,
-          slug: row.chapter_slug,
-        };
+
+      if (!Object.keys(topicMap).length) {
+        return res.json({ success: true, data: { subjects: [] } });
       }
-      if (!topicsByChapter[row.chapter_id])
-        topicsByChapter[row.chapter_id] = [];
-      topicsByChapter[row.chapter_id].push({
-        id: row.topic_id,
-        name: row.topic_name,
-        slug: row.topic_slug,
-      });
+
+      // Build nested tree
+      const subjectsById = {};
+      const chaptersBySubject = {};
+      const topicsByChapter = {};
+      for (const row of curriculum.rows) {
+        if (!topicMap[row.topic_id]) continue;
+        if (!subjectsById[row.subject_id]) {
+          subjectsById[row.subject_id] = {
+            id: row.subject_id,
+            title: row.subject_title,
+            slug: row.subject_slug,
+            color: row.color,
+          };
+        }
+        if (!chaptersBySubject[row.subject_id])
+          chaptersBySubject[row.subject_id] = {};
+        if (!chaptersBySubject[row.subject_id][row.chapter_id]) {
+          chaptersBySubject[row.subject_id][row.chapter_id] = {
+            id: row.chapter_id,
+            title: row.chapter_title,
+            slug: row.chapter_slug,
+          };
+        }
+        if (!topicsByChapter[row.chapter_id])
+          topicsByChapter[row.chapter_id] = [];
+        topicsByChapter[row.chapter_id].push({
+          id: row.topic_id,
+          name: row.topic_name,
+          slug: row.topic_slug,
+        });
+      }
+
+      const tree = Object.values(subjectsById)
+        .map((s) => ({
+          id: s.id,
+          name: s.title,
+          slug: s.slug,
+          color: s.color,
+          chapters: Object.values(chaptersBySubject[s.id] || {})
+            .map((c) => ({
+              id: c.id,
+              name: c.title,
+              slug: c.slug,
+              topics: (topicsByChapter[c.id] || [])
+                .map((t) => ({
+                  id: t.id,
+                  name: t.name,
+                  slug: t.slug,
+                  questionCount: topicMap[t.id]?.count || 0,
+                  easy: topicMap[t.id]?.easy || 0,
+                  medium: topicMap[t.id]?.medium || 0,
+                  hard: topicMap[t.id]?.hard || 0,
+                }))
+                .filter((t) => t.questionCount > 0),
+            }))
+            .filter((c) => c.topics.length > 0),
+        }))
+        .filter((s) => s.chapters.length > 0);
+
+      _practiceTreeCache = tree;
+      _practiceTreeCacheExpires = Date.now() + 5 * 60 * 1000;
+
+      res.json({ success: true, data: { subjects: tree } });
+    } catch (err) {
+      console.error("GET /api/practice/tree error:", err);
+      res
+        .status(500)
+        .json({ success: false, error: sanitizeErrorMessage(err) });
     }
-
-    const tree = Object.values(subjectsById)
-      .map((s) => ({
-        id: s.id,
-        name: s.title,
-        slug: s.slug,
-        color: s.color,
-        chapters: Object.values(chaptersBySubject[s.id] || {})
-          .map((c) => ({
-            id: c.id,
-            name: c.title,
-            slug: c.slug,
-            topics: (topicsByChapter[c.id] || [])
-              .map((t) => ({
-                id: t.id,
-                name: t.name,
-                slug: t.slug,
-                questionCount: topicMap[t.id]?.count || 0,
-                easy: topicMap[t.id]?.easy || 0,
-                medium: topicMap[t.id]?.medium || 0,
-                hard: topicMap[t.id]?.hard || 0,
-              }))
-              .filter((t) => t.questionCount > 0),
-          }))
-          .filter((c) => c.topics.length > 0),
-      }))
-      .filter((s) => s.chapters.length > 0);
-
-    res.json({ success: true, data: { subjects: tree } });
-  } catch (err) {
-    console.error("GET /api/practice/tree error:", err);
-    res.status(500).json({ success: false, error: sanitizeErrorMessage(err) });
-  }
-});
+  },
+);
 
 /**
  * GET /api/practice/subjects
@@ -658,6 +870,90 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
       }
     }
 
+    // 3b. Query subtopics for topics in this chapter
+    let subtopicsByTopic = {};
+    if (topicIds.length > 0) {
+      const subtopicsRes = await pool.query(
+        `
+        SELECT st.id, st.name, st.slug, st.topic_id, st.order_index,
+               COUNT(q.id)::int AS question_count,
+               SUM(CASE WHEN LOWER(q.difficulty)='easy' THEN 1 ELSE 0 END)::int AS easy_count,
+               SUM(CASE WHEN LOWER(q.difficulty)='medium' THEN 1 ELSE 0 END)::int AS medium_count,
+               SUM(CASE WHEN LOWER(q.difficulty)='hard' THEN 1 ELSE 0 END)::int AS hard_count
+        FROM subject_subtopics st
+        LEFT JOIN questions q ON q.subtopic_id = st.id
+          AND (q.is_active = true OR q.is_active IS NULL)
+          AND (q.is_deleted = false OR q.is_deleted IS NULL)
+        WHERE st.topic_id = ANY($1::int[]) AND st.is_active = true AND (st.is_deleted IS NOT TRUE)
+        GROUP BY st.id, st.name, st.slug, st.topic_id, st.order_index
+        ORDER BY st.order_index NULLS LAST, st.name
+      `,
+        [topicIds],
+      );
+
+      const subtopicIds = subtopicsRes.rows.map((s) => s.id);
+      let subtopicMasteryMap = {};
+      if (subtopicIds.length > 0) {
+        const subMasteryRes = await pool.query(
+          `
+          SELECT q.subtopic_id,
+                 ROUND(AVG(CASE WHEN pa.is_correct THEN 100.0 ELSE 0 END))::int AS accuracy,
+                 COUNT(pa.id)::int AS attempts
+          FROM practice_answers pa
+          JOIN questions q ON pa.question_id = q.id
+          WHERE pa.user_id = $1 AND q.subtopic_id = ANY($2::int[])
+          GROUP BY q.subtopic_id
+        `,
+          [userId, subtopicIds],
+        );
+        for (const r of subMasteryRes.rows) {
+          subtopicMasteryMap[r.subtopic_id] = {
+            accuracy: r.accuracy,
+            attempts: r.attempts,
+          };
+        }
+      }
+
+      for (const st of subtopicsRes.rows) {
+        if (!subtopicsByTopic[st.topic_id]) subtopicsByTopic[st.topic_id] = [];
+        subtopicsByTopic[st.topic_id].push({
+          id: st.id,
+          subtopicId: st.id,
+          topicId: st.topic_id,
+          name: st.name.replace(/^Subtopic\s*\d+\s*:\s*/i, "").trim(),
+          fullName: st.name,
+          slug: st.slug,
+          questionCount: st.question_count || 0,
+          easyCount: st.easy_count || 0,
+          mediumCount: st.medium_count || 0,
+          hardCount: st.hard_count || 0,
+          accuracy: subtopicMasteryMap[st.id]?.accuracy ?? null,
+          attempts: subtopicMasteryMap[st.id]?.attempts ?? 0,
+        });
+      }
+    }
+
+    // Build chapter-wide topic types (collection of question types across this chapter)
+    const chapterTopicTypes = topicsRes.rows
+      .filter((t) => (t.question_count || 0) > 0)
+      .map((t) => {
+        const cleanName = t.name.replace(/^Topic\s*\d+\s*:\s*/i, "").trim();
+        return {
+          id: `topictype-${t.id}`,
+          topicId: t.id,
+          name: cleanName,
+          fullName: t.name,
+          slug: t.slug,
+          questionCount: t.question_count,
+          easyCount: t.easy_count,
+          mediumCount: t.medium_count,
+          hardCount: t.hard_count,
+          accuracy: masteryMap[t.id]?.accuracy ?? null,
+          attempts: masteryMap[t.id]?.attempts ?? 0,
+          description: t.description || `Practice all ${cleanName} questions`,
+        };
+      });
+
     // 4. Build topics with practice sets
     const PRACTICE_SETS = [
       {
@@ -695,12 +991,17 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
       {
         id: "full",
         label: "Full Practice",
-        description: "25 questions · All levels",
-        count: 25,
+        description: "All questions · All levels",
+        count: null, // null = use all available questions for the topic
         difficulty: "mixed",
         icon: "🎯",
       },
     ];
+
+    const cleanChapterTitle = chapter.title
+      .replace(/^Chapter\s*\d+\s*:\s*/i, "")
+      .toLowerCase()
+      .trim();
 
     const topics = topicsRes.rows
       .map((t) => {
@@ -708,6 +1009,22 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
         const easyCount = t.easy_count || 0;
         const mediumCount = t.medium_count || 0;
         const hardCount = t.hard_count || 0;
+
+        const directSubtopics = (subtopicsByTopic[t.id] || []).filter(
+          (st) => st.questionCount > 0,
+        );
+
+        const cleanTopicName = t.name
+          .replace(/^Topic\s*\d+\s*:\s*/i, "")
+          .toLowerCase()
+          .trim();
+        const isUmbrella =
+          cleanTopicName.includes(cleanChapterTitle) ||
+          cleanChapterTitle.includes(cleanTopicName);
+
+        const topicTypes = isUmbrella
+          ? chapterTopicTypes.filter((ct) => ct.topicId !== t.id)
+          : [];
 
         return {
           id: t.id,
@@ -720,6 +1037,9 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
           hardCount,
           accuracy: masteryMap[t.id]?.accuracy ?? null,
           attempts: masteryMap[t.id]?.attempts ?? 0,
+          subtopics: directSubtopics,
+          topicTypes,
+          allTypes: [...directSubtopics, ...topicTypes],
           // These are set types, while count is capped to the questions that
           // actually exist for this topic and difficulty.
           practiceSets: PRACTICE_SETS.map((ps) => {
@@ -733,7 +1053,8 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
                     : questionCount;
             return {
               ...ps,
-              count: Math.min(ps.count, available),
+              count:
+                ps.count === null ? available : Math.min(ps.count, available),
             };
           }).filter((ps) => ps.count > 0),
         };
@@ -745,6 +1066,7 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
       data: {
         chapter: { id: chapter.id, title: chapter.title, slug: chapter.slug },
         topics,
+        chapterTopicTypes,
         totalTopics: topics.length,
         totalQuestions: topics.reduce((s, t) => s + t.questionCount, 0),
       },
@@ -811,12 +1133,20 @@ router.post("/sessions", protect, async (req, res) => {
       subjectId,
       chapterId,
       topicId,
+      subtopicId,
       mode = "learn",
       difficulty = "mixed",
       targetCount = 20,
       timeLimitSec,
       testId,
+      questionId,
     } = req.body;
+
+    // Normalize deep-link modes to the modes the picker actually understands.
+    // Frontend entry points use a few historical aliases; map them so "Practice
+    // Saved" and "Practice Similar" deep links behave identically everywhere.
+    const MODE_ALIASES = { bookmarks: "bookmark", saved: "bookmark" };
+    const normalizedMode = MODE_ALIASES[mode] || mode;
 
     // Cap targetCount
     const count = Math.min(Math.max(parseInt(targetCount, 10) || 20, 1), 200);
@@ -825,11 +1155,13 @@ router.post("/sessions", protect, async (req, res) => {
       subjectId,
       chapterId,
       topicId,
+      subtopicId,
       difficulty,
-      mode,
+      mode: normalizedMode,
       count,
       userId,
       testId,
+      questionId,
     });
 
     if (!questionIds.length) {
@@ -839,6 +1171,43 @@ router.post("/sessions", protect, async (req, res) => {
           "No practice questions match these filters. Try a different topic, difficulty, or mode.",
       });
     }
+
+    const resolved = await resolvePracticeFilters({
+      examId,
+      subjectId,
+      chapterId,
+      topicId,
+    });
+    const safeExamId = resolved.examId;
+    const safeSubjectId = resolved.subjectId;
+    const safeChapterId = resolved.chapterId;
+    const safeTopicId = resolved.topicId;
+
+    // ── Session hygiene ────────────────────────────────────────────────
+    // 1. Expire abandoned sessions: anything active but untouched for 7+ days
+    //    is closed so the active-session lookup stays meaningful and rows
+    //    don't accumulate forever (sessions had no TTL before this).
+    // 2. Deactivate any other still-active session for this user so each user
+    //    has at most one live practice session (mirrors the
+    //    user_recommendations one-active-row pattern).
+    await pool.query(
+      `
+      UPDATE practice_sessions
+      SET is_active = false, completed_at = COALESCE(completed_at, NOW()), last_active_at = NOW()
+      WHERE user_id = $1 AND is_active = true
+        AND completed_at IS NULL
+        AND last_active_at < NOW() - INTERVAL '7 days'
+    `,
+      [userId],
+    );
+    await pool.query(
+      `
+      UPDATE practice_sessions
+      SET is_active = false
+      WHERE user_id = $1 AND is_active = true AND completed_at IS NULL
+    `,
+      [userId],
+    );
 
     // Create session
     const ins = await pool.query(
@@ -850,11 +1219,11 @@ router.post("/sessions", protect, async (req, res) => {
     `,
       [
         userId,
-        examId || null,
-        subjectId || null,
-        chapterId || null,
-        topicId || null,
-        mode,
+        safeExamId,
+        safeSubjectId,
+        safeChapterId,
+        safeTopicId,
+        normalizedMode,
         difficulty,
         count,
         timeLimitSec || null,
@@ -1152,12 +1521,13 @@ router.post("/sessions/:id/questions/:idx/check", protect, async (req, res) => {
     const correctOption = await getCorrectOption(questionId);
     const isCorrect = selectedOption === correctOption;
 
-    // Get explanation for the response
+    // Get explanation for the response (including Hindi)
     const qInfo = await pool.query(
-      `SELECT explanation FROM questions WHERE id = $1`,
+      `SELECT explanation, explanation_hi FROM questions WHERE id = $1`,
       [questionId],
     );
     const explanation = qInfo.rows[0]?.explanation || "";
+    const explanationHi = qInfo.rows[0]?.explanation_hi || "";
 
     // Prior state — used to adjust counters by delta (never double-count re-answers)
     const prev = await pool.query(
@@ -1236,11 +1606,94 @@ router.post("/sessions/:id/questions/:idx/check", protect, async (req, res) => {
       } catch (err) {
         console.warn("[Practice Mastery Update]", err.message);
       }
+    } else {
+      // Wrong path: upsert wrong_questions + revision_queue
+      // (best-effort — queue/stats outage must never fail the answer flow).
+      //
+      // source_attempt_id stays NULL for practice rows: it is an INTEGER FK
+      // to attempts(id), and practice sessions create no attempts row. The
+      // 'practice:<sessionId>' sentinel previously written here always failed
+      // (22P02 cast error) — silently, via the catch below.
+      //
+      // user_topic_stats is intentionally NOT written per-answer:
+      // session completion (recordPracticeAnalytics) aggregates the whole
+      // session from practice_answers once, including correct/skipped —
+      // per-answer upserts here double-counted every wrong answer.
+      try {
+        await pool.query(
+          `INSERT INTO wrong_questions
+             (user_id, question_id, source_attempt_id, wrong_count, last_seen_at, metadata, is_active, created_at, updated_at)
+           VALUES ($1, $2, NULL, 1, NOW(), '{}'::jsonb, true, NOW(), NOW())
+           ON CONFLICT (user_id, question_id)
+           DO UPDATE SET
+             wrong_count = wrong_questions.wrong_count + 1,
+             last_seen_at = EXCLUDED.last_seen_at,
+             is_active = true,
+             updated_at = NOW()`,
+          [userId, questionId],
+        );
+        for (const day of [1, 3, 7, 14]) {
+          const dueAt = new Date(Date.now() + day * 86400000).toISOString();
+          await pool.query(
+            `INSERT INTO revision_queue
+               (user_id, question_id, source_attempt_id, schedule_day, due_at, status, priority, metadata, created_at, updated_at)
+             VALUES ($1, $2, NULL, $3, $4, 'pending', $5, '{}'::jsonb, NOW(), NOW())
+             ON CONFLICT (user_id, question_id, schedule_day) WHERE source_attempt_id IS NULL
+             DO UPDATE SET due_at = EXCLUDED.due_at, status = 'pending', priority = EXCLUDED.priority, updated_at = NOW()`,
+            [userId, questionId, day, dueAt, day <= 3 ? 2 : 1],
+          );
+        }
+      } catch (bridgeErr) {
+        console.warn(
+          "[Practice Wrong-Path Bridge] non-fatal:",
+          bridgeErr.message,
+        );
+      }
+    }
+
+    // Engine signals (best-effort, batched): NodeEngine spaced-repetition state
+    // + adaptive-difficulty EMA. Failures are swallowed so analytics never
+    // blocks answer submission.
+    try {
+      const { nodeEngineService } =
+        await import("../../services/core/NodeEngineService.js");
+      const { default: adaptiveDifficultyService } =
+        await import("../../modules/ai/adaptiveDifficulty.js");
+      const qMeta2 = await pool.query(
+        `SELECT topic_id FROM questions WHERE id = $1`,
+        [questionId],
+      );
+      const topicId = Number(qMeta2.rows[0]?.topic_id);
+      const timeSpent = Number(req.body.timeTakenSec) || 0;
+      const engineJobs = [];
+      // Only real numeric topic ids feed the engine — passing the question id
+      // as a node id (the old fallback) creates orphan user_node_skill rows.
+      if (Number.isInteger(topicId) && topicId > 0) {
+        engineJobs.push(
+          nodeEngineService
+            .recordAttempt(userId, topicId, isCorrect, timeSpent || 45)
+            .catch((e) => console.warn("[Practice NodeEngine]", e.message)),
+          adaptiveDifficultyService
+            .updatePerformance(userId, topicId, isCorrect, timeSpent)
+            .catch((e) =>
+              console.warn("[Practice AdaptiveDifficulty]", e.message),
+            ),
+        );
+      }
+      await Promise.all(engineJobs);
+    } catch (engineErr) {
+      console.warn("[Practice Engine Bridge] non-fatal:", engineErr.message);
     }
 
     res.json({
       success: true,
-      data: { isCorrect, correctOption, explanation },
+      data: {
+        isCorrect,
+        correctOption,
+        explanation,
+        explanationHi,
+        explanation_hi: explanationHi,
+      },
     });
   } catch (err) {
     console.error(
@@ -1511,10 +1964,14 @@ router.get("/mistakes", protect, async (req, res) => {
 /**
  * GET /api/practice/mistakes/count
  */
-router.get("/mistakes/count", protect, async (req, res) => {
-  try {
-    const r = await pool.query(
-      `
+router.get(
+  "/mistakes/count",
+  protect,
+  responseCache("practice-mistakes-count", 60),
+  async (req, res) => {
+    try {
+      const r = await pool.query(
+        `
       WITH unified_mistakes AS (
         SELECT question_id FROM practice_answers WHERE user_id = $1 AND is_correct = false
         UNION
@@ -1522,13 +1979,16 @@ router.get("/mistakes/count", protect, async (req, res) => {
       )
       SELECT COUNT(DISTINCT question_id)::int AS c FROM unified_mistakes
     `,
-      [req.user.id],
-    );
-    res.json({ success: true, data: { count: r.rows[0]?.c || 0 } });
-  } catch (err) {
-    res.status(500).json({ success: false, error: sanitizeErrorMessage(err) });
-  }
-});
+        [req.user.id],
+      );
+      res.json({ success: true, data: { count: r.rows[0]?.c || 0 } });
+    } catch (err) {
+      res
+        .status(500)
+        .json({ success: false, error: sanitizeErrorMessage(err) });
+    }
+  },
+);
 
 // ═══════════════════════════════════════════════════
 // DASHBOARD
@@ -2143,17 +2603,21 @@ router.get("/fundamentals/drill", protect, async (req, res) => {
   }
 });
 
-router.post("/fundamentals/submit", protect, async (req, res) => {
-  try {
-    const { category, score, totalQuestions, durationMs } = req.body;
-    const accuracy = totalQuestions > 0 ? (score / totalQuestions) * 100 : 0;
-    const avgSpeedMs =
-      totalQuestions > 0 ? Math.round(durationMs / totalQuestions) : 0;
+router.post(
+  "/fundamentals/submit",
+  protect,
+  practiceSubmissionLimiter,
+  async (req, res) => {
+    try {
+      const { category, score, totalQuestions, durationMs } = req.body;
+      const accuracy = totalQuestions > 0 ? (score / totalQuestions) * 100 : 0;
+      const avgSpeedMs =
+        totalQuestions > 0 ? Math.round(durationMs / totalQuestions) : 0;
 
-    const level = accuracy >= 80 ? 5 : accuracy >= 60 ? 3 : 1;
+      const level = accuracy >= 80 ? 5 : accuracy >= 60 ? 3 : 1;
 
-    await pool.query(
-      `
+      await pool.query(
+        `
       INSERT INTO user_fundamental_mastery (user_id, category, level, score, best_speed_ms, total_attempts, last_practiced_at)
       VALUES ($1, $2, $3, $4, $5, 1, NOW())
       ON CONFLICT (user_id, category) DO UPDATE SET
@@ -2163,20 +2627,23 @@ router.post("/fundamentals/submit", protect, async (req, res) => {
         total_attempts = user_fundamental_mastery.total_attempts + 1,
         last_practiced_at = NOW()
     `,
-      [req.user.id, category, level, Math.round(accuracy), avgSpeedMs],
-    );
+        [req.user.id, category, level, Math.round(accuracy), avgSpeedMs],
+      );
 
-    res.json({
-      success: true,
-      message: "Fundamental drill recorded",
-      level,
-      accuracy,
-    });
-  } catch (err) {
-    console.error("POST /fundamentals/submit error:", err);
-    res.status(500).json({ success: false, error: sanitizeErrorMessage(err) });
-  }
-});
+      res.json({
+        success: true,
+        message: "Fundamental drill recorded",
+        level,
+        accuracy,
+      });
+    } catch (err) {
+      console.error("POST /fundamentals/submit error:", err);
+      res
+        .status(500)
+        .json({ success: false, error: sanitizeErrorMessage(err) });
+    }
+  },
+);
 
 /**
  * GET /api/practice/questions/:id/explanations
@@ -2186,7 +2653,7 @@ router.get("/questions/:id/explanations", protect, async (req, res) => {
   try {
     const { id } = req.params;
     const qR = await pool.query(
-      `SELECT id, question_text, explanation, options, correct_option FROM questions WHERE id = $1`,
+      `SELECT id, question_text, question_text_hi, explanation, explanation_hi, options, options_hi, correct_option FROM questions WHERE id = $1`,
       [id],
     );
     if (!qR.rows.length)
@@ -2207,6 +2674,7 @@ router.get("/questions/:id/explanations", protect, async (req, res) => {
       stepByStep:
         q.explanation ||
         "Step 1: Identify given variables. Step 2: Apply main identity or formula. Step 3: Calculate final answer.",
+      stepByStepHi: q.explanation_hi || null,
       shortcut:
         "Exam Shortcut: Use option elimination or percentage ratio scaling to save 30 seconds.",
       commonMistake:

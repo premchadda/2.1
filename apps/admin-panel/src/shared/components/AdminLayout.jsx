@@ -1,4 +1,11 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  lazy,
+  Suspense,
+} from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -45,18 +52,23 @@ import adminNavConfig, {
   getFlatNavItems,
   getBreadcrumbs,
 } from "../config/adminNavConfig";
-import { Logo, CommandPalette, PageTransition } from "./index.jsx";
-import AdminBottomNav from "./AdminBottomNav.jsx";
+import { Logo, PageTransition } from "./index.jsx";
+// Heavy shell extras split out so the initial admin bundle stays lean:
+// CommandPalette (~search + nav index) and AdminBottomNav load on demand.
+// (Lucide icons already ship in a separate `icons` chunk via vite manualChunks.)
+const CommandPalette = lazy(() => import("./common/CommandPalette.jsx"));
+const AdminBottomNav = lazy(() => import("./AdminBottomNav.jsx"));
 import { filterAndRank, getHighlightedParts } from "../utils/searchUtils";
 import { getResourceFromSegment, hasPermission } from "../lib/rbac";
 import { isSafeImageUrl } from "../lib/sanitizeHtml";
+import { DEV_FALLBACK_URL } from "../lib/apiBase.js";
 import { getAssetUrl } from "@trstprep/shared-config";
 
 // Main site URL - can be changed via environment variable
 const MAIN_SITE_URL =
   import.meta.env.VITE_MAIN_SITE_URL ||
   import.meta.env.VITE_FRONTEND_URL ||
-  (import.meta.env.DEV ? "http://localhost:3000" : "/");
+  (import.meta.env.DEV ? DEV_FALLBACK_URL : "/");
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -302,7 +314,7 @@ export default function AdminLayout() {
                 {item.name}
               </span>
               {item.badge && (
-                <span className="ml-2 px-1.5 py-0.5 text-[9px] font-bold bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full">
+                <span className="ml-2 px-1.5 py-0.5 text-[11px] font-bold bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full">
                   {item.badge}
                 </span>
               )}
@@ -382,11 +394,13 @@ export default function AdminLayout() {
     <div
       className={`flex h-screen transition-colors duration-200 bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white overflow-hidden`}
     >
-      {/* Command Palette */}
-      <CommandPalette
-        isOpen={commandPaletteOpen}
-        onClose={() => setCommandPaletteOpen(false)}
-      />
+      {/* Command Palette (lazy) */}
+      <Suspense fallback={null}>
+        <CommandPalette
+          isOpen={commandPaletteOpen}
+          onClose={() => setCommandPaletteOpen(false)}
+        />
+      </Suspense>
 
       {/* Skip to main content */}
       <a
@@ -424,7 +438,7 @@ export default function AdminLayout() {
                 iconSize="w-6 h-6"
                 textSize="text-lg"
               />
-              <span className="px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold rounded-md uppercase tracking-wider shrink-0">
+              <span className="px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold rounded-md uppercase tracking-wider shrink-0">
                 Admin
               </span>
             </div>
@@ -469,7 +483,7 @@ export default function AdminLayout() {
               iconSize="w-6 h-6"
               textSize="text-lg"
             />
-            <span className="px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold rounded-md uppercase tracking-wider shrink-0">
+            <span className="px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold rounded-md uppercase tracking-wider shrink-0">
               Admin
             </span>
           </div>
@@ -541,6 +555,7 @@ export default function AdminLayout() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <input
                 type="text"
+                aria-label="Search admin pages"
                 placeholder="Search pages... (/ or ⌘K)"
                 value={searchQuery}
                 onChange={(e) => {
@@ -833,7 +848,7 @@ export default function AdminLayout() {
         {/* Page Content with fluid transitive animations */}
         <main
           id="main-content"
-          className={`flex-1 overflow-y-auto pb-20 md:pb-6 bg-gray-50 dark:bg-gray-950`}
+          className={`flex-1 overflow-y-auto pb-10 md:pb-6 bg-gray-50 dark:bg-gray-950`}
           tabIndex={-1}
         >
           <PageTransition key={`${location.pathname}-${refreshKey}`}>
@@ -849,7 +864,9 @@ export default function AdminLayout() {
         </main>
       </div>
 
-      <AdminBottomNav onMenuClick={() => setMobileMenuOpen(true)} />
+      <Suspense fallback={null}>
+        <AdminBottomNav onMenuClick={() => setMobileMenuOpen(true)} />
+      </Suspense>
     </div>
   );
 }

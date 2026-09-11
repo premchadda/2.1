@@ -8,58 +8,33 @@
  * - Progress tracking
  */
 
-import { pool } from '../../infrastructure/database/postgres-helpers.js'
-import weakAreaDetectionService from '../analytics/weakAreaDetection.service.js'
-import AiGenerationLog from '../../data/models/ai/AiGenerationLog.js'
+import { pool } from "../../infrastructure/database/postgres-helpers.js";
+import weakAreaDetectionService from "../analytics/weakAreaDetection.service.js";
+import AiGenerationLog from "../../data/models/ai/AiGenerationLog.js";
+import { AI_CONFIG, callAIWithFallback } from "../ai/aiClient.js";
 
-const AI_CONFIG = {
-  model: process.env.AI_MODEL || 'gpt-4',
-  provider: process.env.AI_PROVIDER || 'openrouter',
-  apiKey: process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY,
-  baseUrl: process.env.AI_BASE_URL || 'https://openrouter.ai/api/v1',
-  maxTokens: parseInt(process.env.AI_MAX_TOKENS) || 2000,
-}
-
+// All LLM calls go through the shared aiClient (provider fallback, input
+// moderation, budget tracking) — no direct fetch() here.
 async function callAI(messages, options = {}) {
-  const startTime = Date.now()
-
+  const startedAt = Date.now();
   try {
-    const response = await fetch(`${AI_CONFIG.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${AI_CONFIG.apiKey}`,
-        'HTTP-Referer': 'https://trstprep.com',
-        'X-Title': 'TrstPrep Smart Revision',
-      },
-      body: JSON.stringify({
-        model: options.model || AI_CONFIG.model,
-        messages,
-        max_tokens: options.maxTokens || AI_CONFIG.maxTokens,
-        temperature: options.temperature || 0.7,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`AI API error: ${response.status}`)
-    }
-
-    const data = await response.json()
-    const latencyMs = Date.now() - startTime
-
+    const result = await callAIWithFallback(messages, {
+      model: options.model,
+      maxTokens: options.maxTokens || AI_CONFIG.maxTokens,
+      temperature: options.temperature ?? AI_CONFIG.temperature,
+    });
     return {
-      text: data.choices[0]?.message?.content || '',
-      model: data.model,
-      tokensInput: data.usage?.prompt_tokens || 0,
-      tokensOutput: data.usage?.completion_tokens || 0,
-      latencyMs,
-    }
+      text: result.text,
+      model: result.model,
+      tokensInput: result.tokensInput,
+      tokensOutput: result.tokensOutput,
+      latencyMs: result.latencyMs ?? Date.now() - startedAt,
+    };
   } catch (error) {
-    const latencyMs = Date.now() - startTime
     throw {
       message: error.message,
-      latencyMs,
-    }
+      latencyMs: Date.now() - startedAt,
+    };
   }
 }
 
@@ -68,13 +43,13 @@ const smartRevisionService = {
    * Generate a smart revision plan.
    */
   async generateRevisionPlan(userId, options = {}) {
-    const weakAreas = await weakAreaDetectionService.getFullAnalysis(userId)
-    const wrongQuestions = await this.getWrongQuestions(userId)
+    const weakAreas = await weakAreaDetectionService.getFullAnalysis(userId);
+    const wrongQuestions = await this.getWrongQuestions(userId);
 
     const systemPrompt = `You are an expert revision planner for competitive exam preparation.
 Create a smart revision plan using spaced repetition principles.
 Prioritize topics with low accuracy and high frequency of mistakes.
-Include specific revision activities and time allocation.`
+Include specific revision activities and time allocation.`;
 
     const userPrompt = `
 Student Performance Analysis:
@@ -82,9 +57,13 @@ Student Performance Analysis:
 - Total Questions Attempted: ${weakAreas.totalQuestionsAttempted}
 
 Weak Topics (Priority for Revision):
-${weakAreas.weakTopics.slice(0, 10).map((t, i) =>
-  `${i + 1}. ${t.topicName} (${t.subjectName}) - ${t.accuracy}% accuracy, ${t.totalAttempts} attempts`
-).join('\n')}
+${weakAreas.weakTopics
+  .slice(0, 10)
+  .map(
+    (t, i) =>
+      `${i + 1}. ${t.topicName} (${t.subjectName}) - ${t.accuracy}% accuracy, ${t.totalAttempts} attempts`,
+  )
+  .join("\n")}
 
 Wrong Questions Analysis:
 - Total Wrong Questions: ${wrongQuestions.length}
@@ -97,15 +76,15 @@ Create a ${options.days || 14}-day revision plan that:
 4. Suggests specific revision techniques (flashcards, practice tests, etc.)
 5. Allocates more time to critical weak areas
 6. Includes rest days and light revision days
-`
+`;
 
     const aiResult = await callAI([
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ])
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ]);
 
     await AiGenerationLog.logSuccess({
-      entityType: 'revision_plan',
+      entityType: "revision_plan",
       entityId: userId,
       prompt: userPrompt.substring(0, 1000),
       model: aiResult.model,
@@ -119,30 +98,32 @@ Create a ${options.days || 14}-day revision plan that:
         wrongQuestionsCount: wrongQuestions.length,
       },
       createdBy: userId,
-    })
+    });
 
     return {
       revisionPlan: aiResult.text,
       weakAreas: weakAreas.weakTopics.slice(0, 5),
       wrongQuestionsCount: wrongQuestions.length,
       model: aiResult.model,
-    }
+    };
   },
 
   /**
    * Get questions user got wrong.
    */
   async getWrongQuestions(userId) {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
-      const result = await client.query(`
+      const result = await client.query(
+        `
         SELECT
           wq.id,
           wq.question_id,
           wq.wrong_count,
-          wq.last_wrong_at,
+          wq.last_seen_at,
           q.question_text,
           q.difficulty,
           t.name as topic_name,
@@ -152,12 +133,14 @@ Create a ${options.days || 14}-day revision plan that:
         LEFT JOIN subject_topics t ON t.id = q.topic_id
         LEFT JOIN subjects s ON s.id = t.subject_id
         WHERE wq.user_id = $1
-        ORDER BY wq.wrong_count DESC, wq.last_wrong_at DESC
-      `, [userId])
+        ORDER BY wq.wrong_count DESC, wq.last_seen_at DESC
+      `,
+        [userId],
+      );
 
-      return result.rows
+      return result.rows;
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -165,66 +148,68 @@ Create a ${options.days || 14}-day revision plan that:
    * Get most common topics from wrong questions.
    */
   getMostCommonTopics(wrongQuestions) {
-    const topicCounts = {}
-    wrongQuestions.forEach(q => {
-      const topic = q.topic_name || 'Unknown'
-      topicCounts[topic] = (topicCounts[topic] || 0) + 1
-    })
+    const topicCounts = {};
+    wrongQuestions.forEach((q) => {
+      const topic = q.topic_name || "Unknown";
+      topicCounts[topic] = (topicCounts[topic] || 0) + 1;
+    });
 
     return Object.entries(topicCounts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([topic, count]) => `${topic} (${count} wrong)`)
-      .join(', ')
+      .join(", ");
   },
 
   /**
    * Add question to revision queue.
    */
-  async addToRevisionQueue(userId, questionId, priority = 'medium') {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+  async addToRevisionQueue(userId, questionId, priority = "medium") {
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
       const priorityMap = { low: 0, medium: 1, high: 2 };
-      const priorityInt = priorityMap[priority] !== undefined ? priorityMap[priority] : 1;
+      const priorityInt =
+        priorityMap[priority] !== undefined ? priorityMap[priority] : 1;
 
       // Check if already in queue
       const existing = await client.query(
         `SELECT id FROM revision_queue WHERE user_id = $1 AND question_id = $2`,
-        [userId, questionId]
-      )
+        [userId, questionId],
+      );
 
       if (existing.rows.length > 0) {
         // Update priority
         await client.query(
           `UPDATE revision_queue SET priority = $1, updated_at = NOW()
            WHERE user_id = $2 AND question_id = $3`,
-          [priorityInt, userId, questionId]
-        )
-        return { action: 'updated', priority }
+          [priorityInt, userId, questionId],
+        );
+        return { action: "updated", priority };
       }
 
       // Calculate next review time based on priority
       const intervals = {
-        high: 1,    // 1 day
-        medium: 3,  // 3 days
-        low: 7,     // 7 days
-      }
+        high: 1, // 1 day
+        medium: 3, // 3 days
+        low: 7, // 7 days
+      };
 
-      const nextReview = new Date()
+      const nextReview = new Date();
       const daysInterval = intervals[priority] || 3;
-      nextReview.setDate(nextReview.getDate() + daysInterval)
+      nextReview.setDate(nextReview.getDate() + daysInterval);
 
       await client.query(
         `INSERT INTO revision_queue (user_id, question_id, priority, due_at, schedule_day, status)
          VALUES ($1, $2, $3, $4, $5, 'pending')`,
-        [userId, questionId, priorityInt, nextReview, daysInterval]
-      )
+        [userId, questionId, priorityInt, nextReview, daysInterval],
+      );
 
-      return { action: 'added', priority, nextReview }
+      return { action: "added", priority, nextReview };
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -232,11 +217,13 @@ Create a ${options.days || 14}-day revision plan that:
    * Get questions due for revision.
    */
   async getDueRevisions(userId) {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
-      const result = await client.query(`
+      const result = await client.query(
+        `
         SELECT
           id,
           question_id,
@@ -269,15 +256,17 @@ Create a ${options.days || 14}-day revision plan that:
           ORDER BY rq.question_id, rq.due_at ASC
         ) deduped
         ORDER BY priority DESC, next_review_at ASC
-      `, [userId])
+      `,
+        [userId],
+      );
 
-      const priorityStrMap = { 0: 'low', 1: 'medium', 2: 'high' }
-      return result.rows.map(row => ({
+      const priorityStrMap = { 0: "low", 1: "medium", 2: "high" };
+      return result.rows.map((row) => ({
         ...row,
-        priority: priorityStrMap[row.priority] || 'medium'
-      }))
+        priority: priorityStrMap[row.priority] || "medium",
+      }));
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -285,51 +274,68 @@ Create a ${options.days || 14}-day revision plan that:
    * Mark revision as completed and schedule next.
    */
   async completeRevision(userId, questionId, remembered = true) {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
       // Get current revision — earliest-due pending row, so the reschedule
-      // always targets the row the user was actually shown.
+      // always targets the row the user was actually shown. review_count is
+      // the dedicated column promoted out of metadata JSONB by migration 136
+      // (COALESCE-guarded for rows written before the column existed).
       const current = await client.query(
-        `SELECT id, user_id, question_id, priority, due_at, metadata, created_at, updated_at FROM revision_queue WHERE user_id = $1 AND question_id = $2 AND status = 'pending' ORDER BY due_at ASC, id ASC LIMIT 1`,
-        [userId, questionId]
-      )
+        `SELECT id, user_id, question_id, priority, due_at, metadata,
+                COALESCE(review_count, (metadata->>'reviewCount')::int, 0) AS review_count
+         FROM revision_queue
+         WHERE user_id = $1 AND question_id = $2 AND status = 'pending'
+         ORDER BY due_at ASC, id ASC LIMIT 1`,
+        [userId, questionId],
+      );
 
       if (current.rows.length === 0) {
-        return null
+        return null;
       }
 
-      const revision = current.rows[0]
+      const revision = current.rows[0];
 
       // Calculate next interval based on performance
       const intervals = {
         high: [1, 3, 7, 14, 30],
         medium: [3, 7, 14, 30, 60],
         low: [7, 14, 30, 60, 120],
-      }
+      };
 
-      const priorityStrMap = { 0: 'low', 1: 'medium', 2: 'high' }
-      const priorityStr = priorityStrMap[revision.priority] || 'medium'
-      const currentInterval = intervals[priorityStr] || intervals.medium
-      
-      let metadata = {}
+      const priorityStrMap = { 0: "low", 1: "medium", 2: "high" };
+      const priorityStr = priorityStrMap[revision.priority] || "medium";
+      const currentInterval = intervals[priorityStr] || intervals.medium;
+
+      let metadata = {};
       try {
-        metadata = typeof revision.metadata === 'string' ? JSON.parse(revision.metadata) : (revision.metadata || {})
+        metadata =
+          typeof revision.metadata === "string"
+            ? JSON.parse(revision.metadata)
+            : revision.metadata || {};
       } catch {
-        metadata = {}
+        metadata = {};
       }
-      const reviewCount = Number(metadata.reviewCount || 0)
+      // review_count is the dedicated column (migration 136) — only fall back
+      // to the legacy metadata value when the column is somehow empty.
+      const reviewCount = Number(
+        revision.review_count ?? metadata.reviewCount ?? 0,
+      );
 
-      let nextInterval
+      let nextInterval;
       if (remembered) {
-        nextInterval = currentInterval[Math.min(reviewCount + 1, currentInterval.length - 1)]
+        nextInterval =
+          currentInterval[
+            Math.min(reviewCount + 1, currentInterval.length - 1)
+          ];
       } else {
-        nextInterval = currentInterval[0]
+        nextInterval = currentInterval[0];
       }
 
-      const nextReview = new Date()
-      nextReview.setDate(nextReview.getDate() + nextInterval)
+      const nextReview = new Date();
+      nextReview.setDate(nextReview.getDate() + nextInterval);
 
       // Clear the other pre-inserted rows (days 1/3/7/14) for this question so
       // duplicates never resurface in the due list.
@@ -339,34 +345,35 @@ Create a ${options.days || 14}-day revision plan that:
           completed_at = NOW(),
           updated_at = NOW()
          WHERE user_id = $1 AND question_id = $2 AND status = 'pending' AND id <> $3`,
-        [userId, questionId, revision.id]
-      )
+        [userId, questionId, revision.id],
+      );
 
       await client.query(
         `UPDATE revision_queue SET
           due_at = $1,
           metadata = $2,
+          review_count = $3,
           updated_at = NOW()
-         WHERE id = $3`,
+         WHERE id = $4`,
         [
           nextReview,
           JSON.stringify({
             ...metadata,
-            reviewCount: reviewCount + 1,
             lastReviewed: new Date(),
             remembered,
           }),
+          reviewCount + 1,
           revision.id,
-        ]
-      )
+        ],
+      );
 
       return {
         nextReview,
         interval: nextInterval,
         reviewCount: reviewCount + 1,
-      }
+      };
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -374,11 +381,13 @@ Create a ${options.days || 14}-day revision plan that:
    * Get revision statistics.
    */
   async getRevisionStats(userId) {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
-      const result = await client.query(`
+      const result = await client.query(
+        `
         SELECT
           COUNT(*) as total_in_queue,
           COUNT(CASE WHEN due_at <= NOW() AND status = 'pending' THEN 1 END) as due_now,
@@ -387,30 +396,36 @@ Create a ${options.days || 14}-day revision plan that:
           COUNT(CASE WHEN priority = 0 THEN 1 END) as low_priority
         FROM revision_queue
         WHERE user_id = $1
-      `, [userId])
+      `,
+        [userId],
+      );
 
-      return result.rows[0]
+      return result.rows[0];
     } finally {
-      client.release()
+      client.release();
     }
   },
 
   /**
    * Get unified mistake questions for direct practice session.
    */
-  async getMistakePracticeQuestions(userId, { testId = null, subjectId = null, limit = 25 } = {}) {
-    const { pool, dbHelpers } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+  async getMistakePracticeQuestions(
+    userId,
+    { testId = null, subjectId = null, limit = 25 } = {},
+  ) {
+    const { pool, dbHelpers } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
-      const params = [userId]
-      let idx = 2
+      const params = [userId];
+      let idx = 2;
 
-      let testFilter = ''
+      let testFilter = "";
       if (testId && !isNaN(Number(testId))) {
-        testFilter = `AND (wq.test_id = $${idx} OR wq.source_attempt_id = $${idx})`
-        params.push(Number(testId))
-        idx++
+        testFilter = `AND (wq.test_id = $${idx} OR wq.source_attempt_id = $${idx})`;
+        params.push(Number(testId));
+        idx++;
       }
 
       const sql = `
@@ -434,19 +449,28 @@ Create a ${options.days || 14}-day revision plan that:
         WHERE q.is_active = true
         ORDER BY d.created_at DESC
         LIMIT $${idx}
-      `
-      params.push(Math.min(limit, 100))
+      `;
+      params.push(Math.min(limit, 100));
 
-      const result = await client.query(sql, params)
-      return result.rows.map(row => {
-        const q = dbHelpers.toCamel(row)
-        const { correctAnswer, correct_option, correctOption, correct, answer, isCorrect, is_correct, ...safe } = q
-        return safe
-      })
+      const result = await client.query(sql, params);
+      return result.rows.map((row) => {
+        const q = dbHelpers.toCamel(row);
+        const {
+          correctAnswer,
+          correct_option,
+          correctOption,
+          correct,
+          answer,
+          isCorrect,
+          is_correct,
+          ...safe
+        } = q;
+        return safe;
+      });
     } finally {
-      client.release()
+      client.release();
     }
   },
-}
+};
 
-export default smartRevisionService
+export default smartRevisionService;

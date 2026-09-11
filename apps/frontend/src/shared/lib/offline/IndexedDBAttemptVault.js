@@ -70,15 +70,18 @@ export class IndexedDBAttemptVault {
         };
 
         request.onerror = (err) => {
-          console.warn(
-            "[AttemptVault] IndexedDB open error, falling back to memory store:",
-            err,
-          );
+          if (import.meta.env.DEV) {
+            console.warn(
+              "[AttemptVault] IndexedDB open error, falling back to memory store:",
+              err,
+            );
+          }
           this.db = null;
           resolve(false);
         };
       } catch (err) {
-        console.warn("[AttemptVault] IndexedDB initialization failed:", err);
+        if (import.meta.env.DEV)
+          console.warn("[AttemptVault] IndexedDB initialization failed:", err);
         this.db = null;
         resolve(false);
       }
@@ -110,6 +113,11 @@ export class IndexedDBAttemptVault {
         req.onsuccess = () => resolve(record);
         req.onerror = () => reject(req.error);
       } catch (e) {
+        if (import.meta.env.DEV)
+          console.warn(
+            "[AttemptVault] saveAttempt IndexedDB failed, using memory fallback:",
+            { attemptId: attempt?.attemptId, error: e },
+          );
         this.memoryFallback.attempts.set(String(attempt.attemptId), record);
         resolve(record);
       }
@@ -136,6 +144,11 @@ export class IndexedDBAttemptVault {
         req.onerror = () =>
           resolve(this.memoryFallback.attempts.get(String(attemptId)) || null);
       } catch (e) {
+        if (import.meta.env.DEV)
+          console.warn(
+            "[AttemptVault] getAttempt IndexedDB failed, using memory fallback:",
+            { attemptId, error: e },
+          );
         resolve(this.memoryFallback.attempts.get(String(attemptId)) || null);
       }
     });
@@ -204,6 +217,11 @@ export class IndexedDBAttemptVault {
         };
         req.onerror = () => reject(req.error);
       } catch (e) {
+        if (import.meta.env.DEV)
+          console.warn(
+            "[AttemptVault] saveAnswer IndexedDB failed, using memory fallback:",
+            { answerId: id, error: e },
+          );
         this.memoryFallback.answers.set(id, record);
         resolve(record);
       }
@@ -228,6 +246,11 @@ export class IndexedDBAttemptVault {
         req.onerror = () =>
           resolve(this.memoryFallback.answers.get(id) || null);
       } catch (e) {
+        if (import.meta.env.DEV)
+          console.warn(
+            "[AttemptVault] getAnswer IndexedDB failed, using memory fallback:",
+            { answerId: id, error: e },
+          );
         resolve(this.memoryFallback.answers.get(id) || null);
       }
     });
@@ -242,6 +265,12 @@ export class IndexedDBAttemptVault {
       const answers = [];
       for (const [key, val] of this.memoryFallback.answers.entries()) {
         if (val.attemptId === String(attemptId)) {
+          if (import.meta.env.DEV && key !== val?.id) {
+            console.warn("[AttemptVault] answer map key mismatch:", {
+              key,
+              recordId: val?.id,
+            });
+          }
           answers.push(val);
         }
       }
@@ -257,6 +286,11 @@ export class IndexedDBAttemptVault {
         req.onsuccess = () => resolve(req.result || []);
         req.onerror = () => resolve([]);
       } catch (e) {
+        if (import.meta.env.DEV)
+          console.warn(
+            "[AttemptVault] getAnswersForAttempt IndexedDB failed:",
+            { attemptId, error: e },
+          );
         resolve([]);
       }
     });
@@ -293,6 +327,11 @@ export class IndexedDBAttemptVault {
         };
         req.onerror = () => reject(req.error);
       } catch (e) {
+        if (import.meta.env.DEV)
+          console.warn(
+            "[AttemptVault] enqueueSyncMutation IndexedDB failed, using memory fallback:",
+            { attemptId, action, error: e },
+          );
         item.id = this.memoryFallback.nextQueueId++;
         this.memoryFallback.syncQueue.push(item);
         resolve(item);
@@ -330,6 +369,11 @@ export class IndexedDBAttemptVault {
         };
         req.onerror = () => resolve([]);
       } catch (e) {
+        if (import.meta.env.DEV)
+          console.warn("[AttemptVault] getPendingMutations IndexedDB failed:", {
+            attemptId,
+            error: e,
+          });
         resolve([]);
       }
     });
@@ -376,6 +420,12 @@ export class IndexedDBAttemptVault {
         }
       } catch (err) {
         failed++;
+        if (import.meta.env.DEV)
+          console.warn("[AttemptVault] flushSyncQueue item failed:", {
+            attemptId: item?.attemptId,
+            action: item?.action,
+            error: err,
+          });
       }
     }
 
@@ -490,10 +540,12 @@ export class IndexedDBAttemptVault {
           onReplayedCallback(res);
         }
       } catch (err) {
-        console.warn(
-          "[AttemptVault] Auto-replay on connection restore failed:",
-          err,
-        );
+        if (import.meta.env.DEV) {
+          console.warn(
+            "[AttemptVault] Auto-replay on connection restore failed:",
+            err,
+          );
+        }
       }
     };
 
@@ -517,6 +569,11 @@ export class IndexedDBAttemptVault {
         req.onsuccess = () => resolve(true);
         req.onerror = () => resolve(false);
       } catch (e) {
+        if (import.meta.env.DEV)
+          console.warn("[AttemptVault] removeQueueItem IndexedDB failed:", {
+            queueId: id,
+            error: e,
+          });
         resolve(false);
       }
     });
@@ -565,6 +622,11 @@ export class IndexedDBAttemptVault {
         tx.oncomplete = () => resolve(true);
         tx.onerror = () => resolve(false);
       } catch (e) {
+        if (import.meta.env.DEV)
+          console.warn("[AttemptVault] clearAttempt IndexedDB failed:", {
+            attemptId,
+            error: e,
+          });
         resolve(false);
       }
     });

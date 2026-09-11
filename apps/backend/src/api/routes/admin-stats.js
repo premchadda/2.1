@@ -70,6 +70,7 @@ router.get(
           (SELECT COUNT(*)::int FROM exams) as exams,
           (SELECT COUNT(*)::int FROM assets) as media,
           (SELECT COUNT(*)::int FROM attempts) as test_attempts,
+          (SELECT COALESCE(ROUND(AVG(total_time_spent) / 60, 0), 0)::int FROM attempts WHERE total_time_spent IS NOT NULL AND total_time_spent > 0) as avg_time_minutes,
           (SELECT COUNT(*)::int FROM audit_logs WHERE action LIKE '%FAIL%' OR action LIKE '%ERROR%' OR status = 'failed' OR status = 'error') as error_count,
           (SELECT COUNT(*)::int FROM users WHERE created_at >= $1) as new_users,
           (SELECT COUNT(*)::int FROM tests WHERE created_at >= $1) as new_tests,
@@ -104,7 +105,8 @@ router.get(
             (SELECT COUNT(*)::int FROM subject_pdfs) as pdfs,
             (SELECT COUNT(*)::int FROM exams) as exams,
             (SELECT COUNT(*)::int FROM assets) as media,
-            COALESCE((SELECT COUNT(*)::int FROM test_attempts), 0) as test_attempts,
+            COALESCE((SELECT COUNT(*)::int FROM attempts), 0) as test_attempts,
+            COALESCE((SELECT ROUND(AVG(total_time_spent) / 60, 0)::int FROM attempts WHERE total_time_spent IS NOT NULL AND total_time_spent > 0), 0) as avg_time_minutes,
             0 as error_count,
             (SELECT COUNT(*)::int FROM users WHERE created_at >= $1) as new_users,
             (SELECT COUNT(*)::int FROM tests WHERE created_at >= $1) as new_tests,
@@ -126,7 +128,8 @@ router.get(
         (s.total_users || 0) * 14 +
         (s.test_attempts || 0) * 3 +
         (s.tests || 0) * 2;
-      const avgTimeStr = s.test_attempts > 0 ? "16m" : "12m";
+      const avgTimeStr =
+        s.avg_time_minutes > 0 ? `${s.avg_time_minutes}m` : "N/A";
 
       const userGrowthTrend =
         s.total_users > 0
@@ -171,6 +174,7 @@ router.get(
         avgTimeOnSite: avgTimeStr,
         errors: s.error_count || 0,
         revenue: calculatedRevenue,
+        revenueNote: "Estimated from pro_users * proPassPrice",
         trends: {
           users: userGrowthTrend,
           activeUsers: activeTrend,
@@ -207,24 +211,30 @@ router.get("/analytics/export", async (req, res) => {
     if (type === "all" || type === "users") {
       csv += "\n=== USER ANALYTICS ===\n";
       csv += "Metric,Value\n";
-      const users = await dbHelpers.find("users", { isActive: true });
-      const proUsers = users.filter((u) => u.isProUser);
-      csv += `Total Users,${users.length}\n`;
-      csv += `Pro Users,${proUsers.length}\n`;
-      csv += `Free Users,${users.length - proUsers.length}\n`;
-      csv += `Pro Conversion Rate,${users.length > 0 ? ((proUsers.length / users.length) * 100).toFixed(1) : 0}%\n\n`;
+      const usersResult = await dbHelpers.pool.query(
+        `SELECT COUNT(*)::int as total, COUNT(*) FILTER (WHERE is_pro_user = true)::int as pro FROM users WHERE is_active = true`,
+      );
+      const { total: totalUsers, pro: proUsers } = usersResult.rows[0];
+      csv += `Total Users,${totalUsers}\n`;
+      csv += `Pro Users,${proUsers}\n`;
+      csv += `Free Users,${totalUsers - proUsers}\n`;
+      csv += `Pro Conversion Rate,${totalUsers > 0 ? ((proUsers / totalUsers) * 100).toFixed(1) : 0}%\n\n`;
     }
 
     if (type === "all" || type === "tests") {
       csv += "=== TEST ANALYTICS ===\n";
       csv += "Metric,Value\n";
-      const tests = await dbHelpers.find("tests", { isActive: true });
-      const attempts = await dbHelpers.find("attempts");
-      const completedAttempts = attempts.filter((a) => a.isCompleted);
-      csv += `Total Tests,${tests.length}\n`;
-      csv += `Total Attempts,${attempts.length}\n`;
-      csv += `Completed Attempts,${completedAttempts.length}\n`;
-      csv += `Completion Rate,${attempts.length > 0 ? ((completedAttempts.length / attempts.length) * 100).toFixed(1) : 0}%\n\n`;
+      const testsResult = await dbHelpers.pool.query(
+        `SELECT COUNT(*)::int as total FROM tests WHERE is_active = true`,
+      );
+      const attemptsResult = await dbHelpers.pool.query(
+        `SELECT COUNT(*)::int as total, COUNT(*) FILTER (WHERE is_completed = true)::int as completed FROM attempts`,
+      );
+      csv += `Total Tests,${testsResult.rows[0].total}\n`;
+      csv += `Total Attempts,${attemptsResult.rows[0].total}\n`;
+      csv += `Completed Attempts,${attemptsResult.rows[0].completed}\n`;
+      const totalAtt = attemptsResult.rows[0].total;
+      csv += `Completion Rate,${totalAtt > 0 ? ((attemptsResult.rows[0].completed / totalAtt) * 100).toFixed(1) : 0}%\n\n`;
     }
 
     if (type === "all" || type === "revenue") {

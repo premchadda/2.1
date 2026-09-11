@@ -11,24 +11,32 @@ const router = express.Router();
 // @route   GET /api/public-stats
 router.get("/", responseCache("public-stats", 120), async (req, res) => {
   try {
-    const userCount = await dbHelpers.count("users");
-    const testSeriesCount = await dbHelpers.count("testSeries");
-    const testCount = await dbHelpers.count("tests");
-    const questionCount = await dbHelpers.count("questions");
-    const examCatCount = await dbHelpers.count("examCategories");
+    const [
+      userCount,
+      testSeriesCount,
+      testCount,
+      questionCount,
+      examCatCount,
+      attemptRes,
+      settingsList,
+    ] = await Promise.all([
+      dbHelpers.count("users"),
+      dbHelpers.count("testSeries"),
+      dbHelpers.count("tests"),
+      dbHelpers.count("questions"),
+      dbHelpers.count("examCategories"),
+      pool.query(
+        "SELECT COALESCE(SUM(total_attempts), 0) as count, COALESCE(SUM(total_tests), 0) as series_tests FROM test_series WHERE is_active = true AND is_deleted = false",
+      ),
+      dbHelpers.find("appSettings"),
+    ]);
 
-    // Get real total attempts and test counts from test_series
-    const attemptRes = await pool.query(
-      "SELECT COALESCE(SUM(total_attempts), 0) as count, COALESCE(SUM(total_tests), 0) as series_tests FROM test_series WHERE is_active = true AND is_deleted = false",
-    );
     const totalAttempts = parseInt(attemptRes.rows[0]?.count) || 0;
     const seriesTests = parseInt(attemptRes.rows[0]?.series_tests) || 0;
 
     const activeLearners = userCount + totalAttempts;
     const successStories = Math.floor(activeLearners / 50);
 
-    // Fetch overrides from appSettings
-    const settingsList = await dbHelpers.find("appSettings");
     const appSettings = settingsList[0] || {};
     const statsOverride = appSettings.stats || {};
     const totalAvailableTests = testCount || seriesTests || 0;

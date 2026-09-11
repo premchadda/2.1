@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   Plus,
   Edit,
@@ -26,6 +26,7 @@ import { toast } from "react-hot-toast";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 
 export default function StagesManager() {
+  const navigate = useNavigate();
   const {
     categories,
     examInfo,
@@ -1110,7 +1111,7 @@ export default function StagesManager() {
                 </div>
 
                 {stagesForExam.length === 0 ? (
-                  <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                  <div className="text-center py-8 bg-gray-50 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
                     <div className="text-4xl mb-3"> </div>
                     <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-1">
                       No stages linked
@@ -1296,7 +1297,7 @@ export default function StagesManager() {
           {viewMode === "relations" &&
             !activeExamId &&
             categories.length > 0 && (
-              <div className="text-center py-16 text-gray-400 dark:text-gray-500">
+              <div className="text-center py-8 text-gray-400 dark:text-gray-500">
                 <div className="text-4xl mb-3"> </div>
                 <p>Select a category and exam above to manage its stages</p>
               </div>
@@ -1333,7 +1334,7 @@ export default function StagesManager() {
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {testSeries.length === 0 ? (
-                <div className="col-span-2 text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                <div className="col-span-2 text-center py-8 bg-gray-50 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
                   <div className="text-4xl mb-3">📦</div>
                   <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-1">
                     No test series found
@@ -1623,7 +1624,7 @@ export default function StagesManager() {
           )}
 
           {allStages.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+            <div className="text-center py-8 bg-gray-50 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
               <div className="text-4xl mb-3"> </div>
               <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-1">
                 No stages found
@@ -2265,6 +2266,7 @@ export default function StagesManager() {
                                 </span>
                                 <input
                                   type="checkbox"
+                                  aria-label={`Select exam ${exam.name || exam.title || examId}`}
                                   checked={selected}
                                   onChange={() => toggleExam(examId)}
                                   className="sr-only"

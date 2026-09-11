@@ -37,6 +37,7 @@ import {
   pool,
 } from "../../infrastructure/database/postgres-helpers.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
+import logger from "../../infrastructure/logger/logger.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
@@ -302,206 +303,240 @@ async function calculateStudyMaterialCounts(dbHelpers, subject) {
   }
 }
 
-// @route   GET /api/study
+let _studyListCache = null;
+let _studyListCacheExpires = 0;
+
 // @route   GET /api/study
 // @desc    Get all study materials (subjects)
-// @access  Public
-router.get("/", responseCache("study-materials", 120), async (req, res) => {
-  try {
-    const [subjects, studyMaterials, allVideos, allPdfs, allTests] =
-      await Promise.all([
-        dbHelpers.find("subjects", { isActive: true }),
-        getActiveStudyMaterials(dbHelpers),
-        dbHelpers.find("subjectVideos", { isActive: true }).catch(() => []),
-        dbHelpers.find("subjectPdfs", { isActive: true }).catch(() => []),
-        dbHelpers.find("topicTests", { isActive: true }).catch(() => []),
-      ]);
+router.get(
+  "/",
+  responseCache("study-materials", 300, { userScoped: false }),
+  async (req, res) => {
+    try {
+      if (_studyListCache && Date.now() < _studyListCacheExpires) {
+        return res.json({
+          success: true,
+          count: _studyListCache.length,
+          data: _studyListCache,
+        });
+      }
 
-    const subjectIds = subjects
-      .map((s) => s.id ?? s._id)
-      .filter((id) => id != null);
+      const [subjects, studyMaterials, videosRes, pdfsRes, testsRes] =
+        await Promise.all([
+          dbHelpers.find("subjects", { isActive: true }),
+          getActiveStudyMaterials(dbHelpers),
+          dbHelpers.pool.query(
+            `SELECT id, study_material_id, chapter_id, topic_id FROM subject_videos WHERE is_active = true AND (is_deleted = false OR is_deleted IS NULL)`,
+          ),
+          dbHelpers.pool.query(
+            `SELECT id, study_material_id, chapter_id, topic_id FROM subject_pdfs WHERE is_active = true AND (is_deleted = false OR is_deleted IS NULL)`,
+          ),
+          dbHelpers.pool.query(
+            `SELECT id, study_material_id, chapter_id, topic_id FROM topic_tests WHERE is_active = true AND (is_deleted = false OR is_deleted IS NULL)`,
+          ),
+        ]);
 
-    const allChapters = subjectIds.length
-      ? await dbHelpers.find("chapters", {
-          subjectId: { $in: subjectIds },
-          isActive: true,
-        })
-      : [];
+      const allVideos = videosRes.rows;
+      const allPdfs = pdfsRes.rows;
+      const allTests = testsRes.rows;
 
-    const chapterIds = allChapters
-      .map((c) => c.id ?? c._id)
-      .filter((id) => id != null);
+      const subjectIds = subjects
+        .map((s) => s.id ?? s._id)
+        .filter((id) => id != null);
 
-    const allTopics = chapterIds.length
-      ? await dbHelpers.find("topics", {
-          chapterId: { $in: chapterIds },
-          isActive: true,
-        })
-      : [];
+      const allChapters = subjectIds.length
+        ? (
+            await dbHelpers.pool.query(
+              `SELECT id, COALESCE(subject_id, study_material_id) AS subject_id FROM subject_chapters WHERE (subject_id = ANY($1::int[]) OR study_material_id = ANY($1::int[])) AND is_active = true AND (is_deleted = false OR is_deleted IS NULL)`,
+              [subjectIds],
+            )
+          ).rows
+        : [];
 
-    // Index chapters by subject and topics by chapter for O(1) lookup.
-    const chaptersBySubject = new Map();
-    for (const c of allChapters) {
-      const sid = c.subjectId ?? c.subject_id;
-      if (sid == null) continue;
-      if (!chaptersBySubject.has(sid)) chaptersBySubject.set(sid, []);
-      chaptersBySubject.get(sid).push(c);
-    }
-
-    const topicIdsByChapter = new Map();
-    for (const t of allTopics) {
-      const cid = t.chapterId ?? t.chapter_id;
-      if (cid == null) continue;
-      if (!topicIdsByChapter.has(cid)) topicIdsByChapter.set(cid, []);
-      topicIdsByChapter.get(cid).push(t.id ?? t._id);
-    }
-
-    const materialsWithCounts = subjects.map((subject) => {
-      const subjectId = subject.id ?? subject._id;
-      const subjectChapters = chaptersBySubject.get(subjectId) || [];
-      const subjectChapterIds = subjectChapters
+      const chapterIds = allChapters
         .map((c) => c.id ?? c._id)
         .filter((id) => id != null);
 
-      let topicsCount = 0;
-      for (const cid of subjectChapterIds) {
-        topicsCount += (topicIdsByChapter.get(cid) || []).length;
+      const allTopics = chapterIds.length
+        ? (
+            await dbHelpers.pool.query(
+              `SELECT id, chapter_id FROM subject_topics WHERE chapter_id = ANY($1::int[]) AND is_active = true AND (is_deleted = false OR is_deleted IS NULL)`,
+              [chapterIds],
+            )
+          ).rows
+        : [];
+
+      // Index chapters by subject and topics by chapter for O(1) lookup.
+      const chaptersBySubject = new Map();
+      for (const c of allChapters) {
+        const sid = c.subjectId ?? c.subject_id;
+        if (sid == null) continue;
+        if (!chaptersBySubject.has(sid)) chaptersBySubject.set(sid, []);
+        chaptersBySubject.get(sid).push(c);
       }
 
-      const scope = buildStudyMediaScope(
-        subject,
-        subjectId,
-        studyMaterials,
-        subjectChapterIds,
-        topicIdsByChapter,
-      );
+      const topicIdsByChapter = new Map();
+      for (const t of allTopics) {
+        const cid = t.chapterId ?? t.chapter_id;
+        if (cid == null) continue;
+        if (!topicIdsByChapter.has(cid)) topicIdsByChapter.set(cid, []);
+        topicIdsByChapter.get(cid).push(t.id ?? t._id);
+      }
 
-      const chapterIdSet = new Set(scope.chapterIds.map(String));
-      scope.chapterIds.forEach((id) => chapterIdSet.add(Number(id)));
-      const topicIdSet = new Set(scope.topicIds.map(String));
-      scope.topicIds.forEach((id) => topicIdSet.add(Number(id)));
+      const materialsWithCounts = subjects.map((subject) => {
+        const subjectId = subject.id ?? subject._id;
+        const subjectChapters = chaptersBySubject.get(subjectId) || [];
+        const subjectChapterIds = subjectChapters
+          .map((c) => c.id ?? c._id)
+          .filter((id) => id != null);
 
-      const matchesScope = (item) => {
-        const smId = item.study_material_id ?? item.studyMaterialId;
-        if (smId != null && scope.idsToSearch.has(smId)) return true;
-        const cId = item.chapter_id ?? item.chapterId;
-        if (
-          cId != null &&
-          (chapterIdSet.has(cId) || chapterIdSet.has(String(cId)))
-        )
-          return true;
-        const tId = item.topic_id ?? item.topicId;
-        if (tId != null && (topicIdSet.has(tId) || topicIdSet.has(String(tId))))
-          return true;
-        return false;
-      };
+        let topicsCount = 0;
+        for (const cid of subjectChapterIds) {
+          topicsCount += (topicIdsByChapter.get(cid) || []).length;
+        }
 
-      const videos = allVideos.filter(matchesScope).length;
-      const pdfs = allPdfs.filter(matchesScope).length;
-      const topicTests = allTests.filter(matchesScope).length;
+        const scope = buildStudyMediaScope(
+          subject,
+          subjectId,
+          studyMaterials,
+          subjectChapterIds,
+          topicIdsByChapter,
+        );
 
-      const matchingSm = studyMaterials.find(
-        (sm) =>
-          (sm.slug && subject.slug && sm.slug === subject.slug) ||
-          (sm.title &&
-            (subject.name || subject.title) &&
-            sm.title.toLowerCase() ===
-              (subject.name || subject.title).toLowerCase()) ||
-          (sm.name &&
-            (subject.name || subject.title) &&
-            sm.name.toLowerCase() ===
-              (subject.name || subject.title).toLowerCase()),
-      );
+        const chapterIdSet = new Set(scope.chapterIds.map(String));
+        scope.chapterIds.forEach((id) => chapterIdSet.add(Number(id)));
+        const topicIdSet = new Set(scope.topicIds.map(String));
+        scope.topicIds.forEach((id) => topicIdSet.add(Number(id)));
 
-      const finalTitle =
-        subject.title ||
-        subject.name ||
-        matchingSm?.title ||
-        matchingSm?.name ||
-        "Study Material";
-      const finalIcon = subject.icon || matchingSm?.icon || null;
-      const finalChapters =
-        subjectChapters.length > 0
-          ? subjectChapters.length
-          : matchingSm?.chapters != null
-            ? Number(matchingSm.chapters)
-            : Number(subject.chapters) || 0;
-      const finalTopics =
-        topicsCount > 0
-          ? topicsCount
-          : matchingSm?.topics != null
-            ? Number(matchingSm.topics)
-            : Number(subject.topics) || 0;
-      const finalVideos =
-        videos > 0
-          ? videos
-          : matchingSm?.videos != null
-            ? Number(matchingSm.videos)
-            : Number(subject.videos) || 0;
-      const finalPdfs =
-        pdfs > 0
-          ? pdfs
-          : matchingSm?.pdf != null
-            ? Number(matchingSm.pdf)
-            : matchingSm?.pdfs != null
-              ? Number(matchingSm.pdfs)
-              : Number(subject.pdf || subject.pdfs) || 0;
-      const finalTests =
-        topicTests > 0
-          ? topicTests
-          : matchingSm?.tests != null
-            ? Number(matchingSm.tests)
-            : Number(subject.tests) || 0;
-      const finalColor = subject.color || matchingSm?.color || "#6366f1";
+        const matchesScope = (item) => {
+          const smId = item.study_material_id ?? item.studyMaterialId;
+          if (smId != null && scope.idsToSearch.has(smId)) return true;
+          const cId = item.chapter_id ?? item.chapterId;
+          if (
+            cId != null &&
+            (chapterIdSet.has(cId) || chapterIdSet.has(String(cId)))
+          )
+            return true;
+          const tId = item.topic_id ?? item.topicId;
+          if (
+            tId != null &&
+            (topicIdSet.has(tId) || topicIdSet.has(String(tId)))
+          )
+            return true;
+          return false;
+        };
 
-      return {
-        _id: subject._id || subject.id,
-        id: subject.id || subject._id,
-        slug: subject.slug,
-        title: finalTitle,
-        icon: finalIcon,
-        topics: finalTopics,
-        chapters: finalChapters,
-        videos: finalVideos,
-        pdf: finalPdfs,
-        tests: finalTests,
-        color: finalColor,
-        bg: finalColor + "20",
-        description: subject.description || matchingSm?.description || "",
-        subjectGroup:
-          subject.subjectGroup ||
-          subject.subject_group ||
-          matchingSm?.subjectGroup ||
-          null,
-        order: subject.order ?? subject.sort_order ?? 0,
-        isActive: subject.isActive ?? subject.is_active ?? true,
-        createdAt: subject.createdAt || subject.created_at,
-        updatedAt: subject.updatedAt || subject.updated_at,
-      };
-    });
+        const videos = allVideos.filter(matchesScope).length;
+        const pdfs = allPdfs.filter(matchesScope).length;
+        const topicTests = allTests.filter(matchesScope).length;
 
-    // Sort by order: featured positive order first, then standalone, then grouped
-    materialsWithCounts.sort((a, b) => {
-      const orderA =
-        a.order && a.order > 0 ? a.order : a.subjectGroup ? 100 : 50;
-      const orderB =
-        b.order && b.order > 0 ? b.order : b.subjectGroup ? 100 : 50;
-      if (orderA !== orderB) return orderA - orderB;
-      return (a.title || "").localeCompare(b.title || "");
-    });
+        const matchingSm = studyMaterials.find(
+          (sm) =>
+            (sm.slug && subject.slug && sm.slug === subject.slug) ||
+            (sm.title &&
+              (subject.name || subject.title) &&
+              sm.title.toLowerCase() ===
+                (subject.name || subject.title).toLowerCase()) ||
+            (sm.name &&
+              (subject.name || subject.title) &&
+              sm.name.toLowerCase() ===
+                (subject.name || subject.title).toLowerCase()),
+        );
 
-    res.json({
-      success: true,
-      count: materialsWithCounts.length,
-      data: materialsWithCounts,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: sanitizeErrorMessage(error),
-    });
-  }
-});
+        const finalTitle =
+          subject.title ||
+          subject.name ||
+          matchingSm?.title ||
+          matchingSm?.name ||
+          "Study Material";
+        const finalIcon = subject.icon || matchingSm?.icon || null;
+        const finalChapters =
+          subjectChapters.length > 0
+            ? subjectChapters.length
+            : matchingSm?.chapters != null
+              ? Number(matchingSm.chapters)
+              : Number(subject.chapters) || 0;
+        const finalTopics =
+          topicsCount > 0
+            ? topicsCount
+            : matchingSm?.topics != null
+              ? Number(matchingSm.topics)
+              : Number(subject.topics) || 0;
+        const finalVideos =
+          videos > 0
+            ? videos
+            : matchingSm?.videos != null
+              ? Number(matchingSm.videos)
+              : Number(subject.videos) || 0;
+        const finalPdfs =
+          pdfs > 0
+            ? pdfs
+            : matchingSm?.pdf != null
+              ? Number(matchingSm.pdf)
+              : matchingSm?.pdfs != null
+                ? Number(matchingSm.pdfs)
+                : Number(subject.pdf || subject.pdfs) || 0;
+        const finalTests =
+          topicTests > 0
+            ? topicTests
+            : matchingSm?.tests != null
+              ? Number(matchingSm.tests)
+              : Number(subject.tests) || 0;
+        const finalColor = subject.color || matchingSm?.color || "#6366f1";
+
+        return {
+          _id: subject._id || subject.id,
+          id: subject.id || subject._id,
+          slug: subject.slug,
+          title: finalTitle,
+          icon: finalIcon,
+          topics: finalTopics,
+          chapters: finalChapters,
+          videos: finalVideos,
+          pdf: finalPdfs,
+          tests: finalTests,
+          color: finalColor,
+          bg: finalColor + "20",
+          description: subject.description || matchingSm?.description || "",
+          subjectGroup:
+            subject.subjectGroup ||
+            subject.subject_group ||
+            matchingSm?.subjectGroup ||
+            null,
+          order: subject.order ?? subject.sort_order ?? 0,
+          isActive: subject.isActive ?? subject.is_active ?? true,
+          createdAt: subject.createdAt || subject.created_at,
+          updatedAt: subject.updatedAt || subject.updated_at,
+        };
+      });
+
+      // Sort by order: featured positive order first, then standalone, then grouped
+      materialsWithCounts.sort((a, b) => {
+        const orderA =
+          a.order && a.order > 0 ? a.order : a.subjectGroup ? 100 : 50;
+        const orderB =
+          b.order && b.order > 0 ? b.order : b.subjectGroup ? 100 : 50;
+        if (orderA !== orderB) return orderA - orderB;
+        return (a.title || "").localeCompare(b.title || "");
+      });
+
+      _studyListCache = materialsWithCounts;
+      _studyListCacheExpires = Date.now() + 5 * 60 * 1000;
+
+      res.json({
+        success: true,
+        count: materialsWithCounts.length,
+        data: materialsWithCounts,
+      });
+    } catch (error) {
+      logger.error("[study] list failed:", error?.message || error);
+      res.status(500).json({
+        success: false,
+        message: sanitizeErrorMessage(error),
+      });
+    }
+  },
+);
 
 const normalizeText = (value = "") =>
   String(value || "")
@@ -1141,130 +1176,179 @@ function mapChapterSummary(chapter) {
 // @route   GET /api/study/:slugOrId
 // @desc    Get study material by slug or ID with full hierarchy
 // @access  Public
-router.get("/:slugOrId", async (req, res) => {
-  try {
-    const { slugOrId } = req.params;
-    const material = await findSubjectBySlugOrId(dbHelpers, slugOrId);
+router.get(
+  "/:slugOrId",
+  responseCache("study-material-detail", 300, { userScoped: false }),
+  async (req, res) => {
+    try {
+      const { slugOrId } = req.params;
+      const material = await findSubjectBySlugOrId(dbHelpers, slugOrId);
 
-    if (!material) {
-      return res.status(404).json({
+      if (!material) {
+        return res.status(404).json({
+          success: false,
+          message: "Subject not found",
+        });
+      }
+
+      // Parallelize counts, curriculum hierarchy, and media bundle queries
+      const [counts, resolvedContent, { allVideos, allPdfs, allTests }] =
+        await Promise.all([
+          calculateStudyMaterialCounts(dbHelpers, material),
+          resolveSubjectContent(dbHelpers, material),
+          loadSubjectMediaBundle(dbHelpers, material),
+        ]);
+      const allChapters = resolvedContent.chapters;
+
+      // Find media not matched to any chapter in the resolved hierarchy
+      const matchedVideoIds = new Set(
+        allChapters.flatMap((c) =>
+          (c.videosList || []).map((v) => String(v.id ?? v._id)),
+        ),
+      );
+      const matchedPdfIds = new Set(
+        allChapters.flatMap((c) =>
+          (c.pdfsList || []).map((p) => String(p.id ?? p._id)),
+        ),
+      );
+      const matchedTestIds = new Set(
+        allChapters.flatMap((c) =>
+          (c.testsList || []).map((t) => String(t.id ?? t._id)),
+        ),
+      );
+
+      // Filter out assets that belong to a chapter/topic outside this subject
+      const subjectChapterKeys = new Set(
+        allChapters.flatMap((c) => [...collectKeySet(c)]),
+      );
+      const subjectTopicKeys = new Set(
+        allChapters.flatMap((c) =>
+          (c.topics || []).flatMap((t) => [...collectKeySet(t)]),
+        ),
+      );
+
+      const isTrulyUnmatched = (item) => {
+        // If the item has a chapterId or topicId that points to an external chapter,
+        // it belongs to another subject and must not pollute this subject's syllabus.
+        const hasChapterId = item.chapterId != null && item.chapterId !== "";
+        const hasTopicId = item.topicId != null && item.topicId !== "";
+        if (
+          hasChapterId &&
+          !subjectChapterKeys.has(item.chapterId) &&
+          !subjectChapterKeys.has(String(item.chapterId))
+        ) {
+          return false;
+        }
+        if (
+          hasTopicId &&
+          !subjectTopicKeys.has(item.topicId) &&
+          !subjectTopicKeys.has(String(item.topicId))
+        ) {
+          return false;
+        }
+        return true;
+      };
+
+      const unmatchedVideos = allVideos
+        .filter((v) => !matchedVideoIds.has(String(v.id ?? v._id)))
+        .filter(isTrulyUnmatched)
+        .map(mapVideoForClient);
+      const unmatchedPdfs = allPdfs
+        .filter((p) => !matchedPdfIds.has(String(p.id ?? p._id)))
+        .filter(isTrulyUnmatched)
+        .map(mapPdfForClient);
+      const unmatchedTests = allTests
+        .filter((t) => !matchedTestIds.has(String(t.id ?? t._id)))
+        .filter(isTrulyUnmatched);
+
+      const hasUnmatched =
+        unmatchedVideos.length > 0 ||
+        unmatchedPdfs.length > 0 ||
+        unmatchedTests.length > 0;
+
+      // Build the synthetic "Additional Resources" chapter for unmatched media
+      const generalChapter = hasUnmatched
+        ? {
+            id: "general",
+            _id: "general",
+            title: "Additional Resources",
+            name: "Additional Resources",
+            description: "Supplementary study material and extra video lessons",
+            videoCount: unmatchedVideos.length,
+            pdfCount: unmatchedPdfs.length,
+            testCount: unmatchedTests.length,
+            videosList: unmatchedVideos,
+            pdfsList: unmatchedPdfs,
+            testsList: unmatchedTests,
+            topics: [],
+            isExtra: true,
+          }
+        : null;
+
+      const finalChapters = generalChapter
+        ? [...allChapters, generalChapter]
+        : allChapters;
+
+      // Build the units array for the frontend, injecting the general chapter as an extra unit if needed
+      let finalUnits = resolvedContent.units || [];
+      if (generalChapter) {
+        finalUnits = [
+          ...finalUnits,
+          {
+            id: "general-unit",
+            _id: "general-unit",
+            name: "Additional Content",
+            slug: "additional-content",
+            chapters: [generalChapter],
+            isExtra: true,
+          },
+        ];
+      }
+
+      // Build legacy `parts` wrapper from the units for backward compatibility
+      const finalParts =
+        finalUnits.length > 0
+          ? [{ id: "main", name: null, units: finalUnits }]
+          : [];
+
+      const totalVideos =
+        allChapters.reduce((sum, c) => sum + (c.videosList?.length || 0), 0) +
+        (generalChapter?.videosList?.length || 0);
+      const totalPdfs =
+        allChapters.reduce((sum, c) => sum + (c.pdfsList?.length || 0), 0) +
+        (generalChapter?.pdfsList?.length || 0);
+      const totalTests =
+        allChapters.reduce((sum, c) => sum + (c.testsList?.length || 0), 0) +
+        (generalChapter?.testsList?.length || 0);
+
+      res.json({
+        success: true,
+        data: {
+          ...material,
+          title: material.name || material.title,
+          topics: counts.topics,
+          chaptersCount: finalChapters.length || counts.chapters,
+          videos: totalVideos,
+          pdf: totalPdfs,
+          tests: totalTests,
+          bg: (material.color || "#667eea") + "20",
+          chapters: finalChapters, // flat list (used by fallback view)
+          units: finalUnits, // unit hierarchy with nested chapters
+          parts: finalParts, // legacy parts wrapper (hierarchy view)
+          // Subject-level lists for direct rendering
+          videosList: allVideos.map(mapVideoForClient),
+          pdfsList: allPdfs.map(mapPdfForClient),
+          testsList: allTests,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
         success: false,
-        message: "Subject not found",
+        message: sanitizeErrorMessage(error),
       });
     }
-
-    const counts = await calculateStudyMaterialCounts(dbHelpers, material);
-    const resolvedContent = await resolveSubjectContent(dbHelpers, material);
-    const allChapters = resolvedContent.chapters;
-
-    // Load ALL media for this subject (including admin-uploaded PDFs/videos)
-    const { allVideos, allPdfs, allTests } = await loadSubjectMediaBundle(
-      dbHelpers,
-      material,
-    );
-
-    // Find media not matched to any chapter in the resolved hierarchy
-    const matchedVideoIds = new Set(
-      allChapters.flatMap((c) =>
-        (c.videosList || []).map((v) => String(v.id ?? v._id)),
-      ),
-    );
-    const matchedPdfIds = new Set(
-      allChapters.flatMap((c) =>
-        (c.pdfsList || []).map((p) => String(p.id ?? p._id)),
-      ),
-    );
-    const matchedTestIds = new Set(
-      allChapters.flatMap((c) =>
-        (c.testsList || []).map((t) => String(t.id ?? t._id)),
-      ),
-    );
-
-    const unmatchedVideos = allVideos
-      .filter((v) => !matchedVideoIds.has(String(v.id ?? v._id)))
-      .map(mapVideoForClient);
-    const unmatchedPdfs = allPdfs
-      .filter((p) => !matchedPdfIds.has(String(p.id ?? p._id)))
-      .map(mapPdfForClient);
-    const unmatchedTests = allTests.filter(
-      (t) => !matchedTestIds.has(String(t.id ?? t._id)),
-    );
-
-    const hasUnmatched =
-      unmatchedVideos.length > 0 ||
-      unmatchedPdfs.length > 0 ||
-      unmatchedTests.length > 0;
-
-    // Build the synthetic "General" chapter for unmatched media
-    const generalChapter = hasUnmatched
-      ? {
-          id: "general",
-          _id: "general",
-          title: "General",
-          name: "General",
-          description: "Content not assigned to a specific chapter",
-          videoCount: unmatchedVideos.length,
-          pdfCount: unmatchedPdfs.length,
-          testCount: unmatchedTests.length,
-          videosList: unmatchedVideos,
-          pdfsList: unmatchedPdfs,
-          testsList: unmatchedTests,
-          topics: [],
-        }
-      : null;
-
-    const finalChapters = generalChapter
-      ? [...allChapters, generalChapter]
-      : allChapters;
-
-    // Build the units array for the frontend, injecting the general chapter as an extra unit if needed
-    let finalUnits = resolvedContent.units || [];
-    if (generalChapter) {
-      finalUnits = [
-        ...finalUnits,
-        {
-          id: "general-unit",
-          _id: "general-unit",
-          name: "Additional Content",
-          slug: "additional-content",
-          chapters: [generalChapter],
-        },
-      ];
-    }
-
-    // Build legacy `parts` wrapper from the units for backward compatibility
-    const finalParts =
-      finalUnits.length > 0
-        ? [{ id: "main", name: null, units: finalUnits }]
-        : [];
-
-    res.json({
-      success: true,
-      data: {
-        ...material,
-        title: material.name || material.title,
-        topics: counts.topics,
-        chaptersCount: finalChapters.length || counts.chapters,
-        videos: allVideos.length || counts.videos,
-        pdf: allPdfs.length || counts.pdf,
-        tests: allTests.length || counts.tests,
-        bg: (material.color || "#667eea") + "20",
-        chapters: finalChapters, // flat list (used by fallback view)
-        units: finalUnits, // unit hierarchy with nested chapters
-        parts: finalParts, // legacy parts wrapper (hierarchy view)
-        // Subject-level lists for direct rendering
-        videosList: allVideos.map(mapVideoForClient),
-        pdfsList: allPdfs.map(mapPdfForClient),
-        testsList: allTests,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: sanitizeErrorMessage(error),
-    });
-  }
-});
+  },
+);
 
 // @route   GET /api/videos/hierarchical
 // @desc    Get all videos organized by subject-chapter-topic hierarchy
@@ -1290,7 +1374,8 @@ router.get(
       ),
       active_videos AS (
         SELECT id, title, slug, description, video_url, thumbnail, duration,
-               order_index, is_pro, chapter_id, topic_id, created_at, public_id
+               order_index, is_pro, chapter_id, topic_id, created_at, public_id,
+               fortspy_id, is_encrypted, encryption_type
         FROM subject_videos WHERE is_active = true AND (is_deleted IS NOT TRUE)
       ),
       subject_stats AS (
@@ -1312,19 +1397,22 @@ router.get(
                    'videoCount', (
                      SELECT COUNT(*)::int FROM active_videos v WHERE v.chapter_id = ch.id
                    ),
-                   'videos', (
-                     SELECT COALESCE(json_agg(
-                       json_build_object(
-                         'id', v.id, '_id', v.id, 'publicId', v.public_id, 'title', v.title, 'slug', v.slug,
-                         'description', v.description, 'videoUrl', v.video_url,
-                         'thumbnail', v.thumbnail, 'duration', v.duration,
-                         'isPro', v.is_pro, 'isFree', NOT v.is_pro,
-                         'instructor', 'Expert Faculty', 'views', 0,
-                         'createdAt', v.created_at
-                       ) ORDER BY v.order_index, v.id
-                     ), '[]'::json)
-                      FROM active_videos v WHERE v.chapter_id = ch.id AND v.topic_id IS NULL
-                   ),
+                    'videos', (
+                      SELECT COALESCE(json_agg(
+                        json_build_object(
+                          'id', v.id, '_id', v.id, 'publicId', v.public_id, 'title', v.title, 'slug', v.slug,
+                          'description', v.description, 'videoUrl', v.video_url,
+                          'thumbnail', v.thumbnail, 'duration', v.duration,
+                          'isPro', v.is_pro, 'isFree', NOT v.is_pro,
+                          'instructor', 'Expert Faculty', 'views', 0,
+                          'createdAt', v.created_at,
+                          'fortspyId', v.fortspy_id,
+                          'isEncrypted', COALESCE(v.is_encrypted, false),
+                          'encryptionType', COALESCE(v.encryption_type, 'AES-256-CTR')
+                        ) ORDER BY v.order_index, v.id
+                      ), '[]'::json)
+                       FROM active_videos v WHERE v.chapter_id = ch.id AND v.topic_id IS NULL
+                    ),
                    'topics', (
                      SELECT COALESCE(json_agg(
                        json_build_object(
@@ -1333,19 +1421,22 @@ router.get(
                          'videoCount', (
                            SELECT COUNT(*)::int FROM active_videos v WHERE v.topic_id = tp.id
                          ),
-                         'videos', (
-                           SELECT COALESCE(json_agg(
-                             json_build_object(
-                               'id', v.id, '_id', v.id, 'publicId', v.public_id, 'title', v.title, 'slug', v.slug,
-                               'description', v.description, 'videoUrl', v.video_url,
-                               'thumbnail', v.thumbnail, 'duration', v.duration,
-                               'isPro', v.is_pro, 'isFree', NOT v.is_pro,
-                               'instructor', 'Expert Faculty', 'views', 0,
-                               'createdAt', v.created_at
-                             ) ORDER BY v.order_index, v.id
-                           ), '[]'::json)
-                           FROM active_videos v WHERE v.topic_id = tp.id
-                         )
+                          'videos', (
+                            SELECT COALESCE(json_agg(
+                              json_build_object(
+                                'id', v.id, '_id', v.id, 'publicId', v.public_id, 'title', v.title, 'slug', v.slug,
+                                'description', v.description, 'videoUrl', v.video_url,
+                                'thumbnail', v.thumbnail, 'duration', v.duration,
+                                'isPro', v.is_pro, 'isFree', NOT v.is_pro,
+                                'instructor', 'Expert Faculty', 'views', 0,
+                                'createdAt', v.created_at,
+                                'fortspyId', v.fortspy_id,
+                                'isEncrypted', COALESCE(v.is_encrypted, false),
+                                'encryptionType', COALESCE(v.encryption_type, 'AES-256-CTR')
+                              ) ORDER BY v.order_index, v.id
+                            ), '[]'::json)
+                            FROM active_videos v WHERE v.topic_id = tp.id
+                          )
                        ) ORDER BY tp.order_index, tp.id
                      ), '[]'::json)
                      FROM active_topics tp WHERE tp.chapter_id = ch.id
@@ -1363,16 +1454,19 @@ router.get(
       ),
       unassigned_data AS (
         SELECT COALESCE(ch.subject_id, tp.subject_id) AS subject_id,
-               json_agg(
-                 json_build_object(
-                   'id', v.id, '_id', v.id, 'publicId', v.public_id, 'title', v.title, 'slug', v.slug,
-                   'description', v.description, 'videoUrl', v.video_url,
-                   'thumbnail', v.thumbnail, 'duration', v.duration,
-                   'isPro', v.is_pro, 'isFree', NOT v.is_pro,
-                   'instructor', 'Expert Faculty', 'views', 0,
-                   'createdAt', v.created_at
-                 ) ORDER BY v.order_index, v.id
-               ) AS unassigned_json
+                json_agg(
+                  json_build_object(
+                    'id', v.id, '_id', v.id, 'publicId', v.public_id, 'title', v.title, 'slug', v.slug,
+                    'description', v.description, 'videoUrl', v.video_url,
+                    'thumbnail', v.thumbnail, 'duration', v.duration,
+                    'isPro', v.is_pro, 'isFree', NOT v.is_pro,
+                    'instructor', 'Expert Faculty', 'views', 0,
+                    'createdAt', v.created_at,
+                    'fortspyId', v.fortspy_id,
+                    'isEncrypted', COALESCE(v.is_encrypted, false),
+                    'encryptionType', COALESCE(v.encryption_type, 'AES-256-CTR')
+                  ) ORDER BY v.order_index, v.id
+                ) AS unassigned_json
         FROM active_videos v
         LEFT JOIN active_chapters ch ON v.chapter_id = ch.id
         LEFT JOIN active_topics tp ON v.topic_id = tp.id
@@ -1412,33 +1506,36 @@ router.get(
 
 // @route   GET /api/study/:slugOrId/chapters
 // @desc    Get chapters for a subject by slug or ID
-// @access  Public
-router.get("/:slugOrId/chapters", async (req, res) => {
-  try {
-    const { slugOrId } = req.params;
-    const material = await findSubjectBySlugOrId(dbHelpers, slugOrId);
+router.get(
+  "/:slugOrId/chapters",
+  responseCache("study-material-chapters", 300, { userScoped: false }),
+  async (req, res) => {
+    try {
+      const { slugOrId } = req.params;
+      const material = await findSubjectBySlugOrId(dbHelpers, slugOrId);
 
-    if (!material) {
-      return res.status(404).json({
+      if (!material) {
+        return res.status(404).json({
+          success: false,
+          message: "Study material not found",
+        });
+      }
+
+      const resolvedContent = await resolveSubjectContent(dbHelpers, material);
+      const chapters = resolvedContent.chapters;
+
+      res.json({
+        success: true,
+        count: chapters.length,
+        data: chapters.map(mapChapterSummary),
+      });
+    } catch (error) {
+      res.status(500).json({
         success: false,
-        message: "Study material not found",
+        message: sanitizeErrorMessage(error),
       });
     }
-
-    const resolvedContent = await resolveSubjectContent(dbHelpers, material);
-    const chapters = resolvedContent.chapters;
-
-    res.json({
-      success: true,
-      count: chapters.length,
-      data: chapters.map(mapChapterSummary),
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: sanitizeErrorMessage(error),
-    });
-  }
-});
+  },
+);
 
 export default router;

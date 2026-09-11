@@ -298,42 +298,47 @@ async function calculateUserStats(userId) {
   };
 
   try {
-    // Get test results
-    const results = await dbHelpers.find("results", {
+    // Get completed attempts (attempts table has is_completed, accuracy columns)
+    const attempts = await dbHelpers.find("attempts", {
       userId,
       isCompleted: true,
-      isActive: true,
     });
 
-    stats.testsCompleted = results.length;
+    stats.testsCompleted = attempts.length;
 
-    if (results.length > 0) {
-      // Calculate average accuracy
-      const totalAccuracy = results.reduce(
-        (sum, r) => sum + (parseFloat(r.accuracy) || 0),
+    if (attempts.length > 0) {
+      // Calculate average accuracy (attempts.accuracy exists; fallback to score/total_marks)
+      const totalAccuracy = attempts.reduce(
+        (sum, a) =>
+          sum +
+          (parseFloat(a.accuracy) ||
+            (a.total_marks > 0 ? (a.score / a.total_marks) * 100 : 0)),
         0,
       );
-      stats.totalAccuracy = totalAccuracy / results.length;
+      stats.totalAccuracy = totalAccuracy / attempts.length;
 
       // Get last test date for streak calculation
-      const sortedResults = results.sort(
+      const sortedAttempts = attempts.sort(
         (a, b) =>
           new Date(b.submittedAt || b.createdAt) -
           new Date(a.submittedAt || a.createdAt),
       );
       stats.lastTestDate =
-        sortedResults[0]?.submittedAt || sortedResults[0]?.createdAt;
+        sortedAttempts[0]?.submittedAt || sortedAttempts[0]?.createdAt;
 
       // Calculate day streak
       stats.dayStreak = calculateDayStreak(
-        sortedResults.map((r) => r.submittedAt || r.createdAt),
+        sortedAttempts.map((a) => a.submittedAt || a.createdAt),
       );
 
       // Count high scores (80%+ accuracy)
       let consecutiveHigh = 0;
       let maxConsecutiveHigh = 0;
-      sortedResults.forEach((r) => {
-        if ((parseFloat(r.accuracy) || 0) >= 80) {
+      sortedAttempts.forEach((a) => {
+        const acc =
+          parseFloat(a.accuracy) ||
+          (a.total_marks > 0 ? (a.score / a.total_marks) * 100 : 0);
+        if (acc >= 80) {
           consecutiveHigh++;
           maxConsecutiveHigh = Math.max(maxConsecutiveHigh, consecutiveHigh);
         } else {

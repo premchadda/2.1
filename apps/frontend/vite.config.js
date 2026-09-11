@@ -272,14 +272,8 @@ export default defineConfig(({ mode }) => {
       }),
     ],
     optimizeDeps: {
-      include: [
-        "@trstprep/shared-config",
-        "@trstprep/shared-hooks",
-        "react",
-        "react-dom",
-        "react-router-dom",
-        "katex",
-      ],
+      exclude: ["@trstprep/shared-config", "@trstprep/shared-hooks"],
+      include: ["react", "react-dom", "react-router-dom", "katex"],
     },
     resolve: {
       alias: {

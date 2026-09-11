@@ -131,6 +131,7 @@ export default function KnowledgeVaultModal({ questionId, isOpen, onClose }) {
               Name
             </label>
             <input
+              aria-label="Collection Name"
               type="text"
               value={collection}
               onChange={(e) => setCollection(e.target.value)}

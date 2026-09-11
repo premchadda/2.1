@@ -49,6 +49,7 @@ import AdminPageHeader from "../../../shared/components/admin/AdminPageHeader";
 import SearchInput from "../../../shared/components/ui/SearchInput";
 import { toast } from "react-hot-toast";
 import { filterAndRank } from "../../../shared/utils/searchUtils";
+import { copyToClipboard } from "../../../shared/utils/clipboard";
 
 const PASS_CONFIG = {
   "Pro Pass": {
@@ -319,12 +320,6 @@ export default function EnrollmentsManager() {
     URL.revokeObjectURL(url);
     toast.success("Enrollments list exported");
   }, [filtered]);
-
-  const copyToClipboard = (text, label) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    toast.success(`Copied ${label} to clipboard`);
-  };
 
   return (
     <div className="p-3 sm:p-4 max-w-7xl mx-auto space-y-4">
@@ -621,7 +616,7 @@ export default function EnrollmentsManager() {
 
       {/* 4. Content Area */}
       {loading ? (
-        <div className="p-16 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+        <div className="p-6 sm:p-8 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
           <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
             Loading Student Enrollments...
@@ -746,7 +741,7 @@ export default function EnrollmentsManager() {
           </div>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="p-16 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+        <div className="p-6 sm:p-8 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
           <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
           <h3 className="text-base font-bold text-gray-900 dark:text-white">
             No enrollments match your criteria

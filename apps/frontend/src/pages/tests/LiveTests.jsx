@@ -127,6 +127,16 @@ export default function LiveTests() {
     staleTime: 1000 * 60 * 10,
   });
 
+  // Exams directory (display-only enrichment for the exam filter)
+  const { data: examsDirectory = [] } = useQuery({
+    queryKey: ["exams-directory"],
+    queryFn: async () => {
+      const res = await getExams();
+      return res?.data?.data || res?.data || [];
+    },
+    staleTime: 1000 * 60 * 10,
+  });
+
   // Extract real exams list
   const examOptions = useMemo(() => {
     const EXCLUDED = new Set([
@@ -161,6 +171,18 @@ export default function LiveTests() {
       });
     }
 
+    if (Array.isArray(examsDirectory)) {
+      examsDirectory.forEach((exam) => {
+        const label = exam.name || exam.title || exam.examName;
+        if (label) {
+          const id = (exam.slug || label).toLowerCase().trim();
+          if (!EXCLUDED.has(id) && !map.has(id)) {
+            map.set(id, label);
+          }
+        }
+      });
+    }
+
     allTests.forEach((test) => {
       const ex =
         test.examName || test.exam || test.category || test.categoryName;
@@ -173,7 +195,7 @@ export default function LiveTests() {
     });
 
     return Array.from(map.entries()).map(([id, label]) => ({ id, label }));
-  }, [serverCategories, allTests]);
+  }, [serverCategories, examsDirectory, allTests]);
 
   // Extract real subjects list
   const subjectOptions = useMemo(() => {
@@ -544,25 +566,82 @@ export default function LiveTests() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
               {quizItems.map((test) => {
                 const testId = getTestId(test);
+                const isLiveBadge = checkIsLive(test);
+                const isUpcomingBadge = checkIsUpcoming(test);
+                const scheduleText = getScheduleWindowText(test);
+                const remainingText = getRemainingTimeFormatted(test);
+                const dateRangeText = formatDateRangeShared(
+                  getTestStartDate(test),
+                  getTestEndDate(test),
+                  test.duration || 60,
+                );
+                const startsInText = getTimeUntil(getTestStartDate(test));
                 return (
-                  <TestCard
-                    key={testId}
-                    test={test}
-                    user={user}
-                    isLiveArena={true}
-                    onRegister={extraCardProps.onRegister}
-                    isRegistered={
-                      extraCardProps.isRegistered?.(testId) ??
-                      extraCardProps.isRegistered
-                    }
-                    isRegistering={
-                      extraCardProps.isRegistering?.(testId) ??
-                      extraCardProps.isRegistering
-                    }
-                    showLeaderboardAndReview={
-                      extraCardProps.showLeaderboardAndReview
-                    }
-                  />
+                  <div key={testId} className="flex flex-col gap-2">
+                    <div
+                      className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-1"
+                      aria-live="polite"
+                    >
+                      {isLiveBadge && (
+                        <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                          LIVE
+                        </span>
+                      )}
+                      {isUpcomingBadge && (
+                        <span className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+                          <Clock className="w-3 h-3" aria-hidden="true" />
+                          Starts in {startsInText}
+                        </span>
+                      )}
+                      <span title={scheduleText}>{scheduleText}</span>
+                      <span title="Time left in this window">
+                        <Timer
+                          className="w-3 h-3 inline mr-0.5 text-sky-600"
+                          aria-hidden="true"
+                        />
+                        {remainingText}
+                      </span>
+                      {dateRangeText && (
+                        <span
+                          className="text-slate-400 dark:text-slate-500"
+                          title={dateRangeText}
+                        >
+                          {dateRangeText}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleEnterArena(test)}
+                        className="ml-auto inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline font-bold"
+                        title={`Enter arena: ${test.title || "live quiz"}`}
+                      >
+                        Enter Arena{" "}
+                        <ArrowRight
+                          className="w-3.5 h-3.5"
+                          aria-hidden="true"
+                        />
+                      </button>
+                    </div>
+                    <TestCard
+                      key={testId}
+                      test={test}
+                      user={user}
+                      isLiveArena={true}
+                      onRegister={extraCardProps.onRegister}
+                      isRegistered={
+                        extraCardProps.isRegistered?.(testId) ??
+                        extraCardProps.isRegistered
+                      }
+                      isRegistering={
+                        extraCardProps.isRegistering?.(testId) ??
+                        extraCardProps.isRegistering
+                      }
+                      showLeaderboardAndReview={
+                        extraCardProps.showLeaderboardAndReview
+                      }
+                    />
+                  </div>
                 );
               })}
             </div>
@@ -607,25 +686,79 @@ export default function LiveTests() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
             {testItems.map((test) => {
               const testId = getTestId(test);
+              const isLiveBadge = checkIsLive(test);
+              const isUpcomingBadge = checkIsUpcoming(test);
+              const scheduleText = getScheduleWindowText(test);
+              const remainingText = getRemainingTimeFormatted(test);
+              const dateRangeText = formatDateRangeShared(
+                getTestStartDate(test),
+                getTestEndDate(test),
+                test.duration || 60,
+              );
+              const startsInText = getTimeUntil(getTestStartDate(test));
               return (
-                <TestCard
-                  key={testId}
-                  test={test}
-                  user={user}
-                  isLiveArena={true}
-                  onRegister={extraCardProps.onRegister}
-                  isRegistered={
-                    extraCardProps.isRegistered?.(testId) ??
-                    extraCardProps.isRegistered
-                  }
-                  isRegistering={
-                    extraCardProps.isRegistering?.(testId) ??
-                    extraCardProps.isRegistering
-                  }
-                  showLeaderboardAndReview={
-                    extraCardProps.showLeaderboardAndReview
-                  }
-                />
+                <div key={testId} className="flex flex-col gap-2">
+                  <div
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-1"
+                    aria-live="polite"
+                  >
+                    {isLiveBadge && (
+                      <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                        LIVE
+                      </span>
+                    )}
+                    {isUpcomingBadge && (
+                      <span className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+                        <Clock className="w-3 h-3" aria-hidden="true" />
+                        Starts in {startsInText}
+                      </span>
+                    )}
+                    <span title={scheduleText}>{scheduleText}</span>
+                    <span title="Time left in this window">
+                      <Timer
+                        className="w-3 h-3 inline mr-0.5 text-sky-600"
+                        aria-hidden="true"
+                      />
+                      {remainingText}
+                    </span>
+                    {dateRangeText && (
+                      <span
+                        className="text-slate-400 dark:text-slate-500"
+                        title={dateRangeText}
+                      >
+                        {dateRangeText}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleEnterArena(test)}
+                      className="ml-auto inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline font-bold"
+                      title={`Enter arena: ${test.title || "live test"}`}
+                    >
+                      Enter Arena{" "}
+                      <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                    </button>
+                  </div>
+                  <TestCard
+                    key={testId}
+                    test={test}
+                    user={user}
+                    isLiveArena={true}
+                    onRegister={extraCardProps.onRegister}
+                    isRegistered={
+                      extraCardProps.isRegistered?.(testId) ??
+                      extraCardProps.isRegistered
+                    }
+                    isRegistering={
+                      extraCardProps.isRegistering?.(testId) ??
+                      extraCardProps.isRegistering
+                    }
+                    showLeaderboardAndReview={
+                      extraCardProps.showLeaderboardAndReview
+                    }
+                  />
+                </div>
               );
             })}
           </div>
@@ -645,7 +778,7 @@ export default function LiveTests() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 pb-24">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 pb-10">
       <Helmet>
         <title>Live Tests & Real-Time Quizzes Arena | Trstprep</title>
         <meta
@@ -806,6 +939,7 @@ export default function LiveTests() {
               <div className="relative flex-1 min-w-0">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
+                  aria-label="Search live tests"
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -850,7 +984,203 @@ export default function LiveTests() {
                   </option>
                 ))}
               </select>
+
+              {/* Manual refresh (display-only, keeps auto refetch intact) */}
+              <button
+                type="button"
+                onClick={() => refetch()}
+                disabled={isLoading}
+                className="p-2 bg-slate-50 dark:bg-slate-800/70 border border-slate-200/90 dark:border-slate-700/80 rounded-xl sm:rounded-2xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all shrink-0 disabled:opacity-50"
+                title="Refresh live arena"
+                aria-label="Refresh live arena"
+              >
+                {isLoading ? (
+                  <Loader2
+                    className="w-4 h-4 animate-spin"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <RefreshCw className="w-4 h-4" aria-hidden="true" />
+                )}
+              </button>
             </div>
+          </div>
+
+          {/* Arena guide strip: status affordances + navigation (display-only) */}
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            <span
+              className="flex items-center gap-1"
+              title="Enter the live arena for a scheduled test"
+            >
+              <Play
+                className="w-3.5 h-3.5 text-emerald-500"
+                aria-hidden="true"
+              />{" "}
+              Enter arena
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="Scheduled start and end times"
+            >
+              <Clock className="w-3.5 h-3.5 text-sky-500" aria-hidden="true" />{" "}
+              Schedule
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="Compete with aspirants across India"
+            >
+              <Users
+                className="w-3.5 h-3.5 text-indigo-500"
+                aria-hidden="true"
+              />{" "}
+              Live ranks
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="Turn on reminders after registering"
+            >
+              <Bell className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />{" "}
+              Reminders
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="Pro-gated arenas need Pro Pass"
+            >
+              <Crown
+                className="w-3.5 h-3.5 text-amber-500"
+                aria-hidden="true"
+              />{" "}
+              Pro arenas
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="Filter by exam, subject, and format"
+            >
+              <SlidersHorizontal
+                className="w-3.5 h-3.5 text-slate-400"
+                aria-hidden="true"
+              />{" "}
+              Filters
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="Registered sessions"
+            >
+              <CheckCircle2
+                className="w-3.5 h-3.5 text-emerald-500"
+                aria-hidden="true"
+              />{" "}
+              Registered
+            </span>
+            <span className="flex items-center gap-1" title="Schedule alerts">
+              <AlertCircle
+                className="w-3.5 h-3.5 text-rose-500"
+                aria-hidden="true"
+              />{" "}
+              Alerts
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="How the live arena works"
+            >
+              <HelpCircle
+                className="w-3.5 h-3.5 text-slate-400"
+                aria-hidden="true"
+              />{" "}
+              How it works
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="Live standings and percentiles"
+            >
+              <BarChart2
+                className="w-3.5 h-3.5 text-indigo-500"
+                aria-hidden="true"
+              />{" "}
+              Standings
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="New AI-proctored arenas"
+            >
+              <Sparkles
+                className="w-3.5 h-3.5 text-purple-500"
+                aria-hidden="true"
+              />{" "}
+              New
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="Fair-play monitored arena"
+            >
+              <ShieldCheck
+                className="w-3.5 h-3.5 text-emerald-600"
+                aria-hidden="true"
+              />{" "}
+              Fair play
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="Hot ongoing battles"
+            >
+              <Flame
+                className="w-3.5 h-3.5 text-orange-500"
+                aria-hidden="true"
+              />{" "}
+              Hot
+            </span>
+            <span className="flex items-center gap-1" title="Completed steps">
+              <Check
+                className="w-3.5 h-3.5 text-emerald-500"
+                aria-hidden="true"
+              />{" "}
+              Done
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="Full tests group multiple sections"
+            >
+              <Layers
+                className="w-3.5 h-3.5 text-slate-400"
+                aria-hidden="true"
+              />{" "}
+              Sections
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="Strategy guides for toppers"
+            >
+              <Brain
+                className="w-3.5 h-3.5 text-purple-500"
+                aria-hidden="true"
+              />{" "}
+              Strategy
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="Countdown to arena close"
+            >
+              <Timer className="w-3.5 h-3.5 text-sky-600" aria-hidden="true" />{" "}
+              Countdown
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="Syllabus-mapped tests"
+            >
+              <BookOpen
+                className="w-3.5 h-3.5 text-indigo-400"
+                aria-hidden="true"
+              />{" "}
+              Syllabus
+            </span>
+            <Link
+              to="/test-series"
+              className="ml-auto flex items-center gap-0.5 text-indigo-600 dark:text-indigo-400 hover:underline font-bold"
+              title="Browse regular test series"
+            >
+              Browse test series{" "}
+              <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+            </Link>
           </div>
         </div>
 
@@ -995,7 +1325,7 @@ export default function LiveTests() {
 // Reusable Empty State Component
 function EmptyState({ title, desc, onReset, onNavigate, ctaText }) {
   return (
-    <div className="text-center py-16 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm max-w-[95vw] sm:max-w-xl mx-auto">
+    <div className="text-center py-8 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm max-w-[95vw] sm:max-w-xl mx-auto">
       <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-4 border border-indigo-200/60 dark:border-indigo-800/60">
         <Trophy className="w-8 h-8" />
       </div>

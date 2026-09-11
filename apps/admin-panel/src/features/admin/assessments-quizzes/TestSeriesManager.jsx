@@ -1069,7 +1069,7 @@ export default function TestSeriesManager() {
         {/* Series List */}
         <div className="p-4">
           {filteredSeries.length === 0 ? (
-            <div className="text-center py-16 bg-gradient-to-b from-gray-50 to-white rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+            <div className="text-center py-8 bg-gradient-to-b from-gray-50 to-white rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
               <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                 <Layers className="w-8 h-8 text-gray-400 dark:text-gray-500" />
               </div>
@@ -1167,6 +1167,7 @@ export default function TestSeriesManager() {
               >
                 <input
                   type="checkbox"
+                  aria-label="Select all test series"
                   checked={
                     selectedIds.length === filteredSeries.length &&
                     filteredSeries.length > 0
@@ -1205,6 +1206,7 @@ export default function TestSeriesManager() {
                   >
                     <input
                       type="checkbox"
+                      aria-label={`Select test series ${item.title || seriesId(item)}`}
                       checked={selectedIds.includes(seriesId(item))}
                       onChange={(e) => {
                         const sId = seriesId(item);
@@ -1334,6 +1336,7 @@ export default function TestSeriesManager() {
                                         </div>
                                         <input
                                           type="checkbox"
+                                          aria-label={`Select stage ${stage.name || stageId}`}
                                           checked={isChecked}
                                           onChange={() =>
                                             toggleInlineStage(stageId)

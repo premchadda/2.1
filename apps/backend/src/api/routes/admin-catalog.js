@@ -9,6 +9,8 @@ import {
 } from "../../middleware/auth.middleware.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
+import { aiRateLimiter } from "../../middleware/aiRateLimiter.js";
+import { callAIWithFallback } from "../../modules/ai/aiClient.js";
 
 const router = express.Router();
 
@@ -515,36 +517,174 @@ router.post(
       });
       results.push(q);
     }
-    res
-      .status(201)
-      .json({
-        success: true,
-        count: results.length,
-        data: results,
-        skipped: skipped.length,
-        skipDetails: skipped.length > 0 ? skipped : undefined,
-      });
+    res.status(201).json({
+      success: true,
+      count: results.length,
+      data: results,
+      skipped: skipped.length,
+      skipDetails: skipped.length > 0 ? skipped : undefined,
+    });
   }),
 );
 
 router.post(
   "/ai/generate-questions",
+  aiRateLimiter,
   asyncHandler(async (req, res) => {
-    const { topic, subject, count = 5, difficulty = "medium" } = req.body;
-    const questions = [];
-    for (let i = 1; i <= count; i++) {
-      questions.push({
-        id: Date.now() + i,
-        questionText: `Practice Question ${i} on ${topic || "General Aptitude"} (${difficulty})`,
-        options: ["Option A", "Option B", "Option C", "Option D"],
-        correctAnswer: "Option A",
-        explanation: `Detailed explanation for ${topic} question ${i}.`,
-        difficulty,
-        subject: subject || "General",
-        topic: topic || "General",
-      });
+    const {
+      topic,
+      subject,
+      count = 5,
+      difficulty = "medium",
+      isPractice = false,
+    } = req.body;
+    const questionCount = Math.min(Math.max(parseInt(count, 10) || 3, 1), 15);
+    const sub = subject || "General";
+    const top = topic || "General Aptitude";
+    const diff = ["easy", "medium", "hard"].includes(
+      String(difficulty).toLowerCase(),
+    )
+      ? String(difficulty).toLowerCase()
+      : "medium";
+
+    let generatedQuestions = [];
+
+    if (process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY) {
+      try {
+        const prompt = `You are an expert exam question creator. Generate exactly ${questionCount} multiple-choice questions for the subject "${sub}" on topic "${top}" at ${diff} difficulty level.
+Return ONLY a valid JSON array of objects. Each object must have:
+- "questionText": string
+- "options": array of 4 distinct string choices
+- "correctAnswer": string (must exactly match one of the options)
+- "explanation": string (clear educational reasoning)
+- "difficulty": "${diff}"
+- "subject": "${sub}"
+- "topic": "${top}"
+Do not include markdown codeblocks or other commentary.`;
+
+        const response = await callAIWithFallback(
+          [
+            {
+              role: "system",
+              content:
+                "You are an expert educational assessment system that outputs raw JSON arrays only.",
+            },
+            { role: "user", content: prompt },
+          ],
+          { temperature: 0.6 },
+        );
+
+        if (response?.text) {
+          let cleaned = response.text.trim();
+          if (cleaned.startsWith("```json")) {
+            cleaned = cleaned.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+          } else if (cleaned.startsWith("```")) {
+            cleaned = cleaned.replace(/^```\s*/, "").replace(/\s*```$/, "");
+          }
+          const parsed = JSON.parse(cleaned);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            generatedQuestions = parsed.map((q, idx) => {
+              const opts =
+                Array.isArray(q.options) && q.options.length >= 2
+                  ? q.options
+                  : ["Option A", "Option B", "Option C", "Option D"];
+              // The answer MUST reference an existing option — an LLM
+              // paraphrase that matches nothing breaks scoring silently.
+              const rawAns = q.correctAnswer || q.correct_answer || opts[0];
+              const trimmedOptions = opts.map((o) => String(o).trim());
+              const matched =
+                trimmedOptions.find(
+                  (o) =>
+                    o.toLowerCase() === String(rawAns).trim().toLowerCase(),
+                ) || opts[0];
+              return {
+                questionText:
+                  q.questionText || q.question || `Question ${idx + 1}`,
+                question_text:
+                  q.questionText || q.question || `Question ${idx + 1}`,
+                options: opts,
+                correctAnswer: matched,
+                correct_answer: matched,
+                explanation: q.explanation || "No explanation provided.",
+                difficulty: q.difficulty || diff,
+                subject: q.subject || sub,
+                topic: q.topic || top,
+                is_practice: Boolean(isPractice),
+                status: "active",
+              };
+            });
+          }
+        }
+      } catch (aiErr) {
+        logger.warn(
+          `[AI] Question generation error: ${aiErr.message}. Falling back to structured generator.`,
+        );
+      }
     }
-    res.json({ success: true, data: questions, count: questions.length });
+
+    if (!generatedQuestions || generatedQuestions.length === 0) {
+      for (let i = 1; i <= questionCount; i++) {
+        const sampleOptions = [
+          `Fundamental principle of ${top} (Concept ${i})`,
+          `Secondary application of ${sub}`,
+          `Alternative formulation of ${top}`,
+          `Theoretical boundary of ${sub}`,
+        ];
+        generatedQuestions.push({
+          questionText: `Which of the following best characterizes ${top} in the context of ${sub}? (Question ${i})`,
+          question_text: `Which of the following best characterizes ${top} in the context of ${sub}? (Question ${i})`,
+          options: sampleOptions,
+          correctAnswer: sampleOptions[0],
+          correct_answer: sampleOptions[0],
+          explanation: `In ${sub}, understanding ${top} is essential because ${sampleOptions[0].toLowerCase()} forms the basis of standard problem solving.`,
+          difficulty: diff,
+          subject: sub,
+          topic: top,
+          is_practice: Boolean(isPractice),
+          status: "active",
+        });
+      }
+    }
+
+    // Persist: only real DB rows are returned as usable questions — a
+    // fabricated Date.now() "id" would become a dangling questionId
+    // reference when admins attach generated questions to quizzes.
+    const results = [];
+    const failed = [];
+    for (let i = 0; i < generatedQuestions.length; i++) {
+      const q = generatedQuestions[i];
+      try {
+        const inserted = await dbHelpers.insertOne("questions", {
+          ...q,
+          question_number: i + 1,
+          createdAt: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+        });
+        if (inserted?.id || inserted?._id) {
+          results.push(inserted);
+        } else {
+          failed.push({
+            questionText: q.questionText,
+            error: "insert returned no id",
+          });
+        }
+      } catch (insertErr) {
+        logger.error(
+          `[AI] Generated question insert failed: ${insertErr.message}`,
+        );
+        failed.push({
+          questionText: q.questionText,
+          error: insertErr.message,
+        });
+      }
+    }
+
+    res.status(results.length > 0 ? 201 : 500).json({
+      success: results.length > 0,
+      count: results.length,
+      data: results,
+      ...(failed.length > 0 ? { failedCount: failed.length, failed } : {}),
+    });
   }),
 );
 
