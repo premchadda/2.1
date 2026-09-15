@@ -8,9 +8,9 @@ const __dirname = dirname(__filename)
 // HIGH-10 FIX: Startup env validation script
 // Checks all required env vars from turbo.json globalEnv
 
-const REQUIRED_VARS = ['DATABASE_URL', 'JWT_SECRET', 'DB_ENCRYPTION_KEY', 'FRONTEND_URL']
-const RECOMMENDED_VARS = ['NODE_ENV', 'PORT', 'ADMIN_PANEL_URL', 'VITE_API_URL', 'VITE_SOCKET_URL']
-const OPTIONAL_VARS = ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'VITE_FRONTEND_URL', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS']
+const REQUIRED_VARS = ['DATABASE_URL', 'JWT_SECRET']
+const RECOMMENDED_VARS = ['NODE_ENV', 'PORT', 'FRONTEND_URL', 'ADMIN_PANEL_URL']
+const OPTIONAL_VARS = ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'REDIS_URL']
 
 // Load .env file if present
 try {
@@ -30,6 +30,21 @@ try {
   // No .env file; vars come from environment
 }
 
+// Provide safe defaults for standard deployment URLs if not explicitly specified
+if (!process.env.FRONTEND_URL) {
+  process.env.FRONTEND_URL = 'https://trstprep.vercel.app'
+}
+if (!process.env.ADMIN_PANEL_URL) {
+  process.env.ADMIN_PANEL_URL = 'https://trstprep-admin.vercel.app'
+}
+
+// Synchronize DB_ENCRYPTION_KEY and legacy PGCRYPTO_KEY alias
+const encKey = process.env.DB_ENCRYPTION_KEY || process.env.PGCRYPTO_KEY
+if (encKey) {
+  process.env.DB_ENCRYPTION_KEY = process.env.DB_ENCRYPTION_KEY || encKey
+  process.env.PGCRYPTO_KEY = process.env.PGCRYPTO_KEY || encKey
+}
+
 const errors = []
 const warnings = []
 
@@ -41,9 +56,21 @@ for (const v of REQUIRED_VARS) {
 if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
   errors.push('JWT_SECRET must be at least 32 characters long')
 }
-// DB_ENCRYPTION_KEY additional length check
-if (process.env.DB_ENCRYPTION_KEY && process.env.DB_ENCRYPTION_KEY.length < 32) {
+// DB_ENCRYPTION_KEY / PGCRYPTO_KEY validation
+if (!encKey) {
+  if (process.env.NODE_ENV === 'production') {
+    errors.push(
+      'Missing REQUIRED env var: DB_ENCRYPTION_KEY (or PGCRYPTO_KEY). Set a 32+ character random secret in your deployment dashboard (e.g. node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))")'
+    )
+  } else {
+    warnings.push(
+      'DB_ENCRYPTION_KEY is not set — falling back to development defaults. Set a 32+ character key for production.'
+    )
+  }
+} else if (encKey.length < 32) {
   errors.push('DB_ENCRYPTION_KEY must be at least 32 characters long')
+} else if (process.env.JWT_SECRET && encKey === process.env.JWT_SECRET) {
+  errors.push('DB_ENCRYPTION_KEY must not equal JWT_SECRET (cryptographic separation required)')
 }
 // NODE_ENV format check
 if (process.env.NODE_ENV && !['development', 'production', 'test'].includes(process.env.NODE_ENV)) {
