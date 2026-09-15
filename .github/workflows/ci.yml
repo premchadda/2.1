@@ -186,7 +186,10 @@ jobs:
       - name: Run migrations against test database
         env:
           DATABASE_URL: postgresql://postgres@localhost:5432/test_db
-        run: node apps/backend/src/infrastructure/database/run-migrations.js
+        # NOTE: this used to point at apps/backend/src/infrastructure/database/
+        # run-migrations.js, which does not exist. scripts/run-migrations.mjs
+        # wraps migrationRunner.runMigrations() and exits non-zero on failure.
+        run: node scripts/run-migrations.mjs
       - name: Run database schema & relationship integrity audit
         env:
           DATABASE_URL: postgresql://postgres@localhost:5432/test_db

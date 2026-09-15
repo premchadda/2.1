@@ -48,7 +48,9 @@ export const maintenanceMiddleware = async (req, res, next) => {
         : req.cookies?.token;
       if (token && process.env.JWT_SECRET) {
         try {
-          const decoded = jwt.verify(token, process.env.JWT_SECRET);
+          const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+            algorithms: ["HS256"],
+          });
           if (
             decoded &&
             (decoded.role === "admin" ||

@@ -20,6 +20,8 @@ import {
   Brain,
   Globe,
   Package,
+  Sparkles,
+  Target,
 } from "lucide-react";
 
 const STAT_BORDER_COLORS = {
@@ -138,6 +140,38 @@ function StudyMaterialDetail() {
     setCollapsedUnits(new Set());
   }, [subject?.id || subject?._id]);
 
+  const progressMap = getStudyProgressMap();
+  const subjectRecord =
+    progressMap[subjectId] ||
+    (subject?.slug && progressMap[subject.slug]) ||
+    (subject?._id && progressMap[String(subject._id)]) ||
+    (subject?.id && progressMap[String(subject.id)]) ||
+    null;
+
+  const getChapterProgress = useCallback(
+    (chap) => {
+      if (!chap) return null;
+      if (typeof chap.progress === "number") return chap.progress;
+      const keys = [chap.slug, chap._id, chap.id].filter(Boolean);
+      for (const k of keys) {
+        const stored = localStorage.getItem(`chapter-scroll-${k}`);
+        if (stored) {
+          const num = parseFloat(stored);
+          if (!isNaN(num)) return Math.min(100, Math.round(num));
+        }
+      }
+      if (subjectRecord?.completedChapters) {
+        const isDone = keys.some((k) =>
+          subjectRecord.completedChapters.includes(String(k)),
+        );
+        if (isDone) return 100;
+      }
+      if (chap.isCompleted) return 100;
+      return null;
+    },
+    [subjectRecord],
+  );
+
   // Loading state
   if (loading) {
     return (
@@ -207,38 +241,6 @@ function StudyMaterialDetail() {
   const totalTopics = chaptersList.reduce(
     (acc, c) => acc + (c.topicCount || c.topics?.length || 0),
     0,
-  );
-
-  const progressMap = getStudyProgressMap();
-  const subjectRecord =
-    progressMap[subjectId] ||
-    (subject?.slug && progressMap[subject.slug]) ||
-    (subject?._id && progressMap[String(subject._id)]) ||
-    (subject?.id && progressMap[String(subject.id)]) ||
-    null;
-
-  const getChapterProgress = useCallback(
-    (chap) => {
-      if (!chap) return null;
-      if (typeof chap.progress === "number") return chap.progress;
-      const keys = [chap.slug, chap._id, chap.id].filter(Boolean);
-      for (const k of keys) {
-        const stored = localStorage.getItem(`chapter-scroll-${k}`);
-        if (stored) {
-          const num = parseFloat(stored);
-          if (!isNaN(num)) return Math.min(100, Math.round(num));
-        }
-      }
-      if (subjectRecord?.completedChapters) {
-        const isDone = keys.some((k) =>
-          subjectRecord.completedChapters.includes(String(k)),
-        );
-        if (isDone) return 100;
-      }
-      if (chap.isCompleted) return 100;
-      return null;
-    },
-    [subjectRecord],
   );
 
   const completedSubjectChaptersCount = chaptersList.filter((c) => {

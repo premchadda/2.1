@@ -12,7 +12,7 @@ jobs:
     name: Schema / Seed / Migration integrity
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Fail if supabase_data/ is committed
         run: |
@@ -29,8 +29,18 @@ jobs:
           # The 2026-06-15 PII incident committed 528 test_attempts
           # records with these fields. Any JSON file in the repo
           # that contains them is treated as a data-handling bug.
+          #
+          # Two shapes are excluded because they *name* these keys without
+          # holding personal data (both were false-positives that kept this
+          # workflow red):
+          #   * scripts/*schema_dictionary*.json — a column catalogue, e.g.
+          #     {"name": "full_name"}.
+          #   * apps/backend/src/data/collections/ — static exam catalogue copy,
+          #     e.g. an exam's "full_name": "Staff Selection Commission ...".
           PII_KEYS='full_name|avatar_url|answer_map|time_map|password_hash|phone_number|aadhaar|pan_card'
-          HITS=$(git ls-files '*.json' | xargs -I{} grep -lE "\"($PII_KEYS)\"" {} 2>/dev/null || true)
+          HITS=$(git ls-files '*.json' \
+            | grep -vE '(^|/)scripts/[^/]*schema_dictionary[^/]*\.json$|^apps/backend/src/data/collections/' \
+            | xargs -I{} grep -lE "\"($PII_KEYS)\"" {} 2>/dev/null || true)
           if [ -n "$HITS" ]; then
             echo "\u274c PII keys found in committed JSON files:"
             echo "$HITS"
@@ -60,14 +70,31 @@ jobs:
       - name: Fail if two migrations share a numeric prefix
         run: |
           cd apps/backend/src/infrastructure/database/migrations
-          DUPES=$(ls | awk -F'_' '/^[0-9]/{print $1}' | sed 's/[a-zA-Z]$//' | sort | uniq -d)
+          # Migrations that were split use an NNN[a-z]_ suffix
+          # (000_baseline_functions.sql + 000a_enable_rls_policies.sql,
+          #  056a_* + 056b_*), so the suffix letter is a legitimate
+          # disambiguator and must NOT be treated as a duplicate. What must
+          # never happen is an *ambiguous* number:
+          #   1. the same full prefix twice (e.g. two 141_… files), or
+          #   2. a number used by more than one file with no suffix letter.
+          DUPES=$(ls | sed -n 's/^\([0-9]\+[a-z]\?\)_.*/\1/p' | sort | uniq -d)
           if [ -n "$DUPES" ]; then
             echo "\u274c Duplicate numeric prefixes in migration filenames:"
             echo "$DUPES"
-            ls | grep -E "^($DUPES)[a-zA-Z]?_" || true
+            for P in $DUPES; do ls | grep -E "^${P}_" || true; done
             exit 1
           fi
-          echo "\u2705 No duplicate numeric prefixes."
+
+          AMBIGUOUS=$(for N in $(ls | sed -n 's/^\([0-9]\+\)[a-z]\?_.*/\1/p' | sort | uniq -d); do
+            if [ "$(ls | grep -cE "^${N}_" || true)" -gt 1 ]; then echo "$N"; fi
+          done)
+          if [ -n "$AMBIGUOUS" ]; then
+            echo "\u274c Ambiguous migration numbering — these numbers are reused without a suffix letter:"
+            echo "$AMBIGUOUS"
+            for N in $AMBIGUOUS; do ls | grep -E "^${N}_" || true; done
+            exit 1
+          fi
+          echo "\u2705 Migration prefixes are unique (suffixed splits allowed)."
 
       - name: Fail on hardcoded demo INSERTs in migrations
         run: |
@@ -108,7 +135,16 @@ jobs:
 
       - name: Run seeder fixtures through JSON parse
         run: |
-          # Each fixture must be valid JSON and (where present) an array.
-          for f in apps/backend/src/infrastructure/database/seeders/_fixtures/*.json; do
-            node -e "const d=require('$f'); if(d===null)throw new Error('null fixture'); if(typeof d!=='object')throw new Error('not an object/array'); console.log('\u2705 $f')" || exit 1
+          # NOTE: the previous form used `require('<repo-relative path>')`, which
+          # Node resolves against node_modules (not the CWD) — it failed with
+          # MODULE_NOT_FOUND for every fixture. Parse the files directly instead,
+          # and pass the path as an argument to avoid interpolation hazards.
+          shopt -s nullglob
+          fixtures=(apps/backend/src/infrastructure/database/seeders/_fixtures/*.json)
+          if [ ${#fixtures[@]} -eq 0 ]; then
+            echo "\u2705 No seeder fixtures to validate."
+            exit 0
+          fi
+          for f in "${fixtures[@]}"; do
+            node -e "const fs=require('fs');const p=process.argv[process.argv.length-1];const d=JSON.parse(fs.readFileSync(p,'utf8'));if(d===null)throw new Error('null fixture');if(typeof d!=='object')throw new Error('not an object/array');console.log('\u2705 '+p)" "$f" || exit 1
           done

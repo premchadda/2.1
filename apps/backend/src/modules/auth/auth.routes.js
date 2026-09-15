@@ -171,16 +171,21 @@ router.get(
   swrCache("auth-me", { freshTtl: 60, staleTtl: 24 * 60 * 60 }),
   async (req, res) => {
     try {
+      console.time("auth/me total");
+      const t0 = Date.now();
+
       // PERF: Use user already loaded by protect middleware (avoids redundant DB query)
       const user = req.user;
 
       if (!user) {
+        console.timeEnd("auth/me total");
         return res.status(404).json({
           success: false,
           message: "User not found",
         });
       }
 
+      console.time("auth/me permissions");
       // Load permissions for admin users
       let permissions = user.permissions || [];
       if (user.role === "super_admin") {
@@ -281,7 +286,9 @@ router.get(
           ];
         }
       }
+      console.timeEnd("auth/me permissions");
 
+      console.time("auth/me sanitize");
       // Remove sensitive fields from response
       const {
         password: _,
@@ -294,7 +301,9 @@ router.get(
       if (safeUser.avatar) {
         safeUser.avatar = availableProfileAsset(safeUser.avatar);
       }
+      console.timeEnd("auth/me sanitize");
 
+      console.time("auth/me enrollments+csrf+attempts");
       // PERF: resolve everything in ONE parallel batch. The previous code ran
       // these as sequential waves (CSRF write -> enrollments/attempts), costing
       // 2+ extra DB round-trips (~600ms) against hosted Postgres.
@@ -365,6 +374,9 @@ router.get(
           [];
       }
 
+      console.timeEnd("auth/me enrollments+csrf+attempts");
+
+      console.time("auth/me response");
       res.json({
         success: true,
         data: {
@@ -380,6 +392,8 @@ router.get(
           csrfToken,
         },
       });
+      console.timeEnd("auth/me response");
+      console.timeEnd("auth/me total");
     } catch (error) {
       res.status(500).json({
         success: false,

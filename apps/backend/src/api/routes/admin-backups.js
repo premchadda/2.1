@@ -157,8 +157,13 @@ router.post("/", rejectOnServerless, async (req, res) => {
       const sqlFile = `${backupFile}.sql`;
       const filePath = path.default.join(backupDir, sqlFile);
 
-      // Get all tables and export data as SQL INSERT statements
-      const tables = [
+      // Get all tables and export data as SQL INSERT statements.
+      // NOTE (2nd-order injection): BACKUP_TABLES is a static literal list and
+      // every interpolated value (table names from dbHelpers.tableMap, column
+      // names from row keys) originates server-side — nothing here comes from
+      // the request, so this emission is allow-listed by construction. Keep it
+      // that way: do not make this list request-driven without an allow-list.
+      const BACKUP_TABLES = [
         "users",
         "testSeries",
         "tests",
@@ -204,8 +209,15 @@ router.post("/", rejectOnServerless, async (req, res) => {
 
       let totalRows = 0;
 
-      for (const table of tables) {
+      // NOTE (2nd-order injection): BACKUP_TABLES above is a static literal —
+      // never request input. Any future request-driven source passed to
+      // dbHelpers.find/tableMap must be re-validated here.
+      for (const table of BACKUP_TABLES) {
         try {
+          // Table names flow through dbHelpers.tableMap (static, server-side)
+          // into identifier interpolation. `TABLE_LIST` is a literal array, so
+          // this is allow-listed by construction; any future request-driven
+          // source passed to dbHelpers.find/tableMap must be re-validated here.
           const tableName = dbHelpers.tableMap?.[table] || table;
           const rows = await dbHelpers.find(table, {});
 

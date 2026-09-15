@@ -4,29 +4,33 @@ import RouteErrorBoundary from "../shared/components/common/RouteErrorBoundary.j
 import ProtectedRoute from "../shared/components/auth/ProtectedRoute.jsx";
 import FeatureGate from "../shared/components/common/FeatureGate.jsx";
 import { PageSkeleton } from "../shared/components/common/LoadingSkeleton.jsx";
-import { TrstprepLoading } from "../shared/components/common/TrstprepLoading.jsx";
 import { useAuth } from "../shared/providers/AuthContext";
 
+// Landing paths that resolve identity-aware: / and its /home alias.
+const LANDING_PATHS = new Set(["/", "/home"]);
+
 /**
- * Root route resolver:
- * - If user is already authenticated (including from cached session),
- *   redirects to /dashboard in 1ms without flashing the public home.
- * - If authentication is still being resolved, shows the branded
- *   Trstprep loading animation with logo and iridescent glow.
+ * Root route resolver — decides destination synchronously, on the first paint.
+ *
+ * Decision order (no waiting, no flash):
+ *  1. `user`            → already validated/optimistic profile → /dashboard.
+ *  2. `hasSessionHint`  → a session marker/token/cached profile exists, so the
+ *                         visitor is (almost certainly) logged in → /dashboard
+ *                         immediately, while `/api/auth/me` revalidates in the
+ *                         background. ProtectedRoute shows the brief
+ *                         "Verifying session" state if the profile is not yet
+ *                         cached — the public Home is never rendered.
+ *  3. anonymous         → render the public landing page at once (no pointless
+ *                         loader): there is no session evidence to wait for.
+ *
+ * Previously this only checked `user`, which is null on a fresh tab when the
+ * session lives in httpOnly cookies — so `/me` produced
+ * loading → public Home → /dashboard (the flash this fixes).
  */
 function RootRoute({ element }) {
-  const { user, isAuthenticated, authResolved } = useAuth();
-  if (user || isAuthenticated) {
+  const { user, isAuthenticated, hasSessionHint } = useAuth();
+  if (user || isAuthenticated || hasSessionHint) {
     return <Navigate to="/dashboard" replace />;
-  }
-  if (!authResolved) {
-    return (
-      <TrstprepLoading
-        fullscreen
-        message="Loading Trstprep..."
-        subtext="Preparing your personalized study environment"
-      />
-    );
   }
   return element;
 }
@@ -66,7 +70,11 @@ export function wrapElement(element, opts = {}) {
  * briefly render the public Home page before being sent to the dashboard.
  */
 export function createRoute(path, element, opts) {
-  const routeElement = path === "/" ? <RootRoute element={element} /> : element;
+  const routeElement = LANDING_PATHS.has(path) ? (
+    <RootRoute element={element} />
+  ) : (
+    element
+  );
   return { path, element: wrapElement(routeElement, opts) };
 }
 

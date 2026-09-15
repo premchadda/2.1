@@ -1024,7 +1024,10 @@ export const authController = {
       if (!process.env.JWT_REFRESH_SECRET) {
         console.error("CRITICAL: JWT_REFRESH_SECRET not set");
       }
-      const decoded = jwt.verify(refreshToken, getRefreshSecret());
+      // Refresh token: HS256 is the only algorithm any signer uses.
+      const decoded = jwt.verify(refreshToken, getRefreshSecret(), {
+        algorithms: ["HS256"],
+      });
 
       // Find user — use findById for consistency with the rest of the codebase.
       // A transient DB/infra failure here must NOT clear the (still-valid)
@@ -1365,6 +1368,7 @@ export const authController = {
         decoded = jwt.verify(
           token,
           process.env.JWT_RESET_SECRET || process.env.JWT_SECRET,
+          { algorithms: ["HS256"] },
         );
       } catch (err) {
         // TokenExpiredError from JWT means token is definitively expired
@@ -1563,7 +1567,9 @@ export const authController = {
       // Verify token
       let decoded;
       try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET);
+        decoded = jwt.verify(token, process.env.JWT_SECRET, {
+          algorithms: ["HS256"],
+        });
       } catch (err) {
         return res.status(400).json({
           success: false,
@@ -1863,6 +1869,7 @@ export const authController = {
         decoded = jwt.verify(
           tempToken,
           process.env.JWT_2FA_SECRET || process.env.JWT_SECRET,
+          { algorithms: ["HS256"] },
         );
       } catch (jwtErr) {
         return res.status(401).json({

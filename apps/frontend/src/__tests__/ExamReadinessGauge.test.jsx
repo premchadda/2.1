@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import ExamReadinessGauge from "../pages/dashboard/components/ExamReadinessGauge";
 
 vi.mock("../shared/lib/dataService", () => ({
@@ -47,17 +48,23 @@ describe("ExamReadinessGauge Component", () => {
     });
   });
 
-  it("renders gauge header, target cutoff comparison, and percentile", async () => {
+  const renderComponent = () =>
     render(
-      <QueryClientProvider client={queryClient}>
-        <ExamReadinessGauge />
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ExamReadinessGauge />
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
 
-    expect(screen.getByText("Exam Readiness & Cutoff Predictor")).toBeDefined();
-    expect(screen.getByText("Gaussian CDF")).toBeDefined();
+  it("renders gauge header, target cutoff comparison, and percentile", async () => {
+    renderComponent();
 
     await waitFor(() => {
+      expect(
+        screen.getByText("Exam Readiness & Cutoff Predictor"),
+      ).toBeDefined();
+      expect(screen.getByText("Gaussian CDF")).toBeDefined();
       expect(screen.getByText("166")).toBeDefined();
       expect(screen.getByText("150 marks")).toBeDefined();
     });
@@ -68,11 +75,7 @@ describe("ExamReadinessGauge Component", () => {
   });
 
   it("renders high-ROI actionable topic lift recommendations", async () => {
-    render(
-      <QueryClientProvider client={queryClient}>
-        <ExamReadinessGauge />
-      </QueryClientProvider>,
-    );
+    renderComponent();
 
     await waitFor(() => {
       expect(
@@ -83,11 +86,11 @@ describe("ExamReadinessGauge Component", () => {
   });
 
   it("allows selecting different target exams", async () => {
-    render(
-      <QueryClientProvider client={queryClient}>
-        <ExamReadinessGauge />
-      </QueryClientProvider>,
-    );
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("SSC CGL (Tier-1)")).toBeDefined();
+    });
 
     const examSelect = screen.getByDisplayValue("SSC CGL (Tier-1)");
     fireEvent.change(examSelect, { target: { value: "sbi_po" } });

@@ -2,6 +2,94 @@ import { setCsrfToken, clearCsrfToken } from "@trstprep/shared-config";
 
 export const USER_CACHE_KEY = "trstprep_user_profile";
 
+/**
+ * Non-sensitive "this browser had a session" marker.
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * The real credentials live in httpOnly cookies (`token` / `refreshToken`) which
+ * JavaScript cannot read, plus optional body-token fallbacks in
+ * session/localStorage. When the frontend (Vercel) and API (Render) are on
+ * different origins, the cookies are unreadable from JS, so on a *first paint*
+ * the app could not tell "logged in" from "anonymous" without waiting for
+ * `GET /api/auth/me`. That wait produced the reported
+ * loading → public homepage → dashboard flash.
+ *
+ * The marker stores only the literal "1" — no identity, no token, no expiry —
+ * and is written whenever a session is established (login / signup / google /
+ * 2FA / refresh / successful /me) and cleared on logout or a fatal 401. It is
+ * therefore a *hint*, never an authorisation: every protected route still waits
+ * for the authoritative `/api/auth/me` before rendering protected content.
+ */
+export const SESSION_HINT_KEY = "trstprep_has_session";
+
+export const markSessionHint = () => {
+  try {
+    sessionStorage.setItem(SESSION_HINT_KEY, "1");
+    localStorage.setItem(SESSION_HINT_KEY, "1");
+  } catch {
+    // storage may throw in private mode
+  }
+};
+
+export const clearSessionHint = () => {
+  try {
+    sessionStorage.removeItem(SESSION_HINT_KEY);
+    localStorage.removeItem(SESSION_HINT_KEY);
+  } catch {
+    // storage may throw in private mode
+  }
+};
+
+export const hasStoredSessionHint = () => {
+  try {
+    return (
+      sessionStorage.getItem(SESSION_HINT_KEY) === "1" ||
+      localStorage.getItem(SESSION_HINT_KEY) === "1"
+    );
+  } catch {
+    return false;
+  }
+};
+
+/** True when a body-token fallback (SameSite=None blocked) is present. */
+export const hasStoredTokens = () => {
+  try {
+    return Boolean(
+      sessionStorage.getItem("trstprep_token") ||
+      localStorage.getItem("trstprep_token") ||
+      sessionStorage.getItem("trstprep_refresh_token") ||
+      localStorage.getItem("trstprep_refresh_token"),
+    );
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Should we send this visitor to /dashboard on first paint instead of the
+ * public landing page? Uses only synchronously-readable evidence.
+ */
+export const getInitialSessionHint = () =>
+  hasStoredSessionHint() || Boolean(getInitialUser()) || hasStoredTokens();
+
+/**
+ * Detects a "remember me" session so a successful `/me` revalidation does not
+ * downgrade a localStorage profile to sessionStorage (which is what made a
+ * returning user in a new tab look logged-out and re-trigger the flash).
+ */
+export const prefersPersistentStorage = () => {
+  try {
+    return Boolean(
+      localStorage.getItem(USER_CACHE_KEY) ||
+      localStorage.getItem("trstprep_token") ||
+      localStorage.getItem("trstprep_refresh_token"),
+    );
+  } catch {
+    return false;
+  }
+};
+
 export const getInitialUser = () => {
   try {
     const sessionCached = sessionStorage.getItem(USER_CACHE_KEY);
@@ -85,6 +173,12 @@ export const clearAuthTokens = () => {
     localStorage.removeItem("trstprep_refresh_token");
     localStorage.removeItem(USER_CACHE_KEY);
     clearCsrfToken();
+    // Also drop the session hint: every caller of clearAuthTokens() is an
+    // explicit end-of-session path (logout, refresh 401, /me 401, global
+    // `unauthorized`, socket session revocation). Without this the router would
+    // keep sending the just-logged-out visitor to /dashboard → /login instead
+    // of showing them the public landing page.
+    clearSessionHint();
     // Clear encrypted offline answer buffers and other sensitive localStorage
     try {
       Object.keys(localStorage).forEach((k) => {

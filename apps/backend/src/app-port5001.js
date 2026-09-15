@@ -18,8 +18,6 @@ import responseCache from "./middleware/responseCache.js";
 import requestDedup from "./middleware/requestDedup.js";
 import imageOptimization from "./middleware/imageOptimization.js";
 import { initWebSocket } from "./infrastructure/websocket/websocketManager.js";
-import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
 import path from "path";
 import { fileURLToPath } from "url";
 import rateLimit from "express-rate-limit";
@@ -95,7 +93,9 @@ import leaderboardAdminRoutes from "./api/routes/leaderboards-admin.js";
 import enrollmentsAdminRoutes from "./api/routes/enrollments-admin.js";
 import communityRoutes from "./api/routes/community.js";
 import analyticsRoutes from "./api/routes/analytics.js";
-import auditRoutes from "./api/routes/admin-audit.js";
+// NOTE: ./api/routes/admin-audit.js is intentionally not imported here — its
+// router is mounted through the canonical admin router (api/routes/admin.js).
+// An earlier direct import was unused and implied a second mount point.
 import { adminIpAllowlist } from "./middleware/adminIpAllowlist.middleware.js";
 import { maintenanceMiddleware } from "./middleware/maintenance.middleware.js";
 import { setupSwagger } from "./api/docs/swagger.js";
@@ -111,7 +111,6 @@ import adaptiveDifficultyRoutes from "./modules/ai/adaptiveDifficulty.routes.js"
 import topicAnalyticsRoutes from "./modules/analytics/topicAnalytics.routes.js";
 import weakAreaDetectionRoutes from "./modules/analytics/weakAreaDetection.routes.js";
 import liveMockRoutes from "./modules/live/liveMock.routes.js";
-import liveTestsPublicRoutes from "./api/routes/live-tests-public.js";
 import rankingRoutes from "./modules/ranking/ranking.routes.js";
 import smartRevisionRoutes from "./modules/revision/smartRevision.routes.js";
 import questionSearchRoutes from "./modules/search/questionSearch.routes.js";
@@ -179,6 +178,11 @@ if (!process.env.JWT_REFRESH_SECRET && process.env.JWT_SECRET) {
     "⚠️ JWT_REFRESH_SECRET not explicitly set. Derived secure HMAC fallback from JWT_SECRET.",
   );
 }
+
+// HIGH-10 FIX (previously orphaned — nothing imported this module):
+// validate the runtime environment before boot, AFTER the FRONTEND_URL /
+// ADMIN_PANEL_URL fallback assignments above so honest deployments pass.
+import "./utils/env-validation.mjs";
 
 const requiredEnvVars = ["DATABASE_URL", "JWT_SECRET"];
 const missingEnvVars = requiredEnvVars.filter((v) => !process.env[v]);
@@ -960,6 +964,12 @@ app.get("/api/metrics", protect, admin, (req, res) => metricsHandler(req, res));
 // and admin panel both use /api/* prefix.
 
 app.use(adminIpAllowlist);
+// NOTE (specific-before-general): /api/admin/subscriptions is mounted BEFORE
+// /api/admin on purpose. Express tries mounts in registration order, so if the
+// canonical admin router ever gains a catch-all/param match for this path, the
+// dedicated subscriptions-admin router registered here would silently stop
+// receiving any requests.
+app.use("/api/admin/subscriptions", validateCsrfToken, subscriptionAdminRoutes);
 app.use("/api/admin", adminLimiter, adminRoutes);
 
 app.use(maintenanceMiddleware);
@@ -994,7 +1004,6 @@ app.use("/api/notifications-pref", validateCsrfToken, notificationsPrefRoutes);
 app.use("/api/auth/phone", authLimiter, phoneAuthRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/subscriptions", validateCsrfToken, subscriptionRoutes);
-app.use("/api/admin/subscriptions", validateCsrfToken, subscriptionAdminRoutes);
 app.use("/api/intelligence", validateCsrfToken, intelligenceRoutes);
 app.use("/api/discussions", validateCsrfToken, discussionsRoutes);
 app.use("/api/promotions", validateCsrfToken, promotionsRoutes);
@@ -1022,7 +1031,10 @@ app.use("/api/adaptive-difficulty", adaptiveDifficultyRoutes);
 app.use("/api/topic-analytics", topicAnalyticsRoutes);
 app.use("/api/weak-areas", weakAreaDetectionRoutes);
 app.use("/api/live-mock", liveMockRoutes);
-app.use("/api/live-tests", liveTestsPublicRoutes);
+// NOTE: /api/live-tests is intentionally NOT mounted here. The identical
+// router (live-tests-public.js) is mounted once, with all other extracted
+// public routes, by mountExtractedRoutes() below (see public-routes-index.js).
+// Registering it twice would register every route handler twice.
 app.use("/api/ranking", rankingRoutes);
 app.use("/api/smart-revision", smartRevisionRoutes);
 app.use("/api/revision", smartRevisionRoutes);
@@ -1233,32 +1245,37 @@ const startServer = async () => {
   }
 };
 
+let shutdownPromise = null;
 const gracefulShutdown = async (signal) => {
-  logger.info(`${signal} received. Shutting down gracefully...`);
-  try {
-    if (existsSync(READY_FILE)) unlinkSync(READY_FILE);
-  } catch {
-    /* ignore */
-  }
-  try {
-    stopScheduler();
-    stopOutboxPoller();
-    stopAttemptCleaner();
-    logger.info("Schedulers and background cleaners stopped.");
-  } catch (err) {
-    logger.warn(`Failed to stop schedulers gracefully: ${err.message}`);
-  }
-  try {
-    await drainEmailQueue();
-    await closeQueueResources();
-    await closeRedis();
-    await dbHelpers.close();
-    logger.info("Database connections closed");
-    process.exit(0);
-  } catch (error) {
-    logger.error(`Error during shutdown: ${error.message}`);
-    process.exit(1);
-  }
+  if (shutdownPromise) return shutdownPromise;
+  shutdownPromise = (async () => {
+    logger.info(`${signal} received. Shutting down gracefully...`);
+    try {
+      if (existsSync(READY_FILE)) unlinkSync(READY_FILE);
+    } catch {
+      /* ignore */
+    }
+    try {
+      stopScheduler();
+      stopOutboxPoller();
+      stopAttemptCleaner();
+      logger.info("Schedulers and background cleaners stopped.");
+    } catch (err) {
+      logger.warn(`Failed to stop schedulers gracefully: ${err.message}`);
+    }
+    try {
+      await drainEmailQueue();
+      await closeQueueResources();
+      await closeRedis();
+      await dbHelpers.close();
+      logger.info("Database connections closed");
+      process.exit(0);
+    } catch (error) {
+      logger.error(`Error during shutdown: ${error.message}`);
+      process.exit(1);
+    }
+  })();
+  return shutdownPromise;
 };
 
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));

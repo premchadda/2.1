@@ -13,7 +13,13 @@
  * - sameSite='none' allows cross-origin Vercel ↔ Render requests
  */
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import api from "../lib/api";
 import { setSessionActive } from "../lib/apiClient";
 import { clearDashboardCache } from "../lib/dashboardCache";
@@ -29,6 +35,10 @@ import {
 import { AuthContext } from "./AuthContextCore";
 import {
   getInitialUser,
+  getInitialSessionHint,
+  markSessionHint,
+  clearSessionHint,
+  prefersPersistentStorage,
   saveUserCache,
   applyAuthSession,
   clearAuthTokens,
@@ -44,6 +54,30 @@ export function AuthProvider({ children }) {
   const [authResolved, setAuthResolved] = useState(false);
   const authSequenceRef = useRef(0);
   const currentSessionIdRef = useRef(null);
+
+  // Synchronous, first-paint answer to "is this visitor (probably) logged in?".
+  // Read from storage BEFORE any network call so the router can send a
+  // returning user straight to /dashboard instead of flashing the public
+  // homepage. It is a hint only — /api/auth/me remains authoritative.
+  const [hasSessionHint, setHasSessionHint] = useState(getInitialSessionHint);
+
+  // Keep the hint in sync with the real outcome in one place:
+  //  - any authenticated user  -> marker written (instant fast-path next visit)
+  //  - resolved with no user   -> marker cleared (logged out / dead session),
+  //                               so a signed-out visitor sees the public page
+  //                               at "/" instead of being bounced to /login.
+  // Because this derives from (user, authResolved) it also covers every current
+  // and future logout path (refresh 401, /me 401, global `unauthorized`, socket
+  // session revocation, explicit logout) without touching each call site.
+  useEffect(() => {
+    if (user) {
+      markSessionHint();
+      setHasSessionHint(true);
+    } else if (authResolved) {
+      clearSessionHint();
+      setHasSessionHint(false);
+    }
+  }, [user, authResolved]);
 
   const refreshToken = useCallback(async () => {
     try {
@@ -70,6 +104,9 @@ export function AuthProvider({ children }) {
         token: newToken,
         refreshToken: newRefreshToken,
       });
+      // A successful rotation proves the session is alive — restore the
+      // first-paint marker so the next visit can skip the login round-trip.
+      markSessionHint();
       return { success: true };
     } catch (err) {
       logger.error("Token refresh failed:", err);
@@ -102,7 +139,11 @@ export function AuthProvider({ children }) {
         if (userData) {
           const frontendUser = mapUserToFrontend(userData);
           setUser(frontendUser);
-          saveUserCache(frontendUser);
+          // Preserve the visitor's storage choice: passing `false` here used to
+          // move a "remember me" profile from localStorage into sessionStorage,
+          // so a returning user in a new tab looked logged out and re-triggered
+          // the loading → homepage → dashboard flash.
+          saveUserCache(frontendUser, prefersPersistentStorage());
         } else {
           clearAuthTokens();
           setUser(null);
@@ -174,7 +215,7 @@ export function AuthProvider({ children }) {
       const userData = response.data.data;
       const frontendUser = mapUserToFrontend(userData);
       setUser(frontendUser);
-      saveUserCache(frontendUser);
+      saveUserCache(frontendUser, prefersPersistentStorage());
       return { success: true, user: frontendUser };
     } catch (err) {
       logger.error("Fetch current user failed:", err);
@@ -491,6 +532,7 @@ export function AuthProvider({ children }) {
     user,
     loading,
     authResolved,
+    hasSessionHint,
     error,
     isConnected,
     socket,
