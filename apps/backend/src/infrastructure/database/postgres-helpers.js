@@ -28,7 +28,7 @@ const DEFAULT_QUERY_LIMIT = process.env.DEFAULT_QUERY_LIMIT
   ? Number(process.env.DEFAULT_QUERY_LIMIT)
   : 1000;
 const getEncryptionKey = () => {
-  const secret = process.env.DB_ENCRYPTION_KEY;
+  const secret = process.env.DB_ENCRYPTION_KEY || process.env.PGCRYPTO_KEY;
   if (!secret) {
     throw new ValidationError(
       "DB_ENCRYPTION_KEY must be configured (32+ characters, never reuse JWT_SECRET)",
