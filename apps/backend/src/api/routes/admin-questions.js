@@ -809,7 +809,12 @@ router.put("/questions/:id/review", async (req, res) => {
 // heuristic predictor (feature-based + topic historical accuracy) and endpoints to
 // preview/apply a predicted difficulty per question.
 
-router.post("/questions/:id/predict-difficulty", async (req, res) => {
+router.post("/questions/:id/predict-difficulty", async (req, res, next) => {
+  // This parameterised route is registered before
+  // POST /questions/bulk/predict-difficulty, so without this forward the
+  // literal "bulk" is parsed as a question id and the bulk endpoint is
+  // unreachable (it returned 404 "Question not found").
+  if (req.params.id === "bulk") return next();
   try {
     const question = await dbHelpers.findById("questions", req.params.id);
     if (!question)

@@ -66,18 +66,21 @@ apps/backend/src/data/*
 ssc_cgl_prevyear_full.json
 RRB_NTPC_*.json
 
-# Test and debug scripts (if any remain outside _dev)
-test-*.js
-check-*.js
-check_*.js
-fix-*.js
-run-*.js
-*-test.js
-*.test.js
-*.spec.js
-check-*.mjs
-check_*.mjs
-!**/__tests__/**
+# Ad-hoc dev scripts — ROOT ONLY.
+# These patterns previously matched at ANY depth, which silently swallowed real
+# tooling in scripts/ (23 files, including scripts/run-database-audit.js that CI
+# and README reference) and every *.test.js / *.spec.js outside a __tests__/
+# folder (5 working test files were never committed: apps/backend/test/*.test.js
+# and apps/frontend/tests/*.test.js). Anchoring with a leading "/" keeps the
+# intent (ignore throwaway root scripts) without hiding repository code.
+/test-*.js
+/test-*.mjs
+/check-*.js
+/check-*.mjs
+/fix-*.js
+/fix-*.mjs
+/run-*.js
+/run-*.mjs
 
 
 # ===========================================
@@ -85,6 +88,7 @@ check_*.mjs
 # ===========================================
 .idea/
 .vscode/
+.opencode/
 *.swp
 *.swo
 *~

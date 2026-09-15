@@ -1,4 +1,20 @@
 import { URL } from "url";
+import crypto from "node:crypto";
+
+/**
+ * Constant-time secret comparison. `Buffer.isBuffer`-style guards first so a
+ * length mismatch does not throw (which would itself leak length information
+ * through error-vs-403 timing).
+ */
+const secretsEqual = (provided, configured) => {
+  if (typeof provided !== "string" || typeof configured !== "string") {
+    return false;
+  }
+  const a = Buffer.from(provided, "utf8");
+  const b = Buffer.from(configured, "utf8");
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+};
 
 // ============================================================
 // FIX 2.8b: Origin validation — CSRF defense-in-depth
@@ -327,10 +343,25 @@ export const restrictAdminOrigin = (req, res, next) => {
 // header OR a request originating from the verified admin panel origin.
 export const validateAdminApiKey = (req, res, next) => {
   const configuredKey = process.env.ADMIN_API_KEY;
-  if (!configuredKey) return next();
+  if (!configuredKey) {
+    // Fail loudly in production instead of silently disabling this layer; in
+    // non-production the origin checks in validateOrigin still apply below.
+    if (process.env.NODE_ENV === "production") {
+      console.error(
+        "[ADMIN] FATAL: ADMIN_API_KEY is not set — refusing to serve admin API traffic",
+      );
+      return res.status(500).json({
+        success: false,
+        code: "ADMIN_API_KEY_UNSET",
+        message: "Server misconfigured",
+      });
+    }
+    return next();
+  }
 
+  // Constant-time comparison: `===` would leak the key through timing.
   const provided = req.headers["x-admin-api-key"];
-  if (provided && provided === configuredKey) return next();
+  if (secretsEqual(provided, configuredKey)) return next();
 
   // Allow verified browser requests originating from the admin panel to proceed to protect/admin checks
   const origin = req.headers.origin || req.headers.referer || "";

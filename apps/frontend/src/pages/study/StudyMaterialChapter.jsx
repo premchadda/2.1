@@ -168,6 +168,9 @@ export default function StudyMaterialChapter() {
     matchesChapterIdentifier(item, chapterId, chapters, index),
   );
   const chapter = chapterIndex >= 0 ? chapters[chapterIndex] : null;
+  const chapterIdKey = chapter
+    ? `chapter-scroll-${chapter._id || chapter.id || chapterId}`
+    : null;
   const isExtraChapter =
     chapter?.id === "general" ||
     chapter?.isExtra ||
@@ -366,10 +369,6 @@ export default function StudyMaterialChapter() {
     fetchRelatedTests();
     return () => controller.abort();
   }, [subject]);
-
-  const chapterIdKey = chapter
-    ? `chapter-scroll-${chapter._id || chapter.id || chapterId}`
-    : null;
 
   useEffect(() => {
     if (!subject || !chapter) return;

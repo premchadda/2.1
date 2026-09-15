@@ -16,14 +16,13 @@ import {
 import { useAuth } from "../../shared/providers/AuthContext";
 import AnimatedHero from "../../shared/components/common/AnimatedHero";
 import { Logo } from "../../shared/components";
-import { TrstprepLoading } from "../../shared/components/common/TrstprepLoading.jsx";
 import { getPublicStats } from "../../shared/lib/dataService";
 import { usePublicSettings } from "../../shared/hooks/usePublicSettings";
 
 function Signup() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, signup, loading, authResolved, error } = useAuth();
+  const { user, signup, loading, hasSessionHint, error } = useAuth();
   const { isFeatureEnabled } = usePublicSettings();
   const registrationEnabled = isFeatureEnabled("userRegistration");
 
@@ -95,26 +94,18 @@ function Signup() {
     };
   }, []);
 
-  // AC1 + AC3: If the user is already authenticated, send them to the protected route.
-  // Covers the same three cases as Login.jsx:
+  // AC1 + AC3: If the user is already authenticated — validated, cached, or
+  // merely hinted by a persisted session marker — send them to the dashboard on
+  // the first paint, with no form flash and no wait for /api/auth/me.
   //   1) They just signed up successfully in this tab
   //   2) They hard-refreshed while authenticated (AuthProvider rehydrated `user`)
-  // If the user is already authenticated (including from cached session),
-  // send them to the dashboard immediately in 1ms.
-  if (user && !isSubmitting) {
+  //   3) They typed /signup while a session existed in httpOnly cookies only
+  if ((user || hasSessionHint) && !isSubmitting) {
     return <Navigate to="/dashboard" replace state={{}} />;
   }
 
-  // Show branded Trstprep loading animation only during initial session determination before auth state is resolved
-  if (!authResolved && loading) {
-    return (
-      <TrstprepLoading
-        fullscreen
-        message="Verifying session..."
-        subtext="Connecting to Trstprep secure authentication"
-      />
-    );
-  }
+  // A visitor with no session evidence has nothing to wait for: render the form
+  // immediately instead of blocking on a guaranteed-401 /api/auth/me round-trip.
 
   // Password strength checker
   const getPasswordStrength = () => {

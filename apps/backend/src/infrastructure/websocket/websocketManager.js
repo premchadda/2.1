@@ -212,7 +212,9 @@ export const initWebSocket = async (server) => {
     }
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+        algorithms: ["HS256"],
+      });
       socket.isAuthenticated = true;
       socket.userId = decoded.id;
       socket.userRole = decoded.role;

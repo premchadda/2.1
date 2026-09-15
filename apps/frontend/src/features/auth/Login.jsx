@@ -27,7 +27,6 @@ import { formatRelativeTime, getDeviceType } from "@trstprep/shared-config";
 import { useAuth } from "../../shared/providers/AuthContext";
 import AnimatedHero from "../../shared/components/common/AnimatedHero";
 import { Logo } from "../../shared/components";
-import { TrstprepLoading } from "../../shared/components/common/TrstprepLoading.jsx";
 import { getPublicStats } from "../../shared/lib/dataService";
 
 const DEVICE_ICON_MAP = {
@@ -49,7 +48,7 @@ function Login() {
     verify2FA,
     revokeOtherSessions,
     loading,
-    authResolved,
+    hasSessionHint,
     error,
   } = useAuth();
 
@@ -146,22 +145,16 @@ function Login() {
     };
   }, []);
 
-  // If the user is already authenticated (including from cached session),
-  // send them to the protected route immediately in 1ms.
-  if (user && !isSubmitting && !showSessionConflict) {
+  // If the user is already authenticated — validated, cached, or merely hinted
+  // by a persisted session marker — send them to the protected route on the
+  // first paint: no auth-form flash and no waiting for /api/auth/me.
+  if ((user || hasSessionHint) && !isSubmitting && !showSessionConflict) {
     return <Navigate to={from} replace state={{}} />;
   }
 
-  // Show branded Trstprep loading animation only during initial session determination before auth state is resolved
-  if (!authResolved && loading) {
-    return (
-      <TrstprepLoading
-        fullscreen
-        message="Verifying session..."
-        subtext="Connecting to Trstprep secure authentication"
-      />
-    );
-  }
+  // A visitor with no session evidence has nothing to wait for, so the form
+  // renders immediately (this used to block behind a full-screen loader until a
+  // guaranteed-401 /api/auth/me round-trip had finished).
 
   const handleSubmit = async (e) => {
     e.preventDefault();

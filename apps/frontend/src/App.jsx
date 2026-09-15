@@ -192,6 +192,11 @@ const standaloneRoutes = [
 
 const layoutRoutes = [
   createRoute("/", <Home />),
+  // /home and /index.html aliases resolve through the same identity-aware
+  // RootRoute as "/", so a logged-in user who types /home (or /index.html)
+  // goes straight to /dashboard instead of hitting the 404 NotFound page.
+  createRoute("/home", <Home />),
+  createRoute("/index.html", <Navigate to="/" replace />),
   createRoute(
     "/login",
     <>

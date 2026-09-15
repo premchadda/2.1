@@ -210,6 +210,10 @@ async function resolveSectionIds(body) {
   const resolveId = async (table, value) => {
     if (!value) return null;
     if (/^\d+$/.test(String(value))) return Number(value);
+    // NOTE (2nd-order injection): `table` is always one of the literal names at
+    // the call sites below — it never comes from the request. pg has no
+    // identifier parameterisation, so keeping this literal-only is what makes
+    // the interpolation safe. Do not pass request input here.
     const { rows } = await pool.query(
       `SELECT id FROM "${table}" WHERE public_id = $1 LIMIT 1`,
       [value],

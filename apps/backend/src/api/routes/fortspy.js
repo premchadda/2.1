@@ -189,7 +189,11 @@ const verifyStreamToken = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+      // HS256 pinned at both ends (all signers use jsonwebtoken's HS256
+      // default) so a token minted with any other algorithm is rejected.
+      algorithms: ["HS256"],
+    });
     if (decoded.type !== "fortspy-stream") {
       return res.status(401).json({
         success: false,

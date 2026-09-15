@@ -30,16 +30,37 @@ router.get(
 
       if (exam) {
         conditions.push(
-          `(LOWER(exam_type) = LOWER($${paramIndex}) OR LOWER(exam_category) = LOWER($${paramIndex}))`,
+          `(
+            exam_id IN (
+              SELECT id FROM exams
+              WHERE id::text = $${paramIndex}::text
+                 OR slug = $${paramIndex}::text
+                 OR public_id = $${paramIndex}::text
+                 OR LOWER(REPLACE(title, ' ', '-')) = LOWER($${paramIndex}::text)
+            )
+            OR exam_category_id IN (
+              SELECT id FROM exam_categories
+              WHERE id::text = $${paramIndex}::text
+                 OR slug = $${paramIndex}::text
+            )
+            OR LOWER(slug) LIKE '%' || LOWER($${paramIndex}::text) || '%'
+            OR LOWER(title) LIKE '%' || LOWER($${paramIndex}::text) || '%'
+            OR $${paramIndex}::text = ANY(tags)
+          )`,
         );
-        params.push(exam);
+        params.push(exam.trim());
         paramIndex++;
       }
 
-      if (year) {
-        conditions.push(`year = $${paramIndex}`);
-        params.push(parseInt(year, 10));
-        paramIndex++;
+      if (year && year !== "all") {
+        const parsedYear = parseInt(year, 10);
+        if (!isNaN(parsedYear)) {
+          conditions.push(
+            `(year = $${paramIndex} OR pyq_year = $${paramIndex})`,
+          );
+          params.push(parsedYear);
+          paramIndex++;
+        }
       }
 
       const whereClause = conditions.join(" AND ");
@@ -55,7 +76,7 @@ router.get(
       const testsRes = await readQuery(
         `SELECT id, series_id, slug, title, category, type, total_questions, total_marks, duration, difficulty, year, pyq_year, is_pyq, exam_category_id, tags, is_active, is_pro, created_at, updated_at, exam_id, is_coming_soon
        FROM tests WHERE ${whereClause}
-        ORDER BY year DESC NULLS LAST
+        ORDER BY COALESCE(pyq_year, year) DESC NULLS LAST, id DESC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
         [...params, parsedLimit, offset],
       );
@@ -64,12 +85,14 @@ router.get(
 
       // Fetch available years — read replica, lightweight
       const yearsRes = await readQuery(
-        `SELECT DISTINCT year FROM tests
-        WHERE is_active = true AND ('pyp' = ANY(tags) OR 'previous-year' = ANY(tags) OR category = 'PYPs')
-          AND year IS NOT NULL
+        `SELECT DISTINCT COALESCE(pyq_year, year) as year FROM tests
+        WHERE is_active = true AND ('pyp' = ANY(tags) OR 'previous-year' = ANY(tags) OR category = 'PYPs' OR type = 'Previous Year Papers')
+          AND (year IS NOT NULL OR pyq_year IS NOT NULL)
         ORDER BY year DESC`,
       );
-      const availableYears = yearsRes.rows.map((r) => r.year);
+      const availableYears = yearsRes.rows
+        .map((r) => r.year)
+        .filter((y) => typeof y === "number");
 
       res.json({
         success: true,

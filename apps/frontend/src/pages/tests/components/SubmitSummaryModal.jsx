@@ -40,8 +40,6 @@ export default function SubmitSummaryModal({
   sectionTimers = {},
   dialogRef,
 }) {
-  if (!isOpen) return null;
-
   const timeElapsedSeconds = Math.max(
     0,
     Number(testDuration || 60) * 60 - Number(timeLeft || 0),
@@ -139,7 +137,7 @@ export default function SubmitSummaryModal({
 
   const totalQuestionsCount = overallTotals.total || questions.length || 0;
 
-  if (typeof document === "undefined") return null;
+  if (!isOpen || typeof document === "undefined") return null;
 
   return createPortal(
     <React.Fragment>

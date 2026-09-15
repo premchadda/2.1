@@ -2324,13 +2324,23 @@ class PostgresHelpers {
    * @returns {Promise<void>}
    */
   async close() {
+    if (this._closed) return;
+    this._closed = true;
     const errors = [];
-    // Close read replica pool first, then the primary write pool.
-    for (const p of [readPool, this.pool]) {
-      if (!p || typeof p.end !== "function") continue;
+    // Deduplicate pools: readPool defaults to writePool (this.pool) when DATABASE_READ_URL is unset
+    const uniquePools = new Set([readPool, this.pool].filter(Boolean));
+    for (const p of uniquePools) {
+      if (typeof p.end !== "function" || p.ending || p.ended) continue;
       try {
         await p.end();
       } catch (err) {
+        if (
+          err &&
+          err.message &&
+          err.message.includes("Called end on pool more than once")
+        ) {
+          continue;
+        }
         errors.push(err && err.message ? err.message : String(err));
       }
     }

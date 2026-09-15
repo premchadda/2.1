@@ -469,7 +469,12 @@ export const protect = async (req, res, next) => {
     // SEC-01: JWT_SECRET is validated at startup (app-port5001.js:99-109).
     // No per-request check needed — the app won't start without it.
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // HS256 pinned at both ends (all signers use jsonwebtoken's HS256 default,
+    // including generateToken()). Accepting any other `alg` would reopen
+    // algorithm-confusion.
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+      algorithms: ["HS256"],
+    });
 
     // SECURITY FIX: Reject tokens that are not session/web tokens.
     // Prevents token type confusion (e.g., password-reset or email-verification
@@ -756,7 +761,9 @@ export const requireImageAuth = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+      algorithms: ["HS256"],
+    });
     if (
       decoded.type &&
       !["session", "web", "phone", undefined, null].includes(decoded.type)
@@ -849,7 +856,9 @@ export const optionalAuth = async (req, res, next) => {
     }
 
     if (token && process.env.JWT_SECRET) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+        algorithms: ["HS256"],
+      });
 
       // SESSION-SEC: Verify session is still active for optional auth too
       let sessionValid = true;
