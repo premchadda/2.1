@@ -15,6 +15,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "../../shared/providers/AuthContext";
+import { useConfirm } from "../../shared/components/common/ConfirmModal";
 import {
   getNotifications,
   markNotificationRead,
@@ -26,6 +27,7 @@ import {
 export default function Notifications() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -153,7 +155,12 @@ export default function Notifications() {
   };
 
   const clearAll = async () => {
-    if (confirm("Are you sure you want to clear all notifications?")) {
+    const ok = await confirm({
+      title: "Clear all notifications?",
+      message: "Are you sure you want to clear all notifications?",
+      danger: true,
+    });
+    if (ok) {
       try {
         await clearAllNotifications();
         setNotifications([]);
@@ -239,6 +246,7 @@ export default function Notifications() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+      {ConfirmDialog}
       <div className="container mx-auto px-4 max-w-4xl">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">

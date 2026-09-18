@@ -90,6 +90,7 @@ const FullTestImportModal = lazy(
   () => import("./components/FullTestImportModal"),
 );
 import SECTION_PRESETS from "../../../shared/config/sectionPresets.js";
+import { EmptyState } from "../../../shared/components/common/EmptyState.jsx";
 
 const TEST_CATEGORY_TABS = [
   { id: "mock-tests", label: "Mock Tests", icon: CheckSquare },
@@ -423,14 +424,6 @@ const Badge = ({ children, tone = "gray" }) => {
     </span>
   );
 };
-
-const EmptyState = ({ title, description, icon: Icon = FileText }) => (
-  <div className="bg-white rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center py-8 text-center px-4">
-    <Icon className="w-12 h-12 text-gray-300 mb-3" />
-    <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-    <p className="text-sm text-gray-500 mt-1">{description}</p>
-  </div>
-);
 
 const StatCard = ({ icon: Icon, value, label, tone, compact }) => {
   const tones = {

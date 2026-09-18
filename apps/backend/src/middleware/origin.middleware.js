@@ -6,7 +6,7 @@ import crypto from "node:crypto";
  * length mismatch does not throw (which would itself leak length information
  * through error-vs-403 timing).
  */
-const secretsEqual = (provided, configured) => {
+export const secretsEqual = (provided, configured) => {
   if (typeof provided !== "string" || typeof configured !== "string") {
     return false;
   }
@@ -268,6 +268,8 @@ export const restrictAdminOrigin = (req, res, next) => {
   if (WEBHOOK_PREFIXES.some((p) => path.startsWith(p))) return next();
 
   const origin = getRequestOrigin(req);
+  // No Origin/Referer (same-origin form posts, non-browser clients): allow here;
+  // CSRF tokens + auth still gate mutations downstream.
   if (!origin) return next();
 
   let originHost;

@@ -12,5 +12,4 @@ export {
   useAdaptiveDifficulty,
   useAdaptiveDifficultyBatch,
 } from "./useAdaptiveDifficulty";
-export { useTestPolicy } from "./useTestPolicy";
 export { useOfflineSyncReplay } from "./useOfflineSyncReplay";

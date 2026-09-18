@@ -1,4 +1,9 @@
 import { setCsrfToken, clearCsrfToken } from "@trstprep/shared-config";
+import {
+  clearStoredTokens,
+  setMemoryToken,
+  setMemoryRefreshToken,
+} from "../lib/apiClient.js";
 
 export const ADMIN_USER_CACHE_KEY = "trstprep_admin_user_profile";
 
@@ -50,6 +55,8 @@ export const applyAuthSession = ({
       setCsrfToken(csrfToken);
     }
     if (token || refreshToken) {
+      if (token) setMemoryToken(token);
+      if (refreshToken) setMemoryRefreshToken(refreshToken);
       if (rememberMe) {
         if (token) localStorage.setItem("trstprep_token", token);
         if (refreshToken)
@@ -83,6 +90,7 @@ export const clearAuthTokens = () => {
     sessionStorage.removeItem("trstprep_token");
     sessionStorage.removeItem("trstprep_refresh_token");
     sessionStorage.removeItem(ADMIN_USER_CACHE_KEY);
+    clearStoredTokens();
     clearCsrfToken();
   } catch (error) {
     void error;

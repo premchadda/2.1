@@ -17,6 +17,14 @@ import {
   setCachedSession,
 } from "../../middleware/auth.middleware.js";
 import { lockoutMiddleware } from "../../middleware/lockout.middleware.js";
+import { validateBody } from "../../middleware/validation/inputValidation.js";
+import {
+  loginSchema,
+  registerSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  changePasswordSchema,
+} from "../../api/validators/auth.validator.js";
 import { botProtectionMiddleware } from "../../middleware/botProtection.middleware.js";
 import { isFeatureEnabled } from "../../services/SettingsService.js";
 import {
@@ -26,20 +34,10 @@ import {
 } from "../../middleware/responseCache.middleware.js";
 import { getUserEnrollmentsSummary } from "../../services/EnrollmentService.js";
 import { getAttemptedTestsPayload } from "../../shared/utils/attempt-utils.js";
+import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import { availableProfileAsset } from "../../shared/utils/user-utils.js";
 
 const router = Router();
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Local profile assets are ephemeral on cloud deployments. Do not advertise a
-// stale path that will make every client request a guaranteed 404.
-const availableProfileAsset = (asset) => {
-  if (typeof asset !== "string" || !asset.startsWith("/assets/avatar/")) {
-    return asset;
-  }
-  const filename = path.basename(asset);
-  const localPath = path.join(__dirname, "../../../uploads/avatars", filename);
-  return fs.existsSync(localPath) ? asset : null;
-};
 
 // Middleware: block registration if userRegistration feature is disabled
 const requireRegistrationEnabled = async (req, res, next) => {
@@ -76,6 +74,7 @@ router.post(
   lockoutMiddleware,
   botProtectionMiddleware,
   authRateLimiter,
+  validateBody(loginSchema),
   authController.login,
 );
 router.post(
@@ -96,6 +95,7 @@ router.post(
   requireRegistrationEnabled,
   botProtectionMiddleware,
   authRateLimiter,
+  validateBody(registerSchema),
   authController.register,
 );
 router.post("/logout", optionalAuth, authController.logout);
@@ -104,13 +104,20 @@ router.post(
   "/forgot-password",
   botProtectionMiddleware,
   authRateLimiter,
+  validateBody(forgotPasswordSchema),
   authController.forgotPassword,
 );
-router.post("/reset-password", authRateLimiter, authController.resetPassword);
+router.post(
+  "/reset-password",
+  authRateLimiter,
+  validateBody(resetPasswordSchema),
+  authController.resetPassword,
+);
 router.post(
   "/change-password",
   protect,
   validateCsrfToken,
+  validateBody(changePasswordSchema),
   authController.changePassword,
 );
 router.get("/verify-email/:token", authRateLimiter, authController.verifyEmail);
@@ -127,6 +134,7 @@ router.get("/2fa/status", protect, authController.getTwoFactorStatus);
 router.post(
   "/2fa/enroll",
   protect,
+  validateCsrfToken,
   lockoutMiddleware,
   authRateLimiter,
   authController.enrollTwoFactor,
@@ -134,6 +142,7 @@ router.post(
 router.post(
   "/2fa/verify",
   protect,
+  validateCsrfToken,
   lockoutMiddleware,
   authRateLimiter,
   authController.verifyTwoFactor,
@@ -141,6 +150,7 @@ router.post(
 router.post(
   "/2fa/backup-codes/regenerate",
   protect,
+  validateCsrfToken,
   lockoutMiddleware,
   authRateLimiter,
   authController.regenerateTwoFactorBackupCodes,
@@ -148,6 +158,7 @@ router.post(
 router.post(
   "/2fa/disable",
   protect,
+  validateCsrfToken,
   lockoutMiddleware,
   authRateLimiter,
   authController.disableTwoFactor,
@@ -168,29 +179,31 @@ router.post(
 router.get(
   "/me",
   protect,
-  swrCache("auth-me", { freshTtl: 60, staleTtl: 24 * 60 * 60 }),
+  // Per-user+session SWR namespace: the cached body embeds a per-session CSRF
+  // token, so a shared per-user key would serve session A's token to session B
+  // (broken CSRF). Namespace includes user id + session id; invalidation via
+  // invalidateResponseCache("auth-me") still matches by prefix.
+  (req, res, next) =>
+    swrCache(
+      `auth-me:${req.user?.id ?? "anon"}:${req.user?.sessionId ?? "nosess"}`,
+      { freshTtl: 60, staleTtl: 24 * 60 * 60 },
+    )(req, res, next),
   async (req, res) => {
     try {
-      console.time("auth/me total");
       const t0 = Date.now();
 
       // PERF: Use user already loaded by protect middleware (avoids redundant DB query)
       const user = req.user;
 
       if (!user) {
-        console.timeEnd("auth/me total");
         return res.status(404).json({
           success: false,
           message: "User not found",
         });
       }
-
-      console.time("auth/me permissions");
       // Load permissions for admin users
       let permissions = user.permissions || [];
-      if (user.role === "super_admin") {
-        permissions = ["*"];
-      } else if (
+      if (
         (user.role === "admin" || user.isAdmin) &&
         permissions.length === 0
       ) {
@@ -286,9 +299,8 @@ router.get(
           ];
         }
       }
-      console.timeEnd("auth/me permissions");
-
-      console.time("auth/me sanitize");
+      // NOTE: console.time() removed here — labels are process-global and
+      // concurrent /auth/me requests collided ("Label already exists").
       // Remove sensitive fields from response
       const {
         password: _,
@@ -301,9 +313,6 @@ router.get(
       if (safeUser.avatar) {
         safeUser.avatar = availableProfileAsset(safeUser.avatar);
       }
-      console.timeEnd("auth/me sanitize");
-
-      console.time("auth/me enrollments+csrf+attempts");
       // PERF: resolve everything in ONE parallel batch. The previous code ran
       // these as sequential waves (CSRF write -> enrollments/attempts), costing
       // 2+ extra DB round-trips (~600ms) against hosted Postgres.
@@ -374,9 +383,6 @@ router.get(
           [];
       }
 
-      console.timeEnd("auth/me enrollments+csrf+attempts");
-
-      console.time("auth/me response");
       res.json({
         success: true,
         data: {
@@ -392,8 +398,6 @@ router.get(
           csrfToken,
         },
       });
-      console.timeEnd("auth/me response");
-      console.timeEnd("auth/me total");
     } catch (error) {
       res.status(500).json({
         success: false,

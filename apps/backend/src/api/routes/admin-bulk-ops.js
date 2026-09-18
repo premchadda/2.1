@@ -1,22 +1,34 @@
 import express from "express";
-import { dbHelpers, pool } from "../../infrastructure/database/postgres-helpers.js";
+import {
+  dbHelpers,
+  pool,
+} from "../../infrastructure/database/postgres-helpers.js";
 import logger from "../../infrastructure/logger/logger.js";
-import { protect, admin, superAdmin } from '../../middleware/auth.middleware.js';
+import { protect, admin } from "../../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.use(protect)
-router.use(admin)
+router.use(protect);
+router.use(admin);
 
 const MAX_BULK_IDS = 200;
 
 const TEST_SERIES_ALLOWED_UPDATE_FIELDS = new Set([
-  'name', 'title', 'description', 'slug', 'isActive', 'isPro',
-  'stages', 'orderIndex', 'sortOrder', 'category', 'tags',
+  "name",
+  "title",
+  "description",
+  "slug",
+  "isActive",
+  "isPro",
+  "stages",
+  "orderIndex",
+  "sortOrder",
+  "category",
+  "tags",
 ]);
 
 const filterBulkAllowed = (body, allowed) =>
-  Object.fromEntries(Object.entries(body).filter(([k]) => allowed.has(k)))
+  Object.fromEntries(Object.entries(body).filter(([k]) => allowed.has(k)));
 
 // ===== TEST SERIES BULK OPERATIONS =====
 router.post("/test-series/bulk-operation", async (req, res) => {
@@ -37,21 +49,32 @@ router.post("/test-series/bulk-operation", async (req, res) => {
       });
     }
 
-    const filteredPayload = filterBulkAllowed(payload, TEST_SERIES_ALLOWED_UPDATE_FIELDS);
+    const filteredPayload = filterBulkAllowed(
+      payload,
+      TEST_SERIES_ALLOWED_UPDATE_FIELDS,
+    );
 
     let updatedCount = 0;
 
     switch (operation) {
       case "bulk-update":
         for (const id of seriesIds) {
-          const updateResult = await dbHelpers.updateById("testSeries", id, filteredPayload);
+          const updateResult = await dbHelpers.updateById(
+            "testSeries",
+            id,
+            filteredPayload,
+          );
           if (updateResult) updatedCount++;
         }
         break;
 
       case "bulk-delete":
         for (const id of seriesIds) {
-          const deleted = await dbHelpers.softDelete("testSeries", id, req.user?.id);
+          const deleted = await dbHelpers.softDelete(
+            "testSeries",
+            id,
+            req.user?.id,
+          );
           if (deleted) updatedCount++;
         }
         break;
@@ -60,7 +83,9 @@ router.post("/test-series/bulk-operation", async (req, res) => {
         for (const id of seriesIds) {
           const series = await dbHelpers.findById("testSeries", id);
           if (series) {
-            await dbHelpers.updateById("testSeries", id, { isActive: !series.isActive });
+            await dbHelpers.updateById("testSeries", id, {
+              isActive: !series.isActive,
+            });
             updatedCount++;
           }
         }
@@ -70,7 +95,9 @@ router.post("/test-series/bulk-operation", async (req, res) => {
         for (const id of seriesIds) {
           const series = await dbHelpers.findById("testSeries", id);
           if (series) {
-            await dbHelpers.updateById("testSeries", id, { isPro: !series.isPro });
+            await dbHelpers.updateById("testSeries", id, {
+              isPro: !series.isPro,
+            });
             updatedCount++;
           }
         }
@@ -81,7 +108,9 @@ router.post("/test-series/bulk-operation", async (req, res) => {
         for (const id of seriesIds) {
           const series = await dbHelpers.findById("testSeries", id);
           if (series) {
-            const existingStages = Array.isArray(series.stages) ? series.stages : [];
+            const existingStages = Array.isArray(series.stages)
+              ? series.stages
+              : [];
             const newStages = [...new Set([...existingStages, ...stagesToAdd])];
             await dbHelpers.updateById("testSeries", id, { stages: newStages });
             updatedCount++;
@@ -95,8 +124,12 @@ router.post("/test-series/bulk-operation", async (req, res) => {
         for (const id of seriesIds) {
           const series = await dbHelpers.findById("testSeries", id);
           if (series) {
-            const existingStages = Array.isArray(series.stages) ? series.stages : [];
-            const newStages = existingStages.filter((s) => !stagesToRemove.includes(s));
+            const existingStages = Array.isArray(series.stages)
+              ? series.stages
+              : [];
+            const newStages = existingStages.filter(
+              (s) => !stagesToRemove.includes(s),
+            );
             await dbHelpers.updateById("testSeries", id, { stages: newStages });
             updatedCount++;
           }
@@ -125,8 +158,13 @@ router.post("/test-series/bulk-operation", async (req, res) => {
 // ===== TESTS BULK REASSIGN =====
 router.post("/tests/bulk-reassign", async (req, res) => {
   try {
-    const { testIds, stageId, testCategoryId, categoryId, subCategory } = req.body;
-    const testSeriesId = req.body.testSeriesId ?? req.body.test_series_id ?? req.body.seriesId ?? req.body.series_id;
+    const { testIds, stageId, testCategoryId, categoryId, subCategory } =
+      req.body;
+    const testSeriesId =
+      req.body.testSeriesId ??
+      req.body.test_series_id ??
+      req.body.seriesId ??
+      req.body.series_id;
 
     if (!Array.isArray(testIds) || testIds.length === 0) {
       return res.status(400).json({
@@ -144,7 +182,10 @@ router.post("/tests/bulk-reassign", async (req, res) => {
 
     // Validate target references if provided
     if (testSeriesId) {
-      const existingSeries = await dbHelpers.findById("testSeries", testSeriesId);
+      const existingSeries = await dbHelpers.findById(
+        "testSeries",
+        testSeriesId,
+      );
       if (!existingSeries) {
         return res.status(400).json({
           success: false,
@@ -164,7 +205,10 @@ router.post("/tests/bulk-reassign", async (req, res) => {
     }
 
     if (testCategoryId) {
-      const existingCat = await dbHelpers.findById("testCategories", testCategoryId);
+      const existingCat = await dbHelpers.findById(
+        "testCategories",
+        testCategoryId,
+      );
       if (!existingCat) {
         return res.status(400).json({
           success: false,
@@ -176,7 +220,8 @@ router.post("/tests/bulk-reassign", async (req, res) => {
     const updateData = {};
     if (testSeriesId !== undefined) updateData.seriesId = testSeriesId;
     if (stageId !== undefined) updateData.stageId = stageId;
-    if (testCategoryId !== undefined) updateData.testCategoryId = testCategoryId;
+    if (testCategoryId !== undefined)
+      updateData.testCategoryId = testCategoryId;
     if (categoryId !== undefined) updateData.category = categoryId;
     if (subCategory !== undefined) updateData.subCategory = subCategory;
 
@@ -224,7 +269,7 @@ router.post("/questions/bulk-reorder", async (req, res) => {
     if (testId) {
       const validResult = await pool.query(
         `SELECT id FROM questions WHERE id IN (${placeholders}) AND test_id = $${placeholders.length + 1} AND is_active = true`,
-        [...questionIds, testId]
+        [...questionIds, testId],
       );
       const validIds = new Set(validResult.rows.map((r) => String(r.id)));
       const invalidIds = questionIds.filter((id) => !validIds.has(String(id)));
@@ -245,7 +290,7 @@ router.post("/questions/bulk-reorder", async (req, res) => {
 
       return pool.query(
         `UPDATE questions SET question_number = $1, order_index = $2 WHERE id = $3`,
-        [questionNumber, orderIndex, questionId]
+        [questionNumber, orderIndex, questionId],
       );
     });
 
@@ -290,25 +335,27 @@ router.post("/questions/:id/convert", async (req, res) => {
 
     await dbHelpers.pool.query(
       "UPDATE questions SET is_practice = $1, is_practice = $1 WHERE id = $2",
-      [shouldBePractice, id]
+      [shouldBePractice, id],
     );
 
     // Also update test_id if provided
     if (testId !== undefined) {
       await dbHelpers.pool.query(
         "UPDATE questions SET test_id = $1 WHERE id = $2",
-        [shouldBePractice ? null : testId, id]
+        [shouldBePractice ? null : testId, id],
       );
     }
 
     // Fetch updated question
     const result = await dbHelpers.pool.query(
       "SELECT id, test_id, question_number, question_text, question_text_hi, options, options_hi, correct_option, marks, negative_marks, section, explanation, difficulty, image, is_active, created_at, updated_at, subject, chapter_id, topic, image_asset_id, series_id, category_id, sub_category_id, study_material_id, topic_id, quiz_id, public_id_uuid, public_id, category, type, status, tags, passage_id, chapter, is_practice, is_deleted, deleted_by, deleted_at, _orphaned, orphaned_at, _deleted_test_id, moderation_status, reviewed_by, reviewed_at, review_notes, submitted_for_review_at, submitted_by, external_question_id, language, solution_image_url, source, imported_from, section_id, subtopic_id, subject_id, estimated_time, explanation_hi, source_config, exam_category_ids, exam_ids, question_stage_ids, concept_ids, skill_ids, ai_generated, _deleted_series_id, created_by, correct_answer, question_type FROM questions WHERE id = $1",
-      [id]
+      [id],
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "Question not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Question not found" });
     }
 
     res.json({
@@ -338,7 +385,10 @@ router.post("/questions/bulk-convert", async (req, res) => {
     if (questionIds.length > MAX_BULK_IDS) {
       return res
         .status(400)
-        .json({ success: false, message: `Cannot convert more than ${MAX_BULK_IDS} questions at once` });
+        .json({
+          success: false,
+          message: `Cannot convert more than ${MAX_BULK_IDS} questions at once`,
+        });
     }
 
     const isPractice = toPractice === true;
@@ -346,7 +396,7 @@ router.post("/questions/bulk-convert", async (req, res) => {
 
     await dbHelpers.pool.query(
       `UPDATE questions SET is_practice = $${questionIds.length + 1} WHERE id IN (${placeholders})`,
-      [...questionIds, isPractice]
+      [...questionIds, isPractice],
     );
 
     res.json({
@@ -370,46 +420,61 @@ router.get("/chapters/:id/resources", async (req, res) => {
     // Fetch chapter
     const chapterResult = await dbHelpers.pool.query(
       "SELECT id, study_material_id, title, slug, description, icon, video_count, pdf_count, test_count, duration, order_index, is_active, created_at, updated_at, unit_id, stage_ids, public_id_uuid, public_id, is_deleted, deleted_by, deleted_at, subject_id, _orphaned FROM chapters WHERE id = $1",
-      [id]
+      [id],
     );
 
     if (chapterResult.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "Chapter not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Chapter not found" });
     }
 
     const chapter = chapterResult.rows[0];
-    const studyMaterialId = chapter.study_material_id || chapter.studyMaterialId;
+    const studyMaterialId =
+      chapter.study_material_id || chapter.studyMaterialId;
 
     // Fetch videos for this chapter/study material
     const videosResult = await dbHelpers.pool.query(
       `SELECT id, study_material_id, chapter_id, title, slug, description, video_url, thumbnail, duration, order_index, is_pro, is_active, created_at, updated_at, display_order, topic_id, is_deleted, deleted_at, deleted_by, public_id_uuid, public_id FROM subject_videos WHERE study_material_id = $1 OR chapter_id = $1 ORDER BY created_at DESC`,
-      [studyMaterialId || id]
+      [studyMaterialId || id],
     );
 
     // Fetch PDFs for this chapter/study material
     const pdfsResult = await dbHelpers.pool.query(
       `SELECT id, study_material_id, chapter_id, title, slug, description, pdf_url, file_size, pages, order_index, is_pro, is_active, created_at, updated_at, display_order, topic_id, is_deleted, deleted_at, deleted_by, thumbnail FROM subject_pdfs WHERE study_material_id = $1 OR chapter_id = $1 ORDER BY created_at DESC`,
-      [studyMaterialId || id]
+      [studyMaterialId || id],
     );
 
     // Fetch tests for this chapter
     const testsResult = await dbHelpers.pool.query(
       `SELECT id, study_material_id, chapter_id, test_id, test_type, order_index, is_active, created_at, display_order, topic_id, updated_at, is_deleted, deleted_at, deleted_by FROM topic_tests WHERE chapter_id = $1 ORDER BY created_at DESC`,
-      [id]
+      [id],
     );
 
     // Fetch quizzes related to this chapter's topic
     const quizzesResult = await dbHelpers.pool.query(
       `SELECT id, title, description, subject, topic, difficulty, question_ids, duration, passing_score, is_pro, is_active, "order", instructions, is_public, shuffle_questions, show_answers, created_by, deleted_at, created_at, updated_at, public_id_uuid, public_id, slug, category, total_questions, total_marks, status, metadata, question_count, is_deleted, deleted_by FROM quizzes WHERE topic = (SELECT name FROM subject_topics WHERE chapter_id = $1 LIMIT 1) LIMIT 50`,
-      [id]
+      [id],
     );
 
     // Notes are PDFs with type='note' or keywords match
-    const noteKeywords = ["note", "notes", "handout", "class note", "lecture note"];
+    const noteKeywords = [
+      "note",
+      "notes",
+      "handout",
+      "class note",
+      "lecture note",
+    ];
     const notesResult = pdfsResult.rows.filter((pdf) => {
-      const pdfType = (pdf.type || pdf.pdf_type || pdf.file_type || "").toLowerCase();
+      const pdfType = (
+        pdf.type ||
+        pdf.pdf_type ||
+        pdf.file_type ||
+        ""
+      ).toLowerCase();
       if (["note", "notes", "handout"].includes(pdfType)) return true;
-      const hay = `${pdf.title || ""} ${pdf.description || ""} ${pdf.slug || ""}`.toLowerCase();
+      const hay =
+        `${pdf.title || ""} ${pdf.description || ""} ${pdf.slug || ""}`.toLowerCase();
       return noteKeywords.some((kw) => hay.includes(kw));
     });
 

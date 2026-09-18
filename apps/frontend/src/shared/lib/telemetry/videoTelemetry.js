@@ -3,7 +3,23 @@
  * Captures play, pause, resume, seek, rate changes, heartbeat, and watch duration.
  */
 
-import api from '../api'
+import { apiClient } from '../apiClient'
+import { API_BASE_URL } from '../apiBase'
+
+// Resolve an absolute beacon URL from the apiClient baseURL. sendBeacon can
+// only run on pagehide/unload where the axios instance (and its baseURL) may
+// be unavailable, so derive the absolute URL up front. NOTE (CSRF): beacons
+// cannot set custom headers (no X-CSRF-Token); the backend must accept the
+// cookie-session beacon path without CSRF or the beacon will be rejected.
+const resolveBeaconUrl = (videoId) => {
+  const path = `/api/videos/${videoId}/activity`
+  const base = (apiClient?.defaults?.baseURL || API_BASE_URL || '').replace(/\/+$/, '')
+  if (!base) return path
+  if (typeof window !== 'undefined' && base.startsWith('/')) {
+    return `${window.location.origin}${base}${path}`
+  }
+  return `${base}${path}`
+}
 
 class VideoTelemetry {
   constructor() {
@@ -238,15 +254,22 @@ class VideoTelemetry {
     const videoId = this.currentSession.videoId
 
     try {
-      await api.post(`/api/videos/${videoId}/activity`, {
+      await apiClient.post(`/api/videos/${videoId}/activity`, {
         sessionId: this.currentSession.sessionId,
         events: eventsToFlush,
         lastTimestamp: Math.round(this.currentSession.currentSecond || 0),
         totalTimeSpent: Math.round(this.currentSession.totalWatchSeconds || 0),
       })
-    } catch {
-      // Put events back in queue if network failed
-      this.batchQueue = [...eventsToFlush, ...this.batchQueue]
+    } catch (err) {
+      // 5xx-only retry: requeue on server/network failures, drop 4xx
+      // (validation/auth) failures — retrying those can never succeed and
+      // grows the queue unboundedly.
+      const status = err?.response?.status ?? err?.status
+      const retryable = status == null || status >= 500
+      if (retryable) {
+        // Put events back in queue if network/server failed
+        this.batchQueue = [...eventsToFlush, ...this.batchQueue]
+      }
     }
   }
 
@@ -274,7 +297,7 @@ class VideoTelemetry {
           totalTimeSpent: Math.round(this.currentSession.totalWatchSeconds || 0),
         })
         const blob = new Blob([payload], { type: 'application/json' })
-        navigator.sendBeacon(`/api/videos/${this.currentSession.videoId}/activity`, blob)
+        navigator.sendBeacon(resolveBeaconUrl(this.currentSession.videoId), blob)
       } catch {}
     } else {
       this.flushEvents()

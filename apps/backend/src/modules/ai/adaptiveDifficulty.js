@@ -26,6 +26,19 @@ function cacheKey(userId, topicId) {
   return `${userId}:${topicId}`
 }
 
+// Redis is resolved lazily per operation — a frozen global.redis snapshot
+// would silently pin the cache to its boot-time (usually undefined) state.
+async function getCacheRedis() {
+  try {
+    const { getRedisClient } = await import(
+      '../../infrastructure/cache/redisClient.js'
+    )
+    return getRedisClient() || global.redis || null
+  } catch {
+    return global.redis || null
+  }
+}
+
 // ── Helpers ────────────────────────────────────────────────
 
 /**
@@ -79,10 +92,37 @@ const adaptiveDifficultyService = {
       return cached.data
     }
 
+    // 1b. A reset marker forces neutral until the next recorded attempt —
+    // otherwise "reset" recomputes the same lifetime score (no-op).
+    const resetMarker = localCache.get(`reset:${memKey}`)
+    if (resetMarker) {
+      return {
+        score: DEFAULT_DIFFICULTY,
+        level: scoreToLevel(DEFAULT_DIFFICULTY),
+        totalAttempts: resetMarker.totalAttempts || 0,
+        recentAccuracy: 0,
+        reset: true,
+      }
+    }
+
     // 2. Try Redis if available
-    if (global.redis) {
+    const cacheRedis = await getCacheRedis()
+    if (cacheRedis) {
       try {
-        const raw = await global.redis.get(`adiff:${memKey}`)
+        // Reset marker survives process restarts (localCache does not).
+        const resetRaw = await cacheRedis.get(`adiff:reset:${memKey}`)
+        if (resetRaw) {
+          let totalAttempts = 0
+          try { totalAttempts = JSON.parse(resetRaw).totalAttempts || 0 } catch { /* ignore */ }
+          return {
+            score: DEFAULT_DIFFICULTY,
+            level: scoreToLevel(DEFAULT_DIFFICULTY),
+            totalAttempts,
+            recentAccuracy: 0,
+            reset: true,
+          }
+        }
+        const raw = await cacheRedis.get(`adiff:${memKey}`)
         if (raw) {
           const data = JSON.parse(raw)
           localCache.set(memKey, { data, ts: Date.now() })
@@ -106,8 +146,15 @@ const adaptiveDifficultyService = {
       const row = stats.rows[0]
       totalAttempts = parseInt(row.total_attempts) || 0
       recentAccuracy = parseFloat(row.accuracy) || 0
-      // Score = accuracy percentage directly (0-100)
-      score = recentAccuracy
+      // Blend the last EMA (when known) with lifetime accuracy so one new
+      // observation moves the score without swinging it wildly. No DDL is
+      // available for an ema_score column, so the EMA seed lives in cache;
+      // cold starts fall back to lifetime accuracy.
+      const prevEma = localCache.get(`ema:${memKey}`)?.score
+      score =
+        typeof prevEma === 'number'
+          ? prevEma
+          : recentAccuracy
     } else {
       totalAttempts = 0
       recentAccuracy = 0
@@ -119,13 +166,14 @@ const adaptiveDifficultyService = {
       level: scoreToLevel(score),
       totalAttempts,
       recentAccuracy: Math.round(recentAccuracy * 10) / 10,
+      ...(totalAttempts < MIN_ATTEMPTS_FOR_CONFIDENCE ? { lowConfidence: true } : {}),
     }
 
     // Populate caches
     localCache.set(memKey, { data, ts: Date.now() })
-    if (global.redis) {
+    if (cacheRedis) {
       try {
-        await global.redis.set(`adiff:${memKey}`, JSON.stringify(data), 'EX', 300)
+        await cacheRedis.set(`adiff:${memKey}`, JSON.stringify(data), 'EX', 300)
       } catch { /* best-effort */ }
     }
 
@@ -143,16 +191,21 @@ const adaptiveDifficultyService = {
    */
   async updatePerformance(userId, topicId, correct, timeSpent = 0) {
     const client = await pool.connect()
+    // Post-update lifetime accuracy — doubles as the EMA seed when no prior
+    // EMA exists (declared outside try: the EMA block below needs it).
+    let committedAccuracy = DEFAULT_DIFFICULTY
     try {
       await client.query('BEGIN')
 
-      // Upsert user_topic_stats
+      // Row lock: concurrent submits for the same user+topic must serialize
+      // their read-modify-write, otherwise increments are lost.
       const existing = await client.query(
         `SELECT id, total_attempts, correct_answers, wrong_answers,
                 total_time_spent_seconds, accuracy
          FROM user_topic_stats
          WHERE user_id = $1 AND topic_id = $2
-         LIMIT 1`,
+         LIMIT 1
+         FOR UPDATE`,
         [userId, topicId]
       )
 
@@ -200,6 +253,7 @@ const adaptiveDifficultyService = {
       }
 
       await client.query('COMMIT')
+      committedAccuracy = newAccuracy
     } catch (err) {
       await client.query('ROLLBACK')
       throw err
@@ -207,11 +261,25 @@ const adaptiveDifficultyService = {
       client.release()
     }
 
-    // Invalidate caches
+    // Invalidate caches + advance the EMA: EMA = α·latest + (1−α)·previous,
+    // seeded from lifetime accuracy when no EMA exists yet. A correct answer
+    // scores 100, a wrong one 0.
     const memKey = cacheKey(userId, topicId)
+    const latest = correct ? 100 : 0
+    const prevEma = localCache.get(`ema:${memKey}`)?.score
+    const seedSource = committedAccuracy
+    const newEma =
+      (typeof prevEma === 'number' ? prevEma : seedSource) * (1 - EMA_ALPHA) +
+      latest * EMA_ALPHA
     localCache.delete(memKey)
-    if (global.redis) {
-      try { await global.redis.del(`adiff:${memKey}`) } catch { /* ignore */ }
+    localCache.delete(`reset:${memKey}`)
+    localCache.set(`ema:${memKey}`, { score: newEma, ts: Date.now() })
+    const cacheRedis = await getCacheRedis()
+    if (cacheRedis) {
+      try {
+        await cacheRedis.del(`adiff:${memKey}`)
+        await cacheRedis.del(`adiff:reset:${memKey}`)
+      } catch { /* ignore */ }
     }
 
     // Return fresh difficulty
@@ -219,20 +287,76 @@ const adaptiveDifficultyService = {
   },
 
   /**
-   * Batch: get difficulties for many topics at once.
+   * Batch: get difficulties for many topics at once (single query, not N+1).
    */
   async getDifficulties(userId, topicIds) {
-    return Promise.all(topicIds.map(id => this.getDifficulty(userId, id)))
+    const ids = (Array.isArray(topicIds) ? topicIds : [])
+      .map((t) => Number(t))
+      .filter((t) => Number.isInteger(t) && t > 0)
+    if (ids.length === 0) return []
+    const stats = await pool.query(
+      `SELECT topic_id, total_attempts, correct_answers, accuracy
+       FROM user_topic_stats
+       WHERE user_id = $1 AND topic_id = ANY($2::int[])`,
+      [userId, ids]
+    )
+    const byTopic = new Map(stats.rows.map((r) => [Number(r.topic_id), r]))
+    return ids.map((topicId) => {
+      const row = byTopic.get(topicId)
+      // Prefer a live EMA seed when present (same rule as getDifficulty).
+      const memKey = cacheKey(userId, topicId)
+      if (localCache.get(`reset:${memKey}`)) {
+        return {
+          topicId,
+          score: DEFAULT_DIFFICULTY,
+          level: scoreToLevel(DEFAULT_DIFFICULTY),
+          totalAttempts: 0,
+          recentAccuracy: 0,
+          reset: true,
+        }
+      }
+      const prevEma = localCache.get(`ema:${memKey}`)?.score
+      const recentAccuracy = row ? parseFloat(row.accuracy) || 0 : 0
+      const score = row
+        ? (typeof prevEma === 'number' ? prevEma : recentAccuracy)
+        : DEFAULT_DIFFICULTY
+      return {
+        topicId,
+        score: Math.round(score * 10) / 10,
+        level: scoreToLevel(score),
+        totalAttempts: row ? parseInt(row.total_attempts) || 0 : 0,
+        recentAccuracy: Math.round(recentAccuracy * 10) / 10,
+      }
+    })
   },
 
   /**
-   * Reset a user's difficulty for a topic back to neutral.
+   * Reset a user's difficulty for a topic back to neutral. History rows are
+   * preserved; a reset marker forces the neutral score until the next
+   * recorded attempt clears it (recomputing from the same row would be a
+   * no-op — the old behavior this replaces).
    */
   async resetDifficulty(userId, topicId) {
     const memKey = cacheKey(userId, topicId)
+    const stats = await pool.query(
+      `SELECT total_attempts FROM user_topic_stats WHERE user_id = $1 AND topic_id = $2 LIMIT 1`,
+      [userId, topicId]
+    )
+    const totalAttempts = stats.rows.length > 0 ? parseInt(stats.rows[0].total_attempts) || 0 : 0
     localCache.delete(memKey)
-    if (global.redis) {
-      try { await global.redis.del(`adiff:${memKey}`) } catch { /* ignore */ }
+    localCache.delete(`ema:${memKey}`)
+    localCache.set(`reset:${memKey}`, { totalAttempts, ts: Date.now() })
+    const cacheRedis = await getCacheRedis()
+    if (cacheRedis) {
+      try {
+        await cacheRedis.del(`adiff:${memKey}`)
+        await cacheRedis.set(
+          `adiff:reset:${memKey}`,
+          JSON.stringify({ totalAttempts }),
+          'EX',
+          86400
+        )
+      } catch { /* ignore */ }
     }
     return this.getDifficulty(userId, topicId)
   },

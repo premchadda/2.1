@@ -113,11 +113,19 @@ export function AuthProvider({ children }) {
   const refreshToken = useCallback(async () => {
     try {
       let fallbackRefreshToken;
+      let rememberMe = false;
       try {
         fallbackRefreshToken =
           sessionStorage.getItem("trstprep_refresh_token") ||
           localStorage.getItem("trstprep_refresh_token") ||
           undefined;
+        // Preserve the original persistence tier: localStorage entries imply
+        // a remembered session, so keep them there instead of demoting to
+        // sessionStorage on refresh.
+        rememberMe = Boolean(
+          localStorage.getItem("trstprep_token") ||
+          localStorage.getItem("trstprep_refresh_token"),
+        );
       } catch {
         // ignore storage access errors
       }
@@ -133,6 +141,7 @@ export function AuthProvider({ children }) {
         csrfToken: newCsrfToken,
         token: newToken,
         refreshToken: newRefreshToken,
+        rememberMe,
       });
       return { success: true };
     } catch (err) {
@@ -304,11 +313,7 @@ export function AuthProvider({ children }) {
   };
 
   const isAuthenticated = () => !!user;
-  const isAdmin = () =>
-    user?.role === "admin" ||
-    user?.role === "super_admin" ||
-    user?.isAdmin === true ||
-    user?.isSuperAdmin === true;
+  const isAdmin = () => user?.role === "admin" || user?.isAdmin === true;
   const hasProPass = () =>
     !user?.isProUser
       ? false

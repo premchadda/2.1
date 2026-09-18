@@ -460,12 +460,12 @@ Full chain (`:65-80`): `normalizeFields → restrictAdminOrigin → validateAdmi
 
 - GET `/permissions`
 - GET `/roles`
-- POST `/roles` (superAdmin)
-- PUT `/roles/:id` (superAdmin)
-- DELETE `/roles/:id` (superAdmin)
+- POST `/roles` (secondTier)
+- PUT `/roles/:id` (secondTier)
+- DELETE `/roles/:id` (secondTier)
 - GET `/roles/:id/users`
-- POST `/roles/:id/assign` (superAdmin)
-- DELETE `/roles/:id/unassign` (superAdmin)
+- POST `/roles/:id/assign` (secondTier)
+- DELETE `/roles/:id/unassign` (secondTier)
 
 ### `admin-recycle-bin.js` (mounted at `/api/admin/trash`)
 
@@ -5762,11 +5762,11 @@ Now I have all the data needed. Here is the comprehensive audit report.
 - **Severity:** LOW
 - **Description:** The AGENTS.md specifies that admin routes should write `audit_trail` entries, but none of the exam-related admin routes (`admin-exams.js`, `admin-categories.js`, `admin-content.js`, `admin-curriculum.js`) log audit trail entries for create, update, or delete operations. The only audit logging is in the cascade orphan flagging in `admin-exams.js` and `admin-categories.js`.
 
-### Issue 51 — `superAdmin` Imported But Never Used
+### Issue 51 — `secondTier` Imported But Never Used
 
 - **Files:** `admin-exams.js` line 6, `admin-content.js` line 6, `admin-curriculum.js` line 4
 - **Severity:** LOW (code smell)
-- **Description:** The `superAdmin` middleware is imported but never applied to any route. All admin routes only require `protect + admin`, not `superAdmin`. If certain sensitive operations (like deleting categories or exams) should require super admin privileges, this is a missing access control layer.
+- **Description:** The `secondTier` middleware is imported but never applied to any route. All admin routes only require `protect + admin`, not `secondTier`. If certain sensitive operations (like deleting categories or exams) should require second-tier privileges, this is a missing access control layer.
 
 ---
 
@@ -6219,9 +6219,9 @@ Now I have all the information needed for a comprehensive audit. Let me compile 
 
 ## FILE 3: `admin-payments.js`
 
-**Issue 6 -- No `superAdmin` Check on Refund Endpoint**
+**Issue 6 -- No `secondTier` Check on Refund Endpoint**
 
-- **Lines 165-239**: The `POST /:id/refund` endpoint allows ANY authenticated admin to mark a payment as refunded. There is no `superAdmin` check. A rogue or compromised admin account can issue refunds without elevated authorization. This is a financial integrity risk.
+- **Lines 165-239**: The `POST /:id/refund` endpoint allows ANY authenticated admin to mark a payment as refunded. There is no `secondTier` check. A rogue or compromised admin account can issue refunds without elevated authorization. This is a financial integrity risk.
 - **Severity: HIGH**
 
 **Issue 7 -- No Rate Limiting on Refund Endpoint**
@@ -6229,9 +6229,9 @@ Now I have all the information needed for a comprehensive audit. Let me compile 
 - **Line 165**: The refund endpoint has no additional rate limiting beyond the global `adminLimiter`. An attacker with a compromised admin token could rapidly issue refunds on many payments.
 - **Severity: MEDIUM**
 
-**Issue 8 -- Missing `superAdmin` Import Usage**
+**Issue 8 -- Missing `secondTier` Import Usage**
 
-- **Line 3**: `superAdmin` is imported but never used anywhere in the file. This confirms no write operation requires elevated privileges.
+- **Line 3**: `secondTier` is imported but never used anywhere in the file. This confirms no write operation requires elevated privileges.
 - **Severity: MEDIUM (indicator of missing access control)**
 
 **Issue 9 -- `ensurePaymentsTable` Creates Tables at Runtime**
@@ -6288,9 +6288,9 @@ Now I have all the information needed for a comprehensive audit. Let me compile 
 
 ## FILE 6: `admin-audit.js`
 
-**Issue 16 -- Audit Log Purge Endpoint Lacks `superAdmin` Check**
+**Issue 16 -- Audit Log Purge Endpoint Lacks `secondTier` Check**
 
-- **Lines 296-327**: The `DELETE /` endpoint allows ANY admin to purge audit logs older than 30 days. There is no `superAdmin` middleware or permission check. This is a critical audit trail bypass -- a rogue admin can destroy evidence of their actions by purging logs.
+- **Lines 296-327**: The `DELETE /` endpoint allows ANY admin to purge audit logs older than 30 days. There is no `secondTier` middleware or permission check. This is a critical audit trail bypass -- a rogue admin can destroy evidence of their actions by purging logs.
 - **Severity: CRITICAL**
 
 **Issue 17 -- Error Message Information Leakage in Development**
@@ -6302,26 +6302,26 @@ Now I have all the information needed for a comprehensive audit. Let me compile 
 
 ## FILE 7: `admin-backups.js`
 
-**Issue 18 -- Database Restore Endpoint Lacks `superAdmin` Check**
+**Issue 18 -- Database Restore Endpoint Lacks `secondTier` Check**
 
 - **Lines 312-402**: The `POST /:id/restore` endpoint executes `pg_restore` or `psql` against the production database. ANY authenticated admin can trigger a full database restore, which would:
   - Overwrite the entire production database
   - Cause data loss (any data created after the backup was taken)
   - Be used as a denial-of-service attack
-    This requires no `superAdmin` authorization.
+    This requires no `secondTier` authorization.
 - **Severity: CRITICAL**
 
-**Issue 19 -- Database Backup Download Lacks `superAdmin` Check**
+**Issue 19 -- Database Backup Download Lacks `secondTier` Check**
 
 - **Lines 472-503**: The `GET /:id/download` endpoint serves backup files to ANY admin. Backup files contain the complete database contents (including user PII, passwords if not excluded, payment data). This is a mass data exfiltration vector.
 - **Severity: CRITICAL**
 
-**Issue 20 -- Backup Trigger Endpoint Lacks `superAdmin` Check**
+**Issue 20 -- Backup Trigger Endpoint Lacks `secondTier` Check**
 
 - **Lines 404-469**: `POST /trigger` allows any admin to initiate database backups, consuming disk space and database connections. While less severe than restore, it can be used for resource exhaustion.
 - **Severity: MEDIUM**
 
-**Issue 21 -- Backup Delete Lacks `superAdmin` Check**
+**Issue 21 -- Backup Delete Lacks `secondTier` Check**
 
 - **Lines 269-309**: Any admin can delete backup records and their physical files.
 - **Severity: MEDIUM**
@@ -6441,9 +6441,9 @@ Now I have all the information needed for a comprehensive audit. Let me compile 
 - **Lines 257-278**: `dbHelpers.deleteById('questions', id)` appears to perform a hard delete (vs `softDelete`). This permanently destroys question data with no recovery option.
 - **Severity: MEDIUM**
 
-**Issue 41 -- Bulk Question Upload Lacks `superAdmin` Check**
+**Issue 41 -- Bulk Question Upload Lacks `secondTier` Check**
 
-- **Lines 739-843**: Any admin can bulk upload/import thousands of questions. No `superAdmin` requirement.
+- **Lines 739-843**: Any admin can bulk upload/import thousands of questions. No `secondTier` requirement.
 - **Severity: MEDIUM**
 
 ---
@@ -6460,12 +6460,12 @@ Now I have all the information needed for a comprehensive audit. Let me compile 
 
 **Issue 43 -- Any Admin Can Grant/Revoke Pro Status**
 
-- **Lines 87-109**: `PUT /users/:id/pro-pass` allows any admin to grant Pro access to any user without `superAdmin` check. This has financial implications (bypassing payment).
+- **Lines 87-109**: `PUT /users/:id/pro-pass` allows any admin to grant Pro access to any user without `secondTier` check. This has financial implications (bypassing payment).
 - **Severity: HIGH**
 
 **Issue 44 -- Any Admin Can Activate/Deactivate Users**
 
-- **Lines 151-173**: `PUT /users/:id/status` allows any admin to deactivate any other user, including potentially other admins. No `superAdmin` restriction.
+- **Lines 151-173**: `PUT /users/:id/status` allows any admin to deactivate any other user, including potentially other admins. No `secondTier` restriction.
 - **Severity: MEDIUM**
 
 **Issue 45 -- Self-Demotion Check But No Protection Against Demoting Other Admins**
@@ -6482,9 +6482,9 @@ Now I have all the information needed for a comprehensive audit. Let me compile 
 
 ## FILE 14: `middleware/index.js`
 
-**Issue 47 -- Missing Export of `superAdmin`**
+**Issue 47 -- Missing Export of `secondTier`**
 
-- **Lines 1-5**: The middleware barrel file exports `protect`, `optionalAuth`, `admin`, `proPass`, `notFound`, and `errorHandler` but does NOT export `superAdmin`. Any file importing from this path instead of the auth middleware directly won't have access to `superAdmin`, potentially leading to missing authorization on sensitive routes.
+- **Lines 1-5**: The middleware barrel file exports `protect`, `optionalAuth`, `admin`, `proPass`, `notFound`, and `errorHandler` but does NOT export `secondTier`. Any file importing from this path instead of the auth middleware directly won't have access to `secondTier`, potentially leading to missing authorization on sensitive routes.
 - **Severity: LOW**
 
 ---
@@ -6521,7 +6521,7 @@ Now I have all the information needed for a comprehensive audit. Let me compile 
 
 **Issue 52 -- Inconsistent RBAC Granularity**
 
-- Role management (admin-roles.js) correctly requires `superAdmin` for write operations. But financial operations (refunds, payment views), user management (role changes, activation/deactivation, pro status), database operations (backup, restore, download), and audit log deletion all only require basic `admin` role. The RBAC model is not aligned with the principle of least privilege.
+- Role management (admin-roles.js) correctly requires `secondTier` for write operations. But financial operations (refunds, payment views), user management (role changes, activation/deactivation, pro status), database operations (backup, restore, download), and audit log deletion all only require basic `admin` role. The RBAC model is not aligned with the principle of least privilege.
 - **Severity: HIGH**
 
 **Issue 53 -- Error Messages Leak Internal Details**
@@ -6542,11 +6542,11 @@ Now I have all the information needed for a comprehensive audit. Let me compile 
 
 ## TOP 5 MOST URGENT REMEDIATIONS
 
-1. **CRITICAL: Add `superAdmin` middleware to backup restore (line 312), backup download (line 472), and audit log purge (line 296)** -- these endpoints allow any admin to destroy or exfiltrate the entire database.
+1. **CRITICAL: Add `secondTier` middleware to backup restore (line 312), backup download (line 472), and audit log purge (line 296)** -- these endpoints allow any admin to destroy or exfiltrate the entire database.
 
 2. **CRITICAL: Add field whitelists to all `...req.body` spreads** -- Mass assignment in admin-commerce.js (coupons, subscriptions, notifications), admin-bulk-ops.js (test series bulk-update), and admin-questions.js (question create) allows any admin to overwrite arbitrary database columns.
 
-3. **HIGH: Restrict refund endpoint to `superAdmin`** -- Financial operations need elevated authorization.
+3. **HIGH: Restrict refund endpoint to `secondTier`** -- Financial operations need elevated authorization.
 
 4. **HIGH: Fix the PII leak in admin-moderation.js** -- Change `delete safeRow.userEmail` to also delete `safeRow.user_email` (the snake_case alias from the SQL query).
 
@@ -7066,9 +7066,9 @@ Found **28 critical, 70+ medium, and 60+ low** severity issues across the backen
 
 | File               | Line    | Issue                                                                          |
 | ------------------ | ------- | ------------------------------------------------------------------------------ |
-| `admin-audit.js`   | 296-327 | **No superAdmin**: Any admin can purge audit logs → destroy evidence           |
-| `admin-backups.js` | 312-402 | **No superAdmin**: Any admin can restore entire production database            |
-| `admin-backups.js` | 472-503 | **No superAdmin**: Any admin can download backup files → mass PII exfiltration |
+| `admin-audit.js`   | 296-327 | **No secondTier**: Any admin can purge audit logs → destroy evidence           |
+| `admin-backups.js` | 312-402 | **No secondTier**: Any admin can restore entire production database            |
+| `admin-backups.js` | 472-503 | **No secondTier**: Any admin can download backup files → mass PII exfiltration |
 | `worker/index.js`  | 15-29   | **Missing DB connection**: Worker process crashes on any DB-touching job       |
 
 ### Infrastructure
@@ -7111,7 +7111,7 @@ Found **28 critical, 70+ medium, and 60+ low** severity issues across the backen
 | `SettingsService.js`       | 100-124 | Race condition on settings upsert                       |
 | `SessionCaptureService.js` | 64      | Fetch without timeout blocks session creation           |
 | `SessionCaptureService.js` | 90-116  | Race condition creates duplicate sessions               |
-| `admin-payments.js`        | 165-239 | No superAdmin on refund endpoint                        |
+| `admin-payments.js`        | 165-239 | No secondTier on refund endpoint                        |
 | `admin-activity.js`        | 190-202 | Mass assignment: forge activity logs for any user       |
 | `admin-commerce.js`        | 18-37   | Mass assignment on coupons (create + update)            |
 | `admin-content.js`         | 14-50   | N+1: 5 queries per study material                       |
@@ -7131,7 +7131,7 @@ Found **28 critical, 70+ medium, and 60+ low** severity issues across the backen
 
 3. **Race conditions everywhere** — Test start, test submit, attempt numbers, session limits, daily quiz creation, streak updates, settings saves, enrollment checks — all use check-then-act without transactions.
 
-4. **Missing `superAdmin` on destructive endpoints** — Backup restore, backup download, audit log purge, refund, Pro status grants, user deactivation all only require basic `admin` role.
+4. **Missing `secondTier` on destructive endpoints** — Backup restore, backup download, audit log purge, refund, Pro status grants, user deactivation all only require basic `admin` role.
 
 5. **Empty validators** — `auth.validator.js` and `test.validator.js` export empty schemas. No middleware-based input validation is actually enforced.
 
@@ -10211,7 +10211,7 @@ All issues from this audit have been remediated. See `REMEDIATION_PLAN.md` for t
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------ |
 | 1            | Infrastructure (nginx, vite, vercel, package, Dockerfile, ESLint, PurgeCSS, Tailwind, PWA)                                                                                                                                 | 11       | ✅     |
 | 2            | Security (auth, 2FA, phone auth, JWT secrets, CSRF, IP allowlist, WS auth, AI rate limit, Razorpay)                                                                                                                        | 11       | ✅     |
-| 3            | Backend correctness (OOM bombs, race conditions, cert verification, `$or` fix, mass assignment, superAdmin guards)                                                                                                         | 20       | ✅     |
+| 3            | Backend correctness (OOM bombs, race conditions, cert verification, `$or` fix, mass assignment, secondTier guards)                                                                                                         | 20       | ✅     |
 | 4            | Frontend correctness (PYPTest, AI stream, print XSS, Calculator, localStorage, setTimeout leaks, Race/double-fetch, sanitizers, React.memo, index-key)                                                                     | 28       | ✅     |
 | 5            | Admin panel (NotificationsManager._id, QuestionsManager extraction)                                                                                                                                                        | 8        | ✅     |
 | 6            | Code quality (dataService.js split, empty validators, duplicate routes documented)                                                                                                                                         | 8        | ✅     |

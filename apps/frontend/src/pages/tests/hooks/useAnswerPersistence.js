@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { apiClient } from "../../../shared/lib/api";
-import { API_BASE_URL } from "../../../shared/lib/apiBase.js";
+import { sendAutosaveBeacon } from "../../../shared/lib/autosaveBeacon.js";
 
 const ANSWERS_KEY = (id) => `trstprep_answers_${id}`;
 const OFFLINE_BUFFER_TTL_MS = 24 * 60 * 60 * 1000;
@@ -198,14 +198,7 @@ export function useAnswerPersistence({
           sectionTimers: s.computeSectionTimers(),
           currentSection: s.currentSection,
         };
-        const autosaveEndpoint = `${API_BASE_URL || ""}/api/tests/${actualTestId}/autosave`;
-        fetch(autosaveEndpoint, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          credentials: "include",
-          keepalive: true,
-        }).catch(() => {});
+        sendAutosaveBeacon(actualTestId, payload);
       } catch {}
     };
     window.addEventListener("beforeunload", handleBeforeUnload);

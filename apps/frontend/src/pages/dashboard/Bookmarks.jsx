@@ -28,6 +28,10 @@ import MathRenderer from "../../shared/components/MathRenderer";
 import sanitizeHtml from "../../shared/lib/sanitizeHtml";
 import QuestionDetailModal from "./components/QuestionDetailModal";
 
+// Bookmark ids already warned about an unknown itemType (module scope so the
+// warn-once guard survives re-renders; getLink runs during render).
+const unknownTypeWarned = new Set();
+
 export default function Bookmarks() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("questions"); // 'questions' | 'other' | 'reported'
@@ -60,7 +64,12 @@ export default function Bookmarks() {
           setLoading(true);
           setError(null);
           const [bookmarksRes, countRes] = await Promise.all([
-            bookmarksAPI.getAll(1, 50, { signal: controller.signal }),
+            // List paint: lightweight rows only (includeDetails=false, limit 20).
+            // Full question details lazy-load on demand via QuestionDetailModal.
+            bookmarksAPI.getAll(1, 20, {
+              signal: controller.signal,
+              includeDetails: false,
+            }),
             bookmarksAPI.getCount({ signal: controller.signal }),
           ]);
           if (!cancelledRef.current) {
@@ -73,7 +82,7 @@ export default function Bookmarks() {
             err?.code !== "ERR_CANCELED" &&
             !cancelledRef.current
           ) {
-            console.error("Error fetching bookmarks:", err);
+            console.error("Error fetching bookmarks:", err?.message ?? err);
             if (!cancelledRef.current)
               setError("Failed to load saved items. Please try again.");
           }
@@ -93,17 +102,25 @@ export default function Bookmarks() {
 
   useEffect(() => {
     if (user && activeTab === "reported") {
+      const controller = new AbortController();
       cancelledRef.current = false;
       const fetchMyReports = async () => {
         try {
           setReportsLoading(true);
-          const res = await apiClient.get("/api/practice/reports/my");
+          const res = await apiClient.get("/api/practice/reports/my", {
+            signal: controller.signal,
+          });
           if (!cancelledRef.current) {
             setMyReports(res.data?.data || []);
           }
         } catch (err) {
-          if (!cancelledRef.current) {
-            console.error("Failed to fetch reported questions:", err);
+          if (
+            err?.name !== "CanceledError" &&
+            err?.code !== "ERR_CANCELED" &&
+            !controller.signal.aborted &&
+            !cancelledRef.current
+          ) {
+            console.error("Failed to fetch reported questions:", err?.message ?? err);
             setError("Failed to fetch reported questions.");
           }
         } finally {
@@ -113,27 +130,29 @@ export default function Bookmarks() {
       fetchMyReports();
       return () => {
         cancelledRef.current = true;
+        controller.abort();
       };
     }
   }, [user, activeTab]);
 
-  const fetchBookmarks = async () => {
+  const fetchBookmarks = async (signal) => {
     try {
       if (cancelledRef.current) return;
       setLoading(true);
       setError(null);
       const [response, countData] = await Promise.all([
-        bookmarksAPI.getAll(page, 50),
-        bookmarksAPI.getCount().catch(() => null),
+        // Lightweight list paint; details lazy-load in the modal.
+        bookmarksAPI.getAll(page, 20, { includeDetails: false, signal }),
+        bookmarksAPI.getCount({ signal }).catch(() => null),
       ]);
       if (!cancelledRef.current) {
         setBookmarks(response.data || []);
         setTotalCount(countData?.count || 0);
-        setHasMore((response.data || []).length >= 50);
+        setHasMore((response.data || []).length >= 20);
       }
     } catch (err) {
       if (!cancelledRef.current) {
-        console.error("Failed to fetch bookmarks:", err);
+        console.error("Failed to fetch bookmarks:", err?.message ?? err);
         setError("Failed to load saved items.");
         setBookmarks([]);
       }
@@ -144,19 +163,29 @@ export default function Bookmarks() {
 
   const loadMore = async () => {
     if (cancelledRef.current || loadingMore) return;
+    // Cap client-side accumulation at 200 rows to bound DOM/memory cost.
+    // Users past the cap should refine filters instead of paging further
+    // (server-side pagination remains the source of truth; consider
+    // virtualization if this cap ever needs raising).
+    const MAX_BOOKMARK_ROWS = 200;
+    if (bookmarks.length >= MAX_BOOKMARK_ROWS) return;
     try {
       setLoadingMore(true);
       const nextPage = page + 1;
-      const response = await bookmarksAPI.getAll(nextPage, 50);
+      const controller = new AbortController();
+      const response = await bookmarksAPI.getAll(nextPage, 20, {
+        includeDetails: false,
+        signal: controller.signal,
+      });
       const newBookmarks = response.data || [];
       if (!cancelledRef.current) {
-        setBookmarks((prev) => [...prev, ...newBookmarks]);
+        setBookmarks((prev) => [...prev, ...newBookmarks].slice(0, MAX_BOOKMARK_ROWS));
         setPage(nextPage);
-        setHasMore(newBookmarks.length >= 50);
+        setHasMore(newBookmarks.length >= 20);
       }
     } catch (err) {
       if (!cancelledRef.current) {
-        console.error("Failed to load more bookmarks:", err);
+        console.error("Failed to load more bookmarks:", err?.message ?? err);
         toast.error("Failed to load more items.");
       }
     } finally {
@@ -171,7 +200,7 @@ export default function Bookmarks() {
       setTotalCount((prev) => Math.max(0, prev - 1));
       toast.success("Question removed from saved list");
     } catch (err) {
-      console.error("Failed to remove bookmark:", err);
+      console.error("Failed to remove bookmark:", err?.message ?? err);
       toast.error("Failed to remove item.");
     }
   };
@@ -185,7 +214,7 @@ export default function Bookmarks() {
         ),
       );
     } catch (err) {
-      console.error("Failed to update bookmark note:", err);
+      console.error("Failed to update bookmark note:", err?.message ?? err);
       throw err;
     }
   };
@@ -336,8 +365,20 @@ export default function Bookmarks() {
         return bookmark.item?.publicId || bookmark.item?.subjectSlug
           ? getVideoUrl(bookmark.item)
           : `/videos/${bookmark.itemId}`;
-      default:
-        return bookmark.link || "/";
+      default: {
+        // Unknown bookmark type: stay put and surface feedback instead of
+        // navigating to a bogus route. Toast is fired once per bookmark id —
+        // getLink runs during render, so unguarded toasts would spam.
+        const key = `${bookmark.itemType || "unknown"}:${bookmark.itemId || bookmark.id || "?"}`;
+        if (!unknownTypeWarned.has(key)) {
+          unknownTypeWarned.add(key);
+          console.warn(`[Bookmarks] Unknown bookmark itemType: ${bookmark.itemType}`);
+          toast.error(
+            `Unsupported saved item type (${bookmark.itemType || "unknown"}).`,
+          );
+        }
+        return "#";
+      }
     }
   };
 
@@ -527,6 +568,7 @@ export default function Bookmarks() {
                     onClick={() => setLayoutMode("list")}
                     className={`p-1 sm:p-1.5 rounded-lg transition ${layoutMode === "list" ? "bg-indigo-600 text-white shadow-xs" : "text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
                     title="Compact List Rows"
+                    aria-label="Compact List Rows"
                   >
                     <List className="w-3.5 h-3.5" />
                   </button>
@@ -534,6 +576,7 @@ export default function Bookmarks() {
                     onClick={() => setLayoutMode("grid")}
                     className={`p-1 sm:p-1.5 rounded-lg transition ${layoutMode === "grid" ? "bg-indigo-600 text-white shadow-xs" : "text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
                     title="Card Grid"
+                    aria-label="Card Grid"
                   >
                     <Grid className="w-3.5 h-3.5" />
                   </button>
@@ -807,14 +850,21 @@ export default function Bookmarks() {
             )}
 
             {/* Load More Button */}
-            {user && hasMore && questionBookmarks.length >= 50 && (
+            {user && hasMore && questionBookmarks.length >= 20 && (
               <div className="text-center pt-2">
+                {bookmarks.length >= 200 ? (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Showing 200 of {_totalCount || bookmarks.length} — refine
+                    filters to narrow results.
+                  </p>
+                ) : (
                 <button
                   onClick={loadMore}
                   className="px-4 py-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors shadow-2xs"
                 >
                   Load More Questions
                 </button>
+                )}
               </div>
             )}
           </div>
@@ -862,6 +912,7 @@ export default function Bookmarks() {
                             onClick={() => removeBookmark(b._id || b.id)}
                             className="p-1 text-gray-400 hover:text-rose-600 rounded"
                             title="Remove"
+                            aria-label="Remove bookmark"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

@@ -281,6 +281,37 @@ class DataService {
   }
 
   async getQuestions(options = {}) {
+    // Student-app guard: /api/admin/questions is admin-only. Fail fast with a
+    // friendly error instead of surfacing a raw 403 to learners. Admin callers
+    // live in the admin panel; the student app should use getQuestionsByTestId.
+    const cachedUser =
+      (() => {
+        try {
+          for (const key of ["trstprep_user", "user", "trstprep_auth_user"]) {
+            const raw =
+              (typeof localStorage !== "undefined" &&
+                localStorage.getItem(key)) ||
+              (typeof sessionStorage !== "undefined" &&
+                sessionStorage.getItem(key));
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              const u = parsed?.user || parsed?.data?.user || parsed;
+              if (u && typeof u === "object") return u;
+            }
+          }
+        } catch {
+          // ignore parse errors — fall through to the network call
+        }
+        return null;
+      })();
+    const isAdmin =
+      cachedUser?.isAdmin === true ||
+      cachedUser?.role === "admin";
+    if (!isAdmin) {
+      throw new ValidationError(
+        "Question bank browsing is not available in the student app. Open the question from its test instead.",
+      );
+    }
     const key = this.cache.generateKey("/admin/questions");
     return this.fetchWithCache(
       key,

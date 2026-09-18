@@ -94,7 +94,7 @@ INSERT INTO permissions (name, resource, action, description) VALUES
 ('subscriptions:edit', 'subscriptions', 'update', 'Edit subscriptions'),
 ('subscriptions:delete', 'subscriptions', 'delete', 'Delete subscriptions'),
 
--- Role & Permission Management (Super Admin Only)
+-- Role & Permission Management (Second-tier Only)
 ('roles:view', 'roles', 'read', 'View roles'),
 ('roles:create', 'roles', 'create', 'Create roles'),
 ('roles:edit', 'roles', 'update', 'Edit roles'),
@@ -121,7 +121,7 @@ ON CONFLICT (name) DO NOTHING;
 -- =====================================================
 
 INSERT INTO roles (name, description) VALUES
-('super_admin', 'Full access to all features including system settings and role management'),
+('second_tier', 'Full access to all features including system settings and role management'),
 ('admin', 'Full access to content management and user operations'),
 ('editor', 'Can manage content (tests, questions, materials) but not users or roles'),
 ('viewer', 'Read-only access to analytics and content'),
@@ -132,15 +132,15 @@ ON CONFLICT (name) DO NOTHING;
 -- 4. ASSIGN PERMISSIONS TO ROLES
 -- =====================================================
 
--- Super Admin: All permissions
+-- Second-tier: All permissions
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT 
-  (SELECT id FROM roles WHERE name = 'super_admin'),
+  (SELECT id FROM roles WHERE name = 'second_tier'),
   id
 FROM permissions
 ON CONFLICT DO NOTHING;
 
--- Admin: Most permissions except super admin features
+-- Admin: Most permissions except second-tier features
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT 
   (SELECT id FROM roles WHERE name = 'admin'),

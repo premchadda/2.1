@@ -14,7 +14,9 @@ export function useSearch(items = [], getFields, options = {}) {
   const debouncedQuery = useDebounce(query, debounceDelay);
 
   const results = useMemo(() => {
-    if (!debouncedQuery.trim()) return items;
+    // Return a copy on blank query so callers can't mutate the source array
+    // through the returned reference.
+    if (!debouncedQuery.trim()) return [...items];
     return filterAndRank(items, debouncedQuery, getFields, {
       threshold,
       maxResults,

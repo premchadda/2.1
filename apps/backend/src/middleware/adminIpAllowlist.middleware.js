@@ -3,7 +3,7 @@ import { isAdminEndpoint } from './origin.middleware.js'
 /**
  * Admin IP allowlist middleware for /api/admin endpoints (new control #13).
  *
- * Reads ALLOWED_ADMIN_IPS — a comma-separated list of IPv4 addresses and/or
+ * Reads ALLOWED_ADMIN_IPS (alias: ADMIN_IP_ALLOWLIST) — a comma-separated list
  * CIDR ranges (e.g. "10.0.0.0/8,203.0.113.5"). If unset/empty, the middleware is
  * a no-op passthrough so nothing breaks by default.
  *
@@ -74,7 +74,8 @@ export const adminIpAllowlist = (req, res, next) => {
     return next()
   }
 
-  const rawList = process.env.ALLOWED_ADMIN_IPS
+  const rawList =
+    process.env.ALLOWED_ADMIN_IPS || process.env.ADMIN_IP_ALLOWLIST;
   if (!rawList || rawList.trim() === '') {
     // No allowlist configured → passthrough (no-op).
     return next()
@@ -82,7 +83,17 @@ export const adminIpAllowlist = (req, res, next) => {
 
   const rules = rawList.split(',').map(parseCidr).filter(Boolean)
   if (rules.length === 0) {
-    return next()
+    // Fail-closed: an allowlist was configured but zero entries parsed to a
+    // valid IP/CIDR (typo, bad format). Passing through would silently disable
+    // the control, so refuse admin traffic loudly instead.
+    console.error(
+      '[Admin IP Allowlist] FATAL: allowlist configured but no valid entries parsed — denying admin traffic'
+    )
+    return res.status(500).json({
+      success: false,
+      message: 'Server misconfigured',
+      code: 'ADMIN_IP_ALLOWLIST_INVALID'
+    })
   }
 
   const clientIp = resolveClientIp(req)

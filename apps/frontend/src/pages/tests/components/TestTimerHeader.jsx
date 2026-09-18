@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   Pause,
   Play,
-  Globe,
   ZoomIn,
   LayoutDashboard,
   Menu,
@@ -45,7 +44,9 @@ export default function TestTimerHeader({
             <button
               onClick={() => {
                 if (reviewMode) {
-                  navigate(`/test-result/${seriesId}/${testId}`, {
+                  // Canonical result route (see src/App.jsx + post-submit
+                  // navigate in TestInterface.jsx): /:seriesSlug/tests/:testId/result
+                  navigate(`/${seriesId}/tests/${testId}/result`, {
                     state: { attemptId: location.state?.attemptId },
                   });
                 } else {
@@ -141,23 +142,6 @@ export default function TestTimerHeader({
               </button>
             )}
 
-            {/* Language Switcher Button */}
-            <button
-              onClick={() =>
-                setLanguage((lang) => {
-                  const next = lang === "en" ? "hi" : "en";
-                  document.documentElement.lang = next;
-                  return next;
-                })
-              }
-              title="Change Language"
-              className="flex items-center gap-1 h-7 sm:h-8 px-2 sm:px-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors shadow-2xs"
-            >
-              <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-              <span className="text-[11px] sm:text-xs font-bold text-gray-700 dark:text-gray-200">
-                {language.toUpperCase()}
-              </span>
-            </button>
 
             {/* Fullscreen Button (Desktop) */}
             {!reviewMode && (

@@ -8,6 +8,7 @@ import {
   examAPI,
   testsAPI,
   fetchFromAPI,
+  apiClient,
 } from "../../shared/lib/dataService";
 import { SEO } from "../../shared/components";
 import HeroSection from "./home/HeroSection";
@@ -259,9 +260,9 @@ function Home() {
           link.href = "/test-series";
           document.head.appendChild(link);
           // Also warm the API cache
-          fetch("/api/test-series?limit=6", { credentials: "include" }).catch(
-            () => {},
-          );
+          apiClient
+            .get("/api/test-series", { params: { limit: 6 } })
+            .catch(() => {});
           io.disconnect();
         }
       },

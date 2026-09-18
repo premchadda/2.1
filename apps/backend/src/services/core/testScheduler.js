@@ -18,14 +18,27 @@ let maintenanceHandle = null
 import { getRedisClient } from '../../infrastructure/cache/redisClient.js'
 
 const LOCK_KEY = 'scheduler:lock'
+// Subscription expiry sweeps must NEVER share the scheduler lock: a long
+// subscription sweep would otherwise block test state transitions (and vice
+// versa). Subscription callers use SUBSCRIPTION_LOCK_KEY independently.
+export const SUBSCRIPTION_LOCK_KEY = 'subscription:lock'
 const LOCK_TTL_MS = 55_000 // Slightly less than CHECK_INTERVAL_MS
 
+// Overlap guard: a slow sweep must never stack with the next tick, even on
+// a single instance where the Redis lock is a no-op (redis null).
+let isProcessing = false
+
 const processTransitions = async () => {
+  if (isProcessing) return
+  isProcessing = true
   const redis = getRedisClient()
+  let lockAcquired = false
+  try {
   if (redis) {
     // Attempt to acquire distributed lock
     const locked = await redis.set(LOCK_KEY, 'locked', 'PX', LOCK_TTL_MS, 'NX')
-    if (!locked) return // Another instance holds the lock
+    if (!locked) { isProcessing = false; return } // Another instance holds the lock
+    lockAcquired = true
   }
 
   const now = new Date().toISOString()
@@ -40,10 +53,15 @@ const processTransitions = async () => {
         }
         if (!targetFieldValue || targetFieldValue > now) continue
 
-        // Validate state machine transition
-        const isValid = testStateMachine.validateTransition(test.status, t.to)
-        if (!isValid) {
+        // Authoritative transition check (mirrors test.service.js transitionState):
+        // canTransition enforces the allowed edge, validateTransition enforces guards.
+        if (!testStateMachine.canTransition(test.status, t.to)) {
           logger.warn(`[TestScheduler] Invalid transition for test ${test.id} from ${test.status} → ${t.to}`)
+          continue
+        }
+        const guardError = testStateMachine.validateTransition(test, t.to)
+        if (guardError) {
+          logger.warn(`[TestScheduler] Guard blocked transition for test ${test.id} from ${test.status} → ${t.to}: ${guardError}`)
           continue
         }
 
@@ -58,6 +76,14 @@ const processTransitions = async () => {
     } catch (err) {
       logger.error(`[TestScheduler] Error processing ${t.from}→${t.to}:`, err.message)
     }
+  }
+  } finally {
+    // Release the distributed lock so the next tick never waits out the
+    // full TTL after a fast sweep; TTL remains as the crash-safety net.
+    if (redis && lockAcquired) {
+      try { await redis.del(LOCK_KEY) } catch { /* best-effort */ }
+    }
+    isProcessing = false
   }
 }
 

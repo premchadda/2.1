@@ -1,11 +1,12 @@
 import express from "express";
 import { protect, admin } from "../../middleware/auth.middleware.js";
+import { aiRateLimiter } from "../../middleware/aiRateLimiter.js";
 import vectorSearchService from "./vectorSearch.service.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
 
-router.post("/semantic", async (req, res) => {
+router.post("/semantic", protect, aiRateLimiter, async (req, res) => {
   try {
     const { query, difficulty, topicId, subject, limit, threshold } = req.body;
     if (!query) {
@@ -29,7 +30,7 @@ router.post("/semantic", async (req, res) => {
   }
 });
 
-router.get("/similar/:questionId", protect, async (req, res) => {
+router.get("/similar/:questionId", protect, aiRateLimiter, async (req, res) => {
   try {
     const { limit, threshold } = req.query;
     const results = await vectorSearchService.findSimilar(
@@ -47,7 +48,7 @@ router.get("/similar/:questionId", protect, async (req, res) => {
   }
 });
 
-router.post("/by-description", protect, async (req, res) => {
+router.post("/by-description", protect, aiRateLimiter, async (req, res) => {
   try {
     const { description, difficulty, topicId, subject, limit } = req.body;
     if (!description) {
@@ -70,7 +71,7 @@ router.post("/by-description", protect, async (req, res) => {
   }
 });
 
-router.post("/index/:questionId", protect, admin, async (req, res, next) => {
+router.post("/index/:questionId", protect, admin, aiRateLimiter, async (req, res, next) => {
   // Registered before POST /index/batch and POST /index/all-unindexed: forward
   // those literals so they are not parsed as a question id (both were
   // unreachable — /api/search/vector/index/batch returned a 400 instead).
@@ -87,7 +88,7 @@ router.post("/index/:questionId", protect, admin, async (req, res, next) => {
   }
 });
 
-router.post("/index/batch", protect, admin, async (req, res) => {
+router.post("/index/batch", protect, admin, aiRateLimiter, async (req, res) => {
   try {
     const { questionIds } = req.body;
     if (!questionIds || !Array.isArray(questionIds)) {
@@ -97,8 +98,15 @@ router.post("/index/batch", protect, admin, async (req, res) => {
       });
     }
 
-    const results = await vectorSearchService.indexBatch(questionIds);
-    res.json({ success: true, data: results });
+    // Cap parity with questionSearch /index/bulk (50/page): slice oversized
+    // batches and surface truncated so callers page the remainder.
+    const requested = questionIds.length;
+    const limit = 50;
+    const truncated = requested > limit;
+    const results = await vectorSearchService.indexBatch(
+      truncated ? questionIds.slice(0, limit) : questionIds,
+    );
+    res.json({ success: true, data: { ...results, truncated } });
   } catch (error) {
     res
       .status(400)
@@ -106,11 +114,14 @@ router.post("/index/batch", protect, admin, async (req, res) => {
   }
 });
 
-router.post("/index/all-unindexed", protect, admin, async (req, res) => {
+router.post("/index/all-unindexed", protect, admin, aiRateLimiter, async (req, res) => {
   try {
-    const { limit } = req.body;
+    // Cursor params (15): afterId/maxPages passthrough to the service.
+    const { limit, afterId, afterCursor, maxPages } = req.body;
     const results = await vectorSearchService.indexAllUnindexed(
       parseInt(limit) || 100,
+      afterId ?? afterCursor ?? null,
+      parseInt(maxPages) || 10,
     );
     res.json({ success: true, data: results });
   } catch (error) {
@@ -120,7 +131,7 @@ router.post("/index/all-unindexed", protect, admin, async (req, res) => {
   }
 });
 
-router.get("/stats", protect, admin, async (req, res) => {
+router.get("/stats", protect, admin, aiRateLimiter, async (req, res) => {
   try {
     const stats = await vectorSearchService.getStats();
     const hasPgvector = await vectorSearchService.checkPgvector();

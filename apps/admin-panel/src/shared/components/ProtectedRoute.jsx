@@ -69,24 +69,18 @@ function ProtectedRoute({
   }
 
   // Check admin role
-  const isAdminRole =
-    user.role === "admin" ||
-    user.role === "super_admin" ||
-    user.isAdmin === true;
+  const isAdminRole = user.role === "admin" || user.isAdmin === true;
   if (adminOnly && !isAdminRole) {
     return <Forbidden />;
   }
 
-  // Fixed P1: do not grant default perms when backend returns empty array (was privilege escalation) - backend must provide perms
+  // Deny-by-default: empty permission arrays grant nothing.
+  // Only the wildcard "*" permission bypasses checks.
+  // role === "admin" or isAdmin === true with NO loaded perms => NOT elevated,
+  // so the resource/permission checks below deny (render <Forbidden />).
   const userPerms = Array.isArray(user.permissions) ? user.permissions : [];
 
-  const isSuper =
-    userPerms.includes("*") ||
-    user.role === "super_admin" ||
-    user.isSuperAdmin === true ||
-    user.is_super_admin === true ||
-    (user.role === "admin" && userPerms.length === 0) ||
-    (user.isAdmin === true && userPerms.length === 0);
+  const isSuper = userPerms.includes("*");
 
   const checkPerm = (requiredPerm) =>
     hasPermission(userPerms, requiredPerm, isSuper);

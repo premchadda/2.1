@@ -123,6 +123,7 @@ const Community = lazy(() => import("./pages/community/Community"));
 // --- Error Pages (lazy) ---
 const NotFound = lazy(() => import("./pages/errors/NotFound"));
 const ServerError = lazy(() => import("./pages/errors/ServerError"));
+const Offline = lazy(() => import("./pages/errors/Offline"));
 
 function LegacyExamRedirect() {
   const { examId } = useParams();
@@ -143,9 +144,17 @@ function LegacyExamRedirect() {
 function AdminPanelRedirect() {
   const [searchParams] = useSearchParams();
   const next = searchParams.get("next") || undefined;
+  const adminBase =
+    import.meta.env.VITE_ADMIN_URL ||
+    (import.meta.env.PROD ? window.location.origin : "http://localhost:3002");
+  if (import.meta.env.PROD && !import.meta.env.VITE_ADMIN_URL) {
+    console.error(
+      "VITE_ADMIN_URL is not set; falling back to same-origin for admin redirect.",
+    );
+  }
   return (
     <Navigate
-      to={`${import.meta.env.VITE_ADMIN_URL || "http://localhost:3002"}/login${next ? `?next=${encodeURIComponent(next)}` : ""}`}
+      to={`${adminBase}/login${next ? `?next=${encodeURIComponent(next)}` : ""}`}
       replace
     />
   );
@@ -234,6 +243,9 @@ const layoutRoutes = [
   createRoute("/study/:subjectId", <StudyMaterialDetail />),
   createRoute("/study/:subjectId/:chapterId", <StudyMaterialChapter />),
   createRoute("/exams", <Exams />),
+  // DEPRECATED alias: ExamsNew was consolidated into Exams (single catalog
+  // component). /exams-new stays alive so no dead export/route lingers.
+  createRoute("/exams-new", <Exams />),
   createRoute("/exams-old", <Navigate to="/exams" replace />),
   createRoute("/exams/category/:categoryId", <ExamCategory />),
   createRoute("/exams/category/:categoryId/exam/:examId", <ExamInfoNew />),
@@ -242,6 +254,9 @@ const layoutRoutes = [
     <ExamYear />,
   ),
   createRoute("/exam/:examId", <ExamInfoNew />),
+  // DEPRECATED alias: ExamDetails was consolidated into ExamInfoNew.
+  // /exam-old/:examId stays alive via LegacyExamRedirect so the legacy
+  // route never becomes a dead export.
   createRoute("/exam-old/:examId", <LegacyExamRedirect />),
   createRoute("/exam/:examId/updates", <ExamUpdates />),
   createRoute("/exam/:examId/year/:year", <ExamYear />),
@@ -322,6 +337,12 @@ const layoutRoutes = [
     pageKey: "achievements",
   }),
   createRoute("/error-500", <ServerError />),
+  // Offline fallback (PWA): served when navigations fail without connectivity.
+  // NOTE (follow-up): to serve this page from the service worker itself, add
+  // a workbox offline-fallback handler for navigations (NetworkOnly +
+  // catch → precached /offline). navigateFallback currently serves
+  // /index.html, so this route covers in-app offline states only.
+  createRoute("/offline", <Offline />),
 ];
 
 function App() {
@@ -331,14 +352,14 @@ function App() {
     : null;
 
   return (
-    <ConditionalGoogleProvider>
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-indigo-600 focus:text-white focus:rounded-lg focus:shadow-lg focus:outline-none font-medium"
-      >
-        Skip to main content
-      </a>
-      <ErrorBoundary>
+    <ErrorBoundary>
+      <ConditionalGoogleProvider>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-indigo-600 focus:text-white focus:rounded-lg focus:shadow-lg focus:outline-none font-medium"
+        >
+          Skip to main content
+        </a>
         <MaintenanceMode>
           <ScrollToTop />
           <PwaUpdatePrompt />
@@ -352,7 +373,7 @@ function App() {
                   <Route key={path} path={path} element={element} />
                 ))}
               </Route>
-              <Route path="/admin/*" element={<AdminPanelRedirect />} />
+              <Route path="/admin/*" element={wrapElement(<AdminPanelRedirect />)} />
               <Route path="*" element={wrapElement(<NotFound />)} />
             </Routes>
 
@@ -365,8 +386,8 @@ function App() {
             )}
           </Suspense>
         </MaintenanceMode>
-      </ErrorBoundary>
-    </ConditionalGoogleProvider>
+      </ConditionalGoogleProvider>
+    </ErrorBoundary>
   );
 }
 

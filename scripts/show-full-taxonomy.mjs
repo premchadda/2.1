@@ -16,6 +16,21 @@ const client = new pg.Client({
 })
 await client.connect()
 
+// Try candidate SQL statements in order, returning the first that succeeds.
+// Used for canonical-vs-legacy table names (subject_units vs units, ...):
+// the audit found this script false-failing on canonical schemas.
+const queryFirst = async (client, candidates) => {
+  let lastErr = null
+  for (const sql of candidates) {
+    try {
+      return await client.query(sql)
+    } catch (e) {
+      lastErr = e
+    }
+  }
+  throw lastErr
+}
+
 console.log('='.repeat(80))
 console.log('FULL SUBJECT TAXONOMY FROM DATABASE')
 console.log('='.repeat(80))
@@ -72,12 +87,22 @@ for (const r of subjectsResult.rows) {
 }
 console.log()
 
-// 3. UNITS TABLE
-console.log('### 3. UNITS (formerly subject_parts) TABLE')
+// 3. UNITS TABLE (canonical: subject_units — legacy: units)
+console.log('### 3. UNITS (subject_units; falls back to legacy units) TABLE')
 console.log()
 try {
-  const unitsResult = await client.query(`
-    SELECT 
+  const unitsResult = await queryFirst(client, [
+    `SELECT
+      u.id,
+      u.name,
+      u.subject_id,
+      s.name as subject_name,
+      u.parent_id as part_id,
+      u.is_active
+    FROM subject_units u
+    LEFT JOIN subjects s ON u.subject_id = s.id
+    ORDER BY u.subject_id, u.id`,
+    `SELECT
       u.id,
       u.name,
       u.subject_id,
@@ -86,8 +111,8 @@ try {
       u.is_active
     FROM units u
     LEFT JOIN subjects s ON u.subject_id = s.id
-    ORDER BY u.subject_id, u.id
-  `)
+    ORDER BY u.subject_id, u.id`,
+  ])
   
   console.log('| Unit ID | Name | Subject ID | Subject Name | Part ID | Active |')
   console.log('|---------|------|------------|--------------|---------|--------|')
@@ -100,12 +125,25 @@ try {
   console.log()
 }
 
-// 4. CHAPTERS TABLE
+// 4. CHAPTERS TABLE (canonical: subject_chapters — legacy: chapters)
 console.log('### 4. CHAPTERS TABLE (sample - first 20)')
 console.log()
 try {
-  const chaptersResult = await client.query(`
-    SELECT 
+  const chaptersResult = await queryFirst(client, [
+    `SELECT
+      c.id,
+      c.title,
+      c.subject_id,
+      s.name as subject_name,
+      c.unit_id,
+      u.name as unit_name
+    FROM subject_chapters c
+    LEFT JOIN subjects s ON c.subject_id = s.id
+    LEFT JOIN subject_units u ON c.unit_id = u.id
+    WHERE c.is_active = true OR c.is_active IS NULL
+    ORDER BY c.subject_id, c.unit_id, c.id
+    LIMIT 20`,
+    `SELECT
       c.id,
       c.title,
       c.subject_id,
@@ -117,8 +155,8 @@ try {
     LEFT JOIN units u ON c.unit_id = u.id
     WHERE c.is_active = true OR c.is_active IS NULL
     ORDER BY c.subject_id, c.unit_id, c.id
-    LIMIT 20
-  `)
+    LIMIT 20`,
+  ])
   
   console.log('| Chapter ID | Title | Subject ID | Subject Name | Unit ID | Unit Name |')
   console.log('|------------|-------|------------|--------------|---------|-----------|')
@@ -132,12 +170,22 @@ try {
   console.log()
 }
 
-// 5. TOPICS TABLE
+// 5. TOPICS TABLE (canonical: subject_topics — legacy: topics)
 console.log('### 5. TOPICS TABLE (sample - first 20)')
 console.log()
 try {
-  const topicsResult = await client.query(`
-    SELECT 
+  const topicsResult = await queryFirst(client, [
+    `SELECT
+      t.id,
+      t.name,
+      t.chapter_id as subject,
+      t.parent_topic_id,
+      t.is_active
+    FROM subject_topics t
+    WHERE t.is_active = true OR t.is_active IS NULL
+    ORDER BY t.chapter_id, t.id
+    LIMIT 20`,
+    `SELECT
       t.id,
       t.name,
       t.subject,
@@ -146,8 +194,8 @@ try {
     FROM topics t
     WHERE t.is_active = true OR t.is_active IS NULL
     ORDER BY t.subject, t.id
-    LIMIT 20
-  `)
+    LIMIT 20`,
+  ])
   
   console.log('| Topic ID | Name | Subject | Parent Topic ID | Active |')
   console.log('|----------|------|---------|-----------------|--------|')

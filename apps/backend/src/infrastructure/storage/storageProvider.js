@@ -90,7 +90,8 @@ const ensureDir = async (dir) => {
 
 const uploadLocal = async (file, scope = {}) => {
   const storageType = getStorageTypeFromMimeType(file.mimetype)
-  const fileName = file.filename || path.basename(file.path || '')
+  const rawName = file.filename || path.basename(file.path || '') || `asset-${Date.now()}`
+  const fileName = sanitizePathPart(rawName) || `asset-${Date.now()}`
   const { testId, testSeriesId } = scope
 
   // For scoped uploads, mirror the S3-style path on local disk:
@@ -301,11 +302,15 @@ export const storeUploadedAssetFile = async (file, { category = 'general', testI
   const provider = normalizeProviderName()
   const scope = { testId, testSeriesId }
 
+  // STORAGE_FAIL_CLOSED=true: throw on remote-provider failure instead of
+  // silently falling back to ephemeral local disk (prevents data-loss surprises).
+  const failClosed = process.env.STORAGE_FAIL_CLOSED === 'true'
   // Try configured provider first
   if (provider === 's3') {
     try {
       return await uploadS3(file, category, scope)
     } catch (error) {
+      if (failClosed) throw error
       console.warn('S3 upload failed, falling back to local:', error.message)
     }
   }
@@ -314,6 +319,7 @@ export const storeUploadedAssetFile = async (file, { category = 'general', testI
     try {
       return await uploadSupabase(file, category, scope)
     } catch (error) {
+      if (failClosed) throw error
       console.warn('Supabase upload failed, falling back to local:', error.message)
     }
   }
@@ -324,7 +330,9 @@ export const storeUploadedAssetFile = async (file, { category = 'general', testI
   return uploadLocal(file, scope)
 }
 
-const UPLOADS_BASE = process.env.STORAGE_BASE_PATH || path.resolve(__dirname, '../../uploads')
+// Single canonical uploads root: apps/backend/uploads. UPLOADS_BASE is kept as
+// an alias so local delete paths resolve identically to upload paths.
+const UPLOADS_BASE = UPLOADS_ROOT
 
 const deleteLocal = async (storageKey) => {
   if (!storageKey) return true

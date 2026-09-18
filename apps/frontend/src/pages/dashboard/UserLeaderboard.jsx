@@ -36,6 +36,7 @@ import {
 } from "recharts";
 
 import { useAuth } from "../../shared/providers/AuthContext";
+import { handleAvatarError } from "../../shared/utils/avatarFallback.js";
 import {
   userAPI,
   getTopPerformersLeaderboard,
@@ -147,6 +148,15 @@ function BadgeIcon({ badge }) {
   if (!badge) return null;
   return <Medal size={15} style={{ color: colors[badge] }} />;
 }
+
+const isAvatarUrl = (v) =>
+  typeof v === "string" && /^(https?:|data:)/.test(v);
+
+const avatarInitials = (name) =>
+  name
+    ?.split(" ")
+    .map((n) => n[0])
+    .join("");
 
 // ---------- Main Component ----------
 export default function UserLeaderboard() {
@@ -776,11 +786,27 @@ export default function UserLeaderboard() {
                         >
                           {u.rank}
                         </span>
-                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-semibold text-slate-200">
-                          {u.name
-                            ?.split(" ")
-                            .map((n) => n[0])
-                            .join("")}
+                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-semibold text-slate-200 overflow-hidden shrink-0">
+                          {isAvatarUrl(u.avatar) ? (
+                            <>
+                              <img
+                                loading="lazy"
+                                decoding="async"
+                                src={u.avatar}
+                                alt={u.name || "User"}
+                                className="w-full h-full object-cover"
+                                onError={handleAvatarError}
+                              />
+                              <span className="hidden w-full h-full items-center justify-center">
+                                {avatarInitials(u.name)}
+                              </span>
+                            </>
+                          ) : (
+                            u.name
+                              ?.split(" ")
+                              .map((n) => n[0])
+                              .join("")
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p
@@ -1101,11 +1127,27 @@ export default function UserLeaderboard() {
                       {u.rank}
                     </span>
                     <BadgeIcon badge={u.badge} />
-                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-semibold text-slate-200">
-                      {u.name
-                        ?.split(" ")
-                        .map((n) => n[0])
-                        .join("")}
+                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-semibold text-slate-200 overflow-hidden shrink-0">
+                      {isAvatarUrl(u.avatar) ? (
+                        <>
+                          <img
+                            loading="lazy"
+                            decoding="async"
+                            src={u.avatar}
+                            alt={u.name || "User"}
+                            className="w-full h-full object-cover"
+                            onError={handleAvatarError}
+                          />
+                          <span className="hidden w-full h-full items-center justify-center">
+                            {avatarInitials(u.name)}
+                          </span>
+                        </>
+                      ) : (
+                        u.name
+                          ?.split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-200 truncate">
@@ -1143,11 +1185,27 @@ export default function UserLeaderboard() {
                       >
                         {u.rank}
                       </span>
-                      <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-semibold text-slate-200">
-                        {u.name
-                          ?.split(" ")
-                          .map((n) => n[0])
-                          .join("")}
+                      <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-semibold text-slate-200 overflow-hidden shrink-0">
+                        {isAvatarUrl(u.avatar) ? (
+                          <>
+                            <img
+                              loading="lazy"
+                              decoding="async"
+                              src={u.avatar}
+                              alt={u.name || "User"}
+                              className="w-full h-full object-cover"
+                              onError={handleAvatarError}
+                            />
+                            <span className="hidden w-full h-full items-center justify-center">
+                              {avatarInitials(u.name)}
+                            </span>
+                          </>
+                        ) : (
+                          u.name
+                            ?.split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p

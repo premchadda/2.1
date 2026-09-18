@@ -1,5 +1,9 @@
 import { Link } from "react-router-dom";
 import { Trophy, TrendingUp, ArrowRight } from "lucide-react";
+import { handleAvatarError } from "../../shared/utils/avatarFallback.js";
+
+const isAvatarUrl = (v) =>
+  typeof v === "string" && /^(https?:|data:)/.test(v);
 
 function TopPerformers({
   user,
@@ -102,8 +106,24 @@ function TopPerformers({
                 </div>
 
                 {/* Avatar */}
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white flex items-center justify-center font-medium text-sm">
-                  {performer.avatar || performer.name?.charAt(0).toUpperCase()}
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white flex items-center justify-center font-medium text-sm overflow-hidden shrink-0">
+                  {isAvatarUrl(performer.avatar) ? (
+                    <>
+                      <img
+                        loading="lazy"
+                        decoding="async"
+                        src={performer.avatar}
+                        alt={performer.name || "Performer"}
+                        className="w-full h-full object-cover"
+                        onError={handleAvatarError}
+                      />
+                      <span className="hidden w-full h-full items-center justify-center">
+                        {performer.name?.charAt(0).toUpperCase()}
+                      </span>
+                    </>
+                  ) : (
+                    performer.avatar || performer.name?.charAt(0).toUpperCase()
+                  )}
                 </div>
 
                 {/* Info */}

@@ -1,6 +1,8 @@
 # Contributing to Trstprep V2.1
 
-Prerequisites: Node.js 22 (`.nvmrc`; `engines: >=20`), `pnpm` 11.25 (`packageManager`
+Prerequisites: Node.js 22 (`.nvmrc`; `engines: >=20` — a bump to `>=22.0.0`
+is orchestrator-only: do not edit root `package.json` from a territory;
+propose it to the orchestrator instead), `pnpm` 11.25 (`packageManager`
 pin), Python 3.11+ with `uv`, PostgreSQL (Supabase) + Redis, Docker optional.
 
 ## Getting Started
@@ -52,8 +54,16 @@ loadAdminPermissions → requireAdminPermission → auditMiddleware`.
 - **God nodes:** `PostgresHelpers`, `DataService`, `pool`, `dbHelpers`,
   `protect()`, `useAuth()` ripple across ~70 modules — trace graph edges first.
 - **Migrations:** append-only `apps/backend/src/infrastructure/database/migrations/`
-  (next is `136_*`); read/write split `DATABASE_URL` / `DATABASE_READ_URL`.
-- **AI:** respect `aiRateLimiter`; note admin `generate-questions` is a stub.
+  (next is `147_*`; latest shipped is `146_drop_stale_bypasses`); read/write
+  split `DATABASE_URL` / `DATABASE_READ_URL`.
+- **AI:** respect `aiRateLimiter`; admin `generate-questions`
+  (`admin-catalog.js`) is live (OpenRouter call with validation + insert-only
+  results; template fallback only when AI keys are absent).
+- **Auth model:** single `admin` role — there is no second admin tier;
+  do not introduce one.
+- **Route hygiene:** previously dormant module controllers are wired into the
+  composition root (`app-port5001.js`) — keep them mounted; run
+  `node scripts/validate-routes.js` after touching mounts.
 
 ## Directory Structure
 
@@ -65,7 +75,7 @@ apps/
 packages/
   shared-config/ # Shared constants, formatters, asset helpers
   shared-hooks/  # Shared React hooks (useAuth, useProPass)
-scripts/        # Dev, audit, seeding, taxonomy, load tooling (108 files)
+scripts/        # Dev, audit, seeding, taxonomy, load tooling (112 files)
 deploy/         # Docker, nginx, logging
 docs/           # Living docs, audits, vision, walkthroughs
 graphify-out/   # Knowledge graph (query it; do NOT deploy it)

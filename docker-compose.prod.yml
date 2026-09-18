@@ -4,19 +4,20 @@
 # USAGE:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 #
-# This file overrides the dev-oriented settings in docker-compose.yml:
-#   - App services (backend-1, backend-2, frontend, admin-panel) no longer mount
-#     source code from the host and no longer run `npm run dev`.
-#   - Backends run via `npm start` (production entrypoint, no --watch) with
+# NOTE: the base docker-compose.yml is ALREADY production-safe (built images,
+# NODE_ENV=production, no host source mounts — dev mounts and the dev command
+# live in docker-compose.dev.yml only). This file does NOT "productionize" a
+# dev base; it only tightens the nginx-served frontends for production:
+#   - backend-1 / backend-2: drop published ports (traffic enters via nginx),
+#     run via `pnpm start` (production entrypoint, no --watch) with
 #     NODE_ENV=production.
-#   - Frontend / admin-panel use the multi-stage build images (dist baked in,
-#     served by nginx) instead of mounting source and running the Vite dev server.
-#   - Infra services (postgres/redis are assumed external; nginx, prometheus,
-#     grafana) are inherited unchanged from docker-compose.yml — they already run
-#     from published images and do not mount app source.
+#   - frontend / admin-panel: drop published ports, serve via nginx
+#     (`nginx -g 'daemon off;'`) from the built images.
+#   - Infra services (postgres/redis/nginx/prometheus/grafana/loki) are
+#     inherited unchanged from docker-compose.yml.
 #
-# The base docker-compose.yml is left untouched; this file only tightens the
-# settings that are unsafe/inefficient for production (host mounts + dev server).
+# docker-compose.scale.yml is DEPRECATED (reference only — see its header);
+# horizontal scaling goes through scripts/scale.sh against base+prod.
 # ==============================================================================
 
 services:

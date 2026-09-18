@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { useAuth } from "../../providers/AuthContext";
 import {
-  getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  apiClient,
+  isCancel,
 } from "../../lib/dataService";
 
 /**
@@ -20,28 +21,50 @@ export default function NavbarNotifications() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const notifRef = useRef(null);
+  const notifControllerRef = useRef(null);
+  const notifGenerationRef = useRef(0);
 
   const userId = useMemo(() => user?.id, [user]);
 
   useEffect(() => {
-    if (userId) {
-      const fetchNotifications = async () => {
-        try {
-          const response = await getNotifications({ limit: 10 });
-          const notificationsData = response.data?.data || [];
-          setNotifications(notificationsData);
-          setUnreadCount(notificationsData.filter((n) => !n.read).length);
-        } catch (error) {
-          console.error("Failed to fetch notifications:", error);
-          setNotifications([]);
-          setUnreadCount(0);
-        }
-      };
-      fetchNotifications();
-    } else {
+    if (!userId) {
       setNotifications([]);
       setUnreadCount(0);
+      return;
     }
+    const generation = ++notifGenerationRef.current;
+    if (notifControllerRef.current) {
+      notifControllerRef.current.abort();
+    }
+    notifControllerRef.current = new AbortController();
+    const fetchNotifications = async () => {
+      try {
+        const response = await apiClient.get("/api/notifications", {
+          params: { limit: 10 },
+          signal: notifControllerRef.current.signal,
+        });
+        if (notifGenerationRef.current !== generation) return;
+        const notificationsData = response.data?.data || [];
+        setNotifications(notificationsData);
+        setUnreadCount(notificationsData.filter((n) => !n.read).length);
+      } catch (error) {
+        if (notifGenerationRef.current !== generation) return;
+        if (
+          isCancel?.(error) ||
+          error?.name === "AbortError" ||
+          error?.name === "CanceledError" ||
+          error?.code === "ERR_CANCELED"
+        )
+          return;
+        console.error("Failed to fetch notifications:", error);
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+    };
+    fetchNotifications();
+    return () => {
+      notifControllerRef.current?.abort();
+    };
   }, [userId]);
 
   useEffect(() => {

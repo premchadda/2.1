@@ -14,6 +14,26 @@ const WARNINGS = [
     description:
       "Google OAuth client ID (optional — Google login disabled without it)",
   },
+  {
+    key: "VITE_ADMIN_URL",
+    description:
+      "Admin panel URL (optional — /admin links fall back to same-origin with a console error)",
+  },
+  {
+    key: "VITE_SITE_URL",
+    description:
+      "Public site URL (optional — SEO canonical URLs fall back to https://trstprep.com)",
+  },
+  {
+    key: "VITE_SUPPORT_EMAIL",
+    description:
+      "Support contact (optional — pages fall back to support@trstprep.com)",
+  },
+  {
+    key: "VITE_MAX_FILE_SIZE_MB",
+    description:
+      "Max upload file size in MB (optional — defaults to 10)",
+  },
 ];
 
 export function validateEnvVars() {

@@ -1,4 +1,10 @@
 import { clearDashboardCache } from "./dashboardCache.js";
+import {
+  normalizeEnrollmentEntry as canonicalNormalizeEntry,
+  getNormalizedEnrolledSeries as canonicalNormalized,
+  hasLegacyEnrolledSeriesIds as canonicalHasLegacy,
+  isSeriesEnrolled as canonicalIsEnrolled,
+} from "@trstprep/shared-config";
 
 export const invalidateDashboardCache = () => {
   clearDashboardCache();
@@ -7,151 +13,26 @@ export const invalidateDashboardCache = () => {
   }
 };
 
-const normalizeEnrollmentEntry = (entry) => {
-  if (entry === null || entry === undefined) {
-    return null;
-  }
+// Delegate to the canonical shared-config implementation. The student app
+// keeps one extension: extraIdentifiers are normalized (objects → id/slug)
+// before delegating, so callers may pass raw series objects there.
+export const normalizeEnrollmentEntry = canonicalNormalizeEntry;
 
-  if (typeof entry === "object") {
-    return entry.id || entry._id || entry.slug || null;
-  }
+export const getNormalizedEnrolledSeries = canonicalNormalized;
 
-  return entry;
-};
-
-/**
- * Parse enrolledSeries from various formats:
- * - JavaScript array: [1, 2, 3]
- * - PostgreSQL array string: "{1,2,3}"
- * - JSON array string: "[1,2,3]"
- * - Comma-separated string: "1,2,3"
- */
-const parseEnrolledSeriesRaw = (enrolledSeries) => {
-  if (enrolledSeries === null || enrolledSeries === undefined) {
-    return [];
-  }
-
-  if (Array.isArray(enrolledSeries)) {
-    return enrolledSeries;
-  }
-
-  if (typeof enrolledSeries === "string") {
-    const trimmed = enrolledSeries.trim();
-    if (!trimmed) return [];
-
-    // PostgreSQL array format: "{1,2,3}"
-    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-      const inner = trimmed.slice(1, -1);
-      if (!inner.trim()) return [];
-      return inner
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-    }
-
-    // JSON array format: "[1,2,3]"
-    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
-    }
-
-    // Comma-separated format: "1,2,3"
-    if (trimmed.includes(",")) {
-      return trimmed
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-    }
-
-    // Single value: "1"
-    return [trimmed];
-  }
-
-  // Single number
-  return [enrolledSeries];
-};
-
-export const getNormalizedEnrolledSeries = (enrolledSeries) => {
-  const parsed = Array.isArray(enrolledSeries)
-    ? enrolledSeries
-    : parseEnrolledSeriesRaw(enrolledSeries);
-
-  if (!Array.isArray(parsed)) {
-    return [];
-  }
-
-  const result = [];
-  for (const entry of parsed) {
-    if (entry === null || entry === undefined) continue;
-    if (typeof entry === "object") {
-      const keys = [
-        entry.id,
-        entry._id,
-        entry.dbId,
-        entry.public_id,
-        entry.publicId,
-        entry.slug,
-        entry.series_id,
-        entry.seriesId,
-      ].filter((k) => k !== null && k !== undefined && String(k).trim() !== "");
-      keys.forEach((k) => result.push(String(k).trim()));
-    } else {
-      const s = String(entry).trim();
-      if (s) result.push(s);
-    }
-  }
-  return result;
-};
-
-export const hasLegacyEnrolledSeriesIds = (enrolledSeries) => {
-  return getNormalizedEnrolledSeries(enrolledSeries).some((entry) =>
-    /^\d+$/.test(String(entry)),
-  );
-};
+export const hasLegacyEnrolledSeriesIds = canonicalHasLegacy;
 
 export const isSeriesEnrolled = (
   userOrEnrolledSeries,
   series,
   extraIdentifiers = [],
 ) => {
-  if (!series) return false;
-
-  const rawEnrolled = Array.isArray(userOrEnrolledSeries)
-    ? userOrEnrolledSeries
-    : (userOrEnrolledSeries?.enrolledSeries ??
-      userOrEnrolledSeries?.enrolled_series ??
-      userOrEnrolledSeries?.enrolled ??
-      userOrEnrolledSeries?.series ??
-      []);
-
-  const enrolledIds = new Set(
-    getNormalizedEnrolledSeries(rawEnrolled).map((entry) =>
-      String(entry).trim(),
-    ),
+  const normalizedExtras = (extraIdentifiers || []).map((extra) =>
+    canonicalNormalizeEntry(extra),
   );
-
-  if (enrolledIds.size === 0) return false;
-
-  const candidateIds = [
-    series._id,
-    series.id,
-    series.dbId,
-    series.public_id,
-    series.publicId,
-    series.slug,
-    series.series_id,
-    series.seriesId,
-    ...extraIdentifiers.map((extra) => normalizeEnrollmentEntry(extra)),
-  ];
-
-  return candidateIds
-    .filter(
-      (entry) =>
-        entry !== null && entry !== undefined && String(entry).trim() !== "",
-    )
-    .some((entry) => enrolledIds.has(String(entry).trim()));
+  return canonicalIsEnrolled(
+    userOrEnrolledSeries,
+    series,
+    normalizedExtras,
+  );
 };

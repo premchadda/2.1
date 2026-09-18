@@ -46,6 +46,10 @@ export const apiClient = createApiClient({
   refreshUrl: "/api/auth/refresh",
   authUrlMatch: "includes",
   captureCsrfOnError: true,
+  // Cookie-only refresh returns no bearer token: queued 401 replays must drop
+  // the stale Authorization header and reuse the httpOnly cookie session
+  // (same fix as the admin apiClient waiter replay).
+  stripAuthOnQueuedReplay: true,
   onAuthFailure,
 });
 

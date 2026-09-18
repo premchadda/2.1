@@ -59,15 +59,25 @@ const { default: vectorSearchService } =
 
 describe("VectorSearchService", () => {
   const originalFetch = global.fetch;
+  const originalApiKey = process.env.AI_API_KEY;
+  const originalOpenRouterKey = process.env.OPENROUTER_API_KEY;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // The service fail-closes without credentials (no `Bearer undefined`
+    // fetches); fetch-mocked tests supply a dummy key so they reach fetch.
+    process.env.AI_API_KEY = "test-dummy-key";
     mockClientQuery.mockResolvedValue({ rows: [] });
     mockClientRelease.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
+    if (originalApiKey === undefined) delete process.env.AI_API_KEY;
+    else process.env.AI_API_KEY = originalApiKey;
+    if (originalOpenRouterKey === undefined)
+      delete process.env.OPENROUTER_API_KEY;
+    else process.env.OPENROUTER_API_KEY = originalOpenRouterKey;
   });
 
   describe("checkPgvector", () => {
@@ -151,6 +161,8 @@ describe("VectorSearchService", () => {
       global.fetch = jest.fn().mockResolvedValueOnce({
         ok: false,
         status: 503,
+        text: async () => "Service Unavailable",
+        json: async () => ({}),
       });
 
       const result = await vectorSearchService.indexQuestion(101);
@@ -196,7 +208,7 @@ describe("VectorSearchService", () => {
         });
 
       const result = await vectorSearchService.indexAllUnindexed(10);
-      expect(mockFindUnindexed).toHaveBeenCalledWith(10);
+      expect(mockFindUnindexed).toHaveBeenCalledWith(10, null);
       expect(spy).toHaveBeenCalledWith([50, 51]);
 
       spy.mockRestore();
@@ -251,7 +263,7 @@ describe("VectorSearchService", () => {
 
   describe("semanticSearch", () => {
     it("generates query embedding and runs cosine similarity with filters", async () => {
-      const fakeQueryEmbedding = [0.2, 0.4, 0.6];
+      const fakeQueryEmbedding = new Array(1536).fill(0.05);
       global.fetch = jest.fn().mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -305,9 +317,7 @@ describe("VectorSearchService", () => {
     });
 
     it("logs failure to AiGenerationLog when query fails", async () => {
-      global.fetch = jest
-        .fn()
-        .mockRejectedValueOnce(new Error("Network offline"));
+      global.fetch = jest.fn().mockRejectedValue(new Error("Network offline"));
 
       await expect(vectorSearchService.semanticSearch("query")).rejects.toThrow(
         "Network offline",

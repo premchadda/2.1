@@ -1,9 +1,10 @@
 /**
  * Admin Router — Aggregates and mounts all modular admin routers (V2.1 Modularization)
  *
- * All admin endpoints are protected by defense-in-depth middleware:
- * origin restriction -> API key validation -> CSRF -> JWT protect -> admin role
- * -> RBAC permissions -> audit logging.
+ * All admin endpoints are protected by defense-in-depth middleware (in order):
+ * normalizeFields -> restrictAdminOrigin -> API key validation -> JWT protect
+ * -> admin role -> CSRF -> loadAdminPermissions -> requireAdminPermission
+ * -> audit logging.
  */
 import express from "express";
 import { normalizeFields } from "../../middleware/normalize-fields.js";
@@ -110,8 +111,8 @@ router.use(adminUsersRoutes);
 router.use("/audit-logs", adminAuditRoutes);
 router.use("/trash", adminRecycleBinRoutes);
 router.use("/sections", adminSectionsRoutes);
-router.use("/analytics", adminAnalyticsRoutes);
 router.use("/analytics/deep", adminDeepAnalyticsRoutes);
+router.use("/analytics", adminAnalyticsRoutes);
 router.use("/email-templates", adminEmailTemplatesRoutes);
 router.use("/coming-soon", adminComingSoonRoutes);
 router.use("/payments", adminPaymentsRoutes);

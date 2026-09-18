@@ -12,6 +12,7 @@ import {
 import { twMerge } from "tailwind-merge";
 import { apiClient } from "../lib/dataService";
 import { useAuth } from "../providers/AuthContext";
+import { handleAvatarError } from "../utils/avatarFallback.js";
 import toast from "react-hot-toast";
 
 function formatTimestamp(ts) {
@@ -95,6 +96,7 @@ function CommentItem({ comment, currentUser, onEdit, onDelete }) {
             src={userAvatar}
             alt={userName}
             className="w-full h-full rounded-full object-cover"
+            onError={handleAvatarError}
           />
         ) : (
           <span className="text-[10px] font-black text-white">
@@ -346,6 +348,7 @@ function QuestionDiscussions({
                   src={currentUser.avatar}
                   alt={currentUser?.name || "User avatar"}
                   className="w-full h-full rounded-full object-cover"
+                  onError={handleAvatarError}
                 />
               ) : (
                 <User className="w-4 h-4 text-white" />

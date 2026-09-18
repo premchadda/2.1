@@ -5,5 +5,6 @@
 
 export { adminAPI, default as adminAPIDefault } from "../lib/api/adminAPI.js";
 export { apiClient } from "../lib/apiClient.js";
+import { adminAPI as adminAPIDefaultTarget } from "../lib/api/adminAPI.js";
 
-export default adminAPI;
+export default adminAPIDefaultTarget;

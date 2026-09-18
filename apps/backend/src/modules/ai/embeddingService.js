@@ -15,104 +15,199 @@ const EMBEDDING_CONFIG = {
   embeddingModel: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
   embeddingDimension: parseInt(process.env.EMBEDDING_DIMENSION) || 1536,
   batchSize: parseInt(process.env.EMBEDDING_BATCH_SIZE) || 20,
-  apiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY,
-  baseUrl: process.env.AI_BASE_URL || 'https://api.openai.com/v1',
+  // Unified with vectorSearch.service: AI_API_KEY || OPENROUTER_API_KEY ||
+  // OPENAI_API_KEY; baseUrl AI_BASE_URL || openrouter (26).
+  apiKey: process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY,
+  baseUrl: process.env.AI_BASE_URL || 'https://openrouter.ai/api/v1',
   maxTokensPerChunk: 8000,
 }
 
+const estimateTokens = (text) => Math.max(1, Math.ceil(String(text || '').length / 4))
+
+/**
+ * Fail closed when the provider returns an error-shape payload, and assert
+ * the vector dimension BEFORE any INSERT — pgvector vector(1536) rejects
+ * mismatched dims with a raw DB error otherwise.
+ */
+const assertEmbeddingVector = (vec) => {
+  if (!Array.isArray(vec) || vec.length === 0) {
+    throw new Error('Embedding API returned no vector')
+  }
+  if (vec.length !== EMBEDDING_CONFIG.embeddingDimension) {
+    throw new Error(
+      `Embedding dimension mismatch: got ${vec.length}, expected ${EMBEDDING_CONFIG.embeddingDimension} (pgvector column; align EMBEDDING_MODEL with EMBEDDING_DIMENSION)`,
+    )
+  }
+  return vec
+}
+
+const TRANSIENT_EMBEDDING_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504])
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Resolved per call (not at module load) so key rotation and late-bound
+// test envs take effect without a restart.
+const resolveEmbeddingKey = () =>
+  EMBEDDING_CONFIG.apiKey ||
+  process.env.AI_API_KEY ||
+  process.env.OPENROUTER_API_KEY ||
+  process.env.OPENAI_API_KEY
+
 /**
  * Generate embedding for text using OpenAI-compatible API.
+ * Retry/timeout mirrors postChatCompletions (aiClient.js): 30s timeout,
+ * 1 retry, extended backoff on 429. Accepts { timeoutMs, retries } passthrough (1).
  */
-async function generateEmbedding(text) {
+async function generateEmbedding(text, options = {}) {
   const startTime = Date.now()
+  const timeoutMs = options.timeoutMs || 30000
+  const retries = options.retries ?? 1
 
   if (!text || typeof text !== 'string') {
     throw new Error('Text is required for embedding generation')
   }
+  const apiKey = resolveEmbeddingKey()
+  if (!apiKey) {
+    throw new Error('Embedding API key is not configured (set AI_API_KEY or OPENROUTER_API_KEY or OPENAI_API_KEY)')
+  }
 
   const truncatedText = text.substring(0, EMBEDDING_CONFIG.maxTokensPerChunk)
 
-  try {
-    const response = await fetch(`${EMBEDDING_CONFIG.baseUrl}/embeddings`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${EMBEDDING_CONFIG.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: EMBEDDING_CONFIG.embeddingModel,
-        input: truncatedText,
-      }),
-    })
+  let lastError = null
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(`${EMBEDDING_CONFIG.baseUrl}/embeddings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: EMBEDDING_CONFIG.embeddingModel,
+          input: truncatedText,
+        }),
+        signal: AbortSignal.timeout(timeoutMs),
+      })
 
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Embedding API error: ${response.status} - ${error}`)
-    }
+      if (!response.ok) {
+        const error = await response.text()
+        const err = new Error(`Embedding API error: ${response.status} - ${String(error).slice(0, 300)}`)
+        err.status = response.status
+        lastError = err
+        if (!TRANSIENT_EMBEDDING_STATUSES.has(response.status) || attempt >= retries) throw err
+        await sleep(response.status === 429 ? 1000 : 500 * (attempt + 1))
+        continue
+      }
 
-    const data = await response.json()
-    const latencyMs = Date.now() - startTime
+      const data = await response.json()
+      const latencyMs = Date.now() - startTime
 
-    return {
-      embedding: data.data[0].embedding,
-      tokens: data.usage.total_tokens,
-      latencyMs,
+      return {
+        embedding: assertEmbeddingVector(data?.data?.[0]?.embedding),
+        tokens: data?.usage?.total_tokens || estimateTokens(truncatedText),
+        latencyMs,
+      }
+    } catch (error) {
+      const isNetwork = !error?.status || error.status === 0
+      lastError = error
+      if (isNetwork && attempt < retries) {
+        await sleep(500 * (attempt + 1))
+        continue
+      }
+      const latencyMs = Date.now() - startTime
+      throw {
+        message: error.message,
+        status: error.status,
+        latencyMs,
+      }
     }
-  } catch (error) {
-    const latencyMs = Date.now() - startTime
-    throw {
-      message: error.message,
-      latencyMs,
-    }
+  }
+  const latencyMs = Date.now() - startTime
+  throw {
+    message: lastError?.message || 'Embedding generation failed',
+    status: lastError?.status,
+    latencyMs,
   }
 }
 
 /**
  * Generate embeddings for multiple texts in batch.
+ * Same retry/timeout contract as generateEmbedding (1): { timeoutMs, retries }.
  */
-async function generateEmbeddingsBatch(texts) {
+async function generateEmbeddingsBatch(texts, options = {}) {
   const startTime = Date.now()
+  const timeoutMs = options.timeoutMs || 30000
+  const retries = options.retries ?? 1
 
   if (!texts || !Array.isArray(texts) || texts.length === 0) {
     throw new Error('Texts array is required for batch embedding generation')
+  }
+  const batchApiKey = resolveEmbeddingKey()
+  if (!batchApiKey) {
+    throw new Error('Embedding API key is not configured (set AI_API_KEY or OPENROUTER_API_KEY or OPENAI_API_KEY)')
   }
 
   const truncatedTexts = texts.map(text =>
     (text || '').substring(0, EMBEDDING_CONFIG.maxTokensPerChunk)
   )
 
-  try {
-    const response = await fetch(`${EMBEDDING_CONFIG.baseUrl}/embeddings`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${EMBEDDING_CONFIG.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: EMBEDDING_CONFIG.embeddingModel,
-        input: truncatedTexts,
-      }),
-    })
+  let lastError = null
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(`${EMBEDDING_CONFIG.baseUrl}/embeddings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${batchApiKey}`,
+        },
+        body: JSON.stringify({
+          model: EMBEDDING_CONFIG.embeddingModel,
+          input: truncatedTexts,
+        }),
+        signal: AbortSignal.timeout(timeoutMs),
+      })
 
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Embedding API error: ${response.status} - ${error}`)
-    }
+      if (!response.ok) {
+        const error = await response.text()
+        const err = new Error(`Embedding API error: ${response.status} - ${error}`)
+        err.status = response.status
+        lastError = err
+        if (!TRANSIENT_EMBEDDING_STATUSES.has(response.status) || attempt >= retries) throw err
+        await sleep(response.status === 429 ? 1000 : 500 * (attempt + 1))
+        continue
+      }
 
-    const data = await response.json()
-    const latencyMs = Date.now() - startTime
+      const data = await response.json()
+      const latencyMs = Date.now() - startTime
 
-    return {
-      embeddings: data.data.map(d => d.embedding),
-      tokens: data.usage.total_tokens,
-      latencyMs,
+      if (!Array.isArray(data?.data) || data.data.length === 0) {
+        throw new Error('Embedding API returned no vectors')
+      }
+      return {
+        embeddings: data.data.map((d) => assertEmbeddingVector(d?.embedding)),
+        tokens: data?.usage?.total_tokens || truncatedTexts.reduce((n, t) => n + estimateTokens(t), 0),
+        latencyMs,
+      }
+    } catch (error) {
+      const isNetwork = !error?.status || error.status === 0
+      lastError = error
+      if (isNetwork && attempt < retries) {
+        await sleep(500 * (attempt + 1))
+        continue
+      }
+      const latencyMs = Date.now() - startTime
+      throw {
+        message: error.message,
+        status: error.status,
+        latencyMs,
+      }
     }
-  } catch (error) {
-    const latencyMs = Date.now() - startTime
-    throw {
-      message: error.message,
-      latencyMs,
-    }
+  }
+  const latencyMs = Date.now() - startTime
+  throw {
+    message: lastError?.message || 'Batch embedding generation failed',
+    status: lastError?.status,
+    latencyMs,
   }
 }
 
@@ -126,10 +221,19 @@ async function buildQuestionSearchText(questionId) {
       SELECT
         q.id as question_id,
         q.question_text,
-        COALESCE(q.options->>'0', '') || ' ' ||
-        COALESCE(q.options->>'1', '') || ' ' ||
-        COALESCE(q.options->>'2', '') || ' ' ||
-        COALESCE(q.options->>'3', '') as options_text,
+        -- options may be a JSONB object {0..3} OR a JSON array ["A","B",..];
+        -- cover both shapes so array-shaped options don't embed as empty text.
+        COALESCE(
+          NULLIF(TRIM(BOTH ' ' FROM
+            COALESCE(q.options->>'0', '') || ' ' ||
+            COALESCE(q.options->>'1', '') || ' ' ||
+            COALESCE(q.options->>'2', '') || ' ' ||
+            COALESCE(q.options->>'3', '')
+          ), ''),
+          (SELECT string_agg(value::text, ' ') FROM jsonb_array_elements_text(
+            CASE WHEN jsonb_typeof(q.options) = 'array' THEN q.options ELSE '[]'::jsonb END
+          ) AS value)
+        , '') as options_text,
         COALESCE(q.explanation, '') as explanation_text,
         COALESCE(t.name, '') as topic_name,
         COALESCE(s.name, '') as subject_name,
@@ -269,6 +373,13 @@ const embeddingService = {
     // Generate embedding
     const embeddingResult = await generateEmbedding(searchText)
 
+    // Assert pgvector dimension before INSERT (vector column rejects mismatches)
+    if (!Array.isArray(embeddingResult.embedding) || embeddingResult.embedding.length !== EMBEDDING_CONFIG.embeddingDimension) {
+      throw new Error(
+        `Embedding dimension mismatch: expected ${EMBEDDING_CONFIG.embeddingDimension}, got ${Array.isArray(embeddingResult.embedding) ? embeddingResult.embedding.length : "none"}`,
+      )
+    }
+
     // Build metadata
     const metadata = await buildMetadata(contentType, contentId)
 
@@ -344,12 +455,50 @@ const embeddingService = {
 
   /**
    * Index all unindexed content of a specific type.
+   * Pages through the backlog with an id cursor (not a fixed first-100) so
+   * repeated runs drain the tail instead of re-scanning the same head.
+   * Bounded to maxPages × limit per invocation; failures are logged to
+   * ai_generation_logs so a stuck backlog is visible in cost dashboards.
    */
-  async indexAllUnindexed(contentType, limit = 100) {
+  async indexAllUnindexed(contentType, limit = 100, maxPages = 10, afterId = 0) {
+    const aggregate = { total: 0, indexed: 0, embeddingGenerated: 0, failed: 0, errors: [] }
+    let lastId = parseInt(afterId) || 0
+    for (let page = 0; page < Math.max(1, maxPages); page++) {
+      const items = await this.listUnindexed(contentType, limit, lastId)
+      if (items.length === 0) break
+      const batch = await this.indexBatch(items)
+      aggregate.total += batch.total
+      aggregate.indexed += batch.indexed
+      aggregate.embeddingGenerated += batch.embeddingGenerated
+      aggregate.failed += batch.failed
+      aggregate.errors.push(...batch.errors)
+      lastId = items[items.length - 1].contentId
+      if (items.length < limit) break
+    }
+    if (aggregate.failed > 0) {
+      try {
+        const { default: AiGenerationLog } = await import(
+          '../../data/models/ai/AiGenerationLog.js'
+        )
+        await AiGenerationLog.logFailure({
+          entityType: 'embedding_index_batch',
+          prompt: `indexAllUnindexed(${contentType}): ${aggregate.failed}/${aggregate.total} failed`,
+          error: aggregate.errors.slice(0, 3).map((e) => e.message).join(' | '),
+          metadata: { contentType, failed: aggregate.failed, total: aggregate.total },
+        }).catch(() => {})
+      } catch { /* failure logging is best-effort */ }
+    }
+    return aggregate
+  },
+
+  /**
+   * List one page of unindexed content after a cursor id.
+   */
+  async listUnindexed(contentType, limit = 100, afterId = 0) {
     const client = await pool.connect()
     try {
       let query
-      let params = [limit]
+      const params = [limit, afterId]
 
       switch (contentType) {
         case 'question':
@@ -357,10 +506,12 @@ const embeddingService = {
             SELECT q.id as content_id
             FROM questions q
             WHERE q.is_active = true
+              AND q.id > $2
               AND NOT EXISTS (
                 SELECT 1 FROM embeddings e
                 WHERE e.content_type = 'question' AND e.content_id = q.id
               )
+            ORDER BY q.id ASC
             LIMIT $1
           `
           break
@@ -369,10 +520,12 @@ const embeddingService = {
           query = `
             SELECT sm.id as content_id
             FROM study_materials sm
-            WHERE NOT EXISTS (
+            WHERE sm.id > $2
+              AND NOT EXISTS (
                 SELECT 1 FROM embeddings e
                 WHERE e.content_type = 'study_material' AND e.content_id = sm.id
               )
+            ORDER BY sm.id ASC
             LIMIT $1
           `
           break
@@ -382,12 +535,10 @@ const embeddingService = {
       }
 
       const result = await client.query(query, params)
-      const items = result.rows.map(row => ({
+      return result.rows.map((row) => ({
         contentType,
         contentId: row.content_id,
       }))
-
-      return this.indexBatch(items)
     } finally {
       client.release()
     }
@@ -401,6 +552,11 @@ const embeddingService = {
 
     // Generate embedding for query
     const queryEmbedding = await generateEmbedding(query)
+    if (!Array.isArray(queryEmbedding.embedding) || queryEmbedding.embedding.length !== EMBEDDING_CONFIG.embeddingDimension) {
+      throw new Error(
+        `Embedding dimension mismatch: expected ${EMBEDDING_CONFIG.embeddingDimension}, got ${Array.isArray(queryEmbedding.embedding) ? queryEmbedding.embedding.length : "none"}`,
+      )
+    }
 
     const client = await pool.connect()
     try {

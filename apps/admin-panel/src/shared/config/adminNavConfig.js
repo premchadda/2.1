@@ -432,6 +432,14 @@ export const adminNavConfig = {
           badge: null,
         },
         {
+          id: "live-proctoring",
+          name: "Live Proctoring",
+          path: "/admin/live-proctoring",
+          icon: Radio,
+          description: "Proctoring console for live test sessions",
+          badge: null,
+        },
+        {
           id: "system-health",
           name: "System Health",
           path: "/admin/system-health",

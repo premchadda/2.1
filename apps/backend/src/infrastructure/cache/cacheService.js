@@ -181,7 +181,7 @@ const withCacheTimeout = (promise, fallback) => {
   ]);
 };
 
-export const getCache = async (namespace, key) => {
+export const getCache = async (namespace, key, ttlSeconds = 300) => {
   const cacheKey = toNamespacedKey(namespace, key);
 
   if (isFileCacheEnabled()) loadFileCache();
@@ -213,7 +213,22 @@ export const getCache = async (namespace, key) => {
         recordRedisSuccess();
         const parsed = parseCachedValue(value);
         if (parsed !== null) {
-          setMemoryCache(cacheKey, parsed, 300 * 1000); // Warm L1 for 5 mins
+          // Warm L1 with the entry's remaining Redis TTL (capped at the
+          // caller's ttlSeconds) so L1 never outlives L2. Falls back to
+          // ttlSeconds when TTL is unknown/unavailable.
+          let warmMs = ttlSeconds * 1000;
+          try {
+            const remainSec = await withCacheTimeout(
+              redis.ttl(cacheKey).catch(() => -1),
+              -1,
+            );
+            if (Number.isFinite(remainSec) && remainSec > 0) {
+              warmMs = Math.min(remainSec, ttlSeconds) * 1000;
+            }
+          } catch {
+            // TTL probe failure must never block the cache hit.
+          }
+          setMemoryCache(cacheKey, parsed, warmMs);
           return parsed;
         }
       } catch {
@@ -258,8 +273,12 @@ export const deleteCache = async (namespace, key) => {
   }
 };
 
-export const deleteCacheByPrefix = async (namespace, prefix = "") => {
-  const namespacedPrefix = toNamespacedKey(namespace, prefix);
+export const deleteCacheByPrefix = async (
+  namespace,
+  prefix = "",
+  subPrefix = "",
+) => {
+  const namespacedPrefix = `${toNamespacedKey(namespace, prefix)}${subPrefix}`;
 
   if (isRedisReady()) {
     const redis = getRedisClient();

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Calendar, User, Clock, ArrowLeft, Share2 } from "lucide-react";
-import api from "../../shared/lib/dataService";
+// NOTE: dataService default-exports the shared axios instance (apiClient).
+import apiClient from "../../shared/lib/dataService";
 import sanitizeHtml from "../../shared/lib/sanitizeHtml";
 
 export default function BlogDetail() {
@@ -19,7 +20,7 @@ export default function BlogDetail() {
   const fetchBlog = async (signal) => {
     try {
       setLoading(true);
-      const response = await api.get(`/api/blogs/${id}`, { signal });
+      const response = await apiClient.get(`/api/blogs/${id}`, { signal });
       if (signal?.aborted) return;
       if (response.data?.success) {
         const data = response.data.data;
@@ -162,7 +163,10 @@ export default function BlogDetail() {
               <div className="flex items-center justify-between">
                 <span className="text-gray-600">Share this article:</span>
                 <div className="flex gap-2">
-                  <button className="p-2 hover:bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <button
+                    aria-label="Share this article"
+                    className="p-2 hover:bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
                     <Share2 className="w-5 h-5 text-gray-600" />
                   </button>
                 </div>

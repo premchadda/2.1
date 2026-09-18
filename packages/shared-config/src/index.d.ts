@@ -8,6 +8,8 @@ export {
   ValidationError,
   AuthenticationError,
   NotFoundError,
+  ForbiddenError,
+  RateLimitError,
 } from "./apiClient";
 // NOTE: the runtime surface of index.js (asset/thumbnail helpers, formatters,
 // ErrorBoundary.jsx, htmlSanitizer.js re-exports) is intentionally NOT fully

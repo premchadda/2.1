@@ -289,9 +289,13 @@ export function getImageSizes(seed) {
 // ===== BACKEND ASSET URLS =====
 
 // Base URLs for different environments
+// NOTE: VITE_API_URL is required in production; when unset, assets fall back
+// to same-origin so production builds never point at localhost or a stale host.
 export const ASSET_BASE_URLS = {
   development: "http://localhost:5001",
-  production: import.meta.env.VITE_API_URL || "https://api.trstprep.com",
+  production:
+    import.meta.env.VITE_API_URL ||
+    (typeof window !== "undefined" ? window.location.origin : ""),
   uploads: "/uploads",
   images: "/uploads/images",
   videos: "/uploads/videos",
@@ -327,11 +331,12 @@ export function getAssetUrl(path) {
     // VITE_API_URL may be a relative `/api` path when the app and backend
     // share an origin, or an absolute API URL when they are deployed apart.
     // Asset paths are served beside `/api`, so strip that suffix before
-    // joining. In production builds, fall back to the live backend URL if unset.
+    // joining. VITE_API_URL is required in production — same-origin is the
+    // fail-safe fallback (never a stale hardcoded host).
     const configuredApiUrl =
       import.meta.env.VITE_API_URL ||
       import.meta.env.VITE_BACKEND_URL ||
-      (import.meta.env.PROD ? "https://trstprep-v-1.onrender.com" : "");
+      (import.meta.env.PROD ? window.location.origin : "");
     const baseUrl = /^https?:\/\//i.test(configuredApiUrl)
       ? configuredApiUrl.replace(/\/api\/?$/, "").replace(/\/+$/, "")
       : "";

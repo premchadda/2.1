@@ -7,13 +7,14 @@ import {
 } from "../infrastructure/cache/redisClient.js";
 import { isTransientDbError } from "../shared/utils/db-errors.js";
 import { getRuntimeSecuritySettings } from "../services/SettingsService.js";
-import { decryptUserPii } from "../shared/utils/user-utils.js";
+import { decryptUserPii, isProUser as isProUserHelper } from "../shared/utils/user-utils.js";
 
 export const ROLES = {
   USER: "user",
   ADMIN: "admin",
-  SUPER_ADMIN: "super_admin",
 };
+// Single-tier model: Historical second-tier values in old rows are treated
+// as plain non-admin until migration normalizes them.
 
 // User cache (Redis-backed with local fallback for multi-node horizontal scaling)
 const localUserCache = new Map();
@@ -241,8 +242,8 @@ export const SESSION_ABSOLUTE_TIMEOUT_MS =
   1000;
 const IDLE_WRITE_THROTTLE_MS = 60_000;
 const IDLE_CACHE_MAX = 2000;
-// Privileged roles get the tighter admin idle window.
-const IDLE_ENFORCED_ROLES = new Set([ROLES.ADMIN, ROLES.SUPER_ADMIN]);
+// Privileged roles get the tighter admin idle window (single-admin model).
+const IDLE_ENFORCED_ROLES = new Set([ROLES.ADMIN]);
 // sessionId -> { activityTs: ms (last activity), createdAt: ms, lastOp: ms (last DB op) }
 const idleActivityCache = new Map();
 
@@ -397,13 +398,7 @@ const AUTH_RATE_LIMIT_MAX = parseInt(
 export const isUserAdminRequest = (req) => {
   if (!req || !req.user) return false;
   try {
-    if (
-      req.user.isAdmin === true ||
-      req.user.role === ROLES.ADMIN ||
-      req.user.role === ROLES.SUPER_ADMIN ||
-      req.user.role === "admin" ||
-      req.user.role === "super_admin"
-    ) {
+    if (req.user.isAdmin === true || req.user.role === ROLES.ADMIN) {
       return true;
     }
   } catch (_) {
@@ -421,16 +416,20 @@ export const authRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  // Admin bypass restored per product requirement (user 17-09: admin not rate-limited).
+  // Verified admin sessions skip auth throttling; unauthenticated login attempts still limited.
   skip: (req) => isUserAdminRequest(req),
 });
 
+// Single-admin model: USER (1) < ADMIN (2). No second tier —
+// historical rows are not privileged (see isUserAdminRequest).
+// requireRole() uses this; admin routes should prefer admin() instead.
 export const isHigherRole = (userRole, requiredRole) => {
-  const roleHierarchy = {
-    [ROLES.USER]: 1,
-    [ROLES.ADMIN]: 2,
-    [ROLES.SUPER_ADMIN]: 3,
-  };
-  return (roleHierarchy[userRole] || 0) >= (roleHierarchy[requiredRole] || 0);
+  const rank = { [ROLES.USER]: 1, [ROLES.ADMIN]: 2 };
+  const a = rank[userRole] || 0;
+  const b = rank[requiredRole] || 0;
+  if (a === 0 || b === 0) return false;
+  return a >= b;
 };
 
 // Protect routes - verify JWT token
@@ -645,17 +644,25 @@ export const protect = async (req, res, next) => {
     const decryptedUser = decryptUserPii(user);
     const { password, ...userWithoutPassword } = decryptedUser;
     const isAdmin =
-      decryptedUser.role === ROLES.ADMIN ||
-      decryptedUser.role === ROLES.SUPER_ADMIN ||
-      decryptedUser.role === "admin" ||
-      decryptedUser.role === "super_admin";
+      decryptedUser.role === ROLES.ADMIN || decryptedUser.isAdmin === true;
 
     req.user = {
       ...userWithoutPassword,
       isAdmin,
       role: decryptedUser.role,
       sessionId: decoded.sessionId || null,
+      // PRO-STATE (audit 17-09-2026 item 4): canonical pro flag derived from
+      // the real source (users.is_pro_user + pro_expiry + pass_type via the
+      // shared isProUser() helper). Previously proPass/aiRateLimiter read
+      // req.user.isProUser which was never set here, so pro checks always
+      // failed. Additive fields only — existing req.user shape unchanged.
+      // Admins are entitled (mirrors shared helper semantics).
+      isProUser: isProUserHelper(decryptedUser) || isAdmin,
     };
+    // Snake_case/camelCase aliases for consumers that read raw row variants
+    // (achievements routes, TestPolicyEngine resolveUserEntitlement).
+    req.user.is_pro_user = req.user.isProUser;
+    req.user.isPro = req.user.isProUser;
     req.authToken = token;
     // Mark verified so a downstream duplicate protect() can fast-path safely.
     req.authVerified = true;
@@ -740,9 +747,10 @@ export const auth = protect;
  * with an active session) is required. Avatars/banners remain on the separate
  * public `/assets/avatar` route and are intentionally not guarded.
  *
- * Note: this only enforces authentication (not admin/email-verification), so
- * authenticated students can still load images inside a test. Unauthenticated
- * requests are rejected with 401.
+ * Note: this enforces authentication + active-user + email-verification
+ * (production) so deactivated users cannot fetch guarded imagery, but it does
+ * not require admin — authenticated students can still load images inside a
+ * test. Unauthenticated requests are rejected with 401.
  */
 export const requireImageAuth = async (req, res, next) => {
   let token;
@@ -837,6 +845,46 @@ export const requireImageAuth = async (req, res, next) => {
       }
     }
 
+    // USER-SEC (audit 17-09-2026 item 3): a valid session alone is not enough —
+    // deactivated/removed/unverified users must not fetch guarded imagery.
+    // Mirrors the protect() user checks (existence, isActive, email-verified
+    // in production). Fail-closed: any outcome other than a verified active
+    // user rejects the asset request.
+    const imgUser =
+      (await getCachedUser(decoded.id)) ||
+      (await dbHelpers.findById("users", decoded.id));
+    if (!imgUser) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Session revoked" });
+    }
+    if (imgUser.isActive === false) {
+      return res.status(403).json({
+        success: false,
+        message: "Account is deactivated. Please contact support.",
+      });
+    }
+    const imgVerified =
+      imgUser.isEmailVerified ?? imgUser.emailVerified ?? false;
+    if (imgVerified === false && process.env.NODE_ENV === "production") {
+      return res.status(403).json({
+        success: false,
+        message: "Please verify your email to continue.",
+      });
+    }
+    // Attach minimal verified identity for downstream logging (additive only).
+    const { password: _imgPw, ...imgWithoutPassword } =
+      decryptUserPii(imgUser);
+    req.user = {
+      ...imgWithoutPassword,
+      isAdmin: imgUser.role === ROLES.ADMIN || imgUser.isAdmin === true,
+      role: imgUser.role,
+      sessionId: decoded.sessionId || null,
+      isProUser: isProUserHelper(imgUser),
+    };
+    req.user.is_pro_user = req.user.isProUser;
+    req.user.isPro = req.user.isProUser;
+
     next();
   } catch (error) {
     return res.status(401).json({
@@ -859,6 +907,19 @@ export const optionalAuth = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET, {
         algorithms: ["HS256"],
       });
+
+      // SECURITY (audit 17-09-2026 item 2): mirror protect() — non-session
+      // token types (password-reset, email-verification, 2fa-pending, refresh
+      // replays) must NEVER attach a user. Mark explicitly and continue as
+      // anonymous so callers can distinguish "no token" from "wrong token".
+      if (
+        decoded.type &&
+        !["session", "web", "phone", undefined, null].includes(decoded.type)
+      ) {
+        req.authError = "invalid_token_type";
+        req.anonymousReason = "invalid_token_type";
+        return next();
+      }
 
       // SESSION-SEC: Verify session is still active for optional auth too
       let sessionValid = true;
@@ -899,7 +960,15 @@ export const optionalAuth = async (req, res, next) => {
       }
 
       if (!sessionValid) {
-        return next(); // Treat as unauthenticated — don't attach user
+        // EXPLICIT anonymous (audit 17-09-2026 item 2): a revoked/missing
+        // session must never silently downgrade to anonymous. 401 is NOT
+        // returned here because optionalAuth guards public routes (series,
+        // tests, community) where a stale token must still see public
+        // content — but the revocation is marked explicitly via req.authError
+        // / req.anonymousReason instead of a bare next().
+        req.authError = "session_revoked";
+        req.anonymousReason = "session_revoked";
+        return next();
       }
 
       const user =
@@ -914,16 +983,25 @@ export const optionalAuth = async (req, res, next) => {
         (isVerified === true || process.env.NODE_ENV !== "production")
       ) {
         const { password, ...userWithoutPassword } = user;
+        const optIsAdmin =
+          user.role === ROLES.ADMIN || user.isAdmin === true;
         req.user = {
           ...userWithoutPassword,
-          isAdmin:
-            user.role === ROLES.ADMIN ||
-            user.role === ROLES.SUPER_ADMIN ||
-            user.role === "admin" ||
-            user.role === "super_admin",
+          isAdmin: optIsAdmin,
           role: user.role,
           sessionId: decoded.sessionId || null,
+          // PRO-STATE: same canonical flag as protect() (see item 4 above).
+          isProUser: isProUserHelper(user) || optIsAdmin,
         };
+        req.user.is_pro_user = req.user.isProUser;
+        req.user.isPro = req.user.isProUser;
+      } else if (token) {
+        // Token present but no user attached — mark why (never silent).
+        if (!user) req.authError = req.authError || "user_not_found";
+        else if (user.isActive === false)
+          req.authError = req.authError || "account_deactivated";
+        else req.authError = req.authError || "email_unverified";
+        req.anonymousReason = req.authError;
       }
     }
 
@@ -940,24 +1018,16 @@ export const optionalAuth = async (req, res, next) => {
   }
 };
 
+/**
+ * Canonical authorization chain (single-admin model):
+ *   protect -> admin                    // any admin (ADMIN role + isAdmin)
+ *   protect -> requireRole(ROLES.ADMIN)  // exact-match only, no hierarchy
+ *   protect -> proPass                  // pro-entitled users (see below)
+ * Always run protect() (or equivalent verified-auth) first — these guards
+ * read req.user set by verified JWTs and enforce (never bypass).
+ */
 export const admin = (req, res, next) => {
   if (req.user && req.user.isAdmin) {
-    next();
-  } else {
-    res.status(403).json({
-      success: false,
-      message: "Not authorized as admin",
-    });
-  }
-};
-
-export const superAdmin = (req, res, next) => {
-  if (
-    req.user &&
-    (req.user.role === ROLES.SUPER_ADMIN ||
-      req.user.role === ROLES.ADMIN ||
-      req.user.isAdmin)
-  ) {
     next();
   } else {
     res.status(403).json({
@@ -988,12 +1058,20 @@ export const requireRole = (requiredRole) => {
 };
 
 export const proPass = (req, res, next) => {
-  if (req.user && req.user.isProUser) {
-    next();
-  } else {
-    res.status(403).json({
-      success: false,
-      message: "Pro Pass required for this resource",
-    });
+  // BACKWARD COMPAT: legacy callers set req.user.isProUser directly (tests,
+  // custom chains) — that flag still passes. Otherwise derive entitlement
+  // from the real source (users.is_pro_user + pro_expiry + pass_type via the
+  // shared helper; protect()/optionalAuth pre-compute it). Admins are
+  // entitled (mirrors shared isProUser() semantics).
+  const u = req.user;
+  if (
+    u &&
+    (u.isProUser === true || isProUserHelper(u) || u.isAdmin === true)
+  ) {
+    return next();
   }
+  return res.status(403).json({
+    success: false,
+    message: "Pro Pass required for this resource",
+  });
 };

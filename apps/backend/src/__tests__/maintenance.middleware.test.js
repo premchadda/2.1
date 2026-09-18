@@ -2,10 +2,20 @@ import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 import jwt from "jsonwebtoken";
 
 const mockGetPublicSettings = jest.fn();
+const mockPoolQuery = jest.fn();
 
 jest.unstable_mockModule("../services/SettingsService.js", () => ({
   getPublicSettings: () => mockGetPublicSettings(),
 }));
+
+jest.unstable_mockModule(
+  "../infrastructure/database/postgres-helpers.js",
+  () => ({
+    pool: {
+      query: (...args) => mockPoolQuery(...args),
+    },
+  }),
+);
 
 const { maintenanceMiddleware } =
   await import("../middleware/maintenance.middleware.js");
@@ -43,6 +53,7 @@ function makeMocks({
 describe("maintenanceMiddleware", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPoolQuery.mockReset();
     mockGetPublicSettings.mockResolvedValue({
       maintenance: {
         enabled: false,
@@ -116,8 +127,12 @@ describe("maintenanceMiddleware", () => {
       },
     });
 
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [{ role: "admin" }] })
+      .mockResolvedValueOnce({ rows: [{ is_active: true }] });
+
     const adminToken = jwt.sign(
-      { id: 1, role: "admin", isAdmin: true },
+      { id: 1, role: "admin", isAdmin: true, sessionId: "sess-admin-1" },
       JWT_SECRET,
       { expiresIn: "1h" },
     );
@@ -141,6 +156,8 @@ describe("maintenanceMiddleware", () => {
       },
     });
 
+    mockPoolQuery.mockResolvedValueOnce({ rows: [{ role: "student" }] });
+
     const studentToken = jwt.sign(
       { id: 2, role: "student", isAdmin: false },
       JWT_SECRET,
@@ -157,7 +174,7 @@ describe("maintenanceMiddleware", () => {
     expect(res.statusCode).toBe(503);
   });
 
-  it("allows super_admin role via cookie token", async () => {
+  it("allows admin role via cookie token", async () => {
     mockGetPublicSettings.mockResolvedValue({
       maintenance: {
         enabled: true,
@@ -166,20 +183,54 @@ describe("maintenanceMiddleware", () => {
       },
     });
 
-    const superAdminToken = jwt.sign(
-      { id: 99, role: "super_admin" },
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [{ role: "admin" }] })
+      .mockResolvedValueOnce({ rows: [{ is_active: true }] });
+
+    const elevatedAdminToken = jwt.sign(
+      { id: 1, role: "admin", isAdmin: true, sessionId: "sess-admin-elevated" },
       JWT_SECRET,
       { expiresIn: "1h" },
     );
 
     const { req, res, next } = makeMocks({
       path: "/api/tests/custom-mock",
-      cookies: { token: superAdminToken },
+      cookies: { token: elevatedAdminToken },
     });
 
     await maintenanceMiddleware(req, res, next);
     expect(next).toHaveBeenCalled();
     expect(res.statusCode).toBeNull();
+  });
+
+  it("blocks legacy tier role name (single-tier model: live role must be admin)", async () => {
+    // The JWT role CLAIM is never trusted — only the live users.role row.
+    // User 2 is a non-admin in the backing store, so even a legacy-tier
+    // claim must not pass the maintenance gate.
+    mockGetPublicSettings.mockResolvedValue({
+      maintenance: {
+        enabled: true,
+        message: "Maintenance active",
+        allowAdminAccess: true,
+      },
+    });
+
+    mockPoolQuery.mockResolvedValueOnce({ rows: [{ role: "student" }] });
+
+    const legacyToken = jwt.sign(
+      { id: 2, role: "legacy-tier", isAdmin: true },
+      JWT_SECRET,
+      { expiresIn: "1h" },
+    );
+
+    const { req, res, next } = makeMocks({
+      path: "/api/tests/custom-mock",
+      cookies: { token: legacyToken },
+    });
+
+    await maintenanceMiddleware(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(503);
   });
 
   it("blocks admin when allowAdminAccess is explicitly false", async () => {

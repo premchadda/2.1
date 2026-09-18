@@ -5,11 +5,7 @@ import {
 } from "../../infrastructure/database/postgres-helpers.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import logger from "../../infrastructure/logger/logger.js";
-import {
-  protect,
-  admin,
-  superAdmin,
-} from "../../middleware/auth.middleware.js";
+import { protect, admin } from "../../middleware/auth.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
 import { clearCache } from "../../infrastructure/cache/cacheService.js";

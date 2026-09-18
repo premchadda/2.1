@@ -153,9 +153,10 @@ describe('Auth Middleware', () => {
       const { isHigherRole, ROLES } = await import('../src/middleware/auth.middleware.js')
       
       expect(isHigherRole(ROLES.ADMIN, ROLES.USER)).toBe(true)
-      expect(isHigherRole(ROLES.SUPER_ADMIN, ROLES.ADMIN)).toBe(true)
+      // Single-tier model: legacy tier removed — not privileged
+      expect(isHigherRole('legacy-tier', ROLES.ADMIN)).toBe(false)
       expect(isHigherRole(ROLES.USER, ROLES.ADMIN)).toBe(false)
-      expect(isHigherRole(ROLES.USER, ROLES.SUPER_ADMIN)).toBe(false)
+      expect(isHigherRole(ROLES.USER, 'legacy-tier')).toBe(false)
     })
   })
 
@@ -164,7 +165,8 @@ describe('Auth Middleware', () => {
       const { isUserAdminRequest } = await import('../src/middleware/auth.middleware.js')
       expect(isUserAdminRequest({ user: { isAdmin: true } })).toBe(true)
       expect(isUserAdminRequest({ user: { role: 'admin' } })).toBe(true)
-      expect(isUserAdminRequest({ user: { role: 'super_admin' } })).toBe(true)
+      // Single-tier model: legacy tier role name alone is not privileged
+      expect(isUserAdminRequest({ user: { role: 'legacy-tier' } })).toBe(false)
     })
 
     it('should return false for unauthenticated admin origin without verified user', async () => {

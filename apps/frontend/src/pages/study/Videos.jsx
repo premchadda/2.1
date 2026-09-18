@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import api from "../../shared/lib/api";
 import { getVideoUrl } from "./studyMaterialUtils";
-import useProPass from "../../shared/hooks/useProPass";
+import { useProPass } from "@trstprep/shared-hooks";
 
 // Helper: parse seconds to MM:SS
 function formatTime(time) {

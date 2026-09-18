@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import PropTypes from "prop-types";
-import { Filter, Check } from "lucide-react";
+import { Filter, Check, Globe } from "lucide-react";
 
 export default function SectionTabs({
   sections = [],
@@ -13,6 +13,8 @@ export default function SectionTabs({
   reviewFilter = "all",
   setReviewFilter,
   reviewFilterCounts = {},
+  language = "en",
+  setLanguage,
 }) {
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const filterMenuRef = useRef(null);
@@ -186,12 +188,43 @@ export default function SectionTabs({
             })}
           </div>
 
-          {/* Right side: Fixed Filter Option in Review Mode */}
-          {reviewMode && setReviewFilter && (
-            <div
-              className="relative shrink-0 pl-1.5 sm:pl-2 border-l border-gray-200 dark:border-gray-700 flex items-center"
-              ref={filterMenuRef}
-            >
+          {/* Right side: Fixed/Sticky Corner for Language Switcher & Review Filter */}
+          {(setLanguage || (reviewMode && setReviewFilter)) && (
+            <div className="relative z-10 flex items-center gap-1.5 shrink-0 pl-1.5 sm:pl-2 border-l border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xs shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] dark:shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.25)]">
+              {/* Language Switcher */}
+              {setLanguage && (
+                <button
+                  type="button"
+                  data-testid="section-language-btn"
+                  onClick={() =>
+                    setLanguage((lang) => {
+                      const next = lang === "en" ? "hi" : "en";
+                      try {
+                        localStorage.setItem("trstprep_language", next);
+                      } catch {
+                        // ignore storage write errors
+                      }
+                      document.documentElement.lang = next;
+                      return next;
+                    })
+                  }
+                  title="Change Language"
+                  aria-label="Change Language"
+                  className="flex items-center gap-1 h-7 sm:h-8 px-2 sm:px-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors shadow-2xs shrink-0 cursor-pointer active:scale-95"
+                >
+                  <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <span className="text-[11px] sm:text-xs font-bold text-gray-700 dark:text-gray-200 uppercase">
+                    {language ? language.toUpperCase() : "EN"}
+                  </span>
+                </button>
+              )}
+
+              {/* Review Filter */}
+              {reviewMode && setReviewFilter && (
+                <div
+                  className="relative shrink-0 flex items-center"
+                  ref={filterMenuRef}
+                >
               <button
                 type="button"
                 data-testid="review-filter-btn"
@@ -330,6 +363,8 @@ export default function SectionTabs({
                   </div>
                 </div>
               )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -352,4 +387,6 @@ SectionTabs.propTypes = {
   ]),
   setReviewFilter: PropTypes.func,
   reviewFilterCounts: PropTypes.object,
+  language: PropTypes.string,
+  setLanguage: PropTypes.func,
 };

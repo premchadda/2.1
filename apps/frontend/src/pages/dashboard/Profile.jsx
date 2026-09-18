@@ -10,8 +10,10 @@ import {
   getExams,
 } from "../../shared/lib/dataService";
 import { invalidateDashboardCache } from "../../shared/lib/enrollment";
-import useProPass from "../../shared/hooks/useProPass";
+import { useProPass } from "@trstprep/shared-hooks";
+import { handleAvatarError } from "../../shared/utils/avatarFallback.js";
 import ImageCropperModal from "../../shared/components/common/ImageCropperModal";
+import { useConfirm } from "../../shared/components/common/ConfirmModal";
 import { toast } from "react-hot-toast";
 import { X, Check, Trash2, Camera } from "lucide-react";
 import ProfileHeader from "./profile/ProfileHeader";
@@ -34,6 +36,7 @@ function Profile({ initialTab = "personal" }) {
   } = useAuth();
   const { isDarkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const proPass = useProPass();
   const fileInputRef = useRef(null);
@@ -548,15 +551,20 @@ function Profile({ initialTab = "personal" }) {
         setEnrolledExams(Array.from(enrolledExamsMap.values()));
       } catch (error) {
         if (controller.signal.aborted) return;
-        console.error("Failed to fetch user stats:", error);
+        console.error("Failed to fetch user stats:", error?.message ?? error);
       }
     };
     fetchUserData();
     return () => controller.abort();
   }, [user, authLoading, authResolved, navigate, syncFromUser]);
 
-  const handleLogout = () => {
-    if (confirm("Are you sure you want to logout?")) logout();
+  const handleLogout = async () => {
+    const ok = await confirm({
+      title: "Logout?",
+      message: "Are you sure you want to logout?",
+      danger: true,
+    });
+    if (ok) logout();
   };
 
   const handlePhotoClick = () => {
@@ -573,7 +581,7 @@ function Profile({ initialTab = "personal" }) {
         setShowPhotoOptionsModal(false);
       }
     } catch (error) {
-      console.error("Failed to remove photo:", error);
+      console.error("Failed to remove photo:", error?.message ?? error);
       toast.error("Failed to remove photo.");
     } finally {
       setSaving(false);
@@ -618,7 +626,7 @@ function Profile({ initialTab = "personal" }) {
       const response = await userAPI.updateProfile({ [field]: croppedBase64 });
       if (response.data?.success) await refreshUser();
     } catch (error) {
-      console.error("Failed to update photo:", error);
+      console.error("Failed to update photo:", error?.message ?? error);
       toast.error("Failed to update photo.");
     } finally {
       setSaving(false);
@@ -647,7 +655,7 @@ function Profile({ initialTab = "personal" }) {
       setActiveMenuId(null);
       toast.success("Successfully unenrolled from exam!");
     } catch (error) {
-      console.error("Failed to unenroll from exam:", error);
+      console.error("Failed to unenroll from exam:", error?.message ?? error);
       toast.error("Failed to unenroll. Please try again.");
     } finally {
       setUnenrollingId(null);
@@ -669,7 +677,7 @@ function Profile({ initialTab = "personal" }) {
         "Successfully unenrolled! All previous attempt history has been deleted.",
       );
     } catch (error) {
-      console.error("Failed to unenroll from series:", error);
+      console.error("Failed to unenroll from series:", error?.message ?? error);
       toast.error("Failed to unenroll. Please try again.");
     } finally {
       setUnenrollingId(null);
@@ -680,6 +688,7 @@ function Profile({ initialTab = "personal" }) {
 
   return (
     <>
+      {ConfirmDialog}
       <Helmet>
         <title>Profile | Trstprep</title>
         <meta
@@ -793,12 +802,7 @@ function Profile({ initialTab = "personal" }) {
                       decoding="async"
                       src={user.avatar}
                       className="w-full h-full rounded-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                        if (e.currentTarget.nextSibling) {
-                          e.currentTarget.nextSibling.style.display = "flex";
-                        }
-                      }}
+                      onError={handleAvatarError}
                     />
                   ) : null}
                   <div

@@ -42,6 +42,7 @@ import {
   readTestContentByPath,
 } from "../../services/import/testContentStorage.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import testControllerRouter from "./test.controller.js";
 import {
   resolveQuestionMarks,
   scoreMcqAnswer,
@@ -81,6 +82,12 @@ import {
 } from "./test.helpers.js";
 
 const router = express.Router();
+
+// Wire previously-unmounted test.controller.js as a sub-router (single admin tier).
+// Mounted under /managed to avoid collisions with the inline handlers below.
+// Registered FIRST so Express matches /managed before the `/:testId` param routes
+// (otherwise `GET /managed` would be captured as testId="managed").
+router.use("/managed", testControllerRouter);
 
 export { toPublicTestDTO };
 
@@ -727,18 +734,82 @@ router.post("/:testId/start", protect, async (req, res) => {
       });
     }
 
-    const existingAttempts = await dbHelpers.find("attempts", {
-      userId: req.user.id,
-      isCompleted: false,
-    });
+    // Start hardening: serialize concurrent POST /start calls for this user in
+    // a transaction holding a user-row lock (mirrors
+    // TestAttemptController.createAttempt BEGIN + SELECT ... FOR UPDATE, and
+    // the submit handler below which passes a connected client to dbHelpers).
+    const startClient = await dbHelpers.pool.connect();
+    let startSettled = false;
+    const finalizeStartTxn = async (commit) => {
+      if (startSettled) return;
+      startSettled = true;
+      try {
+        await startClient.query(commit ? "COMMIT" : "ROLLBACK");
+      } catch {
+        // Best-effort finalize: commit/rollback failure still releases below.
+      }
+      try {
+        startClient.release();
+      } catch {
+        // Best-effort release: pool reclaims the client on its own.
+      }
+    };
+    let startEventPayload = null;
+    let attempt = null;
+    let wasResumed = false;
+    try {
+      await startClient.query("BEGIN");
+      // Serialize concurrent start requests for this user.
+      await startClient.query("SELECT id FROM users WHERE id = $1 FOR UPDATE", [
+        req.user.id,
+      ]);
 
-    // Find the in-progress attempt for this specific test
-    let attempt = existingAttempts.find(
-      (a) =>
-        (idsMatch(a.testId, test._id || test.id) ||
-          idsMatch(a.test_id, test._id || test.id)) &&
-        !a.isCompleted,
-    );
+      // Scoped by test id (not the user's whole history): the in-progress
+      // resume check and the free-tier limit check below are both per-test.
+      // All known id forms are matched ($in) so legacy rows stored under a
+      // public_id/slug form are still found. Type discipline matters: if the
+      // canonical id is integer-like, only integer forms are sent (a
+      // non-numeric string against an INTEGER column would 22P02 the query
+      // and find() would return []); otherwise every form goes as text.
+      // The idsMatch JS filter stays as a final fallback.
+      const canonicalTestId = test._id ?? test.id;
+      const canonicalIsInt =
+        typeof canonicalTestId === "number" ||
+        /^[0-9]+$/.test(String(canonicalTestId ?? ""));
+      const testIdForms = [
+        ...new Set(
+          [test._id, test.id, test.public_id, test.publicId, test.slug]
+            .filter((v) => v !== undefined && v !== null && String(v) !== "")
+            .filter((v) =>
+              canonicalIsInt ? /^[0-9]+$/.test(String(v)) : true,
+            )
+            .map((v) => (canonicalIsInt ? Number(v) : String(v))),
+        ),
+      ];
+      const testIdPredicate =
+        testIdForms.length > 0
+          ? { $in: testIdForms }
+          : (test._id ?? test.id);
+      const existingAttempts = await dbHelpers.find(
+        "attempts",
+        {
+          userId: req.user.id,
+          testId: testIdPredicate,
+          isCompleted: false,
+        },
+        null,
+        null,
+        null,
+        startClient,
+      );
+
+      // Find the in-progress attempt for this specific test
+      attempt = existingAttempts.find(
+        (a) =>
+          (idsMatch(a.testId, test._id || test.id) ||
+            idsMatch(a.test_id, test._id || test.id)) &&
+          !a.isCompleted,
+      );
 
     // Check Live Test eligibility rules (Authoritative Server Time Check):
     const isLiveTest = Boolean(
@@ -774,6 +845,7 @@ router.post("/:testId/start", protect, async (req, res) => {
 
       if (scheduledStart && now < new Date(scheduledStart)) {
         if (!attempt) {
+          await finalizeStartTxn(false);
           return res.status(403).json({
             success: false,
             code: "LIVE_TEST_NOT_STARTED",
@@ -784,6 +856,7 @@ router.post("/:testId/start", protect, async (req, res) => {
 
       if (scheduledEnd && now > new Date(scheduledEnd)) {
         if (!attempt) {
+          await finalizeStartTxn(false);
           return res.status(403).json({
             success: false,
             code: "LIVE_TEST_EXPIRED",
@@ -798,27 +871,42 @@ router.post("/:testId/start", protect, async (req, res) => {
     if (isReattempt && attempt) {
       const nowIso = new Date().toISOString();
       const internalAttemptId = getInternalId(attempt);
-      await dbHelpers.updateById("attempts", internalAttemptId, {
-        status: "abandoned",
-        isCompleted: true,
-        is_completed: true,
-        submittedAt: nowIso,
-        submitted_at: nowIso,
-        updated_at: nowIso,
-      });
+      await dbHelpers.updateById(
+        "attempts",
+        internalAttemptId,
+        {
+          status: "abandoned",
+          isCompleted: true,
+          is_completed: true,
+          submittedAt: nowIso,
+          submitted_at: nowIso,
+          updated_at: nowIso,
+        },
+        startClient,
+      );
       attempt = null;
     }
 
-    const wasResumed = Boolean(attempt);
+    wasResumed = Boolean(attempt);
 
     if (!attempt) {
-      // Check attempt limits for non-pro users
-      const allUserAttempts = await dbHelpers.find("attempts", {
-        userId: req.user.id,
-      });
+      // Check attempt limits for non-pro users (per-test count — scoped query;
+      // checkAttemptLimit filters by test id in JS as a second pass).
+      const allUserAttempts = await dbHelpers.find(
+        "attempts",
+        {
+          userId: req.user.id,
+          testId: testIdPredicate,
+        },
+        null,
+        null,
+        null,
+        startClient,
+      );
       const limitCheck = checkAttemptLimit(req.user, allUserAttempts, test);
 
       if (limitCheck.hasReached) {
+        await finalizeStartTxn(false);
         return res.status(403).json({
           success: false,
           code: "ATTEMPT_LIMIT_REACHED",
@@ -836,46 +924,64 @@ router.post("/:testId/start", protect, async (req, res) => {
       const attemptNumber = previousAttempts.length + 1;
       const nowIso = new Date().toISOString();
 
+      // Savepoint so a 23505 race on insert can be rolled back without
+      // aborting the whole transaction (plain ROLLBACK would end it).
+      await startClient.query("SAVEPOINT start_insert");
       try {
-        attempt = await dbHelpers.insertOne("attempts", {
-          userId: req.user.id,
-          testId: test._id || test.id,
-          seriesId: test.seriesId || test.series_id,
-          attemptNumber: attemptNumber,
-          attempt_number: attemptNumber,
-          status: "in_progress",
-          startTime: nowIso,
-          duration: test.duration,
-          answers: [],
-          markedForReview: [],
-          sectionTimers: {},
-          currentSection: null,
-          timeSpent: 0,
-          isCompleted: false,
-          lastActivityAt: nowIso,
-          last_activity_at: nowIso,
-          lastHeartbeatAt: nowIso,
-          last_heartbeat_at: nowIso,
-          createdAt: nowIso,
-        });
+        attempt = await dbHelpers.insertOne(
+          "attempts",
+          {
+            userId: req.user.id,
+            testId: test._id || test.id,
+            seriesId: test.seriesId || test.series_id,
+            attemptNumber: attemptNumber,
+            attempt_number: attemptNumber,
+            status: "in_progress",
+            startTime: nowIso,
+            duration: test.duration,
+            answers: [],
+            markedForReview: [],
+            sectionTimers: {},
+            currentSection: null,
+            timeSpent: 0,
+            isCompleted: false,
+            lastActivityAt: nowIso,
+            last_activity_at: nowIso,
+            lastHeartbeatAt: nowIso,
+            last_heartbeat_at: nowIso,
+            createdAt: nowIso,
+          },
+          startClient,
+        );
 
-        await publishEvent("test_started", {
+        // Emitted after COMMIT below (outside the txn) so a rolled-back
+        // insert never publishes a phantom test_started event.
+        startEventPayload = {
           source: "tests",
           userId: req.user.id,
           testId: test._id || test.id,
           attemptId: attempt._id || attempt.id,
           attemptNumber,
-        });
+        };
       } catch (insertErr) {
         // Unique constraint violation (23505) means a concurrent request
         // already created an in-progress attempt for this user+test.
         // Return the existing attempt instead of failing.
-        if (insertErr.code === "23505") {
-          const existingAttempts = await dbHelpers.find("attempts", {
-            userId: req.user.id,
-            isCompleted: false,
-          });
-          attempt = existingAttempts.find(
+        if (insertErr?.code === "23505") {
+          await startClient.query("ROLLBACK TO SAVEPOINT start_insert");
+          const retryExisting = await dbHelpers.find(
+            "attempts",
+            {
+              userId: req.user.id,
+              testId: testIdPredicate,
+              isCompleted: false,
+            },
+            null,
+            null,
+            null,
+            startClient,
+          );
+          attempt = retryExisting.find(
             (a) =>
               idsMatch(a.testId, test._id || test.id) ||
               idsMatch(a.test_id, test._id || test.id),
@@ -887,6 +993,15 @@ router.post("/:testId/start", protect, async (req, res) => {
           throw insertErr;
         }
       }
+    }
+
+      await finalizeStartTxn(true);
+    } catch (startTxnErr) {
+      await finalizeStartTxn(false);
+      throw startTxnErr;
+    }
+    if (startEventPayload) {
+      await publishEvent("test_started", startEventPayload);
     }
 
     const currentAttemptNo =
@@ -954,6 +1069,19 @@ router.put("/:testId/autosave", protect, async (req, res) => {
       return res
         .status(400)
         .json({ success: false, message: "Attempt ID required" });
+    }
+
+    // Mirror the submit guard: timeSpent must be a finite number >= 0.
+    if (
+      typeof timeSpent !== "number" ||
+      !Number.isFinite(timeSpent) ||
+      timeSpent < 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "timeSpent (seconds, number) is required to submit a test.",
+        code: "TIMESPENT_REQUIRED",
+      });
     }
 
     const attempt = await findAttemptByIdentifier(attemptId);
@@ -1032,6 +1160,18 @@ router.put("/:testId/submit", protect, async (req, res) => {
       });
     }
 
+    if (
+      typeof timeSpent !== "number" ||
+      !Number.isFinite(timeSpent) ||
+      timeSpent < 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "timeSpent (seconds, number) is required to submit a test.",
+        code: "TIMESPENT_REQUIRED",
+      });
+    }
+
     const test = await findTestByIdentifier(req.params.testId, dbHelpers);
 
     if (!test) {
@@ -1061,8 +1201,8 @@ router.put("/:testId/submit", protect, async (req, res) => {
       });
     }
 
-    // Clamp timeSpent to test duration
-    const clampedTimeSpent = Math.min(timeSpent, testDurationSeconds);
+    // Clamp timeSpent to test duration + tolerance (network latency grace)
+    const clampedTimeSpent = Math.min(timeSpent, testDurationSeconds + tolerance);
 
     // Server-side per-section timer validation (anti-tampering)
     // The frontend auto-advances sections at their allotted limit, so a section reporting
@@ -1305,65 +1445,78 @@ router.put("/:testId/submit", protect, async (req, res) => {
         await saveAttemptQuestionSnapshots(client, targetAttemptId, questions);
       }
 
+      // Persist to results table for analytics, public leaderboards, and
+      // streak tracking — inside the same txn/client so a crash between
+      // COMMIT and a post-commit write can never leave an attempt without
+      // its results row. Savepoint-guarded: results has no UNIQUE on
+      // attempt_id (plain idx only), so this keeps the idempotent
+      // SELECT-then-UPDATE/INSERT shape; a results failure warns instead of
+      // failing the submit.
+      try {
+        await client.query("SAVEPOINT results_persist");
+        const resolvedAttemptDbId = targetAttemptId;
+        const percentageScore =
+          attemptData.totalMarks > 0
+            ? Number(
+                ((attemptData.score / attemptData.totalMarks) * 100).toFixed(2),
+              )
+            : 0;
+
+        if (resolvedAttemptDbId) {
+          const existingResult = await client.query(
+            "SELECT id FROM results WHERE attempt_id = $1",
+            [resolvedAttemptDbId],
+          );
+          if (existingResult.rows.length > 0) {
+            await client.query(
+              `UPDATE results SET
+                score = $1, total_marks = $2, percentage = $3, time_taken = $4, submitted_at = NOW()
+               WHERE attempt_id = $5`,
+              [
+                attemptData.score,
+                attemptData.totalMarks,
+                percentageScore,
+                attemptData.timeSpent,
+                resolvedAttemptDbId,
+              ],
+            );
+          } else {
+            await client.query(
+              `INSERT INTO results (
+                attempt_id, user_id, test_id, series_id, score, total_marks, percentage, time_taken, submitted_at, created_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`,
+              [
+                resolvedAttemptDbId,
+                req.user.id,
+                test._id || test.id,
+                test.seriesId || test.series_id || null,
+                attemptData.score,
+                attemptData.totalMarks,
+                percentageScore,
+                attemptData.timeSpent,
+              ],
+            );
+          }
+        }
+        await client.query("RELEASE SAVEPOINT results_persist");
+      } catch (resErr) {
+        try {
+          await client.query("ROLLBACK TO SAVEPOINT results_persist");
+        } catch {
+          // rollback best-effort; the warn below is what matters
+        }
+        console.warn(
+          "[tests.submit] Failed to persist to results table:",
+          resErr.message,
+        );
+      }
+
       await client.query("COMMIT");
     } catch (err) {
       await client.query("ROLLBACK");
       throw err;
     } finally {
       client.release();
-    }
-
-    // Persist to results table for analytics, public leaderboards, and streak tracking
-    try {
-      const resolvedAttemptDbId = result?.id || parseInt(attemptId, 10) || null;
-      const percentageScore =
-        attemptData.totalMarks > 0
-          ? Number(
-              ((attemptData.score / attemptData.totalMarks) * 100).toFixed(2),
-            )
-          : 0;
-
-      if (resolvedAttemptDbId) {
-        const existingResult = await dbHelpers.pool.query(
-          "SELECT id FROM results WHERE attempt_id = $1",
-          [resolvedAttemptDbId],
-        );
-        if (existingResult.rows.length > 0) {
-          await dbHelpers.pool.query(
-            `UPDATE results SET 
-              score = $1, total_marks = $2, percentage = $3, time_taken = $4, submitted_at = NOW() 
-             WHERE attempt_id = $5`,
-            [
-              attemptData.score,
-              attemptData.totalMarks,
-              percentageScore,
-              attemptData.timeSpent,
-              resolvedAttemptDbId,
-            ],
-          );
-        } else {
-          await dbHelpers.pool.query(
-            `INSERT INTO results (
-              attempt_id, user_id, test_id, series_id, score, total_marks, percentage, time_taken, submitted_at, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`,
-            [
-              resolvedAttemptDbId,
-              req.user.id,
-              test._id || test.id,
-              test.seriesId || test.series_id || null,
-              attemptData.score,
-              attemptData.totalMarks,
-              percentageScore,
-              attemptData.timeSpent,
-            ],
-          );
-        }
-      }
-    } catch (resErr) {
-      console.warn(
-        "[tests.submit] Failed to persist to results table:",
-        resErr.message,
-      );
     }
 
     await publishEvent("test_submitted", {
@@ -1465,9 +1618,9 @@ router.put("/:testId/submit", protect, async (req, res) => {
 
     // Generate adaptive recommendations based on performance
     try {
-      const adaptiveTestService =
-        (await import("../adaptive/adaptiveTest.service.js")).default ||
-        (await import("../adaptive/adaptiveTest.service.js"));
+      // Single dynamic import (module is cached after first load).
+      const adaptiveMod = await import("../adaptive/adaptiveTest.service.js");
+      const adaptiveTestService = adaptiveMod.default || adaptiveMod;
       if (
         adaptiveTestService &&
         typeof adaptiveTestService.generateRecommendations === "function"

@@ -133,11 +133,28 @@ describe("Admin Permission & RBAC Middleware", () => {
   });
 
   describe("requireAdminPermission", () => {
-    it("bypasses permission checks for super_admin role", () => {
+    it("denies legacy tier role name without verified admin state", () => {
       const req = {
         path: "/tests/123",
         method: "DELETE",
-        user: { id: 1, role: "super_admin", permissions: [] },
+        user: { id: 1, role: "legacy-tier", permissions: [] },
+      };
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+      const next = jest.fn();
+
+      requireAdminPermission(req, res, next);
+      expect(next).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    it("bypasses permission checks when verified admin has wildcard * permission", () => {
+      const req = {
+        path: "/users/456",
+        method: "POST",
+        user: { id: 2, role: "admin", isAdmin: true, permissions: ["*"] },
       };
       const res = {};
       const next = jest.fn();
@@ -146,17 +163,21 @@ describe("Admin Permission & RBAC Middleware", () => {
       expect(next).toHaveBeenCalledTimes(1);
     });
 
-    it("bypasses permission checks when user has wildcard * permission", () => {
+    it("denies wildcard * permission without verified admin state", () => {
       const req = {
         path: "/users/456",
         method: "POST",
         user: { id: 2, role: "admin", permissions: ["*"] },
       };
-      const res = {};
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
       const next = jest.fn();
 
       requireAdminPermission(req, res, next);
-      expect(next).toHaveBeenCalledTimes(1);
+      expect(next).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(403);
     });
 
     it("allows access when user has domain wildcard permission (e.g. tests:*)", () => {

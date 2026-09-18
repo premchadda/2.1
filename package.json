@@ -26,7 +26,6 @@
     "build:admin": "turbo build --filter=trstprep-admin",
     "upgrade": "pnpm update -r --interactive --latest",
     "prepare": "node -e \"if (!process.env.CI && process.env.NODE_ENV !== 'production') { try { require('child_process').execSync('husky install', { stdio: 'ignore' }); } catch (e) {} }\"",
-    "load-test": "k6 run tests/load/api.js",
     "load-test:auth": "k6 run tests/load/auth.js",
     "load-test:api": "k6 run tests/load/api.js",
     "load-test:realtime": "k6 run tests/load/realtime.js",
@@ -63,7 +62,7 @@
     "nodemailer": "^9.0.1"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "packageManager": "pnpm@11.25.0"
 }

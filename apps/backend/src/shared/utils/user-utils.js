@@ -1,7 +1,48 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { idsMatch } from "./db-utils.js";
 import { buildPublicIdLookup, mapLookupId } from "./public-id-response.js";
 import { getSubjectIcon as emojiGetSubjectIcon } from "../config/emojiConfig.js";
 import { decryptPii, isPiiEncryptionEnabled } from "./piiCrypto.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const UPLOADS_ROOT = path.resolve(__dirname, "../../../uploads");
+
+/**
+ * Validates whether a local profile asset (avatar/banner) actually exists on disk.
+ * If missing, returns null so clients avoid requesting broken paths.
+ */
+export const availableProfileAsset = (asset) => {
+  if (typeof asset !== "string" || !asset) return asset;
+  if (
+    asset.startsWith("http://") ||
+    asset.startsWith("https://") ||
+    asset.startsWith("data:")
+  ) {
+    return asset;
+  }
+  if (asset.startsWith("/assets/avatar/")) {
+    const filename = path.basename(asset);
+    return fs.existsSync(path.join(UPLOADS_ROOT, "avatars", filename))
+      ? asset
+      : null;
+  }
+  if (asset.startsWith("/uploads/")) {
+    const relPath = asset.replace(/^\/uploads\//, "");
+    if (fs.existsSync(path.join(UPLOADS_ROOT, relPath))) return asset;
+    const filename = path.basename(asset);
+    if (fs.existsSync(path.join(UPLOADS_ROOT, "avatars", filename))) {
+      return `/assets/avatar/${filename}`;
+    }
+    if (fs.existsSync(path.join(UPLOADS_ROOT, "images", filename))) {
+      return `/uploads/images/${filename}`;
+    }
+    return null;
+  }
+  return asset;
+};
 
 /**
  * Populates enrolled series data for a user
@@ -141,6 +182,12 @@ export const sanitizeUser = (user, options = {}) => {
       continue;
     }
     safeUser[key] = decrypted[key];
+  }
+  if (safeUser.avatar) {
+    safeUser.avatar = availableProfileAsset(safeUser.avatar);
+  }
+  if (safeUser.banner) {
+    safeUser.banner = availableProfileAsset(safeUser.banner);
   }
   return safeUser;
 };

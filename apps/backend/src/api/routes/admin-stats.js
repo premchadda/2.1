@@ -3,11 +3,7 @@ import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { analyticsService } from "../../services/core/index.js";
 import { getProPassPrice } from "./admin-helpers.js";
 import logger from "../../infrastructure/logger/logger.js";
-import {
-  protect,
-  admin,
-  superAdmin,
-} from "../../middleware/auth.middleware.js";
+import { protect, admin } from "../../middleware/auth.middleware.js";
 import { swrCache } from "../../middleware/responseCache.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
@@ -59,7 +55,7 @@ router.get(
           (SELECT COUNT(*)::int FROM users) as total_users,
           (SELECT COUNT(*)::int FROM users WHERE is_active = true) as active_users,
           (SELECT COUNT(*)::int FROM users WHERE is_pro_user = true) as pro_users,
-          (SELECT COUNT(*)::int FROM users WHERE role = 'admin' OR role = 'super_admin') as admin_users,
+          (SELECT COUNT(*)::int FROM users WHERE role = 'admin') as admin_users, -- single-admin model
           (SELECT COUNT(*)::int FROM test_series) as test_series,
           (SELECT COUNT(*)::int FROM tests) as tests,
           (SELECT COUNT(*)::int FROM questions) as questions,
@@ -95,7 +91,7 @@ router.get(
             (SELECT COUNT(*)::int FROM users) as total_users,
             (SELECT COUNT(*)::int FROM users WHERE is_active = true) as active_users,
             (SELECT COUNT(*)::int FROM users WHERE is_pro_user = true) as pro_users,
-            (SELECT COUNT(*)::int FROM users WHERE role = 'admin' OR role = 'super_admin') as admin_users,
+            (SELECT COUNT(*)::int FROM users WHERE role = 'admin') as admin_users, -- single-admin model
             (SELECT COUNT(*)::int FROM test_series) as test_series,
             (SELECT COUNT(*)::int FROM tests) as tests,
             (SELECT COUNT(*)::int FROM questions) as questions,

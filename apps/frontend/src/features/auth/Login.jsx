@@ -89,7 +89,7 @@ function Login() {
           });
         }
       } catch (error) {
-        console.error("Failed to fetch stats:", error);
+        console.error("Failed to fetch stats:", error?.message ?? error);
       }
     };
     fetchStats();
@@ -390,7 +390,7 @@ function Login() {
                       );
                     }
                   } catch (err) {
-                    console.error("Failed to logout other sessions:", err);
+                    console.error("Failed to logout other sessions:", err?.message ?? err);
                     toast.error("Failed to logout other sessions");
                   } finally {
                     setRevoking(false);

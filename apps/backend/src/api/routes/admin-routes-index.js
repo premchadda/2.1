@@ -1,19 +1,9 @@
 /**
- * Admin Route Index — compatibility wrapper forwarding to canonical admin router (admin.js).
+ * Admin Route Index — compatibility re-export of the canonical admin router (admin.js).
+ *
+ * NOTE: the legacy `mountAdminRoutes(app, adminLimiter)` helper was removed
+ * to prevent a double-mount of `/api/admin` (app-port5001.js already mounts
+ * the canonical router directly). Import the default export from `./admin.js`
+ * instead.
  */
-import adminRoutes from "./admin.js";
-
-/**
- * Mount all modular admin routes on the Express app.
- * @param {import('express').Express} app
- * @param {import('express-rate-limit').RateLimitRequestHandler} adminLimiter
- */
-export function mountAdminRoutes(app, adminLimiter) {
-  if (adminLimiter) {
-    app.use("/api/admin", adminLimiter, adminRoutes);
-  } else {
-    app.use("/api/admin", adminRoutes);
-  }
-}
-
-export default mountAdminRoutes;
+export { default } from "./admin.js";

@@ -1,5 +1,27 @@
 import { useState, useEffect, useCallback } from 'react'
-import { request } from './apiClientConfig.js'
+import { request, getSharedApiClient } from './apiClientConfig.js'
+
+function warnMissingClient(caller) {
+  if (typeof console !== "undefined" && console.warn) {
+    console.warn(
+      `${caller}: no API client configured (passed apiClient + getSharedApiClient() both null). ` +
+        "Using fetch fallback with cookies/CSRF. Call setSharedApiClient(apiClient) at app root for correct auth.",
+    );
+  }
+}
+
+function toActionableError(err, caller) {
+  const base = err?.message || "Request failed";
+  if (/not configured|localhost in production/i.test(base)) return base;
+  return `${base} (${caller}: if unauthenticated, call setSharedApiClient(apiClient) at app root.)`;
+}
+
+// Canonical entity key: _id → public_id/publicId → id so public identifiers
+// win over internal numeric ids (matches useStages getStageKey).
+function getCategoryKey(item) {
+  if (!item) return null
+  return item._id ?? item.public_id ?? item.publicId ?? item.id ?? null
+}
 
 export function useTestCategories(options = {}) {
   const { apiClient = null } = options
@@ -13,6 +35,8 @@ export function useTestCategories(options = {}) {
     setLoading(true)
     setError(null)
     try {
+      if (!apiClient && !getSharedApiClient())
+        warnMissingClient('useTestCategories.fetchCategories')
       const data = await request('GET', '/test-categories', null, { apiClient })
       if (data.success) {
         setCategories(data.data)
@@ -20,7 +44,7 @@ export function useTestCategories(options = {}) {
         setError(data.message || 'Failed to fetch categories')
       }
     } catch (err) {
-      setError(err.message)
+      setError(toActionableError(err, 'useTestCategories.fetchCategories'))
     } finally {
       setLoading(false)
     }
@@ -30,6 +54,8 @@ export function useTestCategories(options = {}) {
     setLoading(true)
     setError(null)
     try {
+      if (!apiClient && !getSharedApiClient())
+        warnMissingClient('useTestCategories.fetchTree')
       const data = await request('GET', '/test-categories/tree', null, { apiClient })
       if (data.success) {
         setTree(data.data)
@@ -37,7 +63,7 @@ export function useTestCategories(options = {}) {
         setError(data.message || 'Failed to fetch category tree')
       }
     } catch (err) {
-      setError(err.message)
+      setError(toActionableError(err, 'useTestCategories.fetchTree'))
     } finally {
       setLoading(false)
     }
@@ -47,6 +73,8 @@ export function useTestCategories(options = {}) {
     setLoading(true)
     setError(null)
     try {
+      if (!apiClient && !getSharedApiClient())
+        warnMissingClient('useTestCategories.fetchRoots')
       const data = await request('GET', '/test-categories/roots', null, { apiClient })
       if (data.success) {
         setRoots(data.data)
@@ -54,19 +82,19 @@ export function useTestCategories(options = {}) {
         setError(data.message || 'Failed to fetch root categories')
       }
     } catch (err) {
-      setError(err.message)
+      setError(toActionableError(err, 'useTestCategories.fetchRoots'))
     } finally {
       setLoading(false)
     }
   }, [apiClient])
 
-  // Build tree from flat categories
+  // Build tree from flat categories (keys on public identifiers; parent falls back to parent_id)
   const buildTree = useCallback((items, parentId = null) => {
     return items
-      .filter(item => (item.parentId || null) === parentId)
+      .filter(item => ((item.parentId ?? item.parent_id) || null) === parentId)
       .map(item => ({
         ...item,
-        children: buildTree(items, item._id)
+        children: buildTree(items, getCategoryKey(item))
       }))
   }, [])
 
@@ -75,11 +103,11 @@ export function useTestCategories(options = {}) {
     return categories.map(cat => ({
       value: cat.name,
       label: cat.name,
-      id: cat._id,
+      id: getCategoryKey(cat),
       slug: cat.slug,
       icon: cat.icon,
       level: cat.level || 0,
-      parentId: cat.parentId
+      parentId: cat.parentId ?? cat.parent_id ?? null
     }))
   }, [categories])
 

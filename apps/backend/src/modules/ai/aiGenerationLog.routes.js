@@ -13,8 +13,14 @@ router.get('/', protect, admin, async (req, res) => {
     if (model) query.model = model
     if (status) query.status = status
 
+    // Route-level pagination: service/model have no limit/offset passthrough,
+    // so cap page size (200) and slice here. offset = (page-1)*limit.
+    const safePage = Math.max(1, parseInt(page) || 1)
+    const safeLimit = Math.min(Math.max(parseInt(limit) || 50, 1), 200)
+    const offset = (safePage - 1) * safeLimit
     const logs = await aiGenerationLogService.list(query)
-    res.json({ success: true, data: logs })
+    const rows = Array.isArray(logs) ? logs.slice(offset, offset + safeLimit) : logs
+    res.json({ success: true, data: rows, pagination: { page: safePage, limit: safeLimit, offset } })
   } catch (error) {
     res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }

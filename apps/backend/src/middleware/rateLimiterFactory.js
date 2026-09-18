@@ -21,9 +21,22 @@ export const createRateLimiter = (tier = "generous") => {
     },
     standardHeaders: true,
     legacyHeaders: false,
-    // Skip only for verified admin (req.user set by protect) — unverified origin/jwt.decode bypass removed
-    skip: (req) =>
-      process.env.DISABLE_RATE_LIMITER === "true" || isUserAdminRequest(req),
+    // Admin bypass restored per product requirement (user 17-09: admin not rate-limited).
+    // Verified admin (req.user set by protect) skips all tiers; unverified requests still limited.
+    // DISABLE_RATE_LIMITER honored only outside production (fail-closed in prod).
+    skip: (req) => {
+      if (isUserAdminRequest(req)) return true;
+      if (process.env.DISABLE_RATE_LIMITER === "true") {
+        if (process.env.NODE_ENV === "production") {
+          console.warn(
+            "[rateLimiter] DISABLE_RATE_LIMITER=true ignored in production",
+          );
+          return false;
+        }
+        return true;
+      }
+      return false;
+    },
   });
 };
 

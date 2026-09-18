@@ -8,6 +8,7 @@ import {
   Phone,
   Award,
 } from "lucide-react";
+import { handleAvatarError } from "../../../shared/utils/avatarFallback.js";
 
 function ProfileHeader({
   user,
@@ -107,16 +108,12 @@ function ProfileHeader({
                         decoding="async"
                         src={user.avatar}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                          if (e.currentTarget.nextSibling) {
-                            e.currentTarget.nextSibling.style.display = "flex";
-                          }
-                        }}
+                        onError={handleAvatarError}
                       />
                     ) : null}
                     <div
                       className={`${user.avatar ? "hidden" : "flex"} w-full h-full items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 text-indigo-600 dark:text-indigo-300 text-xl sm:text-2xl font-black`}
+                      data-avatar-fallback-display="flex"
                     >
                       {user.name?.[0]?.toUpperCase() || "U"}
                     </div>
@@ -269,17 +266,12 @@ function ProfileHeader({
                           decoding="async"
                           src={user.avatar}
                           className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                            if (e.currentTarget.nextSibling) {
-                              e.currentTarget.nextSibling.style.display =
-                                "flex";
-                            }
-                          }}
+                          onError={handleAvatarError}
                         />
                       ) : null}
                       <div
                         className={`${user.avatar ? "hidden" : "flex"} w-full h-full items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 text-indigo-600 dark:text-indigo-300 text-2xl md:text-xl sm:text-2xl lg:text-3xl font-black`}
+                        data-avatar-fallback-display="flex"
                       >
                         {user.name?.[0]?.toUpperCase() || "U"}
                       </div>

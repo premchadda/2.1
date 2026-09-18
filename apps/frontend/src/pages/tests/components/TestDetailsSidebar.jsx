@@ -10,6 +10,10 @@ import {
   Medal,
   Radio,
 } from "lucide-react";
+import { handleAvatarError } from "../../../shared/utils/avatarFallback.js";
+
+const isAvatarUrl = (v) =>
+  typeof v === "string" && /^(https?:|data:)/.test(v);
 
 export default function TestDetailsSidebar({
   user,
@@ -111,8 +115,24 @@ export default function TestDetailsSidebar({
                     </div>
 
                     {/* Avatar */}
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white flex items-center justify-center font-medium text-sm">
-                      {rank.avatar || rank.name?.charAt(0).toUpperCase()}
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white flex items-center justify-center font-medium text-sm overflow-hidden shrink-0">
+                      {isAvatarUrl(rank.avatar) ? (
+                        <>
+                          <img
+                            loading="lazy"
+                            decoding="async"
+                            src={rank.avatar}
+                            alt={rank.name || "Performer"}
+                            className="w-full h-full object-cover"
+                            onError={handleAvatarError}
+                          />
+                          <span className="hidden w-full h-full items-center justify-center">
+                            {rank.name?.charAt(0).toUpperCase()}
+                          </span>
+                        </>
+                      ) : (
+                        rank.avatar || rank.name?.charAt(0).toUpperCase()
+                      )}
                     </div>
 
                     {/* Info */}
@@ -253,24 +273,6 @@ export default function TestDetailsSidebar({
               <span className="text-indigo-100">Free Tests</span>
               <span className="font-bold text-green-300">
                 {permanentFreeTestsCount || series.freeTests || 0}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-indigo-100">Total Questions</span>
-              <span className="font-bold">
-                {permanentTests.reduce(
-                  (acc, t) => acc + (t.totalQuestions || t.questions || 0),
-                  0,
-                )}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-indigo-100">Total Marks</span>
-              <span className="font-bold">
-                {permanentTests.reduce(
-                  (acc, t) => acc + (t.totalMarks || t.marks || 100),
-                  0,
-                )}
               </span>
             </div>
           </div>

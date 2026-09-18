@@ -133,6 +133,33 @@ services:
       - backend-net
       - monitoring-net
 
+  worker:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - INSTANCE_ID=worker
+    command: npm run worker
+    restart: unless-stopped
+    logging: *default_logging
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    depends_on:
+      backend-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend-net
+
   frontend:
     build:
       context: ./apps/frontend

@@ -23,7 +23,6 @@ jest.unstable_mockModule(
 jest.unstable_mockModule("../middleware/auth.middleware.js", () => ({
   protect: (req, res, next) => next(),
   admin: (req, res, next) => next(),
-  superAdmin: (req, res, next) => next(),
 }));
 
 const { default: extrasRouter } = await import("../api/routes/admin-extras.js");

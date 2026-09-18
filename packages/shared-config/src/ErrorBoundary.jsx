@@ -11,6 +11,26 @@ import React, { Component } from 'react'
  *   <MyComponent />
  * </ErrorBoundary>
  */
+// Node-safe isDevelopment check — mirrors logger.js: import.meta.env.DEV
+// first (Vite), process.env.NODE_ENV fallback (Node/Jest), else false.
+const isDevelopment = (() => {
+  try {
+    if (
+      typeof import.meta !== "undefined" &&
+      import.meta.env &&
+      typeof import.meta.env.DEV !== "undefined"
+    ) {
+      return Boolean(import.meta.env.DEV);
+    }
+  } catch {
+    // import.meta not available — fall through to process.env check
+  }
+  if (typeof process !== "undefined" && process.env) {
+    return process.env.NODE_ENV !== "production";
+  }
+  return false;
+})();
+
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props)
@@ -103,7 +123,7 @@ class ErrorBoundary extends Component {
               </button>
             </div>
             
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {isDevelopment && this.state.error && (
               <details className="mt-6 text-left bg-gray-50 rounded-lg p-4">
                 <summary className="cursor-pointer text-sm font-medium text-gray-700">
                   Error Details (Dev Only)

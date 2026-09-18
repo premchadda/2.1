@@ -7,7 +7,14 @@ import {
 } from "../../middleware/origin.middleware.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
 import { auditMiddleware } from "../../middleware/audit.middleware.js";
-import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
+import { reviewSubmissionLimiter as questionReviewLimiter } from "../../middleware/reviewLimiter.js";
+import {
+  parseCSVBuffer,
+  parseJSONBuffer,
+  parseSpreadsheetBuffer,
+  extractQuestionsFromParsedJSON,
+} from "../../services/import/enhancedImporter.js";
+import { mapBulkRowToQuestionPayload } from "../../shared/utils/bulkRowMappers.js";
 import { validateBody } from "../../middleware/validation/inputValidation.js";
 import { emitBroadcastEvent } from "../../infrastructure/events/eventBus.js";
 import {
@@ -18,7 +25,6 @@ import {
 import { moderationService } from "../../services/core/moderationService.js";
 
 const router = express.Router();
-const questionReviewLimiter = createRateLimiter("moderate");
 const adminAuth = [
   restrictAdminOrigin,
   validateAdminApiKey,
@@ -228,16 +234,35 @@ router.post(
       const ext = req.file.originalname
         .toLowerCase()
         .slice(req.file.originalname.lastIndexOf("."));
-      let questions = [];
+      let normalizedRows = [];
       if (ext === ".csv") {
-        questions = parseQuestionsCsv(req.file.buffer);
-      } else if (ext === ".json") {
-        questions = JSON.parse(req.file.buffer.toString("utf-8"));
+        normalizedRows = parseCSVBuffer(req.file.buffer);
+      } else if (ext === ".json" || req.file.mimetype?.includes("json")) {
+        const data = parseJSONBuffer(req.file.buffer);
+        normalizedRows = extractQuestionsFromParsedJSON(data);
       } else {
-        return res
-          .status(400)
-          .json({ success: false, message: "Unsupported file format" });
+        try {
+          const data = parseJSONBuffer(req.file.buffer);
+          normalizedRows = extractQuestionsFromParsedJSON(data);
+          if (!Array.isArray(normalizedRows) || normalizedRows.length === 0) {
+            normalizedRows = await parseSpreadsheetBuffer(req.file.buffer);
+          }
+        } catch {
+          normalizedRows = await parseSpreadsheetBuffer(req.file.buffer);
+        }
       }
+
+      const mapped = (
+        await Promise.all(
+          normalizedRows.map((row) =>
+            mapBulkRowToQuestionPayload(row, {
+              testId: req.body.testId || null,
+            }),
+          ),
+        )
+      ).filter(Boolean);
+
+      const questions = mapped.length > 0 ? mapped : normalizedRows;
 
       const count = await questionService.bulkUpload(
         questions,
@@ -253,32 +278,5 @@ router.post(
     }
   },
 );
-
-function parseQuestionsCsv(buffer) {
-  const content = buffer.toString("utf-8");
-  const lines = content.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
-  const headers = lines[0]
-    .split(",")
-    .map((h) => h.trim().replace(/^"|"$/g, ""));
-  return lines.slice(1).map((line) => {
-    const values = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
-    const row = {};
-    headers.forEach((h, i) => (row[h] = values[i] || ""));
-    return {
-      questionText: row.questionText || row.question_text || row.text,
-      options: [row.option1, row.option2, row.option3, row.option4].filter(
-        Boolean,
-      ),
-      correctAnswer: parseInt(
-        row.correctAnswer ?? row.correct_option ?? row.answer,
-        10,
-      ),
-      explanation: row.explanation,
-      marks: parseInt(row.marks, 10) || 1,
-      difficulty: row.difficulty || "medium",
-    };
-  });
-}
 
 export default router;

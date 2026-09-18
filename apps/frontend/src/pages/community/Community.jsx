@@ -1850,7 +1850,7 @@ function ChatTab({ groupId, socket, user }) {
         inputRef.current?.focus();
       }
     } catch (err) {
-      console.error("Failed to send message:", err);
+      console.error("Failed to send message:", err?.message ?? err);
       toast.error("Failed to send message");
     } finally {
       setSending(false);

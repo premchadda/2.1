@@ -1,9 +1,10 @@
 import { Calendar, Bell, FileText, ExternalLink } from "lucide-react";
+import { formatDate as formatDateCanonical } from "../../shared/lib/format.js";
 
 export default function DynamicContent({ yearlyData, updates }) {
   const formatDate = (dateString) => {
     if (!dateString) return "TBA";
-    return new Date(dateString).toLocaleDateString("en-IN", {
+    return formatDateCanonical(dateString, {
       day: "numeric",
       month: "long",
       year: "numeric",

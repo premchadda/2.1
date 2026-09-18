@@ -48,11 +48,16 @@ const getClientIp = (req) => {
     if (ip === "::1") return "127.0.0.1";
     if (ip) return ip;
   }
-  const forwardedFor = req.headers?.["x-forwarded-for"];
-  if (forwardedFor) {
-    const first = String(forwardedFor).split(",")[0].trim();
-    if (first.startsWith("::ffff:")) return first.slice(7);
-    return first;
+  // X-Forwarded-For is client-spoofable: only trust it outside production
+  // (mirrors adminIpAllowlist.resolveClientIp, which ignores XFF in prod, so
+  // the allowlist decision and the audit record can never disagree in prod).
+  if (process.env.NODE_ENV !== "production") {
+    const forwardedFor = req.headers?.["x-forwarded-for"];
+    if (forwardedFor) {
+      const first = String(forwardedFor).split(",")[0].trim();
+      if (first.startsWith("::ffff:")) return first.slice(7);
+      return first;
+    }
   }
   const sock = req.socket?.remoteAddress || req.connection?.remoteAddress;
   if (sock) {

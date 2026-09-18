@@ -1,3 +1,10 @@
+# DEPRECATED — do not extend this file. Horizontal scaling is now expressed as
+# the base compose file plus the prod override:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# (backend-1/backend-2 are fixed services; N>2 needs a scalable 'backend'
+# service first — see scripts/scale.sh, which enforces this.)
+# This file is retained for reference only and will be removed once the
+# base+prod override path is verified in staging.
 services:
   backend-1:
     build:

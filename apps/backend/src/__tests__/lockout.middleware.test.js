@@ -168,9 +168,27 @@ describe("Lockout Middleware & Account Lockout Engine", () => {
       expect(mockPoolQuery).not.toHaveBeenCalled();
     });
 
-    it("bypasses admin requests", async () => {
+    it("enforces lockout on credential paths even for admin requests", async () => {
+      // Audit 17-09-2026: the old blanket admin bypass skipped brute-force
+      // protection on 2FA/OTP paths for admin sessions. Admins now bypass
+      // only non-credential paths; /auth/login is always enforced.
       mockIsUserAdminRequest.mockReturnValueOnce(true);
+      mockPoolQuery
+        .mockResolvedValueOnce({ rows: [{ attempt_count: "0" }] })
+        .mockResolvedValueOnce({ rows: [] });
       const req = makeReq("/auth/login", "admin@trstprep.com");
+      const res = makeRes();
+      const next = jest.fn();
+
+      await lockoutMiddleware(req, res, next);
+      expect(next).toHaveBeenCalled();
+      expect(mockPoolQuery).toHaveBeenCalled();
+    });
+
+    it("bypasses admin requests on non-credential paths without DB hit", async () => {
+      mockIsUserAdminRequest.mockReturnValueOnce(true);
+      const req = makeReq("/api/tests", null);
+      req.user = { id: 7, role: "admin", isAdmin: true };
       const res = makeRes();
       const next = jest.fn();
 

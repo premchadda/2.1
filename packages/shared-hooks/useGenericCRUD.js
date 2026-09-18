@@ -1,6 +1,128 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import toast from "react-hot-toast";
 
+// Canonical error classes from @trstprep/shared-config via relative import
+// (no hard dep in package.json — NO package.json edits allowed). Every branch
+// guards with `??`/existence checks so this degrades to the bare-Error shape
+// below when the shared module is unresolvable.
+import {
+  ValidationError as SharedValidationError,
+  AuthenticationError as SharedAuthenticationError,
+  ForbiddenError as SharedForbiddenError,
+  NotFoundError as SharedNotFoundError,
+  RateLimitError as SharedRateLimitError,
+} from "../shared-config/src/errors.js";
+
+function toCrudError(status, message, details, retryAfter = null) {
+  const msg =
+    message || `Request failed${status ? ` with status ${status}` : ""}`;
+  const body = details ?? null;
+  // Canonical mapping: 400 -> ValidationError, 401 -> AuthenticationError,
+  // 403 -> ForbiddenError, 404 -> NotFoundError, 409 -> ConflictError
+  // (bare-Error fallback: no shared Conflict class exists), 422 ->
+  // ValidationError, 429 -> RateLimitError.
+  let err = null;
+  if (status === 400 && SharedValidationError) {
+    err = new SharedValidationError(msg, body);
+  } else if (status === 401 && SharedAuthenticationError) {
+    err = new SharedAuthenticationError(msg, body);
+  } else if (status === 403 && SharedForbiddenError) {
+    err = new SharedForbiddenError(msg, body);
+  } else if (status === 404 && SharedNotFoundError) {
+    err = new SharedNotFoundError(msg, body);
+  } else if (status === 422 && SharedValidationError) {
+    err = new SharedValidationError(msg, body);
+  } else if (status === 429 && SharedRateLimitError) {
+    err = new SharedRateLimitError(msg, body, retryAfter ?? null);
+  }
+  if (err) {
+    if (err.status == null) err.status = status;
+    if (err.code == null) {
+      const codeByStatus = {
+        400: "VALIDATION_ERROR",
+        401: "AUTHENTICATION_ERROR",
+        403: "FORBIDDEN_ERROR",
+        404: "NOT_FOUND_ERROR",
+        409: "CONFLICT_ERROR",
+        422: "VALIDATION_ERROR",
+        429: "RATE_LIMIT_ERROR",
+      };
+      err.code = (status && codeByStatus[status]) || "CRUD_ERROR";
+    }
+    if (err.details == null) err.details = body;
+    if (status === 429 && retryAfter != null && err.retryAfter == null) {
+      err.retryAfter = retryAfter;
+    }
+    return err;
+  }
+  // Bare-Error fallback (shared-config unresolvable or unknown status).
+  const nameByStatus = {
+    400: "ValidationError",
+    401: "AuthenticationError",
+    403: "ForbiddenError",
+    404: "NotFoundError",
+    409: "ConflictError",
+    422: "ValidationError",
+    429: "RateLimitError",
+  };
+  const codeByStatus = {
+    400: "VALIDATION_ERROR",
+    401: "AUTHENTICATION_ERROR",
+    403: "FORBIDDEN_ERROR",
+    404: "NOT_FOUND_ERROR",
+    409: "CONFLICT_ERROR",
+    422: "VALIDATION_ERROR",
+    429: "RATE_LIMIT_ERROR",
+  };
+  const fallback = new Error(msg);
+  fallback.name = (status && nameByStatus[status]) || "DataError";
+  fallback.code =
+    (status && codeByStatus[status]) || (status ? `HTTP_${status}` : "CRUD_ERROR");
+  fallback.status = status ?? null;
+  fallback.details = body;
+  if (status === 429) fallback.retryAfter = retryAfter ?? null;
+  return fallback;
+}
+
+function getErrorStatus(error) {
+  return (
+    error?.status ??
+    error?.response?.status ??
+    error?.cause?.status ??
+    null
+  );
+}
+
+function getErrorDetails(error) {
+  return (
+    error?.details ??
+    error?.response?.data ??
+    error?.data ??
+    null
+  );
+}
+
+function getRetryAfter(error, response = null) {
+  return (
+    error?.retryAfter ??
+    error?.response?.headers?.["retry-after"] ??
+    error?.response?.headers?.["Retry-After"] ??
+    response?.headers?.["retry-after"] ??
+    response?.headers?.["Retry-After"] ??
+    null
+  );
+}
+
+// Canonical entity key: supports legacy _id plus public_id/publicId and numeric id.
+// Order is _id → public_id/publicId → id so public identifiers win over internal
+// numeric ids (avoids PUT null when only public_id is present).
+function getItemKey(item) {
+  if (!item) return null;
+  return (
+    item._id ?? item.public_id ?? item.publicId ?? item.id ?? null
+  );
+}
+
 /**
  * Generic CRUD Hook for Admin Managers
  * Eliminates 95%+ duplication across 30+ manager components
@@ -49,23 +171,50 @@ export const useGenericCRUD = ({
   const [formData, setFormData] = useState(defaultFormData);
   const fetchItemsRef = useRef(null);
 
-  // Fetch all items with optional query parameters
+  // Fetch all items with optional query parameters.
+  // Signal note: pass `{ signal }` (or an AbortSignal directly) as the
+  // second argument to abort in-flight fetches; it is forwarded to the
+  // underlying axios call (and to request() in the fetch fallback path).
   const fetchItems = useCallback(
-    async (queryParams = {}) => {
+    async (queryParams = {}, optionsOrSignal = {}) => {
       try {
         setLoading(true);
-        const response = await api.get(endpoint, { params: queryParams });
+        const signal =
+          typeof AbortSignal !== "undefined" &&
+          optionsOrSignal instanceof AbortSignal
+            ? optionsOrSignal
+            : optionsOrSignal?.signal;
+        const response = await api.get(endpoint, {
+          params: queryParams,
+          ...(signal ? { signal } : {}),
+        });
         if (response.data.success) {
           setItems(response.data.data || []);
           return response.data.data || [];
-        } else {
-          setItems([]);
-          return [];
         }
+        const status = response?.status ?? null;
+        const err = toCrudError(
+          status,
+          response.data?.message || `Failed to fetch ${endpoint}`,
+          response.data,
+          getRetryAfter(null, response),
+        );
+        notifyFn("error", err.message);
+        throw err;
       } catch (error) {
+        if (error?.code || error?.status) throw error;
         console.error(`Failed to fetch ${endpoint}:`, error);
-        setItems([]);
-        return [];
+        const status = getErrorStatus(error);
+        const err = toCrudError(
+          status,
+          error?.response?.data?.message ||
+            error?.message ||
+            `Failed to fetch ${endpoint}`,
+          getErrorDetails(error),
+          getRetryAfter(error),
+        );
+        notifyFn("error", err.message);
+        throw err;
       } finally {
         setLoading(false);
       }
@@ -76,19 +225,31 @@ export const useGenericCRUD = ({
   // Keep ref in sync with latest fetchItems
   fetchItemsRef.current = fetchItems;
 
-  // Create or update item
+  // Create or update item.
+  // Signal note: optional trailing `optionsOrSignal` (`{ signal }` or an
+  // AbortSignal) is forwarded as axios request config.
   const saveItem = useCallback(
-    async (customData = null, id = null) => {
+    async (customData = null, id = null, optionsOrSignal = {}) => {
       const dataToSave = customData || formData;
       const itemId = id || editingId;
       const isEditing = !!itemId;
+      const signal =
+        typeof AbortSignal !== "undefined" &&
+        optionsOrSignal instanceof AbortSignal
+          ? optionsOrSignal
+          : optionsOrSignal?.signal;
+      const requestConfig = signal ? { signal } : undefined;
 
       try {
         let response;
         if (isEditing) {
-          response = await api.put(`${endpoint}/${itemId}`, dataToSave);
+          response = await api.put(
+            `${endpoint}/${itemId}`,
+            dataToSave,
+            requestConfig,
+          );
         } else {
-          response = await api.post(endpoint, dataToSave);
+          response = await api.post(endpoint, dataToSave, requestConfig);
         }
 
         if (response.data.success) {
@@ -99,13 +260,30 @@ export const useGenericCRUD = ({
           notifyFn("success", getSuccessMessage(action, itemName));
           return true;
         }
-        return false;
+        const err = toCrudError(
+          response?.status ?? null,
+          response.data?.message || getErrorMessage(action, itemName),
+          response.data,
+          getRetryAfter(null, response),
+        );
+        notifyFn("error", err.message);
+        throw err;
       } catch (error) {
+        if (error?.code || error?.status) throw error;
         console.error(`Failed to save ${endpoint}:`, error);
         const action = isEditing ? "update" : "create";
         const itemName = endpoint.replace(/^\//, "").replace(/s$/, "");
-        notifyFn("error", getErrorMessage(action, itemName));
-        return false;
+        const status = getErrorStatus(error);
+        const err = toCrudError(
+          status,
+          error?.response?.data?.message ||
+            error?.message ||
+            getErrorMessage(action, itemName),
+          getErrorDetails(error),
+          getRetryAfter(error),
+        );
+        notifyFn("error", err.message);
+        throw err;
       }
     },
     [
@@ -131,26 +309,49 @@ export const useGenericCRUD = ({
       try {
         const response = await api.delete(`${endpoint}/${id}`);
         if (response.data.success) {
+          // Single optimistic update — no follow-up refetch (avoids a
+          // redundant second list update per delete).
           setItems((prev) =>
-            prev.filter((item) => item._id !== id && item.id !== id),
+            prev.filter((item) => {
+              const key = getItemKey(item);
+              return key !== null && key !== undefined
+                ? String(key) !== String(id)
+                : true;
+            }),
           );
-          await fetchItems(); // Refresh to ensure consistency
           const itemName = endpoint.replace(/^\//, "").replace(/s$/, "");
           notifyFn("success", getSuccessMessage("delete", itemName));
           return true;
         }
-        return false;
+        const itemName = endpoint.replace(/^\//, "").replace(/s$/, "");
+        const err = toCrudError(
+          response?.status ?? null,
+          response.data?.message || getErrorMessage("delete", itemName),
+          response.data,
+          getRetryAfter(null, response),
+        );
+        notifyFn("error", err.message);
+        throw err;
       } catch (error) {
+        if (error?.code || error?.status) throw error;
         console.error(`Failed to delete ${endpoint}:`, error);
         const itemName = endpoint.replace(/^\//, "").replace(/s$/, "");
-        notifyFn("error", getErrorMessage("delete", itemName));
-        return false;
+        const status = getErrorStatus(error);
+        const err = toCrudError(
+          status,
+          error?.response?.data?.message ||
+            error?.message ||
+            getErrorMessage("delete", itemName),
+          getErrorDetails(error),
+          getRetryAfter(error),
+        );
+        notifyFn("error", err.message);
+        throw err;
       }
     },
     [
       api,
       endpoint,
-      fetchItems,
       getSuccessMessage,
       getErrorMessage,
       confirmFn,
@@ -162,7 +363,7 @@ export const useGenericCRUD = ({
   const editItem = useCallback(
     (item) => {
       setFormData({ ...defaultFormData, ...item });
-      setEditingId(item._id || item.id);
+      setEditingId(getItemKey(item));
       setShowForm(true);
     },
     [defaultFormData],
@@ -179,15 +380,20 @@ export const useGenericCRUD = ({
   const toggleActive = useCallback(
     async (item) => {
       try {
-        const updatedData = { ...item, isActive: !item.isActive };
+        const itemKey = getItemKey(item);
+        const nextActive = !(item.isActive ?? item.is_active);
+        // Minimal update payload — never PUT the whole item (avoids clobbering
+        // unrelated fields). Optimistic local state still applies the full merge.
+        const minimalPayload = { is_active: nextActive };
         const response = await api.put(
-          `${endpoint}/${item._id || item.id}`,
-          updatedData,
+          `${endpoint}/${itemKey}`,
+          minimalPayload,
         );
         if (response.data.success) {
+          const updatedData = { ...item, isActive: nextActive, is_active: nextActive };
           setItems((prev) =>
             prev.map((i) =>
-              i._id === item._id || i.id === item.id ? updatedData : i,
+              String(getItemKey(i)) === String(itemKey) ? updatedData : i,
             ),
           );
           const itemName = endpoint.replace(/^\//, "").replace(/s$/, "");
@@ -197,12 +403,30 @@ export const useGenericCRUD = ({
           );
           return true;
         }
-        return false;
+        const itemName = endpoint.replace(/^\//, "").replace(/s$/, "");
+        const err = toCrudError(
+          response?.status ?? null,
+          response.data?.message || `Failed to toggle ${itemName}`,
+          response.data,
+          getRetryAfter(null, response),
+        );
+        notifyFn("error", err.message);
+        throw err;
       } catch (error) {
+        if (error?.code || error?.status) throw error;
         console.error(`Failed to toggle ${endpoint}:`, error);
         const itemName = endpoint.replace(/^\//, "").replace(/s$/, "");
-        notifyFn("error", `Failed to toggle ${itemName}`);
-        return false;
+        const status = getErrorStatus(error);
+        const err = toCrudError(
+          status,
+          error?.response?.data?.message ||
+            error?.message ||
+            `Failed to toggle ${itemName}`,
+          getErrorDetails(error),
+          getRetryAfter(error),
+        );
+        notifyFn("error", err.message);
+        throw err;
       }
     },
     [api, endpoint, notifyFn],

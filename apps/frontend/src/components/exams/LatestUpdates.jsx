@@ -1,4 +1,5 @@
 import { Bell, Calendar, ArrowRight } from "lucide-react";
+import { formatDate } from "../../shared/lib/format.js";
 
 export default function LatestUpdates({ updates = [] }) {
   const getTypeColor = (type) => {
@@ -14,14 +15,6 @@ export default function LatestUpdates({ updates = [] }) {
       default:
         return "bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-200";
     }
-  };
-
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
   };
 
   return (

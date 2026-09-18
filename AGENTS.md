@@ -67,12 +67,13 @@ These are real, graph-surfaced landmines. Check them every session:
    - Migrations 094–101 added (certificates, missing tables, soft-delete
      columns, exam_id type fix, RLS policies, duplicate table reconciliation,
      achievement consolidation).
-   - Migrations 102–140 added (attempt numbering, bookmarks, Node Engine V2
+   - Migrations 102–141 added (attempt numbering, bookmarks, Node Engine V2
      tables, practice redesign, `test_category_series` junction ensure,
      webhook events, RLS waves, taxonomy cascades, lifecycle/shuffle seed,
      performance backfills, audit follow-up, subject_topics index rename,
      138 practice revision pipeline reconciliation, 139 user recommendations reconciliation,
-     140 practice_sessions/practice_answers updated_at column fix — next file is `141_*`).
+     140 practice_sessions/practice_answers updated_at column fix,
+     141 subject_videos FortSpy columns — next file is `142_*`).
    - NOTE: the live DB has drifted ahead of shipped migrations (verified
      Sept 2026 via information_schema) — e.g. `revision_queue.priority` is
      INTEGER, `practice_answers` carries `is_skipped`/`time_taken_sec`/`mode`.

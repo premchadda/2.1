@@ -87,6 +87,15 @@ export const FREE_LIMITS = {
   MAX_FREE_TEST_SERIES: 1,
 };
 
+export const PLAN_DURATION_DAYS = Object.freeze({
+  pro_monthly: 30,
+  pro_pass_monthly: 30,
+  pro_yearly: 365,
+  pro_pass_yearly: 365,
+  pro_lifetime: 36500,
+  trial: 7,
+});
+
 class SubscriptionService {
   async getUserSubscription(userId) {
     const result = await getRead().query(
@@ -207,10 +216,43 @@ class SubscriptionService {
     };
   }
 
+  // Server-side duration map: client-supplied expiry is never trusted for
+  // access duration. Monthly = 30 days, yearly = 365, capped at 366, never
+  // in the past. Unknown plan types are rejected.
+  // Canonical map lives in exported PLAN_DURATION_DAYS above (shared with
+  // payments.js); static kept as alias for backwards-compat imports.
+  static PLAN_DURATION_DAYS = PLAN_DURATION_DAYS;
+
   async createSubscription(userId, planType, expiryDate, paymentDetails = {}) {
+    const days = PLAN_DURATION_DAYS[planType];
+    if (!days) {
+      throw new Error(`Unknown plan type: ${planType}`);
+    }
+    // Compute expiry server-side: max(now, +plan days), hard-capped at 366
+    // days out (lifetime plans excepted). Any client expiryDate is ignored.
+    const cappedDays = planType === "pro_lifetime" ? days : Math.min(days, 366);
     const client = await getPool().connect();
     try {
       await client.query("BEGIN");
+
+      // MED createSubscription max: extend from existing expiry (no lost days).
+      const curRes = await client.query(
+        `SELECT pro_expiry FROM users WHERE id = $1`,
+        [userId],
+      );
+      const existingRaw = curRes.rows[0]?.pro_expiry || null;
+      const existingDate = existingRaw ? new Date(existingRaw) : null;
+      const now = new Date();
+      const base =
+        existingDate && !Number.isNaN(existingDate.getTime()) && existingDate > now
+          ? existingDate
+          : now;
+      const serverExpiry = new Date(
+        base.getTime() + cappedDays * 86400000,
+      );
+      if (serverExpiry <= new Date()) {
+        throw new Error("Computed subscription expiry is in the past");
+      }
 
       const result = await client.query(
         `INSERT INTO subscriptions (user_id, plan_type, start_date, expiry_date, status, auto_renew, payment_method, transaction_id, amount_paid)
@@ -219,7 +261,7 @@ class SubscriptionService {
         [
           userId,
           planType,
-          expiryDate,
+          serverExpiry,
           paymentDetails.auto_renew || false,
           paymentDetails.payment_method,
           paymentDetails.transaction_id,
@@ -231,7 +273,7 @@ class SubscriptionService {
       // rolls back the subscription insert (user pays but gets no access).
       await client.query(
         `UPDATE users SET is_pro_user = true, pro_expiry = $1, pass_type = $2 WHERE id = $3`,
-        [expiryDate, planType, userId],
+        [serverExpiry, planType, userId],
       );
 
       await client.query("COMMIT");
@@ -252,10 +294,18 @@ class SubscriptionService {
       ? "WHERE id = $1 AND user_id = $2"
       : "WHERE id = $1";
     const params = userId ? [subscriptionId, userId] : [subscriptionId];
-    await getPool().query(
+    const result = await getPool().query(
       `UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() ${whereClause}`,
       params,
     );
+    // MED cancel 404: signal not-found when no row matched (ownership or id).
+    if (result.rowCount === 0) {
+      const err = new Error("Subscription not found");
+      err.status = 404;
+      err.code = "SUBSCRIPTION_NOT_FOUND";
+      throw err;
+    }
+    return result.rows?.[0] || null;
   }
 
   async getSubscriptionPlans() {
@@ -406,13 +456,19 @@ class SubscriptionService {
         );
       }
 
-      // Also reset legacy pro_expiry users if expired past grace
+      // Also reset legacy pro_expiry users if expired past grace — but never
+      // users holding a live subscriptions row (same guard as step 3 above).
       const legacyResult = await pool.query(
         `UPDATE users
          SET is_pro_user = false, updated_at = NOW()
          WHERE is_pro_user = true
            AND pro_expiry IS NOT NULL
            AND pro_expiry <= NOW() - ($1::text || ' hours')::interval
+           AND id NOT IN (
+             SELECT user_id FROM subscriptions
+             WHERE status IN ('active', 'grace_period')
+               AND (expiry_date IS NULL OR expiry_date > NOW())
+           )
          RETURNING id`,
         [gracePeriodHours],
       );

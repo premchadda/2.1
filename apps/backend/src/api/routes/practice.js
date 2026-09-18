@@ -38,9 +38,20 @@ import { responseCache } from "../../middleware/responseCache.middleware.js";
 import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
 import { recordPracticeAnalytics } from "../../services/core/analyticsService.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import { getUnifiedBookmarkedQuestionIds } from "./bookmarks.js";
 
 const router = express.Router();
 const practiceSubmissionLimiter = createRateLimiter("moderate");
+
+// PII guard for admin list endpoints: mask emails (detail-by-id keeps full email)
+const maskEmail = () => "***@***";
+const maskPiiRow = (row) => {
+  const safe = { ...row };
+  if (safe.user_email) safe.user_email = maskEmail();
+  if (safe.userEmail) safe.userEmail = maskEmail();
+  if (safe.email) safe.email = maskEmail();
+  return safe;
+};
 
 // ═══════════════════════════════════════════════════
 // HELPERS
@@ -72,94 +83,103 @@ async function resolvePracticeFilters({
   chapterId,
   topicId,
 } = {}) {
-  let resolvedSubjectId = null;
-  if (subjectId !== undefined && subjectId !== null && subjectId !== "") {
-    if (!isNaN(Number(subjectId))) {
-      resolvedSubjectId = Number(subjectId);
-    } else {
-      try {
-        const sRes = await pool.query(
-          `SELECT id FROM subjects WHERE slug = $1 OR LOWER(name) = LOWER($1) LIMIT 1`,
-          [String(subjectId).trim()],
-        );
-        if (sRes.rows.length) resolvedSubjectId = sRes.rows[0].id;
-      } catch (err) {
-        console.warn(
-          "[resolvePracticeFilters] Subject resolve failed:",
-          err.message,
-        );
-      }
-    }
-  }
+  // The four slug->id lookups are independent of each other, so they run
+  // concurrently via Promise.all (previously four serial round-trips).
+  // Numeric fast-paths resolve synchronously; only non-numeric provided
+  // values hit the database. Absent/empty values resolve to null as before.
+  const hasValue = (v) => v !== undefined && v !== null && v !== "";
+  const asNumber = (v) => (hasValue(v) && !isNaN(Number(v)) ? Number(v) : null);
+  const needsLookup = (v) => hasValue(v) && isNaN(Number(v));
+  const norm = (v) => String(v).trim();
 
-  let resolvedChapterId = null;
-  if (chapterId !== undefined && chapterId !== null && chapterId !== "") {
-    if (!isNaN(Number(chapterId))) {
-      resolvedChapterId = Number(chapterId);
-    } else {
-      try {
-        const cRes = await pool.query(
-          `SELECT id FROM subject_chapters 
-           WHERE slug = $1 
-              OR public_id = $1 
-              OR LOWER(title) = LOWER($1) 
+  const lookupSubject = async () => {
+    if (!needsLookup(subjectId)) return asNumber(subjectId);
+    try {
+      const sRes = await pool.query(
+        `SELECT id FROM subjects WHERE slug = $1 OR LOWER(name) = LOWER($1) LIMIT 1`,
+        [norm(subjectId)],
+      );
+      if (sRes.rows.length) return sRes.rows[0].id;
+    } catch (err) {
+      console.warn(
+        "[resolvePracticeFilters] Subject resolve failed:",
+        err.message,
+      );
+    }
+    return null;
+  };
+
+  const lookupChapter = async () => {
+    if (!needsLookup(chapterId)) return asNumber(chapterId);
+    try {
+      const cRes = await pool.query(
+        `SELECT id FROM subject_chapters
+           WHERE slug = $1
+              OR public_id = $1
+              OR LOWER(title) = LOWER($1)
               OR LOWER(REPLACE(title, ' ', '-')) = LOWER($1)
            LIMIT 1`,
-          [String(chapterId).trim()],
-        );
-        if (cRes.rows.length) resolvedChapterId = cRes.rows[0].id;
-      } catch (err) {
-        console.warn(
-          "[resolvePracticeFilters] Chapter resolve failed:",
-          err.message,
-        );
-      }
+        [norm(chapterId)],
+      );
+      if (cRes.rows.length) return cRes.rows[0].id;
+    } catch (err) {
+      console.warn(
+        "[resolvePracticeFilters] Chapter resolve failed:",
+        err.message,
+      );
     }
-  }
+    return null;
+  };
 
-  let resolvedTopicId = null;
-  if (topicId !== undefined && topicId !== null && topicId !== "") {
-    if (!isNaN(Number(topicId))) {
-      resolvedTopicId = Number(topicId);
-    } else {
-      try {
-        const tRes = await pool.query(
-          `SELECT id FROM subject_topics 
-           WHERE slug = $1 
-              OR LOWER(name) = LOWER($1) 
+  const lookupTopic = async () => {
+    if (!needsLookup(topicId)) return asNumber(topicId);
+    try {
+      const tRes = await pool.query(
+        `SELECT id FROM subject_topics
+           WHERE slug = $1
+              OR LOWER(name) = LOWER($1)
               OR LOWER(REPLACE(name, ' ', '-')) = LOWER($1)
            LIMIT 1`,
-          [String(topicId).trim()],
-        );
-        if (tRes.rows.length) resolvedTopicId = tRes.rows[0].id;
-      } catch (err) {
-        console.warn(
-          "[resolvePracticeFilters] Topic resolve failed:",
-          err.message,
-        );
-      }
+        [norm(topicId)],
+      );
+      if (tRes.rows.length) return tRes.rows[0].id;
+    } catch (err) {
+      console.warn(
+        "[resolvePracticeFilters] Topic resolve failed:",
+        err.message,
+      );
     }
-  }
+    return null;
+  };
 
-  let resolvedExamId = null;
-  if (examId !== undefined && examId !== null && examId !== "") {
-    if (!isNaN(Number(examId))) {
-      resolvedExamId = Number(examId);
-    } else {
-      try {
-        const eRes = await pool.query(
-          `SELECT id FROM exams WHERE slug = $1 OR code = $1 OR LOWER(title) = LOWER($1) LIMIT 1`,
-          [String(examId).trim()],
-        );
-        if (eRes.rows.length) resolvedExamId = eRes.rows[0].id;
-      } catch (err) {
-        console.warn(
-          "[resolvePracticeFilters] Exam resolve failed:",
-          err.message,
-        );
-      }
+  const lookupExam = async () => {
+    if (!needsLookup(examId)) return asNumber(examId);
+    try {
+      const eRes = await pool.query(
+        `SELECT id FROM exams WHERE slug = $1 OR code = $1 OR LOWER(title) = LOWER($1) LIMIT 1`,
+        [norm(examId)],
+      );
+      if (eRes.rows.length) return eRes.rows[0].id;
+    } catch (err) {
+      console.warn(
+        "[resolvePracticeFilters] Exam resolve failed:",
+        err.message,
+      );
     }
-  }
+    return null;
+  };
+
+  const [
+    resolvedSubjectId,
+    resolvedChapterId,
+    resolvedTopicId,
+    resolvedExamId,
+  ] = await Promise.all([
+    lookupSubject(),
+    lookupChapter(),
+    lookupTopic(),
+    lookupExam(),
+  ]);
 
   return {
     examId: resolvedExamId,
@@ -183,12 +203,15 @@ async function pickPracticeQuestionIds({
   userId,
   testId,
   questionId,
+  resolvedFilters = null,
 }) {
-  const resolved = await resolvePracticeFilters({
-    subjectId,
-    chapterId,
-    topicId,
-  });
+  const resolved =
+    resolvedFilters ||
+    (await resolvePracticeFilters({
+      subjectId,
+      chapterId,
+      topicId,
+    }));
   let finalSubjectId = resolved.subjectId;
   let finalChapterId = resolved.chapterId;
   let finalTopicId = resolved.topicId;
@@ -298,17 +321,23 @@ async function pickPracticeQuestionIds({
     }
   } else if (mode === "weak_topic") {
     // Smart Practice: reinforce the user's weakest topics (accuracy < 70%
-    // across logged practice answers). Falls back to the generic random
-    // selection below when the user has no answer history yet, or if the
-    // detection query fails for any reason.
+    // across recent practice answers — input capped to the latest 5000 rows
+    // so heavy users don't aggregate their entire answer history per start).
+    // Falls back to the generic random selection below when the user has no
+    // answer history yet, or if the detection query fails for any reason.
     let weakTopicIds = [];
     try {
       const weak = await pool.query(
         `
         SELECT q2.topic_id
-        FROM practice_answers pa
+        FROM (
+          SELECT question_id, is_correct FROM practice_answers
+          WHERE user_id = $1
+          ORDER BY id DESC
+          LIMIT 5000
+        ) pa
         JOIN questions q2 ON q2.id = pa.question_id
-        WHERE pa.user_id = $1 AND q2.topic_id IS NOT NULL
+        WHERE q2.topic_id IS NOT NULL
         GROUP BY q2.topic_id
         HAVING (COUNT(*) FILTER (WHERE pa.is_correct))::numeric
                  / NULLIF(COUNT(*), 0) < 0.7
@@ -328,11 +357,28 @@ async function pickPracticeQuestionIds({
       idx++;
     }
   } else if (mode === "bookmark") {
-    conditions.push(
-      `q.id IN (SELECT question_id FROM question_bookmarks WHERE user_id = $${idx})`,
-    );
-    params.push(userId);
-    idx++;
+    // Unified bookmark reads (practice ↔ generic store bridge, best-effort):
+    // helper unions legacy question_bookmarks + generic bookmarks
+    // (item_type='question'). Empty set → return [] early (no query).
+    // Fail-soft: helper throws → legacy question_bookmarks-only subquery.
+    let unifiedBookmarkIds = null;
+    try {
+      unifiedBookmarkIds = await getUnifiedBookmarkedQuestionIds(userId);
+    } catch {
+      unifiedBookmarkIds = null;
+    }
+    if (Array.isArray(unifiedBookmarkIds)) {
+      if (!unifiedBookmarkIds.length) return [];
+      conditions.push(`q.id = ANY($${idx}::int[])`);
+      params.push(unifiedBookmarkIds);
+      idx++;
+    } else {
+      conditions.push(
+        `q.id IN (SELECT question_id FROM question_bookmarks WHERE user_id = $${idx})`,
+      );
+      params.push(userId);
+      idx++;
+    }
   } else if (mode === "pyq") {
     conditions.push(`q.tags @> ARRAY['pyq']::text[]`);
   }
@@ -343,16 +389,51 @@ async function pickPracticeQuestionIds({
       ? `CASE LOWER(COALESCE(q.difficulty,'medium')) WHEN 'easy' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, RANDOM()`
       : `RANDOM()`;
 
-  const sql = `
-    SELECT q.id FROM questions q
-    WHERE ${conditions.join(" AND ")}
+  const limit = Math.min(Math.max(Number(count) || 20, 1), 200);
+
+  // Fast random path: TABLESAMPLE BERNOULLI pre-filters to ~20% of the
+  // matching rows before ORDER BY RANDOM() sorts, so large question banks
+  // avoid a full-table sort. Not all table layouts support TABLESAMPLE
+  // (e.g. some foreign tables / RLS edge cases) — fall back to the plain
+  // ORDER BY RANDOM() LIMIT variant on any error, and to random_sort if a
+  // LIMIT pushdown helper exists. Either path returns the same shape.
+  const whereSql = conditions.join(" AND ");
+  const sampledSql = `
+    SELECT q.id FROM questions q TABLESAMPLE BERNOULLI(20)
+    WHERE ${whereSql}
     ORDER BY ${orderBy}
     LIMIT $${idx}
   `;
-  params.push(count || 20);
-  const r = await pool.query(sql, params);
-
-  return r.rows.map((row) => row.id);
+  const fallbackSql = `
+    SELECT q.id FROM questions q
+    WHERE ${whereSql}
+    ORDER BY ${orderBy}
+    LIMIT $${idx}
+  `;
+  const sampleParams = [...params, limit];
+  try {
+    const r = await pool.query(sampledSql, sampleParams);
+    // BERNOULLI is probabilistic — an unlucky sample can return fewer rows
+    // than LIMIT even when matches exist. Top up with the exact fallback
+    // excluding already-picked ids so callers always get a full page.
+    if (r.rows.length >= limit) return r.rows.map((row) => row.id);
+    const picked = r.rows.map((row) => row.id);
+    if (!picked.length) throw new Error("empty sample — use fallback");
+    const topUp = await pool.query(
+      `
+      SELECT q.id FROM questions q
+      WHERE ${whereSql} AND q.id <> ALL($${idx + 1}::int[])
+      ORDER BY ${orderBy}
+      LIMIT $${idx + 2}
+      `,
+      [...params, picked, limit - picked.length],
+    );
+    return [...picked, ...topUp.rows.map((row) => row.id)];
+  } catch {
+    // TABLESAMPLE unavailable for this table/layout — exact fallback.
+    const r = await pool.query(fallbackSql, sampleParams);
+    return r.rows.map((row) => row.id);
+  }
 }
 
 /**
@@ -491,15 +572,19 @@ async function getCorrectOption(questionId) {
  * Recompute mastery % for a user+topic from practice_answers + question_attempts.
  * Written to user_topic_performance (if table exists) or returned directly.
  */
-async function computeTopicMastery(userId, topicId) {
-  // Pull practice answers for this topic
-  const r = await pool.query(
+async function computeTopicMastery(userId, topicId, queryRunner = pool) {
+  // Pull practice answers for this topic, capped to the latest 5000 rows
+  // (mirrors the weak_topic detection cap in pickPracticeQuestionIds) so
+  // heavy users don't aggregate their entire answer history per call.
+  const runner = queryRunner || pool;
+  const r = await runner.query(
     `
     SELECT pa.is_correct, q.difficulty
     FROM practice_answers pa
     JOIN questions q ON pa.question_id = q.id
     WHERE pa.user_id = $1 AND q.topic_id = $2
     ORDER BY pa.created_at DESC
+    LIMIT 5000
   `,
     [userId, topicId],
   );
@@ -518,48 +603,57 @@ async function computeTopicMastery(userId, topicId) {
 
 /**
  * Update streak row after a completed session.
+ *
+ * Single atomic INSERT ... ON CONFLICT (user_id) upsert — user_id is the
+ * PRIMARY KEY of practice_streaks (migration 065), so concurrent completes
+ * for the same user serialize on the row lock instead of racing a
+ * SELECT-then-INSERT/UPDATE pair (duplicate-key errors / lost increments).
+ *
+ * Pass the caller's transaction client as `queryRunner` to run inside the
+ * complete transaction; falls back to `pool` for standalone callers.
+ * `totals` folds the post-complete total_questions/total_correct bump into
+ * the same statement so no second UPDATE is needed.
  */
-async function bumpStreak(userId) {
+async function bumpStreak(
+  userId,
+  queryRunner = pool,
+  totals = { questions: 0, correct: 0 },
+) {
+  const runner = queryRunner || pool;
   const today = new Date().toISOString().slice(0, 10);
-  const r = await pool.query(
-    `SELECT user_id, current_streak, longest_streak, last_practice_date, total_sessions, total_questions, total_correct FROM practice_streaks WHERE user_id = $1`,
-    [userId],
-  );
-  const existing = r.rows[0];
-  if (!existing) {
-    await pool.query(
-      `
-      INSERT INTO practice_streaks (user_id, current_streak, longest_streak, last_practice_date, total_sessions, total_questions, total_correct)
-      VALUES ($1, 1, 1, $2, 1, 0, 0)
-    `,
-      [userId, today],
-    );
-    return { current: 1, longest: 1 };
-  }
-  let current = existing.current_streak;
-  if (existing.last_practice_date?.toISOString().slice(0, 10) === today) {
-    // already counted today — keep streak, just bump session count
-  } else {
-    const yesterday = new Date(Date.now() - 86400000)
-      .toISOString()
-      .slice(0, 10);
-    if (existing.last_practice_date?.toISOString().slice(0, 10) === yesterday) {
-      current += 1;
-    } else {
-      current = 1;
-    }
-  }
-  const longest = Math.max(existing.longest_streak, current);
-  await pool.query(
+  const totalQuestions = Number(totals?.questions || 0);
+  const totalCorrect = Number(totals?.correct || 0);
+  const r = await runner.query(
     `
-    UPDATE practice_streaks
-    SET current_streak = $2, longest_streak = $3, last_practice_date = $4,
-        total_sessions = total_sessions + 1
-    WHERE user_id = $1
+    INSERT INTO practice_streaks (user_id, current_streak, longest_streak, last_practice_date, total_sessions, total_questions, total_correct)
+    VALUES ($1, 1, 1, $2, 1, $3, $4)
+    ON CONFLICT (user_id) DO UPDATE SET
+      current_streak = CASE
+        WHEN practice_streaks.last_practice_date = EXCLUDED.last_practice_date THEN practice_streaks.current_streak
+        WHEN practice_streaks.last_practice_date = (EXCLUDED.last_practice_date - INTERVAL '1 day')::date THEN practice_streaks.current_streak + 1
+        ELSE 1
+      END,
+      longest_streak = GREATEST(practice_streaks.longest_streak, CASE
+        WHEN practice_streaks.last_practice_date = EXCLUDED.last_practice_date THEN practice_streaks.current_streak
+        WHEN practice_streaks.last_practice_date = (EXCLUDED.last_practice_date - INTERVAL '1 day')::date THEN practice_streaks.current_streak + 1
+        ELSE 1
+      END),
+      last_practice_date = CASE
+        WHEN practice_streaks.last_practice_date = EXCLUDED.last_practice_date THEN practice_streaks.last_practice_date
+        ELSE EXCLUDED.last_practice_date
+      END,
+      total_sessions = practice_streaks.total_sessions + 1,
+      total_questions = practice_streaks.total_questions + EXCLUDED.total_questions,
+      total_correct = practice_streaks.total_correct + EXCLUDED.total_correct
+    RETURNING current_streak, longest_streak
   `,
-    [userId, current, longest, today],
+    [userId, today, totalQuestions, totalCorrect],
   );
-  return { current, longest };
+  const row = r.rows[0] || {};
+  return {
+    current: Number(row.current_streak ?? 1),
+    longest: Number(row.longest_streak ?? 1),
+  };
 }
 
 // ═══════════════════════════════════════════════════
@@ -813,26 +907,19 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
     const { chapterId } = req.params;
     const userId = req.user.id;
 
-    // 1. Verify chapter exists
-    const chapterRes = await pool.query(
-      `
+    // 1+2. Chapter existence + chapter topics are independent (both keyed
+    // only by the :chapterId param), so they run together in one group.
+    const [chapterRes, topicsRes] = await Promise.all([
+      pool.query(
+        `
       SELECT c.id, c.title, c.slug, COALESCE(c.subject_id, c.study_material_id) AS subject_id
       FROM subject_chapters c
       WHERE c.id = $1 AND c.is_active = true AND (c.is_deleted IS NOT TRUE)
     `,
-      [chapterId],
-    );
-
-    if (!chapterRes.rows.length) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Chapter not found" });
-    }
-    const chapter = chapterRes.rows[0];
-
-    // 2. Get all topics for this chapter
-    const topicsRes = await pool.query(
-      `
+        [chapterId],
+      ),
+      pool.query(
+        `
       SELECT t.id, t.name, t.slug, t.description, t.order_index,
              COUNT(q.id)::int AS question_count,
              SUM(CASE WHEN LOWER(q.difficulty)='easy' THEN 1 ELSE 0 END)::int AS easy_count,
@@ -846,15 +933,27 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
       GROUP BY t.id, t.name, t.slug, t.description, t.order_index
       ORDER BY t.order_index NULLS LAST, t.name
     `,
-      [chapterId],
-    );
+        [chapterId],
+      ),
+    ]);
 
-    // 3. For each topic, get user's mastery (last attempt accuracy)
+    if (!chapterRes.rows.length) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Chapter not found" });
+    }
+    const chapter = chapterRes.rows[0];
+
+    // 3. Topic mastery + subtopic list both derive only from topicIds, so
+    // they run together in a second group. Subtopic mastery stays chained
+    // after (it needs subtopic ids from the subtopic list).
     const topicIds = topicsRes.rows.map((t) => t.id);
     let masteryMap = {};
+    let subtopicsByTopic = {};
     if (topicIds.length > 0) {
-      const masteryRes = await pool.query(
-        `
+      const [masteryRes, subtopicsRes] = await Promise.all([
+        pool.query(
+          `
         SELECT q.topic_id,
                ROUND(AVG(CASE WHEN pa.is_correct THEN 100.0 ELSE 0 END))::int AS accuracy,
                COUNT(pa.id)::int AS attempts
@@ -863,18 +962,10 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
         WHERE pa.user_id = $1 AND q.topic_id = ANY($2::int[])
         GROUP BY q.topic_id
       `,
-        [userId, topicIds],
-      );
-      for (const r of masteryRes.rows) {
-        masteryMap[r.topic_id] = { accuracy: r.accuracy, attempts: r.attempts };
-      }
-    }
-
-    // 3b. Query subtopics for topics in this chapter
-    let subtopicsByTopic = {};
-    if (topicIds.length > 0) {
-      const subtopicsRes = await pool.query(
-        `
+          [userId, topicIds],
+        ),
+        pool.query(
+          `
         SELECT st.id, st.name, st.slug, st.topic_id, st.order_index,
                COUNT(q.id)::int AS question_count,
                SUM(CASE WHEN LOWER(q.difficulty)='easy' THEN 1 ELSE 0 END)::int AS easy_count,
@@ -888,9 +979,14 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
         GROUP BY st.id, st.name, st.slug, st.topic_id, st.order_index
         ORDER BY st.order_index NULLS LAST, st.name
       `,
-        [topicIds],
-      );
+          [topicIds],
+        ),
+      ]);
+      for (const r of masteryRes.rows) {
+        masteryMap[r.topic_id] = { accuracy: r.accuracy, attempts: r.attempts };
+      }
 
+      // 3b. Subtopic mastery for topics in this chapter (chained: needs ids above)
       const subtopicIds = subtopicsRes.rows.map((s) => s.id);
       let subtopicMasteryMap = {};
       if (subtopicIds.length > 0) {
@@ -1085,19 +1181,22 @@ router.get("/topics/:topicId/stats", protect, async (req, res) => {
     const { topicId } = req.params;
     const userId = req.user.id;
 
-    const total = await countPracticeQuestions(`q.topic_id = $1`, [topicId]);
-    const diffSplit = await pool.query(
-      `
+    // The three reads are independent (count, difficulty split, mastery),
+    // so they run together in one group instead of three serial round-trips.
+    const [total, diffSplit, mastery] = await Promise.all([
+      countPracticeQuestions(`q.topic_id = $1`, [topicId]),
+      pool.query(
+        `
       SELECT
         SUM(CASE WHEN LOWER(q.difficulty)='easy' THEN 1 ELSE 0 END)::int AS easy,
         SUM(CASE WHEN LOWER(q.difficulty)='medium' THEN 1 ELSE 0 END)::int AS medium,
         SUM(CASE WHEN LOWER(q.difficulty)='hard' THEN 1 ELSE 0 END)::int AS hard
       FROM questions q WHERE ${PRACTICE_Q_WHERE} AND q.topic_id = $1
     `,
-      [topicId],
-    );
-
-    const mastery = await computeTopicMastery(userId, topicId);
+        [topicId],
+      ),
+      computeTopicMastery(userId, topicId),
+    ]);
 
     res.json({
       success: true,
@@ -1142,14 +1241,66 @@ router.post("/sessions", protect, async (req, res) => {
       questionId,
     } = req.body;
 
+    // Explicit-but-malformed IDs are a 400 (previously silently ignored by
+    // the picker). Absent params keep their old behavior (no filter).
+    const isProvided = (v) => v !== undefined && v !== null && v !== "";
+    if (isProvided(subtopicId)) {
+      const sId = Number(subtopicId);
+      if (!Number.isInteger(sId) || sId <= 0) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Invalid subtopicId" });
+      }
+    }
+    if (isProvided(testId)) {
+      const tId = Number(testId);
+      if (!Number.isFinite(tId)) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Invalid testId" });
+      }
+    }
+    if (isProvided(difficulty) && typeof difficulty !== "string") {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid difficulty" });
+    }
     // Normalize deep-link modes to the modes the picker actually understands.
     // Frontend entry points use a few historical aliases; map them so "Practice
     // Saved" and "Practice Similar" deep links behave identically everywhere.
     const MODE_ALIASES = { bookmarks: "bookmark", saved: "bookmark" };
     const normalizedMode = MODE_ALIASES[mode] || mode;
 
-    // Cap targetCount
+    // Cap targetCount (default 20, max 200 for latency)
     const count = Math.min(Math.max(parseInt(targetCount, 10) || 20, 1), 200);
+
+    // Numeric guard (mirror test submit): non-numeric time limits are a 400,
+    // valid values are clamped to [30s, 6h] so a stale client can't create
+    // unbounded sessions.
+    let safeTimeLimitSec = null;
+    if (
+      timeLimitSec !== undefined &&
+      timeLimitSec !== null &&
+      timeLimitSec !== ""
+    ) {
+      const parsed = Number(timeLimitSec);
+      if (!Number.isFinite(parsed)) {
+        return res.status(400).json({
+          success: false,
+          error: "timeLimitSec must be a number of seconds",
+        });
+      }
+      safeTimeLimitSec = Math.min(Math.max(Math.floor(parsed), 30), 21600);
+    }
+
+    // Single resolvePracticeFilters call — resolved once here and passed through
+    // to the picker so slug->id lookups are not executed twice per session.
+    const resolvedFilters = await resolvePracticeFilters({
+      examId,
+      subjectId,
+      chapterId,
+      topicId,
+    });
 
     const questionIds = await pickPracticeQuestionIds({
       subjectId,
@@ -1162,6 +1313,7 @@ router.post("/sessions", protect, async (req, res) => {
       userId,
       testId,
       questionId,
+      resolvedFilters,
     });
 
     if (!questionIds.length) {
@@ -1172,64 +1324,85 @@ router.post("/sessions", protect, async (req, res) => {
       });
     }
 
-    const resolved = await resolvePracticeFilters({
-      examId,
-      subjectId,
-      chapterId,
-      topicId,
-    });
-    const safeExamId = resolved.examId;
-    const safeSubjectId = resolved.subjectId;
-    const safeChapterId = resolved.chapterId;
-    const safeTopicId = resolved.topicId;
+    const safeExamId = resolvedFilters.examId;
+    const safeSubjectId = resolvedFilters.subjectId;
+    const safeChapterId = resolvedFilters.chapterId;
+    const safeTopicId = resolvedFilters.topicId;
 
-    // ── Session hygiene ────────────────────────────────────────────────
+    // ── Session hygiene + insert (one transaction) ──────────────────────
     // 1. Expire abandoned sessions: anything active but untouched for 7+ days
     //    is closed so the active-session lookup stays meaningful and rows
     //    don't accumulate forever (sessions had no TTL before this).
     // 2. Deactivate any other still-active session for this user so each user
     //    has at most one live practice session (mirrors the
     //    user_recommendations one-active-row pattern).
-    await pool.query(
-      `
-      UPDATE practice_sessions
-      SET is_active = false, completed_at = COALESCE(completed_at, NOW()), last_active_at = NOW()
-      WHERE user_id = $1 AND is_active = true
-        AND completed_at IS NULL
-        AND last_active_at < NOW() - INTERVAL '7 days'
-    `,
-      [userId],
-    );
-    await pool.query(
-      `
-      UPDATE practice_sessions
-      SET is_active = false
-      WHERE user_id = $1 AND is_active = true AND completed_at IS NULL
-    `,
-      [userId],
-    );
+    // The whole sequence runs in a single transaction so two concurrent POSTs
+    // serialize on the user's rows (last-writer-wins) instead of both passing
+    // hygiene and inserting duplicate active rows.
+    const client = await pool.connect();
+    let ins;
+    try {
+      await client.query("BEGIN");
+      // Serialize concurrent POSTs for this user: lock their active session
+      // rows FOR UPDATE so two simultaneous creates can't both pass hygiene
+      // and insert duplicate live rows (last-writer-wins, never duplicates).
+      await client.query(
+        `SELECT id FROM practice_sessions
+         WHERE user_id = $1 AND is_active = true AND completed_at IS NULL
+         FOR UPDATE`,
+        [userId],
+      );
+      await client.query(
+        `
+        UPDATE practice_sessions
+        SET is_active = false, completed_at = COALESCE(completed_at, NOW()), last_active_at = NOW()
+        WHERE user_id = $1 AND is_active = true
+          AND completed_at IS NULL
+          AND last_active_at < NOW() - INTERVAL '7 days'
+      `,
+        [userId],
+      );
+      await client.query(
+        `
+        UPDATE practice_sessions
+        SET is_active = false
+        WHERE user_id = $1 AND is_active = true AND completed_at IS NULL
+      `,
+        [userId],
+      );
 
-    // Create session
-    const ins = await pool.query(
-      `
-      INSERT INTO practice_sessions
-        (user_id, exam_id, subject_id, chapter_id, topic_id, mode, difficulty, target_count, time_limit_sec, questions_json, current_index)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0)
-      RETURNING id
-    `,
-      [
-        userId,
-        safeExamId,
-        safeSubjectId,
-        safeChapterId,
-        safeTopicId,
-        normalizedMode,
-        difficulty,
-        count,
-        timeLimitSec || null,
-        JSON.stringify(questionIds),
-      ],
-    );
+      // Create session
+      ins = await client.query(
+        `
+        INSERT INTO practice_sessions
+          (user_id, exam_id, subject_id, chapter_id, topic_id, mode, difficulty, target_count, time_limit_sec, questions_json, current_index)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0)
+        RETURNING id
+      `,
+        [
+          userId,
+          safeExamId,
+          safeSubjectId,
+          safeChapterId,
+          safeTopicId,
+          normalizedMode,
+          difficulty,
+          count,
+          safeTimeLimitSec,
+          JSON.stringify(questionIds),
+        ],
+      );
+      await client.query("COMMIT");
+    } catch (txnErr) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // rollback best-effort; original error is what matters
+      }
+      throw txnErr;
+    } finally {
+      client.release();
+    }
 
     const sessionId = ins.rows[0].id;
 
@@ -1270,8 +1443,12 @@ router.get("/sessions/active", protect, async (req, res) => {
     if (!r.rows.length) return res.json({ success: true, data: null });
     const session = dbHelpers.toCamel(r.rows[0]);
 
-    // Hydrate questions
-    const ids = session.questionsJson || [];
+    // Hydrate questions — NULL/malformed questions_json is a client-visible 400, not an empty session
+    if (!Array.isArray(session.questionsJson))
+      return res
+        .status(400)
+        .json({ success: false, error: "Session has no questions" });
+    const ids = session.questionsJson;
     const questions = await getSafeQuestions(ids);
     session.questions = questions;
     delete session.questionsJson;
@@ -1304,7 +1481,11 @@ router.get("/sessions/:id", protect, async (req, res) => {
         .status(404)
         .json({ success: false, error: "Session not found" });
     const session = dbHelpers.toCamel(r.rows[0]);
-    const ids = session.questionsJson || [];
+    if (!Array.isArray(session.questionsJson))
+      return res
+        .status(400)
+        .json({ success: false, error: "Session has no questions" });
+    const ids = session.questionsJson;
     const questions = await getSafeQuestions(ids);
     session.questions = questions;
     delete session.questionsJson;
@@ -1329,15 +1510,45 @@ router.patch("/sessions/:id", protect, async (req, res) => {
         .json({ success: false, error: "Invalid practice session ID" });
     }
     const { currentIndex } = req.body;
-    await pool.query(
+    const safeIndex =
+      Number.isInteger(currentIndex) && currentIndex >= 0 ? currentIndex : null;
+    if (currentIndex !== undefined && safeIndex === null) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: "currentIndex must be an integer >= 0",
+        });
+    }
+    // Clamp to the session's question range so a stale client can't push the
+    // cursor past the end (counter-delta logic in /check assumes in-range).
+    const sess = await pool.query(
+      `SELECT questions_json FROM practice_sessions WHERE id = $1 AND user_id = $2`,
+      [sessionId, req.user.id],
+    );
+    if (!sess.rows.length) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Session not found" });
+    }
+    const ids = sess.rows[0].questions_json;
+    const maxIndex = Array.isArray(ids) ? ids.length : 0;
+    const clamped =
+      safeIndex === null ? null : Math.min(safeIndex, Math.max(maxIndex, 0));
+    const upd = await pool.query(
       `
       UPDATE practice_sessions SET
         current_index = COALESCE($2, current_index),
         last_active_at = NOW()
       WHERE id = $1 AND user_id = $3
     `,
-      [sessionId, currentIndex, req.user.id],
+      [sessionId, clamped, req.user.id],
     );
+    if (!upd.rowCount) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Session not found" });
+    }
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: sanitizeErrorMessage(err) });
@@ -1358,69 +1569,116 @@ router.post("/sessions/:id/complete", protect, async (req, res) => {
         .json({ success: false, error: "Invalid practice session ID" });
     }
 
-    // Authoritative counters — derived from logged answers, never from the client
-    const counts = await pool.query(
-      `
-      SELECT
-        COUNT(*) FILTER (WHERE is_correct)::int AS correct_count,
-        COUNT(*) FILTER (WHERE NOT is_correct AND NOT is_skipped)::int AS wrong_count,
-        COUNT(*) FILTER (WHERE is_skipped)::int AS skipped_count
-      FROM practice_answers WHERE user_id = $1 AND session_id = $2
-    `,
-      [userId, sessionId],
-    );
-    const countRow = counts.rows[0] || {};
-    const correctCount = Number(countRow.correct_count || 0);
-    const wrongCount = Number(countRow.wrong_count || 0);
-    const skippedCount = Number(countRow.skipped_count || 0);
+    // Authoritative counters — derived from logged answers, never from the client.
+    // Atomic complete: session row locked FOR UPDATE so a concurrent
+    // check/skip racing the complete button can't move counters after the
+    // snapshot is taken. The streak upsert runs in the SAME transaction
+    // (atomic INSERT ... ON CONFLICT) so a concurrent complete for this user
+    // serializes on the streak row instead of racing.
+    const completeClient = await pool.connect();
+    let r;
+    let streak = { current: 1, longest: 1 };
+    try {
+      await completeClient.query("BEGIN");
+      const lockedComplete = await completeClient.query(
+        `SELECT id FROM practice_sessions WHERE id = $1 AND user_id = $2 FOR UPDATE`,
+        [sessionId, userId],
+      );
+      if (!lockedComplete.rows.length) {
+        await completeClient.query("ROLLBACK");
+        return res
+          .status(404)
+          .json({ success: false, error: "Session not found" });
+      }
+      const counts = await completeClient.query(
+        `
+        SELECT
+          COUNT(*) FILTER (WHERE is_correct)::int AS correct_count,
+          COUNT(*) FILTER (WHERE NOT is_correct AND NOT is_skipped)::int AS wrong_count,
+          COUNT(*) FILTER (WHERE is_skipped)::int AS skipped_count
+        FROM practice_answers WHERE user_id = $1 AND session_id = $2
+      `,
+        [userId, sessionId],
+      );
+      const countRow = counts.rows[0] || {};
+      const correctCount = Number(countRow.correct_count || 0);
+      const wrongCount = Number(countRow.wrong_count || 0);
+      const skippedCount = Number(countRow.skipped_count || 0);
 
-    const r = await pool.query(
-      `
-      UPDATE practice_sessions
-      SET completed_at = NOW(), is_active = false,
-          correct_count = $2,
-          wrong_count = $3,
-          skipped_count = $4,
-          last_active_at = NOW()
-      WHERE id = $1 AND user_id = $5 AND completed_at IS NULL
-      RETURNING *
-    `,
-      [sessionId, correctCount, wrongCount, skippedCount, userId],
-    );
-    if (!r.rows.length)
-      return res.status(404).json({
-        success: false,
-        error: "Session not found or already completed",
+      r = await completeClient.query(
+        `
+        UPDATE practice_sessions
+        SET completed_at = NOW(), is_active = false,
+            correct_count = $2,
+            wrong_count = $3,
+            skipped_count = $4,
+            last_active_at = NOW()
+        WHERE id = $1 AND user_id = $5 AND completed_at IS NULL
+        RETURNING *
+      `,
+        [sessionId, correctCount, wrongCount, skippedCount, userId],
+      );
+      if (!r.rows.length) {
+        await completeClient.query("ROLLBACK");
+        return res.status(404).json({
+          success: false,
+          error: "Session not found or already completed",
+        });
+      }
+
+      // Streak + totals in-transaction: the totals deltas ride along in the
+      // same atomic upsert, so no separate post-commit UPDATE is needed.
+      // A failure here rolls back the whole complete (pre-commit 500 is
+      // retry-safe; the session is NOT marked complete).
+      streak = await bumpStreak(userId, completeClient, {
+        questions: correctCount + wrongCount + skippedCount,
+        correct: correctCount,
       });
+      await completeClient.query("COMMIT");
+    } catch (completeTxnErr) {
+      try {
+        await completeClient.query("ROLLBACK");
+      } catch {
+        // rollback best-effort; original error is what matters
+      }
+      throw completeTxnErr;
+    } finally {
+      completeClient.release();
+    }
     const session = dbHelpers.toCamel(r.rows[0]);
-
-    // Update streak
-    const streak = await bumpStreak(userId);
-
-    // Update totals on streak row
-    await pool.query(
-      `
-      UPDATE practice_streaks SET
-        total_questions = total_questions + $2,
-        total_correct = total_correct + $3
-      WHERE user_id = $1
-    `,
-      [userId, correctCount + wrongCount + skippedCount, correctCount],
-    );
 
     // Bridge practice results into the analytics pipeline (streaks, weak-area
     // detection, recommendations, spaced-repetition queue). See analyticsService.recordPracticeAnalytics.
+    // Post-commit by design (the service owns its own pool queries) and
+    // best-effort: the session is already complete, so analytics/mastery
+    // failures must NEVER turn this into a 500.
     if (session.topicId) {
-      await recordPracticeAnalytics(userId, session.id, {
-        topic: session.topicId,
-        subject: session.subjectId,
-      });
+      try {
+        await recordPracticeAnalytics(userId, session.id, {
+          topic: session.topicId,
+          subject: session.subjectId,
+        });
+      } catch (analyticsErr) {
+        console.warn(
+          "[Practice complete analytics] non-fatal:",
+          analyticsErr.message,
+        );
+      }
     }
 
-    // Recompute mastery if topic was set
+    // Recompute mastery if topic was set (best-effort post-commit read;
+    // bounded to the latest 5000 rows inside computeTopicMastery).
     let mastery = null;
     if (session.topicId) {
-      mastery = await computeTopicMastery(userId, session.topicId);
+      try {
+        mastery = await computeTopicMastery(userId, session.topicId);
+      } catch (masteryErr) {
+        console.warn(
+          "[Practice complete mastery] non-fatal:",
+          masteryErr.message,
+        );
+        mastery = null;
+      }
     }
 
     res.json({
@@ -1465,6 +1723,10 @@ router.get("/sessions/:id/questions/:idx", protect, async (req, res) => {
         .status(404)
         .json({ success: false, error: "Session not found" });
     const ids = sess.rows[0].questions_json;
+    if (!Array.isArray(ids))
+      return res
+        .status(400)
+        .json({ success: false, error: "Session has no questions" });
     if (idx < 0 || idx >= ids.length)
       return res
         .status(400)
@@ -1503,9 +1765,13 @@ router.post("/sessions/:id/questions/:idx/check", protect, async (req, res) => {
         .status(404)
         .json({ success: false, error: "Session not found" });
     const ids = sess.rows[0].questions_json;
+    if (!Array.isArray(ids))
+      return res
+        .status(400)
+        .json({ success: false, error: "Session has no questions" });
     const mode = sess.rows[0].mode;
-    const idx = parseInt(req.params.idx, 10);
-    if (idx < 0 || idx >= ids.length)
+    const idx = Number(req.params.idx);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= ids.length)
       return res
         .status(400)
         .json({ success: false, error: "Index out of range" });
@@ -1518,137 +1784,225 @@ router.post("/sessions/:id/questions/:idx/check", protect, async (req, res) => {
         .json({ success: false, error: "No option selected" });
     }
 
-    const correctOption = await getCorrectOption(questionId);
+    // Numeric guard (mirror test submit): non-numeric timeTakenSec is a 400;
+    // valid values are clamped to [0s, 1h] per question.
+    let safeTimeTakenSec = null;
+    if (
+      req.body.timeTakenSec !== undefined &&
+      req.body.timeTakenSec !== null &&
+      req.body.timeTakenSec !== ""
+    ) {
+      const parsedTaken = Number(req.body.timeTakenSec);
+      if (!Number.isFinite(parsedTaken)) {
+        return res
+          .status(400)
+          .json({ success: false, error: "timeTakenSec must be a number" });
+      }
+      safeTimeTakenSec = Math.min(Math.max(parsedTaken, 0), 3600);
+    }
+
+    // Folded single read: correct-option fields + explanations + topic_id in
+    // ONE SELECT (previously getCorrectOption + explanation + topic queries).
+    const qRow = await pool.query(
+      `
+      SELECT correct_option, correct_answer, options,
+             explanation, explanation_hi, topic_id
+      FROM questions WHERE id = $1
+    `,
+      [questionId],
+    );
+    if (!qRow.rows.length) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Question missing" });
+    }
+    const qCamel = dbHelpers.toCamel(qRow.rows[0]);
+    const rawCorrect = qCamel.correctOption ?? qCamel.correctAnswer;
+    let correctOption = null;
+    if (rawCorrect !== undefined && rawCorrect !== null && rawCorrect !== "") {
+      const n = Number(rawCorrect);
+      if (Number.isFinite(n) && Number.isInteger(n)) correctOption = n;
+      else {
+        const s = String(rawCorrect).trim().toUpperCase();
+        if (/^[A-D]$/.test(s)) correctOption = s.charCodeAt(0) - 65;
+      }
+    }
+    if (correctOption === null) {
+      const opts = Array.isArray(qCamel.options) ? qCamel.options : [];
+      if (opts.length > 0) {
+        const foundIdx = opts.findIndex((o) => {
+          if (typeof o === "object" && o !== null) {
+            if (o.isCorrect || o.is_correct) return true;
+            if (rawCorrect && (o.text === rawCorrect || o.id === rawCorrect))
+              return true;
+          }
+          return o === rawCorrect;
+        });
+        if (foundIdx !== -1) correctOption = foundIdx;
+      }
+    }
     const isCorrect = selectedOption === correctOption;
 
     // Get explanation for the response (including Hindi)
-    const qInfo = await pool.query(
-      `SELECT explanation, explanation_hi FROM questions WHERE id = $1`,
-      [questionId],
-    );
-    const explanation = qInfo.rows[0]?.explanation || "";
-    const explanationHi = qInfo.rows[0]?.explanation_hi || "";
+    const explanation = qRow.rows[0]?.explanation || "";
+    const explanationHi = qRow.rows[0]?.explanation_hi || "";
+    const foldedTopicId = Number(qRow.rows[0]?.topic_id);
 
-    // Prior state — used to adjust counters by delta (never double-count re-answers)
-    const prev = await pool.query(
-      `SELECT is_correct, is_skipped FROM practice_answers
-       WHERE user_id = $1 AND question_id = $2 AND session_id = $3`,
-      [userId, questionId, sessionId],
-    );
-
-    // Log to practice_answers (upsert per session+question)
-    await pool.query(
-      `
-      INSERT INTO practice_answers (user_id, session_id, question_id, selected_option, is_correct, is_skipped, time_taken_sec, mode)
-      VALUES ($1, $2, $3, $4, $5, false, $6, $7)
-      ON CONFLICT (user_id, question_id, session_id) DO UPDATE
-        SET selected_option = EXCLUDED.selected_option,
-            is_correct = EXCLUDED.is_correct,
-            is_skipped = false
-    `,
-      [
-        userId,
-        sessionId,
-        questionId,
-        selectedOption,
-        isCorrect,
-        req.body.timeTakenSec || null,
-        mode,
-      ],
-    );
-
-    // Update session counters by delta
-    let correctDelta = 0,
-      wrongDelta = 0,
-      skippedDelta = 0;
-    const had = prev.rows[0];
-    if (!had) {
-      if (isCorrect) correctDelta = 1;
-      else wrongDelta = 1;
-    } else if (had.is_skipped) {
-      skippedDelta = -1;
-      if (isCorrect) correctDelta = 1;
-      else wrongDelta = 1;
-    } else if (had.is_correct !== isCorrect) {
-      correctDelta = isCorrect ? 1 : -1;
-      wrongDelta = isCorrect ? -1 : 1;
-    }
-    await pool.query(
-      `
-      UPDATE practice_sessions SET
-        correct_count = GREATEST(0, correct_count + $2),
-        wrong_count = GREATEST(0, wrong_count + $3),
-        skipped_count = GREATEST(0, skipped_count + $4),
-        current_index = GREATEST(current_index, $5 + 1),
-        last_active_at = NOW()
-      WHERE id = $1
-    `,
-      [sessionId, correctDelta, wrongDelta, skippedDelta, idx],
-    );
-
-    // If answered correctly during practice/mistake drill, update mastery in wrong_questions and revision_queue
-    if (isCorrect) {
-      try {
-        await pool.query(
-          `UPDATE wrong_questions
-           SET wrong_count = GREATEST(0, wrong_count - 1),
-               is_active = (wrong_count - 1 > 0),
-               updated_at = NOW()
-           WHERE user_id = $1 AND question_id = $2`,
-          [userId, questionId],
-        );
-        await pool.query(
-          `UPDATE revision_queue
-           SET status = 'completed', completed_at = NOW(), updated_at = NOW()
-           WHERE user_id = $1 AND question_id = $2 AND status = 'pending'`,
-          [userId, questionId],
-        );
-      } catch (err) {
-        console.warn("[Practice Mastery Update]", err.message);
+    // Atomic answer commit: session row locked FOR UPDATE so concurrent
+    // check/skip retries serialize on counters instead of double-counting.
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const locked = await client.query(
+        `SELECT id FROM practice_sessions WHERE id = $1 AND user_id = $2 FOR UPDATE`,
+        [sessionId, userId],
+      );
+      if (!locked.rows.length) {
+        await client.query("ROLLBACK");
+        return res
+          .status(404)
+          .json({ success: false, error: "Session not found" });
       }
-    } else {
-      // Wrong path: upsert wrong_questions + revision_queue
-      // (best-effort — queue/stats outage must never fail the answer flow).
-      //
-      // source_attempt_id stays NULL for practice rows: it is an INTEGER FK
-      // to attempts(id), and practice sessions create no attempts row. The
-      // 'practice:<sessionId>' sentinel previously written here always failed
-      // (22P02 cast error) — silently, via the catch below.
-      //
-      // user_topic_stats is intentionally NOT written per-answer:
-      // session completion (recordPracticeAnalytics) aggregates the whole
-      // session from practice_answers once, including correct/skipped —
-      // per-answer upserts here double-counted every wrong answer.
-      try {
-        await pool.query(
-          `INSERT INTO wrong_questions
-             (user_id, question_id, source_attempt_id, wrong_count, last_seen_at, metadata, is_active, created_at, updated_at)
-           VALUES ($1, $2, NULL, 1, NOW(), '{}'::jsonb, true, NOW(), NOW())
-           ON CONFLICT (user_id, question_id)
-           DO UPDATE SET
-             wrong_count = wrong_questions.wrong_count + 1,
-             last_seen_at = EXCLUDED.last_seen_at,
-             is_active = true,
-             updated_at = NOW()`,
-          [userId, questionId],
-        );
-        for (const day of [1, 3, 7, 14]) {
-          const dueAt = new Date(Date.now() + day * 86400000).toISOString();
-          await pool.query(
+
+      // Prior state — used to adjust counters by delta (never double-count re-answers)
+      const prev = await client.query(
+        `SELECT is_correct, is_skipped FROM practice_answers
+         WHERE user_id = $1 AND question_id = $2 AND session_id = $3`,
+        [userId, questionId, sessionId],
+      );
+
+      // Log to practice_answers (upsert per session+question)
+      await client.query(
+        `
+        INSERT INTO practice_answers (user_id, session_id, question_id, selected_option, is_correct, is_skipped, time_taken_sec, mode)
+        VALUES ($1, $2, $3, $4, $5, false, $6, $7)
+        ON CONFLICT (user_id, question_id, session_id) DO UPDATE
+          SET selected_option = EXCLUDED.selected_option,
+              is_correct = EXCLUDED.is_correct,
+              is_skipped = false
+      `,
+        [
+          userId,
+          sessionId,
+          questionId,
+          selectedOption,
+          isCorrect,
+          safeTimeTakenSec,
+          mode,
+        ],
+      );
+
+      // Update session counters by delta
+      let correctDelta = 0,
+        wrongDelta = 0,
+        skippedDelta = 0;
+      const had = prev.rows[0];
+      if (!had) {
+        if (isCorrect) correctDelta = 1;
+        else wrongDelta = 1;
+      } else if (had.is_skipped) {
+        skippedDelta = -1;
+        if (isCorrect) correctDelta = 1;
+        else wrongDelta = 1;
+      } else if (had.is_correct !== isCorrect) {
+        correctDelta = isCorrect ? 1 : -1;
+        wrongDelta = isCorrect ? -1 : 1;
+      }
+      await client.query(
+        `
+        UPDATE practice_sessions SET
+          correct_count = GREATEST(0, correct_count + $2),
+          wrong_count = GREATEST(0, wrong_count + $3),
+          skipped_count = GREATEST(0, skipped_count + $4),
+          current_index = GREATEST(current_index, $5 + 1),
+          last_active_at = NOW()
+        WHERE id = $1
+      `,
+        [sessionId, correctDelta, wrongDelta, skippedDelta, idx],
+      );
+
+      // If answered correctly during practice/mistake drill, update mastery in wrong_questions and revision_queue
+      if (isCorrect) {
+        try {
+          await client.query(
+            `UPDATE wrong_questions
+             SET wrong_count = GREATEST(0, wrong_count - 1),
+                 is_active = (wrong_count - 1 > 0),
+                 updated_at = NOW()
+             WHERE user_id = $1 AND question_id = $2`,
+            [userId, questionId],
+          );
+          await client.query(
+            `UPDATE revision_queue
+             SET status = 'completed', completed_at = NOW(), updated_at = NOW()
+             WHERE user_id = $1 AND question_id = $2 AND status = 'pending'`,
+            [userId, questionId],
+          );
+        } catch (err) {
+          console.warn("[Practice Mastery Update]", err.message);
+        }
+      } else {
+        // Wrong path: upsert wrong_questions + revision_queue
+        // (best-effort — queue/stats outage must never fail the answer flow).
+        //
+        // source_attempt_id stays NULL for practice rows: it is an INTEGER FK
+        // to attempts(id), and practice sessions create no attempts row. The
+        // 'practice:<sessionId>' sentinel previously written here always failed
+        // (22P02 cast error) — silently, via the catch below.
+        //
+        // user_topic_stats is intentionally NOT written per-answer:
+        // session completion (recordPracticeAnalytics) aggregates the whole
+        // session from practice_answers once, including correct/skipped —
+        // per-answer upserts here double-counted every wrong answer.
+        try {
+          await client.query(
+            `INSERT INTO wrong_questions
+               (user_id, question_id, source_attempt_id, wrong_count, last_seen_at, metadata, is_active, created_at, updated_at)
+             VALUES ($1, $2, NULL, 1, NOW(), '{}'::jsonb, true, NOW(), NOW())
+             ON CONFLICT (user_id, question_id)
+             DO UPDATE SET
+               wrong_count = wrong_questions.wrong_count + 1,
+               last_seen_at = EXCLUDED.last_seen_at,
+               is_active = true,
+               updated_at = NOW()`,
+            [userId, questionId],
+          );
+          // Single multi-row insert (one round-trip, not N=4). Due dates are
+          // server-computed ISO strings — interval literals, not parameters.
+          const revisionRows = [];
+          for (const day of [1, 3, 7, 14]) {
+            const dueAt = new Date(Date.now() + day * 86400000).toISOString();
+            revisionRows.push(
+              `($1, $2, NULL, ${day}, '${dueAt}', 'pending', ${day <= 3 ? 2 : 1}, '{}'::jsonb, NOW(), NOW())`,
+            );
+          }
+          // Single multi-row insert (one round-trip, not N=4).
+          await client.query(
             `INSERT INTO revision_queue
                (user_id, question_id, source_attempt_id, schedule_day, due_at, status, priority, metadata, created_at, updated_at)
-             VALUES ($1, $2, NULL, $3, $4, 'pending', $5, '{}'::jsonb, NOW(), NOW())
-             ON CONFLICT (user_id, question_id, schedule_day) WHERE source_attempt_id IS NULL
-             DO UPDATE SET due_at = EXCLUDED.due_at, status = 'pending', priority = EXCLUDED.priority, updated_at = NOW()`,
-            [userId, questionId, day, dueAt, day <= 3 ? 2 : 1],
+             VALUES ${revisionRows.join(", ")}
+              ON CONFLICT (user_id, question_id, schedule_day) WHERE source_attempt_id IS NULL
+              DO UPDATE SET due_at = EXCLUDED.due_at, status = 'pending', priority = EXCLUDED.priority, updated_at = NOW()
+              WHERE revision_queue.status <> 'completed'`,
+            [userId, questionId],
+          );
+        } catch (bridgeErr) {
+          console.warn(
+            "[Practice Wrong-Path Bridge] non-fatal:",
+            bridgeErr.message,
           );
         }
-      } catch (bridgeErr) {
-        console.warn(
-          "[Practice Wrong-Path Bridge] non-fatal:",
-          bridgeErr.message,
-        );
       }
+      await client.query("COMMIT");
+    } catch (txnErr) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // rollback best-effort; original error is what matters
+      }
+      throw txnErr;
+    } finally {
+      client.release();
     }
 
     // Engine signals (best-effort, batched): NodeEngine spaced-repetition state
@@ -1659,12 +2013,10 @@ router.post("/sessions/:id/questions/:idx/check", protect, async (req, res) => {
         await import("../../services/core/NodeEngineService.js");
       const { default: adaptiveDifficultyService } =
         await import("../../modules/ai/adaptiveDifficulty.js");
-      const qMeta2 = await pool.query(
-        `SELECT topic_id FROM questions WHERE id = $1`,
-        [questionId],
-      );
-      const topicId = Number(qMeta2.rows[0]?.topic_id);
-      const timeSpent = Number(req.body.timeTakenSec) || 0;
+      // Reuses the folded topic_id from the single question SELECT above —
+      // no extra question read.
+      const topicId = foldedTopicId;
+      const timeSpent = safeTimeTakenSec ?? 0;
       const engineJobs = [];
       // Only real numeric topic ids feed the engine — passing the question id
       // as a node id (the old fallback) creates orphan user_node_skill rows.
@@ -1725,56 +2077,87 @@ router.post("/sessions/:id/questions/:idx/skip", protect, async (req, res) => {
         .status(404)
         .json({ success: false, error: "Session not found" });
     const ids = sess.rows[0].questions_json;
+    if (!Array.isArray(ids))
+      return res
+        .status(400)
+        .json({ success: false, error: "Session has no questions" });
     const mode = sess.rows[0].mode;
-    const idx = parseInt(req.params.idx, 10);
-    if (idx < 0 || idx >= ids.length)
+    const idx = Number(req.params.idx);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= ids.length)
       return res
         .status(400)
         .json({ success: false, error: "Index out of range" });
     const questionId = ids[idx];
 
-    const prev = await pool.query(
-      `SELECT is_correct, is_skipped FROM practice_answers
-       WHERE user_id = $1 AND question_id = $2 AND session_id = $3`,
-      [userId, questionId, sessionId],
-    );
-
-    await pool.query(
-      `
-      INSERT INTO practice_answers (user_id, session_id, question_id, selected_option, is_correct, is_skipped, mode)
-      VALUES ($1, $2, $3, NULL, false, true, $4)
-      ON CONFLICT (user_id, question_id, session_id) DO UPDATE
-        SET is_skipped = true, selected_option = NULL, is_correct = false
-    `,
-      [userId, sessionId, questionId, mode],
-    );
-
-    // Adjust counters by delta — skipping an answered question moves it, never double-counts
-    let correctDelta = 0,
-      wrongDelta = 0,
-      skippedDelta = 1;
-    const had = prev.rows[0];
-    if (had) {
-      if (had.is_skipped) {
-        skippedDelta = 0;
-      } else if (had.is_correct) {
-        correctDelta = -1;
-      } else {
-        wrongDelta = -1;
+    // Atomic skip commit: session row locked FOR UPDATE so concurrent
+    // check/skip retries serialize on counters instead of double-counting.
+    const skipClient = await pool.connect();
+    try {
+      await skipClient.query("BEGIN");
+      const lockedSkip = await skipClient.query(
+        `SELECT id FROM practice_sessions WHERE id = $1 AND user_id = $2 FOR UPDATE`,
+        [sessionId, userId],
+      );
+      if (!lockedSkip.rows.length) {
+        await skipClient.query("ROLLBACK");
+        return res
+          .status(404)
+          .json({ success: false, error: "Session not found" });
       }
+
+      const prev = await skipClient.query(
+        `SELECT is_correct, is_skipped FROM practice_answers
+         WHERE user_id = $1 AND question_id = $2 AND session_id = $3`,
+        [userId, questionId, sessionId],
+      );
+
+      await skipClient.query(
+        `
+        INSERT INTO practice_answers (user_id, session_id, question_id, selected_option, is_correct, is_skipped, mode)
+        VALUES ($1, $2, $3, NULL, false, true, $4)
+        ON CONFLICT (user_id, question_id, session_id) DO UPDATE
+          SET is_skipped = true, selected_option = NULL, is_correct = false
+      `,
+        [userId, sessionId, questionId, mode],
+      );
+
+      // Adjust counters by delta — skipping an answered question moves it, never double-counts
+      let correctDelta = 0,
+        wrongDelta = 0,
+        skippedDelta = 1;
+      const had = prev.rows[0];
+      if (had) {
+        if (had.is_skipped) {
+          skippedDelta = 0;
+        } else if (had.is_correct) {
+          correctDelta = -1;
+        } else {
+          wrongDelta = -1;
+        }
+      }
+      await skipClient.query(
+        `
+        UPDATE practice_sessions SET
+          correct_count = GREATEST(0, correct_count + $2),
+          wrong_count = GREATEST(0, wrong_count + $3),
+          skipped_count = GREATEST(0, skipped_count + $4),
+          current_index = GREATEST(current_index, $5 + 1),
+          last_active_at = NOW()
+        WHERE id = $1
+      `,
+        [sessionId, correctDelta, wrongDelta, skippedDelta, idx],
+      );
+      await skipClient.query("COMMIT");
+    } catch (skipTxnErr) {
+      try {
+        await skipClient.query("ROLLBACK");
+      } catch {
+        // rollback best-effort; original error is what matters
+      }
+      throw skipTxnErr;
+    } finally {
+      skipClient.release();
     }
-    await pool.query(
-      `
-      UPDATE practice_sessions SET
-        correct_count = GREATEST(0, correct_count + $2),
-        wrong_count = GREATEST(0, wrong_count + $3),
-        skipped_count = GREATEST(0, skipped_count + $4),
-        current_index = GREATEST(current_index, $5 + 1),
-        last_active_at = NOW()
-      WHERE id = $1
-    `,
-      [sessionId, correctDelta, wrongDelta, skippedDelta, idx],
-    );
 
     res.json({ success: true });
   } catch (err) {
@@ -1792,8 +2175,11 @@ router.post("/sessions/:id/questions/:idx/skip", protect, async (req, res) => {
  */
 router.get("/bookmarks", protect, async (req, res) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 20, 1),
+      100,
+    );
     const offset = (page - 1) * limit;
 
     const r = await pool.query(
@@ -1824,10 +2210,51 @@ router.get("/bookmarks", protect, async (req, res) => {
       `SELECT COUNT(*)::int AS c FROM question_bookmarks WHERE user_id = $1`,
       [req.user.id],
     );
+    // Unified bookmark reads (practice ↔ generic store bridge, best-effort):
+    // union generic-store ids into the result. Legacy ids ⊆ helper set
+    // (barring races), so deduped union size == helper ids length.
+    // Fail-soft: helper throws → keep legacy rows/total above.
+    let unifiedTotal = null;
+    try {
+      const unifiedIds = await getUnifiedBookmarkedQuestionIds(req.user.id);
+      if (Array.isArray(unifiedIds)) {
+        const seen = new Set(r.rows.map((row) => Number(row.id)));
+        const allLegacy = await pool.query(
+          `SELECT question_id FROM question_bookmarks WHERE user_id = $1`,
+          [req.user.id],
+        );
+        for (const row of allLegacy.rows) seen.add(Number(row.question_id));
+        const missing = unifiedIds.filter((id) => !seen.has(Number(id)));
+        if (missing.length) {
+          const extra = await pool.query(
+            `SELECT q.* FROM questions q
+             WHERE q.id = ANY($1::int[]) AND q.is_active = true`,
+            [missing],
+          );
+          for (const row of extra.rows) {
+            const q = dbHelpers.toCamel(row);
+            const {
+              correctAnswer,
+              correct_option,
+              correctOption,
+              correct,
+              answer,
+              isCorrect,
+              is_correct,
+              ...rest
+            } = q;
+            safe.push(rest);
+          }
+        }
+        unifiedTotal = unifiedIds.length;
+      }
+    } catch {
+      // fail-soft: keep legacy rows/total
+    }
     res.json({
       success: true,
       data: safe,
-      total: total.rows[0].c,
+      total: unifiedTotal ?? total.rows[0].c,
       page,
       limit,
     });
@@ -1841,6 +2268,16 @@ router.get("/bookmarks", protect, async (req, res) => {
  */
 router.get("/bookmarks/count", protect, async (req, res) => {
   try {
+    // Unified count = deduped union size == helper ids length
+    // (legacy ids ⊆ helper set barring races). Fail-soft → legacy COUNT.
+    try {
+      const unifiedIds = await getUnifiedBookmarkedQuestionIds(req.user.id);
+      if (Array.isArray(unifiedIds)) {
+        return res.json({ success: true, data: { count: unifiedIds.length } });
+      }
+    } catch {
+      // fall through to legacy count below
+    }
     const r = await pool.query(
       `SELECT COUNT(*)::int AS c FROM question_bookmarks WHERE user_id = $1`,
       [req.user.id],
@@ -1856,12 +2293,18 @@ router.get("/bookmarks/count", protect, async (req, res) => {
  */
 router.post("/bookmarks/:questionId", protect, async (req, res) => {
   try {
+    const questionId = parsePositiveInt(req.params.questionId);
+    if (!questionId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid question ID" });
+    }
     await pool.query(
       `
       INSERT INTO question_bookmarks (user_id, question_id) VALUES ($1, $2)
       ON CONFLICT (user_id, question_id) DO NOTHING
     `,
-      [req.user.id, req.params.questionId],
+      [req.user.id, questionId],
     );
     res.json({ success: true });
   } catch (err) {
@@ -1874,9 +2317,15 @@ router.post("/bookmarks/:questionId", protect, async (req, res) => {
  */
 router.delete("/bookmarks/:questionId", protect, async (req, res) => {
   try {
+    const questionId = parsePositiveInt(req.params.questionId);
+    if (!questionId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid question ID" });
+    }
     await pool.query(
       `DELETE FROM question_bookmarks WHERE user_id = $1 AND question_id = $2`,
-      [req.user.id, req.params.questionId],
+      [req.user.id, questionId],
     );
     res.json({ success: true });
   } catch (err) {
@@ -1894,8 +2343,11 @@ router.delete("/bookmarks/:questionId", protect, async (req, res) => {
  */
 router.get("/mistakes", protect, async (req, res) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 20, 1),
+      100,
+    );
     const offset = (page - 1) * limit;
 
     // Unified mistakes across both practice_answers and wrong_questions
@@ -2146,7 +2598,12 @@ router.get(
  */
 router.post("/questions/:id/report", protect, async (req, res) => {
   try {
-    const questionId = req.params.id;
+    const questionId = parsePositiveInt(req.params.id);
+    if (!questionId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid question ID" });
+    }
     const reason = req.body.reason || "Incorrect answer/solution";
     const notes = req.body.notes || req.body.comment || null;
 
@@ -2171,8 +2628,11 @@ router.post("/questions/:id/report", protect, async (req, res) => {
  */
 router.get("/reports/my", protect, async (req, res) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 50, 1),
+      100,
+    );
     const offset = (page - 1) * limit;
 
     const result = await pool.query(
@@ -2220,8 +2680,11 @@ router.get("/reports/my", protect, async (req, res) => {
  */
 router.get("/reports/admin/all", protect, admin, async (req, res) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 50, 1),
+      100,
+    );
     const offset = (page - 1) * limit;
     const statusFilter = req.query.status;
 
@@ -2256,7 +2719,8 @@ router.get("/reports/admin/all", protect, admin, async (req, res) => {
 
     res.json({
       success: true,
-      data: result.rows.map((r) => dbHelpers.toCamel(r)),
+      // PII: mask user_email on admin list endpoint
+      data: result.rows.map((r) => maskPiiRow(dbHelpers.toCamel(r))),
       total: countRes.rows[0]?.total || 0,
       page,
       limit,
@@ -2305,8 +2769,11 @@ router.put("/reports/admin/:id/status", protect, admin, async (req, res) => {
  */
 router.get("/bookmarks/admin/all", protect, admin, async (req, res) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 50, 1),
+      100,
+    );
     const offset = (page - 1) * limit;
     const itemType = req.query.itemType;
 
@@ -2340,7 +2807,8 @@ router.get("/bookmarks/admin/all", protect, admin, async (req, res) => {
 
     res.json({
       success: true,
-      data: result.rows.map((r) => dbHelpers.toCamel(r)),
+      // PII: mask user_email on admin list endpoint
+      data: result.rows.map((r) => maskPiiRow(dbHelpers.toCamel(r))),
       total: countRes.rows[0]?.total || 0,
       page,
       limit,
@@ -2610,9 +3078,34 @@ router.post(
   async (req, res) => {
     try {
       const { category, score, totalQuestions, durationMs } = req.body;
-      const accuracy = totalQuestions > 0 ? (score / totalQuestions) * 100 : 0;
+      // Numeric guards (mirror test submit): non-numeric drill metrics are a
+      // 400; valid values are clamped so a stale client can't poison mastery.
+      for (const [label, val] of [
+        ["score", score],
+        ["totalQuestions", totalQuestions],
+        ["durationMs", durationMs],
+      ]) {
+        if (val !== undefined && val !== null && val !== "") {
+          const n = Number(val);
+          if (!Number.isFinite(n)) {
+            return res
+              .status(400)
+              .json({ success: false, error: `${label} must be a number` });
+          }
+        }
+      }
+      const safeScore = Math.min(Math.max(Number(score) || 0, 0), 10000);
+      const safeTotal = Math.min(
+        Math.max(Number(totalQuestions) || 0, 0),
+        10000,
+      );
+      const safeDurationMs = Math.min(
+        Math.max(Number(durationMs) || 0, 0),
+        24 * 3600 * 1000,
+      );
+      const accuracy = safeTotal > 0 ? (safeScore / safeTotal) * 100 : 0;
       const avgSpeedMs =
-        totalQuestions > 0 ? Math.round(durationMs / totalQuestions) : 0;
+        safeTotal > 0 ? Math.round(safeDurationMs / safeTotal) : 0;
 
       const level = accuracy >= 80 ? 5 : accuracy >= 60 ? 3 : 1;
 
@@ -2651,7 +3144,12 @@ router.post(
  */
 router.get("/questions/:id/explanations", protect, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (!id) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid question ID" });
+    }
     const qR = await pool.query(
       `SELECT id, question_text, question_text_hi, explanation, explanation_hi, options, options_hi, correct_option FROM questions WHERE id = $1`,
       [id],
@@ -2737,7 +3235,12 @@ router.get("/questions/:id/explanations", protect, async (req, res) => {
  */
 router.get("/questions/:id/approaches", protect, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (!id) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid question ID" });
+    }
     const r = await pool.query(
       `
       SELECT id, user_id, author_name, approach_type, title, content, time_complexity, upvotes, is_approved, is_community_best, created_at
@@ -2761,7 +3264,12 @@ router.get("/questions/:id/approaches", protect, async (req, res) => {
  */
 router.post("/questions/:id/approaches", protect, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (!id) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid question ID" });
+    }
     const {
       approachType = "fastest",
       title,
@@ -2827,23 +3335,47 @@ router.post(
  */
 router.get("/questions/:id/similar", protect, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (!id) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid question ID" });
+    }
     const qR = await pool.query(
       `SELECT subject_id, topic_id, difficulty FROM questions WHERE id = $1`,
       [id],
     );
     const q = qR.rows[0] || {};
 
-    const simR = await pool.query(
-      `
+    // Fast random path first (TABLESAMPLE BERNOULLI pre-filter), exact
+    // ORDER BY RANDOM() fallback — same try/catch pattern as the picker.
+    const similarWhere = `WHERE (topic_id = $1 OR subject_id = $2) AND id != $3 AND is_practice = true AND is_active = true`;
+    const similarParams = [q.topic_id || 0, q.subject_id || 0, id];
+    let simR;
+    try {
+      simR = await pool.query(
+        `
       SELECT id, question_text, difficulty, options
-      FROM questions
-      WHERE (topic_id = $1 OR subject_id = $2) AND id != $3 AND is_practice = true AND is_active = true
+      FROM questions TABLESAMPLE BERNOULLI(20)
+      ${similarWhere}
       ORDER BY RANDOM()
       LIMIT 5
     `,
-      [q.topic_id || 0, q.subject_id || 0, id],
-    );
+        similarParams,
+      );
+      if (!simR.rows.length) throw new Error("empty sample — use fallback");
+    } catch {
+      simR = await pool.query(
+        `
+      SELECT id, question_text, difficulty, options
+      FROM questions
+      ${similarWhere}
+      ORDER BY RANDOM()
+      LIMIT 5
+    `,
+        similarParams,
+      );
+    }
 
     res.json({
       success: true,
@@ -2861,11 +3393,17 @@ router.get("/questions/:id/similar", protect, async (req, res) => {
 router.post("/vault/save", protect, async (req, res) => {
   try {
     const {
-      questionId,
+      questionId: rawQuestionId,
       saveReason = "needs_revision",
       collectionName = "Default",
       userNotes,
     } = req.body;
+    const questionId = parsePositiveInt(rawQuestionId);
+    if (!questionId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid question ID" });
+    }
 
     const r = await pool.query(
       `
@@ -2888,6 +3426,12 @@ router.post("/vault/save", protect, async (req, res) => {
  */
 router.get("/vault/items", protect, async (req, res) => {
   try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 20, 1),
+      100,
+    );
+    const offset = (page - 1) * limit;
     const r = await pool.query(
       `
       SELECT kv.id, kv.save_reason, kv.collection_name, kv.user_notes, kv.created_at,
@@ -2896,13 +3440,16 @@ router.get("/vault/items", protect, async (req, res) => {
       JOIN questions q ON q.id = kv.question_id
       WHERE kv.user_id = $1
       ORDER BY kv.created_at DESC
+      LIMIT $2 OFFSET $3
     `,
-      [req.user.id],
+      [req.user.id, limit, offset],
     );
 
     res.json({
       success: true,
       data: r.rows.map((row) => dbHelpers.toCamel(row)),
+      page,
+      limit,
     });
   } catch (err) {
     console.error("GET /vault/items error:", err);
@@ -2916,6 +3463,16 @@ router.get("/vault/items", protect, async (req, res) => {
 router.post("/ai/tutor", protect, async (req, res) => {
   try {
     const { questionId, promptType = "hint", userAnswer } = req.body;
+    if (
+      questionId !== undefined &&
+      questionId !== null &&
+      questionId !== "" &&
+      !parsePositiveInt(questionId)
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid question ID" });
+    }
 
     const qR = await pool.query(
       `SELECT question_text, explanation, options FROM questions WHERE id = $1`,
@@ -2952,11 +3509,35 @@ router.post("/ai/tutor", protect, async (req, res) => {
 router.post("/adaptive-diagnostic", protect, async (req, res) => {
   try {
     const { questionCount, durationMinutes, title } = req.body || {};
+    // Numeric guards: present-but-NaN is a 400; valid values are clamped
+    // (questionCount 1–200, durationMinutes 1–360). Absent values pass
+    // through as undefined so the service defaults apply.
+    const isProvided = (v) => v !== undefined && v !== null && v !== "";
+    let safeQuestionCount;
+    if (isProvided(questionCount)) {
+      const n = Number(questionCount);
+      if (!Number.isFinite(n)) {
+        return res
+          .status(400)
+          .json({ success: false, error: "questionCount must be a number" });
+      }
+      safeQuestionCount = Math.min(Math.max(Math.floor(n), 1), 200);
+    }
+    let safeDurationMinutes;
+    if (isProvided(durationMinutes)) {
+      const n = Number(durationMinutes);
+      if (!Number.isFinite(n)) {
+        return res
+          .status(400)
+          .json({ success: false, error: "durationMinutes must be a number" });
+      }
+      safeDurationMinutes = Math.min(Math.max(Math.floor(n), 1), 360);
+    }
     const { generateAdaptiveDiagnosticTest } =
       await import("../../services/core/adaptiveDiagnosticService.js");
     const result = await generateAdaptiveDiagnosticTest(req.user.id, {
-      questionCount,
-      durationMinutes,
+      questionCount: safeQuestionCount,
+      durationMinutes: safeDurationMinutes,
       title,
     });
     res.json(result);

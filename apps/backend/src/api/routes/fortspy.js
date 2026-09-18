@@ -150,11 +150,7 @@ const hasVideoEntitlement = async (userId) => {
 
 const requireVideoEntitlement = async (req, res, next) => {
   try {
-    if (
-      req.user?.isAdmin ||
-      req.user?.role === "admin" ||
-      req.user?.role === "super_admin"
-    ) {
+    if (req.user?.isAdmin || req.user?.role === "admin") {
       return next();
     }
     const entitled = await hasVideoEntitlement(req.user?.id);

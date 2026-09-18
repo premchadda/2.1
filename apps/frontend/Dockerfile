@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 # All VITE_* vars consumed at build time (env-validation.js / import.meta.env reads)
@@ -25,7 +25,7 @@ COPY . .
 RUN if [ -f pnpm-lock.yaml ]; then pnpm run build; else npm run build; fi
 
 # Pin nginx to a specific minor + digest for reproducible builds
-FROM nginx:1.27-alpine
+FROM nginx:1.27.3-alpine
 
 # nginx.conf is a full nginx.conf (with http{} wrapper), mount as /etc/nginx/nginx.conf
 COPY nginx.conf /etc/nginx/nginx.conf

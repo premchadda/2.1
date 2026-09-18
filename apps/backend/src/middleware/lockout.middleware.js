@@ -40,6 +40,7 @@ const getClientIp = (req) => {
 };
 
 export const checkAccountLockout = async (email, ipAddress) => {
+  const normalizedEmail = String(email ?? "").toLowerCase();
   const securitySettings = await getRuntimeSecuritySettings();
   const maxAttempts = Math.max(
     1,
@@ -52,10 +53,10 @@ export const checkAccountLockout = async (email, ipAddress) => {
   const attempts = await dbHelpers.pool.query(
     `SELECT COUNT(*) as attempt_count
      FROM login_attempts
-     WHERE (email = $1 OR ip_address = $2)
-       AND attempted_at > $3
-       AND successful = false`,
-    [email.toLowerCase(), ipAddress, lockoutWindow],
+      WHERE (email = $1 OR ip_address = $2)
+        AND attempted_at > $3
+        AND successful = false`,
+    [normalizedEmail, ipAddress, lockoutWindow],
   );
 
   const attemptCount = parseInt(attempts.rows[0]?.attempt_count || 0);
@@ -100,9 +101,9 @@ export const checkAccountLockout = async (email, ipAddress) => {
      FROM login_attempts
      WHERE (email = $1 OR ip_address = $2)
        AND successful = false
-     ORDER BY attempted_at DESC
-     LIMIT 1`,
-    [email.toLowerCase(), ipAddress],
+      ORDER BY attempted_at DESC
+      LIMIT 1`,
+    [normalizedEmail, ipAddress],
   );
 
   if (recentFailedAttempts.rows.length > 0) {
@@ -133,22 +134,25 @@ export const recordLoginAttempt = async (
   successful,
   userAgent,
 ) => {
+  // Coerce null/undefined emails (e.g. 2FA-pending or phone-OTP flows) so the
+  // insert never throws on toLowerCase and skips lockout counting.
+  const normalizedEmail = String(email ?? "").toLowerCase();
   try {
     await dbHelpers.pool.query(
       `INSERT INTO login_attempts (email, ip_address, successful, attempted_at)
        VALUES ($1, $2, $3, NOW())`,
-      [email.toLowerCase(), ipAddress, successful],
+      [normalizedEmail, ipAddress, successful],
     );
 
     if (process.env.NODE_ENV !== "production") {
       logger.info(
-        { email, ipAddress, successful },
+        { email: normalizedEmail, ipAddress, successful },
         `[Login Attempt] ${successful ? "SUCCESS" : "FAILED"}`,
       );
     }
   } catch (error) {
     logger.error(
-      { err: error, email, ipAddress },
+      { err: error, email: normalizedEmail, ipAddress },
       "[Login Attempt] Failed to record attempt",
     );
   }
@@ -165,6 +169,8 @@ const LOCKOUT_PATHS = [
   "/2fa/verify",
   "/2fa/enroll",
   "/login/2fa",
+  "/send-otp",
+  "/link-phone",
 ];
 const isLockoutPath = (path) => {
   if (!path) return false;
@@ -196,8 +202,11 @@ const isLockoutPath = (path) => {
 };
 
 export const lockoutMiddleware = async (req, res, next) => {
-  // Never lock out admin requests
-  if (isUserAdminRequest(req)) {
+  // Never skip brute-force protection on credential / second-factor paths —
+  // 2FA TOTP and OTP guesses are the highest-value targets and must be counted
+  // even for authenticated admin sessions. The admin passthrough below applies
+  // only to non-credential paths.
+  if (!isLockoutPath(req.path) && isUserAdminRequest(req)) {
     return next();
   }
 
@@ -206,8 +215,17 @@ export const lockoutMiddleware = async (req, res, next) => {
     return next();
   }
 
-  // Check body.email first, fall back to body.identifier, then authenticated req.user.email
-  const email = req.body?.email || req.body?.identifier || req.user?.email;
+  // Check body.email first, fall back to body.identifier, then per-number phone
+  // key (M3: body.phoneNumber → "phone:<number>" so the pre-check reads the
+  // same per-number rows that recordLoginAttempt writes via phoneAttemptKey),
+  // then authenticated req.user.email
+  const email =
+    req.body?.email ||
+    req.body?.identifier ||
+    (req.body?.phoneNumber
+      ? `phone:${String(req.body.phoneNumber).trim()}`
+      : null) ||
+    req.user?.email;
 
   const ipAddress = getClientIp(req);
 
@@ -281,7 +299,7 @@ export const clearLoginAttempts = async (email) => {
   try {
     await dbHelpers.pool.query(
       `DELETE FROM login_attempts WHERE email = $1 AND successful = false`,
-      [email.toLowerCase()],
+      [String(email ?? "").toLowerCase()],
     );
   } catch (error) {
     logger.error("[Login] Failed to clear attempts:", error.message);

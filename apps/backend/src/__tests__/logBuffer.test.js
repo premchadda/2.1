@@ -36,9 +36,11 @@ describe("LogBuffer Engine", () => {
     });
 
     expect(entry.message).not.toContain("MySecretPassword123");
-    expect(entry.message).toContain("••••");
-    expect(entry.details.password).toBe("••••••••");
-    expect(entry.details.apiKey).toBe("••••••••");
+    // Full redaction (no partial first/last-char leaks — partial fragments
+    // of phones/emails/tokens still identify a person).
+    expect(entry.message).toContain("[REDACTED]");
+    expect(entry.details.password).toBe("[REDACTED]");
+    expect(entry.details.apiKey).toBe("[REDACTED]");
     expect(entry.details.safeField).toBe("visible-data");
   });
 

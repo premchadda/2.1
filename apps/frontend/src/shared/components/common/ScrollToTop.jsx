@@ -1,26 +1,5 @@
-import { useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
-
-/**
- * ScrollToTop Component
- * 
- * Automatically scrolls the window to the top (0, 0) whenever
- * the current route location changes. This fixes the issue where
- * client-side navigation preserves the scroll position of the previous page.
- */
-const ScrollToTop = () => {
-  const { pathname } = useLocation()
-
-  useEffect(() => {
-    // Scroll to top of the document immediately on route change
-    window.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: 'instant' // 'instant' ensures the user doesn't see a scroll animation
-    })
-  }, [pathname])
-
-  return null
-}
-
-export default ScrollToTop
+// Canonical source: @trstprep/shared-hooks (deduped — was byte-identical in frontend + admin-panel).
+// NOTE: imported via the bare specifier on purpose — vite resolve.alias maps
+// the bare "@trstprep/shared-hooks" prefix to the package dir, which bypasses
+// the package.json "exports" map for subpath imports. Same pattern as ui/EmptyState.jsx.
+export { ScrollToTop as default } from "@trstprep/shared-hooks";

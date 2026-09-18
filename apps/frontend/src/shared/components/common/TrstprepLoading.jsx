@@ -20,10 +20,10 @@ export function TrstprepLoading({
   const isLarge = size === "lg";
 
   const containerSizes = isSmall
-    ? "w-10 h-10 rounded-xl"
+    ? "w-10 h-10 rounded-full"
     : isLarge
-      ? "w-20 h-20 sm:w-24 sm:h-24 rounded-3xl"
-      : "w-14 h-14 sm:w-16 sm:h-16 rounded-2xl";
+      ? "w-20 h-20 sm:w-24 sm:h-24 rounded-full"
+      : "w-14 h-14 sm:w-16 sm:h-16 rounded-full";
 
   const iconSizes = isSmall
     ? "w-5 h-5"
@@ -54,7 +54,7 @@ export function TrstprepLoading({
 
         {/* Orbiting Ring */}
         <div
-          className="absolute -inset-3 rounded-2xl border-2 border-dashed border-indigo-400/30 dark:border-indigo-400/20 animate-spin"
+          className="absolute -inset-3 rounded-full border-2 border-dashed border-indigo-400/30 dark:border-indigo-400/20 animate-spin"
           style={{ animationDuration: "10s" }}
         />
 
@@ -84,9 +84,12 @@ export function TrstprepLoading({
       </div>
 
       {/* Brand Text */}
-      <div className="flex items-center gap-1 mb-1">
+      <div className="flex flex-col items-center leading-none mb-1">
         <span className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tighter">
           TRST<span className="text-indigo-600 dark:text-indigo-400">PREP</span>
+        </span>
+        <span className="text-[8px] font-black text-indigo-600/70 dark:text-indigo-400/80 tracking-[0.3em] uppercase mt-0.5">
+          Intelligence
         </span>
       </div>
 

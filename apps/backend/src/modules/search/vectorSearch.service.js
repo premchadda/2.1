@@ -11,52 +11,125 @@
 import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import QuestionSearchIndex from "../../data/models/search/QuestionSearchIndex.js";
 import AiGenerationLog from "../../data/models/ai/AiGenerationLog.js";
+import logger from "../../infrastructure/logger/logger.js";
 
 const VECTOR_CONFIG = {
   embeddingModel: process.env.EMBEDDING_MODEL || "text-embedding-3-small",
   embeddingDimension: parseInt(process.env.EMBEDDING_DIMENSION) || 1536,
   batchSize: parseInt(process.env.EMBEDDING_BATCH_SIZE) || 20,
-  apiKey: process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY,
+  // Unified with embeddingService: AI_API_KEY || OPENROUTER_API_KEY ||
+  // OPENAI_API_KEY; baseUrl AI_BASE_URL || openrouter (26).
+  apiKey: process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY,
   baseUrl: process.env.AI_BASE_URL || "https://openrouter.ai/api/v1",
 };
 
 /**
- * Generate embedding for text using OpenAI-compatible API.
+ * Fail closed on provider error-shapes and assert vector dimension BEFORE
+ * any INSERT (pgvector rejects mismatched dims with a raw DB error).
  */
-async function generateEmbedding(text) {
-  const startTime = Date.now();
-
-  try {
-    const response = await fetch(`${VECTOR_CONFIG.baseUrl}/embeddings`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${VECTOR_CONFIG.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: VECTOR_CONFIG.embeddingModel,
-        input: text.substring(0, 8000),
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Embedding API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const latencyMs = Date.now() - startTime;
-
-    return {
-      embedding: data.data[0].embedding,
-      tokens: data.usage.total_tokens,
-      latencyMs,
-    };
-  } catch (error) {
-    const latencyMs = Date.now() - startTime;
-    const err = new Error(error.message || "Embedding generation failed");
-    err.latencyMs = latencyMs;
-    throw err;
+const assertEmbeddingVector = (vec) => {
+  if (!Array.isArray(vec) || vec.length === 0) {
+    throw new Error("Embedding API returned no vector");
   }
+  if (vec.length !== VECTOR_CONFIG.embeddingDimension) {
+    throw new Error(
+      `Embedding dimension mismatch: got ${vec.length}, expected ${VECTOR_CONFIG.embeddingDimension} (pgvector column; align EMBEDDING_MODEL with EMBEDDING_DIMENSION)`,
+    );
+  }
+  return vec;
+};
+
+const TRANSIENT_EMBEDDING_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Resolved per call (not at module load) so key rotation and late-bound
+// test envs take effect without a restart. Unified with embeddingService (26).
+const resolveVectorKey = () =>
+  VECTOR_CONFIG.apiKey ||
+  process.env.AI_API_KEY ||
+  process.env.OPENROUTER_API_KEY ||
+  process.env.OPENAI_API_KEY;
+
+/**
+ * Generate embedding for text using OpenAI-compatible API.
+ * Retry/timeout mirrors postChatCompletions (aiClient.js): 30s timeout,
+ * 1 retry, extended backoff on 429. Accepts { timeoutMs, retries } passthrough (1).
+ */
+async function generateEmbedding(text, options = {}) {
+  const startTime = Date.now();
+  const timeoutMs = options.timeoutMs || 30000;
+  const retries = options.retries ?? 1;
+
+  if (!text || typeof text !== "string") {
+    throw new Error("Text is required for embedding generation");
+  }
+  const apiKey = resolveVectorKey();
+  if (!apiKey) {
+    throw new Error(
+      "Embedding API key is not configured (set AI_API_KEY or OPENROUTER_API_KEY or OPENAI_API_KEY)",
+    );
+  }
+
+  let lastError = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(`${VECTOR_CONFIG.baseUrl}/embeddings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: VECTOR_CONFIG.embeddingModel,
+          input: text.substring(0, 8000),
+        }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+
+      if (!response || !response.ok) {
+        const errBody = response ? await response.text().catch(() => "") : "";
+        const status = response?.status || 500;
+        const err = new Error(
+          `Embedding API error: ${status}${errBody ? ` - ${String(errBody).slice(0, 300)}` : ""}`,
+        );
+        err.status = status;
+        lastError = err;
+        if (!TRANSIENT_EMBEDDING_STATUSES.has(status) || attempt >= retries) throw err;
+        await sleep(status === 429 ? 1000 : 500 * (attempt + 1));
+        continue;
+      }
+
+      const data = await response.json();
+      const latencyMs = Date.now() - startTime;
+
+      return {
+        embedding: assertEmbeddingVector(data?.data?.[0]?.embedding),
+        // Zero-token fallback mirrors embeddingService: chars/4 estimate (17).
+        tokens:
+          data?.usage?.total_tokens ||
+          Math.max(1, Math.ceil(String(text || "").length / 4)),
+        latencyMs,
+      };
+    } catch (error) {
+      const isNetwork = !error?.status || error.status === 0;
+      lastError = error;
+      if (isNetwork && attempt < retries) {
+        await sleep(500 * (attempt + 1));
+        continue;
+      }
+      const latencyMs = Date.now() - startTime;
+      const err = new Error(error.message || "Embedding generation failed");
+      err.latencyMs = latencyMs;
+      err.status = error.status;
+      throw err;
+    }
+  }
+  const latencyMs = Date.now() - startTime;
+  const err = new Error(lastError?.message || "Embedding generation failed");
+  err.latencyMs = latencyMs;
+  err.status = lastError?.status;
+  throw err;
 }
 
 const vectorSearchService = {
@@ -81,7 +154,7 @@ const vectorSearchService = {
         entityId: questionId,
         model: VECTOR_CONFIG.embeddingModel,
         provider: "openai",
-        tokensInput: result.tokens,
+        tokensInput: result.tokens || Math.max(1, Math.ceil(searchText.length / 4)),
         tokensOutput: 0,
         latencyMs: result.latencyMs,
         metadata: {
@@ -96,10 +169,24 @@ const vectorSearchService = {
         latencyMs: result.latencyMs,
       };
     } catch (error) {
-      console.error(
-        `Failed to generate embedding for question ${questionId}:`,
-        error,
+      logger.error(
+        { err: error, questionId },
+        `Failed to generate embedding for question ${questionId}`,
       );
+      // Log the failure so the backlog is visible (the row stays
+      // is_indexed=false for retry — but silent rows never drain).
+      try {
+        await AiGenerationLog.logFailure({
+          entityType: "vector_index",
+          entityId: questionId,
+          model: VECTOR_CONFIG.embeddingModel,
+          provider: "openai",
+          errorMessage: error?.message || "Embedding generation failed",
+          metadata: { latencyMs: error?.latencyMs || 0 },
+        });
+      } catch {
+        /* failure logging is best-effort */
+      }
       return entry;
     }
   },
@@ -122,6 +209,14 @@ const vectorSearchService = {
         results.indexed++;
         if (entry?.embeddingGenerated) {
           results.embeddingGenerated++;
+        } else {
+          // Row upserted but the embedding call failed (logged in
+          // indexQuestion) — surface it as failed so the backlog is visible.
+          results.failed++;
+          results.errors.push({
+            questionId,
+            message: "Embedding generation failed",
+          });
         }
       } catch (error) {
         results.failed++;
@@ -136,12 +231,35 @@ const vectorSearchService = {
   },
 
   /**
-   * Index all unindexed questions.
+   * Index all unindexed questions (cursor-paginated by id so repeat runs
+   * drain the tail instead of re-scanning the same head page).
+   * Accepts afterId/maxPages passthrough from the route (15); bounded to
+   * maxPages × limit per invocation.
    */
-  async indexAllUnindexed(limit = 100) {
-    const unindexed = await QuestionSearchIndex.findUnindexed(limit);
-    const questionIds = unindexed.map((entry) => entry.question_id);
-    return this.indexBatch(questionIds);
+  async indexAllUnindexed(limit = 100, afterId = null, maxPages = 10) {
+    const aggregate = {
+      total: 0,
+      indexed: 0,
+      embeddingGenerated: 0,
+      failed: 0,
+      errors: [],
+    };
+    let cursor = afterId;
+    const pages = Math.max(1, parseInt(maxPages) || 10);
+    for (let page = 0; page < pages; page++) {
+      const unindexed = await QuestionSearchIndex.findUnindexed(limit, cursor);
+      if (!unindexed || unindexed.length === 0) break;
+      const questionIds = unindexed.map((entry) => entry.question_id);
+      const batch = await this.indexBatch(questionIds);
+      aggregate.total += batch.total;
+      aggregate.indexed += batch.indexed;
+      aggregate.embeddingGenerated += batch.embeddingGenerated;
+      aggregate.failed += batch.failed;
+      aggregate.errors.push(...batch.errors);
+      cursor = unindexed[unindexed.length - 1]?.question_id ?? cursor;
+      if (unindexed.length < limit) break;
+    }
+    return aggregate;
   },
 
   /**

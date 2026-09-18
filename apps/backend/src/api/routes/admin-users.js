@@ -9,7 +9,6 @@ import { invalidateSession } from "../../services/SessionCaptureService.js";
 import {
   protect,
   admin,
-  superAdmin,
   invalidateUserCache,
 } from "../../middleware/auth.middleware.js";
 import logger from "../../infrastructure/logger/logger.js";
@@ -31,7 +30,7 @@ router.get("/users", async (req, res) => {
     const search = req.query.search?.toLowerCase();
     const statusFilter = req.query.status; // 'active' | 'inactive'
     const includeInactive = req.query.includeInactive === "true";
-    const roleFilter = req.query.role; // 'admin' | 'user' | 'super_admin'
+    const roleFilter = req.query.role; // 'admin' | 'user' (allowlisted below)
     const proFilter = req.query.pro === "true";
 
     // Build WHERE clauses in SQL so pagination and COUNT agree.
@@ -51,6 +50,14 @@ router.get("/users", async (req, res) => {
       conditions.push(`is_active = ${addParam(true)}`);
     }
     if (roleFilter) {
+      // Single-admin model: only exact admin|user values filter. Anything
+      // else is rejected so legacy tier names can never leak through.
+      if (!["admin", "user"].includes(roleFilter)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid role filter (admin or user)",
+        });
+      }
       conditions.push(`role = ${addParam(roleFilter)}`);
     }
     if (proFilter) {
@@ -106,7 +113,7 @@ router.get("/users", async (req, res) => {
   }
 });
 
-router.put("/users/:id/pro-pass", superAdmin, async (req, res) => {
+router.put("/users/:id/pro-pass", admin, async (req, res) => {
   try {
     const { isProUser, proPassExpiry, passType } = req.body;
     const user = await dbHelpers.findById("users", req.params.id);
@@ -142,7 +149,7 @@ router.get("/users/2fa-overview", async (req, res) => {
               t.enrolled_at AS twofa_enrolled_at,
               COALESCE(jsonb_array_length(t.backup_codes), 0) AS backup_codes_count
        FROM users u
-       LEFT JOIN two_factor_secrets t ON t.user_id = u.id::text
+       LEFT JOIN two_factor_secrets t ON t.user_id = u.id
        WHERE u.is_deleted IS NOT TRUE
        ORDER BY t.enabled DESC NULLS LAST, u.created_at DESC
        LIMIT $1`,
@@ -199,16 +206,11 @@ router.post("/users/:id/2fa/disable", async (req, res) => {
         message: "Use personal Disable 2FA for your own account",
       });
     }
-    const del = await pool.query(
-      "DELETE FROM two_factor_secrets WHERE user_id = $1",
-      [userId],
-    );
-    // Also try numeric variant
-    await pool
-      .query("DELETE FROM two_factor_secrets WHERE user_id = $1", [
-        String(parseInt(userId) || userId),
-      ])
-      .catch(() => {});
+    const numericId = Number.parseInt(userId, 10);
+    const deleteParam = Number.isInteger(numericId) ? numericId : userId;
+    await pool.query("DELETE FROM two_factor_secrets WHERE user_id = $1", [
+      deleteParam,
+    ]);
     logger.info(
       `[Admin] ${req.user.email} disabled 2FA for user ${user.email} (${userId})`,
     );
@@ -392,7 +394,7 @@ router.get("/enrollments/user/:userId", async (req, res) => {
 });
 
 // Update user status (active/inactive)
-router.put("/users/:id/status", superAdmin, async (req, res) => {
+router.put("/users/:id/status", admin, async (req, res) => {
   try {
     const { isActive } = req.body;
     if (typeof isActive !== "boolean") {
@@ -417,7 +419,7 @@ router.put("/users/:id/status", superAdmin, async (req, res) => {
 });
 
 // Update user role - admin is the highest role
-router.put("/users/:id/role", superAdmin, async (req, res) => {
+router.put("/users/:id/role", admin, async (req, res) => {
   try {
     const { role } = req.body;
     if (!role || !["admin", "user"].includes(role)) {
@@ -442,14 +444,6 @@ router.put("/users/:id/role", superAdmin, async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "You cannot remove your own admin role",
-      });
-    }
-
-    // Prevent demoting a super_admin
-    if (role === "user" && user.role === "super_admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Cannot demote a super admin",
       });
     }
 

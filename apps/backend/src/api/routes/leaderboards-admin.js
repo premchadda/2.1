@@ -20,6 +20,9 @@ import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 const router = express.Router();
 const leaderboardResetLimiter = createRateLimiter("strict");
 
+// PII guard for list endpoints: mask emails (detail-by-id keeps full email)
+const maskEmail = () => "***@***";
+
 // Apply full admin security chain to all leaderboard admin routes
 router.use(restrictAdminOrigin);
 router.use(validateAdminApiKey);
@@ -101,7 +104,8 @@ router.get(["/admin/attempts", "/attempts"], async (req, res) => {
       ...entry,
       rank: index + 1,
       userName: userMap[entry.userId]?.name || `User #${entry.userId}`,
-      userEmail: userMap[entry.userId]?.email || "",
+      // PII: mask email on list endpoint
+      userEmail: userMap[entry.userId]?.email ? maskEmail() : "",
       percentile: (((total - index) / total) * 100).toFixed(1),
     }));
 

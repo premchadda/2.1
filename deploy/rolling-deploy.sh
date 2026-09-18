@@ -20,6 +20,13 @@ DRAIN_WAIT="${DRAIN_WAIT:-15}"   # seconds to let in-flight requests finish
 # instances to it. Defaults to the previous docker tag if not provided.
 PREV_IMAGE="${PREV_IMAGE:-trstprep-backend:previous}"
 
+# Prefer the Docker Compose v2 plugin; fall back to legacy docker-compose.
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE="docker compose"
+else
+  COMPOSE="docker-compose"
+fi
+
 INSTANCES=("backend-1" "backend-2")
 
 # Roll back every instance to the last-known-good image and reload nginx.
@@ -29,12 +36,12 @@ rollback() {
     drain_instance "$svc"
     echo "  rolling back $svc to ${PREV_IMAGE} ..."
     docker image tag "$PREV_IMAGE" "trstprep-backend:latest"
-    docker-compose up -d --no-deps --force-recreate "$svc"
+    ${COMPOSE} up -d --no-deps --force-recreate "$svc"
     if ! wait_for_health "$svc"; then
       echo "ERROR: $svc failed health after rollback. Manual intervention required."
       exit 1
     fi
-    docker-compose exec -T nginx nginx -s reload
+    ${COMPOSE} exec -T nginx nginx -s reload
   done
   echo "=== [Rolling Deploy] Rollback complete (all instances on ${PREV_IMAGE}) ==="
   exit 0
@@ -78,7 +85,7 @@ drain_instance() {
   echo "  draining $svc (waiting ${DRAIN_WAIT}s for in-flight requests)..."
   # NGINX Plus: mark upstream peer as "drain" so it stops receiving new conns
   # but finishes active ones. OSS nginx ignores this gracefully.
-  docker-compose exec -T nginx nginx -s reload 2>/dev/null || true
+  ${COMPOSE} exec -T nginx nginx -s reload 2>/dev/null || true
   sleep "$DRAIN_WAIT"
 }
 
@@ -90,7 +97,7 @@ for svc in "${INSTANCES[@]}"; do
 
   # 2. Deploy: pull latest image and recreate ONLY this instance.
   echo "  deploying $svc ..."
-  docker-compose up -d --no-deps --force-recreate "$svc"
+  ${COMPOSE} up -d --no-deps --force-recreate "$svc"
 
   # 3. Wait until the new instance is healthy before moving on.
   if ! wait_for_health "$svc"; then
@@ -100,7 +107,7 @@ for svc in "${INSTANCES[@]}"; do
 
   # 4. Reload nginx so the freshly deployed instance receives traffic again.
   echo "  reloading nginx to restore $svc to rotation ..."
-  docker-compose exec -T nginx nginx -s reload
+  ${COMPOSE} exec -T nginx nginx -s reload
 
   echo "=== [Rolling Deploy] $svc done ==="
 done

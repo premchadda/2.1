@@ -10,7 +10,9 @@ export const generateToken = (id, role = "user", options = {}) => {
   }
   const payload = { id, role, ...options.claims };
   const expiresIn = options.expiresIn || process.env.JWT_EXPIRES_IN || "7d";
-  return jwt.sign(payload, secret, { expiresIn });
+  // Pin HS256 explicitly at the signer so no other `alg` is ever issued
+  // (verifiers already accept HS256 only — algorithm-confusion defense).
+  return jwt.sign(payload, secret, { expiresIn, algorithm: "HS256" });
 };
 
 // Cookie options for httpOnly cookies (Issue #21 fix)

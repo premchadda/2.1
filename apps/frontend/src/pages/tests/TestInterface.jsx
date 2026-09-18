@@ -18,7 +18,7 @@ import {
   getQuestionsByTestId,
   bookmarksAPI,
 } from "../../shared/lib/dataService";
-import { API_BASE_URL } from "../../shared/lib/apiBase.js";
+import { sendAutosaveBeacon } from "../../shared/lib/autosaveBeacon.js";
 import { clearDashboardCache } from "../../shared/lib/dashboardCache";
 import Telemetry from "../../shared/lib/telemetry";
 import sanitizeHtml from "../../shared/lib/sanitizeHtml";
@@ -434,7 +434,8 @@ function TestInterface() {
   useEffect(() => {
     if (user) {
       bookmarksAPI
-        // The test interface only needs saved item IDs; avoid enriching up to
+        // KEEP: IDs-only prefetch (limit 100, includeDetails=false). The test
+        // interface only needs saved item IDs; avoid enriching up to
         // 100 bookmarks with one database lookup per item.
         .getAll(1, 100, { includeDetails: false })
         .then((res) => {
@@ -518,7 +519,7 @@ function TestInterface() {
         });
       }
     } catch (err) {
-      console.error("Failed to toggle save question:", err);
+      console.error("Failed to toggle save question:", err?.message);
       // Revert optimistic state
       setSavedQuestions((prev) => {
         const next = new Set(prev);
@@ -550,6 +551,7 @@ function TestInterface() {
 
   // Anti-cheat
   const tabSwitchCountRef = useRef(0);
+  const revokedRedirectTimerRef = useRef(null);
   const _lastActivityRef = useRef(Date.now());
 
   // Derived state for sections in proper configured order directly from normalized questions
@@ -1291,18 +1293,7 @@ function TestInterface() {
           currentSection: s.currentSection,
         };
 
-        const headers = { "Content-Type": "application/json" };
-        // httpOnly cookie auth: no Authorization header from JS storage — browser
-        // sends httpOnly cookies automatically via credentials:'include' (keepalive).
-
-        const autosaveEndpoint = `${API_BASE_URL || ""}/api/tests/${actualTestId}/autosave`;
-        fetch(autosaveEndpoint, {
-          method: "PUT",
-          headers,
-          body: JSON.stringify(payload),
-          credentials: "include",
-          keepalive: true,
-        }).catch(() => {});
+        sendAutosaveBeacon(actualTestId, payload);
       } catch {
         // best-effort flush failed — local buffer already persisted above
       }
@@ -1607,7 +1598,9 @@ function TestInterface() {
             `Test attempt has been ${e?.status || "revoked"}. Redirecting...`,
             { duration: 5000, icon: "❌" },
           );
-          setTimeout(() => {
+          if (revokedRedirectTimerRef.current)
+            clearTimeout(revokedRedirectTimerRef.current);
+          revokedRedirectTimerRef.current = setTimeout(() => {
             navigate(`/test-series/${test?.seriesId || test?.series_id || ""}`);
           }, 3000);
         }
@@ -1616,6 +1609,10 @@ function TestInterface() {
 
     return () => {
       Telemetry.stop();
+      if (revokedRedirectTimerRef.current) {
+        clearTimeout(revokedRedirectTimerRef.current);
+        revokedRedirectTimerRef.current = null;
+      }
     };
   }, [attemptId, test, reviewMode, isPaused]);
 
@@ -2217,7 +2214,8 @@ function TestInterface() {
       });
     } catch (error) {
       toast.error(
-        error?.response?.data?.message ||
+        error?.details?.message ||
+          error?.message ||
           "Failed to submit test. Please try again.",
       );
     } finally {
@@ -2345,7 +2343,6 @@ function TestInterface() {
     },
   );
   const userName = user?.name || user?.fullName || "Student";
-  const userIdentifier = user?.studentId || user?.id || user?._id || "";
   const userInitials =
     userName
       .split(" ")
@@ -2408,6 +2405,8 @@ function TestInterface() {
               reviewFilter={reviewFilter}
               setReviewFilter={handleSetReviewFilter}
               reviewFilterCounts={reviewFilterCounts}
+              language={language}
+              setLanguage={setLanguage}
             />
           )}
 
@@ -2418,38 +2417,7 @@ function TestInterface() {
             } pb-10 md:pb-3 scroll-smooth overflow-y-auto overscroll-contain`}
           >
             <div className="w-full max-w-none flex flex-col min-h-full">
-              {/* Candidate context strip: adaptive level, localized test note, candidate ID (display-only) */}
-              {!reviewMode && (
-                <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 shadow-2xs">
-                  {adaptiveLevel && (
-                    <DifficultyBadge
-                      level={adaptiveLevel}
-                      score={adaptiveScore}
-                      size="sm"
-                    />
-                  )}
-                  {(test?.description || test?.instructions) && (
-                    <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-gray-500 dark:text-gray-400">
-                      <MathRenderer
-                        text={sanitizeHtml(
-                          getLocalizedField(
-                            test.description || test.instructions,
-                            language,
-                          ),
-                        )}
-                      />
-                    </span>
-                  )}
-                  {userIdentifier && (
-                    <span
-                      className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500"
-                      title={`Candidate ID: ${userIdentifier}`}
-                    >
-                      ID: {String(userIdentifier).slice(0, 8)}
-                    </span>
-                  )}
-                </div>
-              )}
+
               {/* Section Tabs (only in test-taking mode) */}
               {!reviewMode && (
                 <SectionTabs
@@ -2463,6 +2431,8 @@ function TestInterface() {
                   reviewFilter={reviewFilter}
                   setReviewFilter={handleSetReviewFilter}
                   reviewFilterCounts={reviewFilterCounts}
+                  language={language}
+                  setLanguage={setLanguage}
                 />
               )}
 

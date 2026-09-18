@@ -11,7 +11,7 @@ import {
   Folder,
   FolderOpen,
 } from "lucide-react";
-import apiClient from "../../../shared/lib/dataService";
+import { apiClient } from "../../../shared/lib/dataService.js";
 import { toast } from "react-hot-toast";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 

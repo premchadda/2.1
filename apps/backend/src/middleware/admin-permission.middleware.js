@@ -209,8 +209,9 @@ export const requireAdminPermission = (req, res, next) => {
   }
 
   const permissions = req.user?.permissions || [];
-  if (permissions.includes("*") || req.user?.role === "super_admin")
-    return next();
+  // Wildcard bypass requires verified admin state — a bare "*" without isAdmin
+  // must never pass (single-admin model, no role-name bypass).
+  if (permissions.includes("*") && req.user?.isAdmin === true) return next();
 
   const segments = path.split("?")[0].split("/").filter(Boolean);
   const rawResource = segments[0] || "content";

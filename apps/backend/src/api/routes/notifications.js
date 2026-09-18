@@ -442,6 +442,38 @@ router.post("/admin/broadcast", protect, admin, async (req, res) => {
       userQuery.isProUser = filter.isPro === true;
     }
 
+    // COUNT-first guard: reject oversized broadcasts BEFORE loading rows
+    // so a large audience can't OOM the process on the find() below.
+    try {
+      const countParams = [];
+      let countWhere = "WHERE is_active = true";
+      if (filter?.role) {
+        countParams.push(filter.role);
+        countWhere += ` AND role = $${countParams.length}`;
+      }
+      if (filter?.isPro) {
+        countParams.push(filter.isPro === true);
+        countWhere += ` AND is_pro_user = $${countParams.length}`;
+      }
+      const countRes = await pool.query(
+        `SELECT COUNT(*)::int AS total FROM users ${countWhere}`,
+        countParams,
+      );
+      const totalUsers = countRes.rows[0]?.total ?? 0;
+      if (totalUsers > MAX_BROADCAST_USERS) {
+        return res.status(400).json({
+          success: false,
+          message: `Too many users (${totalUsers}). Maximum broadcast limit is ${MAX_BROADCAST_USERS}. Please use filters to narrow down the audience.`,
+        });
+      }
+    } catch (countErr) {
+      // Fail-open to the row-length check below if the COUNT probe fails.
+      console.warn(
+        "Broadcast COUNT probe failed, falling back to row-length check:",
+        countErr.message,
+      );
+    }
+
     const users = await dbHelpers.find("users", userQuery);
 
     // Enforce maximum limit (Issue #41)

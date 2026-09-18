@@ -9,13 +9,35 @@
  */
 
 import { useMemo } from "react";
+import { formatRemainingDays as sharedFormatRemainingDays } from "@trstprep/shared-config";
+
+// Local fallback for formatRemainingDays — used only if the shared-config
+// import resolves to undefined (shared-hooks/package.json declares no hard
+// dependency on @trstprep/shared-config, so this avoids a hard-dep breakage).
+// NOTE: checked package.json — no @trstprep/shared-config dep; keep this fallback.
+// Phrasing MUST stay identical to the canonical formatRemainingDays in
+// @trstprep/shared-config so degraded output is indistinguishable.
+function fallbackFormatRemainingDays(days) {
+  if (days === null || days === undefined) return "";
+  if (days === 0) return "Expires today";
+  if (days === 1) return "1 day remaining";
+  if (days < 7) return `${days} days remaining`;
+  if (days < 30) return `${Math.floor(days / 7)} weeks remaining`;
+  if (days < 365) return `${Math.floor(days / 30)} months remaining`;
+  return "1 year+ remaining";
+}
+
+export const formatRemainingDays =
+  sharedFormatRemainingDays ?? fallbackFormatRemainingDays;
 
 // Injectable AuthContext — consumers pass their own useAuth or context
 let _useAuth = null;
 
 /**
  * Inject the useAuth hook from your app's AuthContext.
- * Call once at app root: initProPassAuth(useAuth)
+ * The app root MUST call initProPassAuth(useAuth) once at startup — without
+ * it this hook returns degraded defaults (initialized:false, Free Plan) by
+ * design. Behavior unchanged: graceful degrade, never throw.
  * @param {Function} useAuthHook - The useAuth hook from your AuthContext
  */
 export function initProPassAuth(useAuthHook) {
@@ -31,12 +53,14 @@ export function useProPass() {
     // Gracefully degrade instead of throwing hard — allows usage without explicit init
     // for backwards compatibility and to avoid crashing the component tree.
     // Consumers should call initProPassAuth(useAuth) at app root for correct data.
+    // initialized:false lets UI distinguish "unknown (not wired)" from "known free".
     if (typeof console !== "undefined" && console.warn) {
       console.warn(
         "useProPass: AuthContext not initialized. Call initProPassAuth(useAuth) at app root. Returning degraded defaults.",
       );
     }
     return {
+      initialized: false,
       isProUser: false,
       isActive: false,
       isExpired: false,
@@ -55,9 +79,10 @@ export function useProPass() {
   }
   const { user } = _useAuth();
 
-  // Check if user is admin - admins get unlimited access
-  const isAdmin =
-    user?.role === "admin" || user?.role === "superadmin" || user?.isAdmin;
+  // UI-gating only: client-side isAdmin grants pro UI affordances, but MUST NOT
+  // be trusted for authorization — the server enforces entitlements. Do not use
+  // this flag for access-control decisions. Single-admin policy: single admin role only.
+  const isAdmin = user?.role === "admin" || user?.isAdmin;
 
   // Get Pro Pass status from multiple possible sources
   const isProUser =
@@ -167,6 +192,8 @@ export function useProPass() {
   }, [isAdmin, isActive, remainingDays]);
 
   return {
+    // Wiring state — true when initProPassAuth() was called (vs degraded defaults).
+    initialized: true,
     // Core status
     isProUser,
     isActive,
@@ -191,21 +218,6 @@ export function useProPass() {
     // Raw data
     user,
   };
-}
-
-/**
- * Format remaining days for display
- * @param {number|null} days - Number of remaining days
- * @returns {string} Formatted string
- */
-export function formatRemainingDays(days) {
-  if (days === null || days === undefined) return "";
-  if (days === 0) return "Expires today";
-  if (days === 1) return "1 day remaining";
-  if (days < 7) return `${days} days remaining`;
-  if (days < 30) return `${Math.floor(days / 7)} weeks remaining`;
-  if (days < 365) return `${Math.floor(days / 30)} months remaining`;
-  return "1 year+ remaining";
 }
 
 /**

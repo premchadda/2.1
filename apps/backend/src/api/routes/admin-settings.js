@@ -1,11 +1,7 @@
 import express from "express";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import logger from "../../infrastructure/logger/logger.js";
-import {
-  protect,
-  admin,
-  superAdmin,
-} from "../../middleware/auth.middleware.js";
+import { protect, admin } from "../../middleware/auth.middleware.js";
 import {
   responseCache,
   invalidateResponseCache,

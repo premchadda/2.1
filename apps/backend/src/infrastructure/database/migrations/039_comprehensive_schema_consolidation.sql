@@ -694,7 +694,7 @@ END $$;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
-    CREATE TYPE user_role AS ENUM ('user', 'admin', 'super_admin', 'editor', 'moderator');
+    CREATE TYPE user_role AS ENUM ('user', 'admin', 'editor', 'moderator');
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'attempt_status') THEN
     CREATE TYPE attempt_status AS ENUM (

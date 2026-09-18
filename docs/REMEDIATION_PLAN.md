@@ -421,7 +421,7 @@ For `withUserNames`, fetch only the user IDs in the leaderboard (use `WHERE id =
 - Line 106 only deletes `safeRow.userEmail` (camelCase) but the SQL alias is `u.email AS user_email` (snake_case). The snake_case property remains, leaking user emails.
 - **Fix:** Add `delete safeRow.user_email;` after line 106.
 
-### 3.21 Missing `superAdmin` on destructive endpoints (CRITICAL × 3, HIGH × several)
+### 3.21 Missing `secondTier` on destructive endpoints (CRITICAL × 3, HIGH × several)
 
 - `admin-audit.js:296-327` — any admin can purge audit logs.
 - `admin-backups.js:312-402` — any admin can restore entire DB.
@@ -429,8 +429,8 @@ For `withUserNames`, fetch only the user IDs in the leaderboard (use `WHERE id =
 - `admin-payments.js:165-239` — any admin can issue refunds.
 - `admin-users.js:87-109` — any admin can grant Pro status (bypasses payment).
 - `admin-users.js:176-290` — any admin can demote other admins.
-- **Fix:** Add `superAdmin` middleware after `admin` on each of these routes. Import from `middleware/auth.middleware.js`. Also export from `middleware/index.js` (Issue 47).
-- **Verify:** Non-superadmin admin gets 403 on these routes.
+- **Fix:** Add `secondTier` middleware after `admin` on each of these routes. Import from `middleware/auth.middleware.js`. Also export from `middleware/index.js` (Issue 47).
+- **Verify:** Non-second-tier admin gets 403 on these routes.
 
 ### 3.22 Add `restrictAdminOrigin` and `validateAdminApiKey` to admin route chain (Issue 2)
 
@@ -495,7 +495,7 @@ cd apps/backend && npm run lint && npm run test
 - ✅ 3.16 `testBuilderService.list()` method added
 - ✅ 3.19 Mass assignment fixed in admin-commerce.js (coupons, plans, notifications)
 - ✅ 3.20 PII leak in admin-moderation.js (`user_email` snake_case now deleted)
-- ✅ 3.21 `superAdmin` added to: backup restore/download/trigger/delete, refund, pro-pass grant, role change, audit log purge
+- ✅ 3.21 `secondTier` added to: backup restore/download/trigger/delete, refund, pro-pass grant, role change, audit log purge
 - ✅ 3.23 Audit middleware now audits GET detail reads (was skipping ALL GETs)
 - ✅ 3.24 User cannot self-modify `isActive`/`role`/`isProUser` via profile update
 - ⏳ 3.1, 3.2, 3.12, 3.13, 3.17, 3.18, 3.25, 3.26, 3.27, 3.28: Deferred to Phase 7 (DB migrations) or Phase 9 (backend cleanup)

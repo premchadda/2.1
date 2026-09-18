@@ -10,11 +10,7 @@ import {
 } from "../../middleware/validation/inputValidation.js";
 import { upload } from "../../infrastructure/storage/upload.js";
 import { parseAssetId } from "../../shared/utils/parseAssetId.js";
-import {
-  protect,
-  admin,
-  superAdmin,
-} from "../../middleware/auth.middleware.js";
+import { protect, admin } from "../../middleware/auth.middleware.js";
 import {
   responseCache,
   invalidateResponseCache,

@@ -16,6 +16,17 @@ import logger from "../logger/logger.js";
 const eventEmitter = new EventEmitter();
 eventEmitter.setMaxListeners(100);
 
+// Domain events that must reach WebSocket clients pinned to ANY replica.
+// emitDomainEvent publishes these remote-only (no local re-trigger); each
+// sibling's websocketManager bridge re-emits them on its local bus.
+const WS_FANOUT_EVENTS = new Set([
+  "test:result_ready",
+  "leaderboard:updated",
+  "notification:new",
+  "series:updated",
+  "test_submitted",
+]);
+
 const EVENT_QUEUE_MAP = Object.freeze({
   test_started: [
     { queue: QUEUE_NAMES.ANALYTICS, jobName: "analytics.test-started" },
@@ -47,7 +58,7 @@ const EVENT_QUEUE_MAP = Object.freeze({
     },
   ],
   leaderboard_updated: [
-    { queue: QUEUE_NAMES.LEADERBOARD, jobName: "leaderboard.broadcas-update" },
+    { queue: QUEUE_NAMES.LEADERBOARD, jobName: "leaderboard.broadcast-update" },
   ],
   notification_sent: [
     { queue: QUEUE_NAMES.NOTIFICATIONS, jobName: "notifications.deliver" },
@@ -55,13 +66,28 @@ const EVENT_QUEUE_MAP = Object.freeze({
 });
 
 /**
+ * Validate a domain event name + payload before emit/replay.
+ * Poll replay path calls this so poison rows fail fast instead of
+ * fanning out malformed jobs to every queue.
+ */
+export const validateDomainEvent = (eventName, payload = {}) => {
+  if (!eventName || typeof eventName !== "string") return false;
+  // Domain names are bare identifiers (no queue prefix). Queue-prefixed
+  // spool rows from older shapes are rejected — caller should unwrap first.
+  if (eventName.includes(".")) return false;
+  if (payload === null || typeof payload !== "object") return false;
+  return true;
+};
+
+/**
  * Emit a domain event with automatic queue routing
  *
  * @param {string} eventName - The event name
  * @param {Object} payload - Event payload (should include userId when applicable)
+ * @param {Object} opts - Optional overrides (e.g. { jobId } for idempotent replay)
  * @returns {Promise<{queuedJobs: number, queueEnabled: boolean}>}
  */
-export const emitDomainEvent = async (eventName, payload = {}) => {
+export const emitDomainEvent = async (eventName, payload = {}, opts = {}) => {
   const envelope = {
     name: eventName,
     payload,
@@ -72,11 +98,37 @@ export const emitDomainEvent = async (eventName, payload = {}) => {
   eventEmitter.emit(eventName, envelope);
   eventEmitter.emit("__all__", envelope);
 
+  // Cross-instance WebSocket fan-out: sibling replicas deliver these to their
+  // local sockets via the broker bridge (see websocketManager). Remote-only
+  // publish — the local emit above already ran, so no double delivery.
+  // Fire-and-forget: broker outage must never fail the user flow.
+  if (WS_FANOUT_EVENTS.has(eventName)) {
+    import("./messageBroker.js")
+      .then(({ messageBroker }) =>
+        messageBroker.publishRemote(eventName, payload),
+      )
+      .catch(() => {});
+  }
+
   if (!isQueueEnabled()) {
-    return {
-      queuedJobs: 0,
-      queueEnabled: false,
-    };
+    // Queue down: spool ONE outbox row per event (single-row, before the
+    // per-target fan-out loop) so poller replay emits the domain event once.
+    // Routing through per-target addJob here would write N duplicate rows
+    // (one per queue target) for the same event.
+    try {
+      const { pool } = await import("../database/postgres-helpers.js");
+      await pool.query(
+        `INSERT INTO outbox_events (event_type, payload, status, retry_count)
+         VALUES ($1, $2::jsonb, 'pending', 0)`,
+        [eventName, JSON.stringify(payload ?? {})],
+      );
+      logger.warn(
+        `[EventBus] Queue down — event "${eventName}" spooled to outbox_events for replay`,
+      );
+    } catch (err) {
+      logger.error("[EventBus] Outbox spool failed:", err.message);
+    }
+    return { queuedJobs: 0, queueEnabled: false };
   }
 
   const queueTargets = EVENT_QUEUE_MAP[eventName] || [];
@@ -84,9 +136,14 @@ export const emitDomainEvent = async (eventName, payload = {}) => {
 
   for (const target of queueTargets) {
     try {
+      // Idempotent replay: outbox poller passes jobId=`outbox-${row.id}` so
+      // BullMQ dedups redeliveries of the same outbox row.
+      const jobId = opts?.jobId
+        ? String(opts.jobId)
+        : `${eventName}-${target.queue}-${payload.userId || "system"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       await addJob(target.queue, target.jobName, envelope, {
         // BullMQ custom job IDs cannot contain ":" - use "-" separators
-        jobId: `${eventName}-${target.queue}-${payload.userId || "system"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        jobId,
       });
       queuedJobs += 1;
     } catch (err) {
@@ -100,7 +157,7 @@ export const emitDomainEvent = async (eventName, payload = {}) => {
 
   return {
     queuedJobs,
-    queueEnabled: true,
+    queueEnabled: isQueueEnabled(),
   };
 };
 

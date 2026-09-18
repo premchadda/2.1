@@ -3,8 +3,9 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../../shared/providers/AuthContext";
 import { useTheme } from "../../shared/context/ThemeContext";
-import useProPass from "../../shared/hooks/useProPass";
+import { useProPass } from "@trstprep/shared-hooks";
 import { authAPI, userAPI, getPublicStats } from "../../shared/lib/dataService";
+import { handleAvatarError } from "../../shared/utils/avatarFallback.js";
 import { APP_VERSION, APP_BUILD_DATE } from "../../shared/config/version.js";
 import {
   User,
@@ -172,7 +173,7 @@ export default function Settings() {
       } catch (err) {
         // Silently fail — component will show generic text
         if (!ignore) {
-          console.error("Failed to fetch platform stats:", err);
+          console.error("Failed to fetch platform stats:", err?.message ?? err);
         }
       }
     };
@@ -210,7 +211,7 @@ export default function Settings() {
       const res = await authAPI.twoFactorStatus();
       setTwoFAStatus(res.data?.data || null);
     } catch (err) {
-      console.error("Failed to fetch 2FA status:", err);
+      console.error("Failed to fetch 2FA status:", err?.message ?? err);
     } finally {
       setTwoFALoading(false);
     }
@@ -344,7 +345,7 @@ export default function Settings() {
       const res = await userAPI.getSessions();
       setSessions(res.data?.data || []);
     } catch (err) {
-      console.error("Failed to load active sessions:", err);
+      console.error("Failed to load active sessions:", err?.message ?? err);
     } finally {
       setSessionsLoading(false);
     }
@@ -360,7 +361,7 @@ export default function Settings() {
       );
       toast.success("Session revoked successfully");
     } catch (err) {
-      console.error("Failed to revoke session:", err);
+      console.error("Failed to revoke session:", err?.message ?? err);
       toast.error(err.response?.data?.message || "Failed to revoke session");
     } finally {
       setRevokingSessionId(null);
@@ -465,7 +466,7 @@ export default function Settings() {
       if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
       saveStatusTimerRef.current = setTimeout(() => setSaveStatus(null), 2500);
     } catch (err) {
-      console.error("Failed to update preferences:", err);
+      console.error("Failed to update preferences:", err?.message ?? err);
       setSaveStatus("error");
       toast.error("Failed to save preferences");
     }
@@ -497,7 +498,7 @@ export default function Settings() {
         );
       }
     } catch (error) {
-      console.error("Failed to update profile:", error);
+      console.error("Failed to update profile:", error?.message ?? error);
       setSaveStatus("error");
       toast.error(error.response?.data?.message || "Failed to update profile");
     } finally {
@@ -549,7 +550,7 @@ export default function Settings() {
         },
       });
     } catch (error) {
-      console.error("Failed to update password:", error);
+      console.error("Failed to update password:", error?.message ?? error);
       toast.error(error.response?.data?.message || "Failed to update password");
     } finally {
       setSaving(false);
@@ -606,7 +607,7 @@ export default function Settings() {
       URL.revokeObjectURL(url);
       toast.success("Data exported successfully!");
     } catch (error) {
-      console.error("Failed to export account data:", error);
+      console.error("Failed to export account data:", error?.message ?? error);
       toast.error("Failed to export data");
     } finally {
       setExportingData(false);
@@ -621,7 +622,7 @@ export default function Settings() {
         state: { from: "/", message: "Your account has been deactivated." },
       });
     } catch (err) {
-      console.error("Deactivation failed:", err);
+      console.error("Deactivation failed:", err?.message ?? err);
       toast.error("Failed to deactivate account");
     }
   };
@@ -634,7 +635,7 @@ export default function Settings() {
         state: { from: "/", message: "Account permanently deleted." },
       });
     } catch (err) {
-      console.error("Account deletion failed:", err);
+      console.error("Account deletion failed:", err?.message ?? err);
       toast.error("Failed to delete account");
     }
   };
@@ -798,13 +799,7 @@ export default function Settings() {
                         decoding="async"
                         src={user.avatar}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                          if (e.currentTarget.nextSibling) {
-                            e.currentTarget.nextSibling.style.display =
-                              "inline";
-                          }
-                        }}
+                        onError={handleAvatarError}
                       />
                     ) : null}
                     <span
@@ -924,13 +919,7 @@ export default function Settings() {
                               decoding="async"
                               src={user.avatar}
                               className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = "none";
-                                if (e.currentTarget.nextSibling) {
-                                  e.currentTarget.nextSibling.style.display =
-                                    "inline";
-                                }
-                              }}
+                              onError={handleAvatarError}
                             />
                           ) : null}
                           <span

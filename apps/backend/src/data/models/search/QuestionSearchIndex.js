@@ -15,13 +15,19 @@ class QuestionSearchIndex {
     return dbHelpers.findOne(this.collection, { questionId })
   }
 
-  static async findUnindexed(limit = 100) {
+  static async findUnindexed(limit = 100, afterId = null) {
     const { pool } = await import('../../../infrastructure/database/postgres-helpers.js')
     const client = await pool.connect()
     try {
+      const params = [limit]
+      let cursor = ''
+      if (afterId != null) {
+        params.push(afterId)
+        cursor = ' AND id > $2'
+      }
       const result = await client.query(
-        `SELECT id, question_id, search_text, keywords, difficulty, topic_id, subtopic_id, subject, question_type, language, embedding, is_indexed, last_indexed_at, created_at, updated_at FROM question_search_index WHERE is_indexed = false ORDER BY created_at ASC LIMIT $1`,
-        [limit]
+        `SELECT id, question_id, search_text, keywords, difficulty, topic_id, subtopic_id, subject, question_type, language, embedding, is_indexed, last_indexed_at, created_at, updated_at FROM question_search_index WHERE is_indexed = false${cursor} ORDER BY id ASC LIMIT $1`,
+        params
       )
       return result.rows
     } finally {
@@ -29,48 +35,68 @@ class QuestionSearchIndex {
     }
   }
 
+  // Full-text dictionaries to try in order. 'english' first (stemming for
+  // English queries), then 'simple' (no stemming — Hindi/Hinglish recall),
+  // then 'hindi' when the dictionary exists (guarded: missing dict errors
+  // fall through to the next instead of 500ing the search).
+  static ftsDictionaries = ['english', 'simple', 'hindi']
+
   static async searchByText(queryText, options = {}) {
     const { pool } = await import('../../../infrastructure/database/postgres-helpers.js')
     const client = await pool.connect()
     try {
       const { difficulty, topicId, subject, language, limit = 20, offset = 0 } = options
-      let sql = `
-        SELECT qsi.*, q.question_text, q.difficulty as q_difficulty,
-               ts_rank(to_tsvector('english', COALESCE(qsi.search_text, '')), plainto_tsquery('english', $1)) as rank
-        FROM question_search_index qsi
-        JOIN questions q ON q.id = qsi.question_id
-        WHERE to_tsvector('english', COALESCE(qsi.search_text, '')) @@ plainto_tsquery('english', $1)
-          AND q.is_active = true
-      `
-      const params = [queryText]
-      let paramIndex = 2
-
+      const filters = []
+      const filterParams = []
       if (difficulty) {
-        sql += ` AND qsi.difficulty = $${paramIndex}`
-        params.push(difficulty)
-        paramIndex++
+        filterParams.push(difficulty)
+        filters.push(` AND qsi.difficulty = $${filterParams.length + 1}`)
       }
       if (topicId) {
-        sql += ` AND qsi.topic_id = $${paramIndex}`
-        params.push(topicId)
-        paramIndex++
+        filterParams.push(topicId)
+        filters.push(` AND qsi.topic_id = $${filterParams.length + 1}`)
       }
       if (subject) {
-        sql += ` AND qsi.subject = $${paramIndex}`
-        params.push(subject)
-        paramIndex++
+        filterParams.push(subject)
+        filters.push(` AND qsi.subject = $${filterParams.length + 1}`)
       }
       if (language) {
-        sql += ` AND qsi.language = $${paramIndex}`
-        params.push(language)
-        paramIndex++
+        filterParams.push(language)
+        filters.push(` AND qsi.language = $${filterParams.length + 1}`)
       }
+      const filterSql = filters.join('')
 
-      sql += ` ORDER BY rank DESC, qsi.id ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`
-      params.push(limit, offset)
-
-      const result = await client.query(sql, params)
-      return result.rows
+      // Try dictionaries in order; return the first non-empty hit set.
+      // Unknown-dictionary errors (e.g. no 'hindi' stemmer installed) are
+      // swallowed per-dict so search degrades instead of 500ing.
+      let lastError = null
+      for (const dict of QuestionSearchIndex.ftsDictionaries) {
+        let sql = `
+          SELECT qsi.*, q.question_text, q.difficulty as q_difficulty,
+                 ts_rank(to_tsvector('${dict}', COALESCE(qsi.search_text, '')), plainto_tsquery('${dict}', $1)) as rank
+          FROM question_search_index qsi
+          JOIN questions q ON q.id = qsi.question_id
+          WHERE to_tsvector('${dict}', COALESCE(qsi.search_text, '')) @@ plainto_tsquery('${dict}', $1)
+            AND q.is_active = true
+        `
+        const params = [queryText, ...filterParams]
+        // Filter placeholders are already 2-based ($1 is the query text).
+        sql += filterSql
+        const limitIdx = params.length + 1
+        sql += ` ORDER BY rank DESC, qsi.id ASC LIMIT $${limitIdx} OFFSET $${limitIdx + 1}`
+        params.push(limit, offset)
+        try {
+          const result = await client.query(sql, params)
+          if (result.rows.length > 0) return result.rows
+        } catch (dictErr) {
+          lastError = dictErr
+        }
+      }
+      // All dicts empty (or errored) — return empty set, not an error.
+      if (lastError && lastError.code && !['42883', '22023'].includes(String(lastError.code))) {
+        throw lastError
+      }
+      return []
     } finally {
       client.release()
     }
@@ -188,6 +214,17 @@ class QuestionSearchIndex {
 
   static async setEmbedding(questionId, embedding) {
     const { pool } = await import('../../../infrastructure/database/postgres-helpers.js')
+    // Fail closed: never persist a missing/mismatched vector (pgvector would
+    // throw a raw DB error, or worse, store a degraded row as indexed).
+    if (!Array.isArray(embedding) || embedding.length === 0) {
+      throw new Error('setEmbedding: empty embedding vector')
+    }
+    const expected = parseInt(process.env.EMBEDDING_DIMENSION) || 1536
+    if (embedding.length !== expected) {
+      throw new Error(
+        `setEmbedding: dimension mismatch (got ${embedding.length}, expected ${expected})`
+      )
+    }
     const client = await pool.connect()
     try {
       await client.query(
@@ -209,10 +246,19 @@ class QuestionSearchIndex {
         SELECT
           q.id as question_id,
           q.question_text,
-          COALESCE(q.options->>'0', '') || ' ' ||
-          COALESCE(q.options->>'1', '') || ' ' ||
-          COALESCE(q.options->>'2', '') || ' ' ||
-          COALESCE(q.options->>'3', '') as options_text,
+          -- options may be a JSONB object {0..3} OR a JSON array ["A","B",..];
+          -- cover both shapes so array-shaped options don't embed as empty text.
+          COALESCE(
+            NULLIF(TRIM(BOTH ' ' FROM
+              COALESCE(q.options->>'0', '') || ' ' ||
+              COALESCE(q.options->>'1', '') || ' ' ||
+              COALESCE(q.options->>'2', '') || ' ' ||
+              COALESCE(q.options->>'3', '')
+            ), ''),
+            (SELECT string_agg(value::text, ' ') FROM jsonb_array_elements_text(
+              CASE WHEN jsonb_typeof(q.options) = 'array' THEN q.options ELSE '[]'::jsonb END
+            ) AS value)
+          , '') as options_text,
           COALESCE(q.explanation, '') as explanation_text,
           COALESCE(t.name, '') as topic_name,
           COALESCE(s.name, '') as subject_name,
@@ -298,7 +344,10 @@ class QuestionSearchIndex {
           subject = EXCLUDED.subject,
           question_type = EXCLUDED.question_type,
           language = EXCLUDED.language,
-          is_indexed = false,
+          -- Preserve an existing embedding state on re-upsert: resetting
+          -- is_indexed=false here would orphan the stored vector and force a
+          -- needless re-embed on every question edit.
+          is_indexed = question_search_index.is_indexed,
           updated_at = NOW()
         RETURNING *
       `, [questionId, searchText, keywords])

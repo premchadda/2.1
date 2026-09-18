@@ -356,6 +356,8 @@ export const adminAPI = {
 
   // Results & Activity
   getResults: (params) => apiClient.get("/admin/results", { params }),
+  getResultDetail: (id) =>
+    apiClient.get(`/admin/results/${requireId(id, "id")}`),
   getRecentActivity: () => apiClient.get("/admin/recent-activity"),
   getActivityOrder: () => apiClient.get("/admin/activity-order"),
   getActivityLogs: (params) =>

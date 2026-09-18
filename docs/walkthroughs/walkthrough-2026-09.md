@@ -473,7 +473,7 @@ During real database verification, 4 critical schema/column discrepancies betwee
     - Verified `loadAdminPermissions` caching with TTL and invalidation via `invalidateAdminPermissionsCache`.
     - Verified fallback to `DEFAULT_ADMIN_TIER_PERMISSIONS` for admins lacking explicit `user_roles`.
     - Verified fail-closed error handling (403 with `code: 'RBAC_VERIFICATION_ERROR'`).
-    - Verified `super_admin` and wildcard (`*`, `tests:*`) bypass.
+    - Verified `second_tier` and wildcard (`*`, `tests:*`) bypass.
     - Verified method-to-action aliases (`GET` $\rightarrow$ `view`/`read`, `POST` $\rightarrow$ `create`/`write`, `PUT` $\rightarrow$ `edit`/`update`/`write`, `DELETE` $\rightarrow$ `delete`).
 
 ### Option 3: Real-Time Test Timer Sync & Reconnection Recovery
@@ -840,7 +840,7 @@ During real database verification, 4 critical schema/column discrepancies betwee
 - **System Maintenance & Retention Engine**:
   - Created [`apps/backend/src/__tests__/maintenance.service.test.js`](apps/backend/src/__tests__/maintenance.service.test.js) with 4 unit tests covering `purgeDeadLetterJobs` (retention days, row counts, error recovery) and `runDatabaseMaintenance`.
   - Expanded [`apps/backend/src/__tests__/maintenance.middleware.test.js`](apps/backend/src/__tests__/maintenance.middleware.test.js) from 5 to 9 unit tests.
-  - Verified `super_admin` role bypass via cookie token.
+  - Verified `second_tier` role bypass via cookie token.
   - Verified `allowAdminAccess: false` blocking even authenticated administrators during emergency downtime.
   - Verified fail-open behavior: if settings lookup fails, requests pass through to prevent cascading platform outages.
   - Verified expired/malformed token handling returning 503 `MAINTENANCE_MODE`.

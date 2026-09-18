@@ -10,7 +10,14 @@ const queueConcurrency = {
   analytics: Number.parseInt(process.env.WORKER_ANALYTICS_CONCURRENCY || '4', 10),
   leaderboard: Number.parseInt(process.env.WORKER_LEADERBOARD_CONCURRENCY || '2', 10),
   notifications: Number.parseInt(process.env.WORKER_NOTIFICATIONS_CONCURRENCY || '5', 10),
-  recommendations: Number.parseInt(process.env.WORKER_RECOMMENDATIONS_CONCURRENCY || '2', 10)
+  recommendations: Number.parseInt(process.env.WORKER_RECOMMENDATIONS_CONCURRENCY || '2', 10),
+  // EVENTS must be explicit: without an entry it still runs (default 5), but
+  // an explicit value keeps the queue visible in ops reviews so it is never
+  // mistaken for unconsumed. NOTE: this worker process must actually be
+  // deployed (npm run worker / compose worker) or EVENTS + all queues pile
+  // up unprocessed — app-port5001.js only calls initQueues(), never
+  // startWorkers().
+  events: Number.parseInt(process.env.WORKER_EVENTS_CONCURRENCY || '4', 10)
 }
 
 const start = async () => {

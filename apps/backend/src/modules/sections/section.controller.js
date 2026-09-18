@@ -1,12 +1,37 @@
 import express from "express";
 import { sectionService } from "./section.service.js";
+import normalizeFields from "../../middleware/normalize-fields.js";
 import { restrictAdminOrigin, validateAdminApiKey } from "../../middleware/origin.middleware.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
+import { validateCsrfToken } from "../../middleware/csrf.middleware.js";
+import {
+  loadAdminPermissions,
+  requireAdminPermission,
+} from "../../middleware/admin-permission.middleware.js";
 import { auditMiddleware } from "../../middleware/audit.middleware.js";
 import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router();
-const adminAuth = [restrictAdminOrigin, validateAdminApiKey, protect, admin, auditMiddleware];
+// Canonical admin chain order (mirrors api/routes/admin.js):
+// normalizeFields -> restrictAdminOrigin -> validateAdminApiKey -> protect ->
+// admin -> validateCsrfToken -> loadAdminPermissions -> requireAdminPermission ->
+// auditMiddleware (conditional: all mutations + detail reads, like admin.js).
+const adminAuth = [
+  normalizeFields({ methods: ["POST", "PUT", "PATCH"] }),
+  restrictAdminOrigin,
+  validateAdminApiKey,
+  protect,
+  admin,
+  validateCsrfToken,
+  loadAdminPermissions,
+  requireAdminPermission,
+  (req, res, next) => {
+    if (req.method === "GET" && !req.path.match(/\/[^/]+\/[^/]+$/)) {
+      return next();
+    }
+    return auditMiddleware({ includeBody: true })(req, res, next);
+  },
+];
 
 router.get("/", ...adminAuth, async (req, res) => {
   try {

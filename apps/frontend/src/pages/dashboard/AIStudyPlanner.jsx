@@ -781,6 +781,7 @@ function AIStudyPlanner() {
               {isStreaming ? (
                 <button
                   onClick={cancelStream}
+                  aria-label="Cancel response"
                   className="p-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors"
                 >
                   <X className="w-4 h-4" />
@@ -788,6 +789,7 @@ function AIStudyPlanner() {
               ) : (
                 <button
                   onClick={sendChatMessage}
+                  aria-label="Send message"
                   className="p-2 rounded-xl bg-brand-start text-white hover:bg-brand-start/80 transition-colors disabled:opacity-50"
                   disabled={!chatInput.trim()}
                 >

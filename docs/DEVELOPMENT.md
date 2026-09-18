@@ -71,7 +71,7 @@ Count regen: `dir /s /b apps\admin-panel\src\features\admin\*.jsx | find /c`.
 - **Content & assessments (12+):** `ContentManagement.jsx`, `TestSeriesManager.jsx`, `TestsManager.jsx`, `QuestionsManager.jsx` (+ bulk import/restore), `SubjectHierarchyManager.jsx` (curriculum tree), quiz/test-category managers.
 - **Live & proctoring:** `LiveProctoringConsole.jsx` (waves 19–20), live-test managers.
 - **Commerce:** coupon/plan/order managers (`GET /admin/...`, Razorpay verify server-side).
-- **System:** `ServerLogsManager.jsx` (log stream/export/fingerprint), backups, settings, moderation, recycle bin (soft-delete restore), roles/permissions (`superAdmin` exists above `admin`).
+- **System:** `ServerLogsManager.jsx` (log stream/export/fingerprint), backups, settings, moderation, recycle bin (soft-delete restore), roles/permissions (`secondTier` exists above `admin`).
 - **Nav:** 38 nav items from `adminNavConfig` — KNOWN DUPLICATION across `packages/shared-config` + both apps (see `docs/ARCHITECTURE.md` §7); consolidate deliberately, don't hand-diverge.
 - **Routing:** React Router v6; **API client:** Axios 1.18 (`apiClient`, baseURL `/api`, httpOnly cookies + CSRF).
 
@@ -111,7 +111,7 @@ validateCsrfToken → loadAdminPermissions → requireAdminPermission → auditM
 | Redis / BullMQ                | SHIPPED (queues: analytics, leaderboard, notifications, recommendations, outbox) |
 | 2FA                           | SHIPPED (migration `064`)                                                        |
 | Audit trail                   | SHIPPED (`auditMiddleware` + `audit_trail` table)                                |
-| `superAdmin` role             | EXISTS                                                                           |
+| `secondTier` role             | EXISTS                                                                           |
 | Live-tests alias              | FIXED (`live-tests-public.js:162-163`)                                           |
 | Leaderboards public           | FIXED (`leaderboards-public.js:10` optionalAuth)                                 |
 | testCategories reassign guard | FIXED (`testCategories.js:140` protect+admin)                                    |

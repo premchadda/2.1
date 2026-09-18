@@ -1355,7 +1355,7 @@ router.get(
 // @access  Public
 router.get(
   "/videos/hierarchical",
-  responseCache("study-videos-hierarchical", 120),
+  responseCache("study-videos-hierarchical", 120, { userScoped: false }),
   async (req, res) => {
     try {
       // Use a single SQL query with CTEs to fetch everything in one round-trip

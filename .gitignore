@@ -59,6 +59,7 @@ __pycache__/
 *.sql.gz
 Database.zip
 data/
+supabase_data/
 !apps/backend/src/data/
 apps/backend/src/data/*
 *.db
@@ -73,6 +74,10 @@ RRB_NTPC_*.json
 # folder (5 working test files were never committed: apps/backend/test/*.test.js
 # and apps/frontend/tests/*.test.js). Anchoring with a leading "/" keeps the
 # intent (ignore throwaway root scripts) without hiding repository code.
+# NOTE: never add an anchored /*.test.js or /*.spec.js rule here — test files
+# live under apps/backend/test/, apps/frontend/tests/, and __tests__/ dirs and
+# must stay tracked. Test execution is governed by jest/vitest configs, not
+# ignore rules.
 /test-*.js
 /test-*.mjs
 /check-*.js
@@ -116,8 +121,10 @@ graphify-out/
 # ===========================================
 # LOCAL DEVELOPMENT FILES (Added by audit)
 # ===========================================
-# Local scripts that shouldn't be committed
+# Local scripts that shouldn't be committed (nested script dirs stay tracked)
 *.cjs
+!scripts/*.cjs
+!scripts/**/*.cjs
 
 # Scratch and temp files
 scratch/
