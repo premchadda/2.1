@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 
 /**
  * ScrollToTop Component
@@ -9,18 +9,18 @@ import { useLocation } from 'react-router-dom'
  * client-side navigation preserves the scroll position of the previous page.
  */
 const ScrollToTop = () => {
-  const { pathname } = useLocation()
+  const { pathname } = useLocation();
 
   useEffect(() => {
     // Scroll to top of the document immediately on route change
     window.scrollTo({
       top: 0,
       left: 0,
-      behavior: 'instant' // 'instant' ensures the user doesn't see a scroll animation
-    })
-  }, [pathname])
+      behavior: "instant", // 'instant' ensures the user doesn't see a scroll animation
+    });
+  }, [pathname]);
 
-  return null
-}
+  return null;
+};
 
-export default ScrollToTop
+export default ScrollToTop;

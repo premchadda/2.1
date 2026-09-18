@@ -2417,7 +2417,6 @@ function TestInterface() {
             } pb-10 md:pb-3 scroll-smooth overflow-y-auto overscroll-contain`}
           >
             <div className="w-full max-w-none flex flex-col min-h-full">
-
               {/* Section Tabs (only in test-taking mode) */}
               {!reviewMode && (
                 <SectionTabs

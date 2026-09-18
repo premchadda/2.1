@@ -308,7 +308,10 @@ interface GenericCRUDConfig {
   getErrorMessage?: (action: string, itemName: string) => string;
   useAdminAPI?: boolean;
   confirmFn?: (message: string) => boolean;
-  notifyFn?: (type: "success" | "error", message: string) => void | Promise<void>;
+  notifyFn?: (
+    type: "success" | "error",
+    message: string,
+  ) => void | Promise<void>;
 }
 
 interface GenericCRUDResult {

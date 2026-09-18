@@ -1421,7 +1421,7 @@ function TestDetails() {
               (s) =>
                 (String(s.slug || "").toLowerCase() === slugLower ||
                   String(s.examId || s.exam_id || "").toLowerCase() ===
-                  slugLower ||
+                    slugLower ||
                   String(s.category || "").toLowerCase() === slugLower) &&
                 isSeriesEnrolled(user, s, [s._id, s.id]),
             );
@@ -1430,7 +1430,7 @@ function TestDetails() {
                 (s) =>
                   String(s.slug || "").toLowerCase() === slugLower ||
                   String(s.examId || s.exam_id || "").toLowerCase() ===
-                  slugLower ||
+                    slugLower ||
                   String(s.category || "").toLowerCase() === slugLower,
               );
             }
@@ -1477,10 +1477,10 @@ function TestDetails() {
             testsData.forEach((test) => {
               const tid = String(
                 test.id ??
-                test._id ??
-                test.public_id ??
-                test.slug ??
-                Math.random(),
+                  test._id ??
+                  test.public_id ??
+                  test.slug ??
+                  Math.random(),
               );
               if (!seenIds.has(tid)) {
                 seenIds.add(tid);
@@ -2368,19 +2368,21 @@ function TestDetails() {
                       <button
                         key={catKey}
                         onClick={() => handleMainCategoryChange(catKey)}
-                        className={`px-4 md:px-6 py-1.5 rounded-lg transition-all flex-shrink-0 flex items-center justify-center gap-3 ${activeMainCategory === catKey
+                        className={`px-4 md:px-6 py-1.5 rounded-lg transition-all flex-shrink-0 flex items-center justify-center gap-3 ${
+                          activeMainCategory === catKey
                             ? "bg-white dark:bg-gray-800 text-brand-start shadow-sm"
                             : "text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-200/50 dark:hover:bg-gray-700/50"
-                          }`}
+                        }`}
                       >
                         <span className="text-[13px] md:text-xs font-bold uppercase tracking-wide whitespace-nowrap">
                           {computedCategories[catKey].label}
                         </span>
                         <span
-                          className={`text-xs md:text-sm font-black px-2 py-0.5 rounded-md ${activeMainCategory === catKey
+                          className={`text-xs md:text-sm font-black px-2 py-0.5 rounded-md ${
+                            activeMainCategory === catKey
                               ? "bg-brand-start/10 text-brand-start"
                               : "bg-gray-200/50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400"
-                            }`}
+                          }`}
                         >
                           {computedCategories[catKey].count || 0}
                         </span>
@@ -2400,10 +2402,11 @@ function TestDetails() {
                         <button
                           key={subcat.key}
                           onClick={() => handleSubCategoryChange(subcat.key)}
-                          className={`px-2.5 py-1 rounded-full text-[13px] font-medium whitespace-nowrap transition-all flex-shrink-0 ${activeSubCategory === subcat.key
+                          className={`px-2.5 py-1 rounded-full text-[13px] font-medium whitespace-nowrap transition-all flex-shrink-0 ${
+                            activeSubCategory === subcat.key
                               ? "bg-brand-start text-white"
                               : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                            }`}
+                          }`}
                         >
                           {subcat.label}
                           {subcat.count > 0 && (
@@ -2425,10 +2428,11 @@ function TestDetails() {
                     <button
                       key={third.key}
                       onClick={() => handleThirdCategoryChange(third.key)}
-                      className={`px-3 py-1 rounded-full text-[13px] font-medium whitespace-nowrap transition-all flex-shrink-0 cursor-pointer ${activeThirdCategory === third.key
+                      className={`px-3 py-1 rounded-full text-[13px] font-medium whitespace-nowrap transition-all flex-shrink-0 cursor-pointer ${
+                        activeThirdCategory === third.key
                           ? "bg-indigo-600 text-white"
                           : "bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        }`}
+                      }`}
                     >
                       {third.label}
                       {third.count > 0 && (
@@ -2446,10 +2450,11 @@ function TestDetails() {
                     <button
                       key={fourth.key}
                       onClick={() => handleFourthCategoryChange(fourth.key)}
-                      className={`px-2 py-0.5 rounded-lg text-[13px] font-bold uppercase tracking-wider whitespace-nowrap transition-all flex-shrink-0 cursor-pointer ${activeFourthCategory === fourth.key
+                      className={`px-2 py-0.5 rounded-lg text-[13px] font-bold uppercase tracking-wider whitespace-nowrap transition-all flex-shrink-0 cursor-pointer ${
+                        activeFourthCategory === fourth.key
                           ? "bg-gray-800 text-white shadow-xs"
                           : "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
-                        }`}
+                      }`}
                     >
                       {fourth.label}
                       {fourth.count > 0 && (
@@ -2539,10 +2544,11 @@ function TestDetails() {
                                   key={page}
                                   type="button"
                                   onClick={() => setCurrentPage(page)}
-                                  className={`w-7 h-7 md:w-8 md:h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentPage === page
+                                  className={`w-7 h-7 md:w-8 md:h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                    currentPage === page
                                       ? "bg-indigo-600 text-white shadow-xs"
                                       : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                                    }`}
+                                  }`}
                                 >
                                   {page}
                                 </button>

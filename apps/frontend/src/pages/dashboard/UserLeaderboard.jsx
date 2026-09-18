@@ -149,8 +149,7 @@ function BadgeIcon({ badge }) {
   return <Medal size={15} style={{ color: colors[badge] }} />;
 }
 
-const isAvatarUrl = (v) =>
-  typeof v === "string" && /^(https?:|data:)/.test(v);
+const isAvatarUrl = (v) => typeof v === "string" && /^(https?:|data:)/.test(v);
 
 const avatarInitials = (name) =>
   name

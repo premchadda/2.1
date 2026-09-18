@@ -258,7 +258,10 @@ export default function StudyMaterialChapter() {
         setSubject(subjectData);
       } catch (err) {
         if (err.name !== "AbortError") {
-          console.error("Failed to fetch subject content:", err?.message ?? err);
+          console.error(
+            "Failed to fetch subject content:",
+            err?.message ?? err,
+          );
           setError("Failed to load subject content");
         }
       } finally {

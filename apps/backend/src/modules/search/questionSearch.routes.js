@@ -103,21 +103,27 @@ router.get("/stats", protect, admin, aiRateLimiter, async (req, res) => {
   }
 });
 
-router.post("/index/:questionId", protect, admin, aiRateLimiter, async (req, res, next) => {
-  // Registered before POST /index/bulk: forward the literal so the bulk
-  // endpoint is not parsed as a question id (it was unreachable).
-  if (req.params.questionId === "bulk") return next();
-  try {
-    const entry = await questionSearchService.indexQuestion(
-      req.params.questionId,
-    );
-    res.json({ success: true, data: entry });
-  } catch (error) {
-    res
-      .status(400)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+router.post(
+  "/index/:questionId",
+  protect,
+  admin,
+  aiRateLimiter,
+  async (req, res, next) => {
+    // Registered before POST /index/bulk: forward the literal so the bulk
+    // endpoint is not parsed as a question id (it was unreachable).
+    if (req.params.questionId === "bulk") return next();
+    try {
+      const entry = await questionSearchService.indexQuestion(
+        req.params.questionId,
+      );
+      res.json({ success: true, data: entry });
+    } catch (error) {
+      res
+        .status(400)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 router.post("/index/bulk", protect, admin, aiRateLimiter, async (req, res) => {
   try {
@@ -128,7 +134,11 @@ router.post("/index/bulk", protect, admin, aiRateLimiter, async (req, res) => {
     const truncated = requested > 50;
     const afterId = req.body.afterId ?? req.body.afterCursor ?? null;
     const maxPages = parseInt(req.body.maxPages) || 1;
-    const indexed = await questionSearchService.bulkIndex(limit, afterId, maxPages);
+    const indexed = await questionSearchService.bulkIndex(
+      limit,
+      afterId,
+      maxPages,
+    );
     res.json({ success: true, data: { indexed, truncated } });
   } catch (error) {
     res
@@ -137,16 +147,22 @@ router.post("/index/bulk", protect, admin, aiRateLimiter, async (req, res) => {
   }
 });
 
-router.delete("/index/:questionId", protect, admin, aiRateLimiter, async (req, res) => {
-  try {
-    await questionSearchService.removeFromIndex(req.params.questionId);
-    res.json({ success: true, message: "Removed from search index" });
-  } catch (error) {
-    res
-      .status(400)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+router.delete(
+  "/index/:questionId",
+  protect,
+  admin,
+  aiRateLimiter,
+  async (req, res) => {
+    try {
+      await questionSearchService.removeFromIndex(req.params.questionId);
+      res.json({ success: true, message: "Removed from search index" });
+    } catch (error) {
+      res
+        .status(400)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 router.get("/:id", protect, aiRateLimiter, async (req, res) => {
   try {

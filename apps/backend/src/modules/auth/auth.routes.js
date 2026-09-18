@@ -203,10 +203,7 @@ router.get(
       }
       // Load permissions for admin users
       let permissions = user.permissions || [];
-      if (
-        (user.role === "admin" || user.isAdmin) &&
-        permissions.length === 0
-      ) {
+      if ((user.role === "admin" || user.isAdmin) && permissions.length === 0) {
         try {
           const { rows: permRows } = await dbHelpers.pool.query(
             `SELECT DISTINCT p.name

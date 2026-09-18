@@ -39,9 +39,7 @@ function getCookie(name) {
 
 function isHttpsContext() {
   try {
-    return (
-      typeof location !== "undefined" && location.protocol === "https:"
-    );
+    return typeof location !== "undefined" && location.protocol === "https:";
   } catch {
     return false;
   }

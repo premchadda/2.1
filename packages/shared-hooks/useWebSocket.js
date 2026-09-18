@@ -69,8 +69,12 @@ let consumerCount = 0;
  * @param {string|null} [options.socketUrl=null] - Alias of options.url
  */
 export const useWebSocket = (options = {}) => {
-  const { enabled = true, token = null, url = null, socketUrl = null } =
-    typeof options === "boolean" ? { enabled: options } : options || {};
+  const {
+    enabled = true,
+    token = null,
+    url = null,
+    socketUrl = null,
+  } = typeof options === "boolean" ? { enabled: options } : options || {};
   // Lazy override: per-hook URL wins, else the frozen module-level SOCKET_URL.
   const effectiveUrl = url || socketUrl || SOCKET_URL;
 

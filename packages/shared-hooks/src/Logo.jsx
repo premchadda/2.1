@@ -1,12 +1,12 @@
-import { Link } from 'react-router-dom'
+import { Link } from "react-router-dom";
 
 const Logo = ({
-  className = '',
-  iconSize = 'w-5 h-5 sm:w-6 sm:h-6',
-  containerSize = 'w-8 h-8 sm:w-10 sm:h-10',
-  textSize = 'text-xl sm:text-2xl',
+  className = "",
+  iconSize = "w-5 h-5 sm:w-6 sm:h-6",
+  containerSize = "w-8 h-8 sm:w-10 sm:h-10",
+  textSize = "text-xl sm:text-2xl",
   hideText = false,
-  onClick
+  onClick,
 }) => {
   return (
     <Link
@@ -19,7 +19,9 @@ const Logo = ({
         <div className="absolute inset-0 bg-indigo-500/30 blur-xl rounded-full group-hover:bg-indigo-500/50 transition-all duration-700 animate-pulse"></div>
 
         {/* Animated Container */}
-        <div className={`relative ${containerSize} bg-slate-900 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-[8deg] transition-all duration-500 overflow-hidden border border-white/10`}>
+        <div
+          className={`relative ${containerSize} bg-slate-900 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-[8deg] transition-all duration-500 overflow-hidden border border-white/10`}
+        >
           {/* Internal Gradient Background */}
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-600 to-indigo-700 opacity-90 group-hover:opacity-100 transition-opacity"></div>
 
@@ -32,8 +34,8 @@ const Logo = ({
             className={`${iconSize} relative z-10 text-white fill-current drop-shadow-md animate-bounce-subtle`}
             xmlns="http://www.w3.org/2000/svg"
           >
-             <path d="M12 2L4.5 20.29L5.21 21L12 18L18.79 21L19.5 20.29L12 2Z" />
-             <path d="M12 16L7 18.2L12 6L17 18.2L12 16Z" fillOpacity="0.5" />
+            <path d="M12 2L4.5 20.29L5.21 21L12 18L18.79 21L19.5 20.29L12 2Z" />
+            <path d="M12 16L7 18.2L12 6L17 18.2L12 16Z" fillOpacity="0.5" />
           </svg>
         </div>
 
@@ -43,8 +45,13 @@ const Logo = ({
 
       {!hideText && (
         <div className="flex flex-col leading-none">
-          <span className={`${textSize} font-black text-slate-900 dark:text-white tracking-tighter group-hover:text-indigo-600 transition-colors duration-300`}>
-            TRST<span className="text-indigo-600 group-hover:text-slate-900 dark:group-hover:text-white transition-colors duration-300">PREP</span>
+          <span
+            className={`${textSize} font-black text-slate-900 dark:text-white tracking-tighter group-hover:text-indigo-600 transition-colors duration-300`}
+          >
+            TRST
+            <span className="text-indigo-600 group-hover:text-slate-900 dark:group-hover:text-white transition-colors duration-300">
+              PREP
+            </span>
           </span>
           <span className="text-[8px] font-black text-indigo-600/70 dark:text-indigo-400/80 tracking-[0.3em] uppercase mt-0.5 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-all group-hover:translate-x-0.5">
             Intelligence
@@ -52,7 +59,7 @@ const Logo = ({
         </div>
       )}
     </Link>
-  )
-}
+  );
+};
 
-export default Logo
+export default Logo;

@@ -25,7 +25,7 @@ function ProtectedRoute({ children, adminOnly = false }) {
   }
 
   // Check for admin access if required
-  if (adminOnly && (user.role !== "admin" && user.isAdmin !== true)) {
+  if (adminOnly && user.role !== "admin" && user.isAdmin !== true) {
     return <Navigate to="/dashboard" replace />;
   }
 

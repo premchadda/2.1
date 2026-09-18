@@ -7,7 +7,10 @@ import {
 } from "../infrastructure/cache/redisClient.js";
 import { isTransientDbError } from "../shared/utils/db-errors.js";
 import { getRuntimeSecuritySettings } from "../services/SettingsService.js";
-import { decryptUserPii, isProUser as isProUserHelper } from "../shared/utils/user-utils.js";
+import {
+  decryptUserPii,
+  isProUser as isProUserHelper,
+} from "../shared/utils/user-utils.js";
 
 export const ROLES = {
   USER: "user",
@@ -873,8 +876,7 @@ export const requireImageAuth = async (req, res, next) => {
       });
     }
     // Attach minimal verified identity for downstream logging (additive only).
-    const { password: _imgPw, ...imgWithoutPassword } =
-      decryptUserPii(imgUser);
+    const { password: _imgPw, ...imgWithoutPassword } = decryptUserPii(imgUser);
     req.user = {
       ...imgWithoutPassword,
       isAdmin: imgUser.role === ROLES.ADMIN || imgUser.isAdmin === true,
@@ -983,8 +985,7 @@ export const optionalAuth = async (req, res, next) => {
         (isVerified === true || process.env.NODE_ENV !== "production")
       ) {
         const { password, ...userWithoutPassword } = user;
-        const optIsAdmin =
-          user.role === ROLES.ADMIN || user.isAdmin === true;
+        const optIsAdmin = user.role === ROLES.ADMIN || user.isAdmin === true;
         req.user = {
           ...userWithoutPassword,
           isAdmin: optIsAdmin,
@@ -1064,10 +1065,7 @@ export const proPass = (req, res, next) => {
   // shared helper; protect()/optionalAuth pre-compute it). Admins are
   // entitled (mirrors shared isProUser() semantics).
   const u = req.user;
-  if (
-    u &&
-    (u.isProUser === true || isProUserHelper(u) || u.isAdmin === true)
-  ) {
+  if (u && (u.isProUser === true || isProUserHelper(u) || u.isAdmin === true)) {
     return next();
   }
   return res.status(403).json({

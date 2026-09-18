@@ -1,10 +1,12 @@
 ## 1. Files Inspected List
 
 Graph / contract context first:
+
 - `graphify-out/GRAPH_REPORT.md` (god nodes: `protect()` 101 edges :972, `sanitizeErrorMessage()` 93 edges :973, `admin()` 71 edges :976, `getRedisClient()` 49 edges :978)
 - `apps/backend/src/api/routes/API_ENDPOINTS.md` (canonical admin chain doc)
 
 Auth territory:
+
 - `apps/backend/src/modules/auth/auth.routes.js` (full, 424 lines)
 - `apps/backend/src/modules/auth/auth.controller.js` (login ~230-360, googleLogin 729+, refreshToken 1013-1142, forgotPassword 1282-1341, resetPassword 1345-1494, changePassword 1497-1590, verifyEmail 1593+, 2FA enroll 1801-1837 / verify 1840-1893 / regen 1896-1923 / disable 1926-1939 / login2FA 1942-2080+)
 - `apps/backend/src/modules/auth/auth.service.js` (generateToken, cookie policy)
@@ -92,9 +94,10 @@ None — read-only dispatch; no commands executed (per contract, no destructive/
 
 **H2 — Practice `POST /sessions` sequential fan-out explains ~5s**
 `practice.js:1154-1165 → 69-170,175-356,1175-1237`:
-  - `resolvePracticeFilters` up to 4 sequential `SELECT id FROM subjects/subject_chapters/subject_topics/exams` (81,102,127,151) + repeat at 1175.
-  - `pickPracticeQuestionIds:346-353` `SELECT q.id ... ORDER BY RANDOM() LIMIT $n` over unindexed `PRACTICE_Q_WHERE` + chapter/topic sub-selects (244-260) — full-scan random sort.
-  - `getSafeQuestions:405-427` second round-trip + `INSERT practice_sessions` (1213-1232) + 2 hygiene `UPDATE practice_sessions ... is_active` (1193-1210) **not in transaction**.
+
+- `resolvePracticeFilters` up to 4 sequential `SELECT id FROM subjects/subject_chapters/subject_topics/exams` (81,102,127,151) + repeat at 1175.
+- `pickPracticeQuestionIds:346-353` `SELECT q.id ... ORDER BY RANDOM() LIMIT $n` over unindexed `PRACTICE_Q_WHERE` + chapter/topic sub-selects (244-260) — full-scan random sort.
+- `getSafeQuestions:405-427` second round-trip + `INSERT practice_sessions` (1213-1232) + 2 hygiene `UPDATE practice_sessions ... is_active` (1193-1210) **not in transaction**.
   Impact: 6-8 sequential queries per start; two concurrent POSTs can both pass hygiene then both insert active rows (no `UNIQUE(user_id) WHERE is_active` guard).
 
 **H3 — `GET /sessions/:id/questions/:idx` 500 on null `questions_json`, not 400**
@@ -158,6 +161,7 @@ None — read-only dispatch; no commands executed (per contract, no destructive/
 ## 1. Files Inspected
 
 **Infrastructure (`apps/backend/src/infrastructure/database/`):**
+
 - `postgres-helpers.js:182-231` (runtime DDL `runEnsureTestSectionsSchema`), `:649-675` (`reconcileRelationships` live, `initTables` no-op), `:246-327` (`tableMap`), `:684-767` (PII encrypt/decrypt `toCamel`/`toSnake`)
 - `migrationRunner.js:1-214` (advisory lock `727274266`, sort, `000`/`056` grandfather, `CONCURRENTLY` bypass, `app.pgcrypto_key` injection `:151-170`)
 - `db/relationships.js:1-326` (full `RELATIONSHIP_DEFINITIONS`), `db/constants.js:1-153` (`ENTITY_PREFIXES`, `PUBLIC_ID_PATTERNS`, `JSONB_COLUMNS`), `db/helpers.js:1-35`, `qb.js:1-60` (scaffold, `SAFE_USER_COLUMNS`, no PII decrypt)
@@ -165,6 +169,7 @@ None — read-only dispatch; no commands executed (per contract, no destructive/
 - `README.md`, `auditTrailManager.js` (referenced, not deep-read)
 
 **Migrations (targeted reads + greps across `migrations/*.sql`):**
+
 - `000_baseline_functions.sql:34,45,55-59,242-273,282-328` (vector ext, `update_updated_at_column`, `prevent_public_id_uuid_mutation`, `soft_delete_record`/`restore_record`)
 - `000a_enable_rls_policies.sql:1-80` (`rls_apply_if_table_exists`, `users_self_read` with `OR current_user_id() IS NULL`)
 - `018:111-122` (`revision_queue` `priority VARCHAR(20) DEFAULT 'medium'`), `019:334-360,431-473,708` (plain `VARCHAR public_id`, `fk_wrong_questions_*`, `fk_revision_queue_question`, trigger loop), `027:20-21,106-128` (`tpl_` generated, `embedding VECTOR(1536)`, ivfflat commented out)
@@ -180,50 +185,62 @@ None — read-only dispatch; no commands executed (per contract, no destructive/
 ## 2. Issues
 
 ### A. Schema drift — live DB ahead of shipped chain (contract DoD)
+
 1. **`revision_queue.priority` type divergence — no `ALTER TYPE` anywhere.** Baseline `018:116` creates `VARCHAR(20) DEFAULT 'medium'`; live is `INTEGER` (per `138:101-103` comment "smartRevision writes ints"). `138:101-104` only `ADD COLUMN ... IF NOT EXISTS` — on any DB where `018` already created the VARCHAR column it is a **no-op**, so fresh-from-repo stays VARCHAR while prod is INTEGER. No migration does `ALTER ... TYPE INTEGER USING ...`. Also conflicts with `039:190`/`095:15` VARCHAR priority convention for sibling queues.
 2. **`practice_answers.is_skipped/time_taken_sec/mode` already in `065:89-91`** — `138:170-181` re-add is harmless guarded duplicate, confirming drift was already partially reconciled. Real gap was `wrong_questions.test_id/source_attempt_id/last_seen_at/metadata/is_active` (`138:32-51`) and `revision_queue.source_attempt_id/schedule_day/due_at/status/completed_at/metadata` (`138:81-109`), plus `user_recommendations.payload/generated_at/expires_at/is_active/updated_at` (`139:45-77`). All `139`/`138` adds are existence-guarded, correct pattern.
 3. **`practice_sessions/practice_answers.updated_at` missing at creation, trigger assumes it.** `065:58-94` creates both tables **without** `updated_at`; generic trigger loops (`018:532`, `019:708`, `025:299`, `026:128`, `027:145`) attach `set_updated_at → update_updated_at_column()` unconditionally → `140:2` error `record "new" has no field "updated_at"`. `140:4-5` backfills columns (correct) but `140:16,26` attaches triggers **without** the `IF EXISTS (pg_proc ... update_updated_at_column)` guard used in `030:262`, `046:590`, `068:336` — if `000` failed/skipped, `140` aborts the whole runner (fail-closed per `migrationRunner.js:203`).
 
 ### B. Migration ordering / append-only violations
+
 4. **Retired/gapped slots are intentional — do not "fill".** `004-017` absent (reconstructed in `098` per `README.md:5`); `042` is deliberate no-op (`042:1-14`); `056a/056b`, `057b` letter-suffixes + `000/000a` pair grandfathered in `migrationRunner.js:115`. Duplicate-prefix guard (`migrationRunner.js:104-126`) enforces uniqueness going forward. Next file must be `142_*`.
 5. **Shipped-file mutation:** `137:7-8` self-documents "a working-tree edit renamed an index inside shipped `134_database_audit_remediation.sql`; shipped files are append-only". `137:15,23` repairs via `idx_topics_subject → idx_subject_topics_subject` + canonical create. Drifted DBs may now carry **both** names; guard checks `pg_indexes` by old name then `IF NOT EXISTS` new — convergent, but audit should confirm no code references the old name.
 6. **`128` is a stub delegating to forbidden territory.** `128:1-15` only creates `test_id_remap_backup`; comment says "In-place re-indexing executed via `scripts/execute-reindex-tests.mjs`". Consecutive-ID rewrite of `SERIAL` PK with live FKs (`attempts`, `test_questions`, `questions`, `leaderboards`) is high-risk; no FK-safe remap SQL in-repo. Verify script exists + is idempotent before ever running `128` on prod.
 
 ### C. RLS gaps
+
 7. **`000a` anon bypass.** `000a:61,66` policies `USING (id = current_user_id() OR current_user_id() IS NULL)` grant wide-open access when GUC unset. `116:6-10` explicitly calls this out and removes the bypass — but `000a` policies are never `DROP`ped by `116` (which uses `DROP POLICY IF EXISTS` per new names only). Overlapping old+new policies persist.
 8. **Two incompatible auth idioms coexist.** `099:37-39,48-50,58-60` uses Supabase `auth.uid()` + `current_setting('role')='service_role'`; backend actually sets `app.current_user_id` / `app.is_admin` (`116:34,55`). `099` policies never match app connections → deny-by-default except service_role. `116:24-74` introduces correct `SECURITY DEFINER` wrappers (`current_user_id_setting`, `current_is_admin`, `is_service_role`) with fixed `search_path` — correct direction, but `099` helper `create_policy_if_not_exists:6-30` means stale `099` policies remain. Needs per-table `SELECT * FROM pg_policies` reconciliation on `attempts/bookmarks/notifications` at minimum.
 9. **Coverage hole + no auto-RLS trigger.** `000a` covers ~8 tables; `116` covers 41 (list starts `116:80-100`, includes `practice_*`, `certificates`, `two_factor_secrets`; `embeddings` at `116:361`). New tables `webhook_events` (`120`), `user_recommendations` (`139` creates without `ENABLE RLS`), `outbox_events`, `practice_ai_cache`, `subject_videos` FortSpy columns (`141`) have no evidenced RLS in inspected slices. No event-trigger auto-`ENABLE RLS` found in inspected files (only per-table `ENABLE` in `099` + `rsl_apply_if_table_exists` helper) — "RLS auto-trigger" claim unverified from territory.
 
 ### D. Soft-delete trio inconsistency
+
 10. **Split-brain between `032` and `096`.** Canonical RPC `000:293-300` requires `is_deleted/is_active/deleted_at/deleted_by + updated_at`. `032:83-109` adds `is_deleted/deleted_at/deleted_by` **only if `is_active` exists**, plus partial indexes — but not `deleted_reason`. `096:1-3` claims RPC needs `deleted_reason`, then `096:23-25` adds `deleted_by/deleted_at/deleted_reason` but **not** `is_deleted/is_active`. Neither migration alone yields the full set.
 11. **Wrong table names in `096:10-19`.** List uses `chapters/topics/subtopics/units/sections` — live names are `subject_chapters/subject_topics/subject_subtopics/subject_units` (`129:9-28`) and `test_sections`. Loop swallows errors (`096:27-29` `EXCEPTION ... NOTICE 'Skipping'`) → intended tables silently skipped. `096:38-49` FKs target `question_bookmarks/question_reports` (exist per `065:99,140`) but constraint names `fk_qb_question/fk_qr_question` collide conceptually with `019` `fk_*` on `wrong_questions` — verify no duplicate-constraint error on re-run.
 
 ### E. Dual-ID `public_id` fragmentation
+
 12. **Three incompatible flavors:** (i) generated prefixed TEXT (`033:94-95` `stp_`, `027:21` `tpl_`, `038:31` `dbr_`, `080:14` `vid_`); (ii) UUID-only (`043:58`, `044:55`); (iii) nullable plain `VARCHAR UNIQUE` (`019:338-360` for `study_streaks/wrong_questions/revision_queue`). (iii) permits NULLs (UNIQUE ignores NULLs → duplicates-by-absence) and has no generation → `prevent_public_id_uuid_mutation (000:55-59)` + `get_user_public_id (000:242-254)` assume a `public_id` column that many `108`-baseline tables lack. `db/constants.js:3-31` registry (`rvq_`, `wq_`, `vid_`, `subs_` vs `subj_` collision fix) has no DB-side generation for `rvq_/wq_` — app must populate or column stays NULL. `PUBLIC_ID_PATTERNS :35-83` enforces UUID-suffix shape app-side only.
 
 ### F. pgvector index churn
+
 13. **ivfflat → HNSW migration churn + runner subtlety.** `000:34` enables `vector`; `027:127-128` leaves ivfflat commented; `039:980-982` + `076:23-24` build ivfflat; `093:16-17` drops ivfflat, `093:30-36` builds HNSW `CONCURRENTLY (m=32, ef_construction=200)`. Runner handles `CONCURRENTLY` by skipping transaction (`migrationRunner.js:174-179`) — correct — but `093` mixes `SET maintenance_work_mem (093:10)`, transactional `DO` drops (`093:13-22`), two `CONCURRENTLY` creates, and `ALTER DATABASE ... SET hnsw.ef_search (093:43)` in **one file sent as a single `client.query`** — `CONCURRENTLY` + `DO`/`SET` in one implicit multi-statement string is fragile across drivers; `093:8` fails fast if `embeddings` (from `076`) missing (no extension guard). `134:83-93` rebuilds the same HNSW indexes **transactionally** (non-concurrent) → duplicate logic, divergent path, full-index rewrite on fresh deploys. No per-session `SET hnsw.ef_search=100` found in inspected territory (only `093:45` NOTICE).
 
 ### G. FK cascades vs soft-delete + stale reconcile map
+
 14. **`129:6-47` unguarded destructive cascades.** Bare `DROP CONSTRAINT IF EXISTS` + `ADD CONSTRAINT` with **no table/column existence guard** (unlike `138/139` style) → fails fresh/partial DBs. `ON DELETE CASCADE` on taxonomy spine (`129:7,11,18,21,28`: subject→units→chapters→topics→subtopics) means deleting one subject hard-deletes the subtree — directly contradicts soft-delete intent (`032/096`). Questions correctly use `SET NULL` (`129:32-47`).
 15. **`relationships.js` references legacy names.** Map uses `units/chapters/topics/subtopics` (`:254-298`) and `questions.chapter_id→chapters (:121-128)` while live schema is `subject_units/subject_chapters/subject_topics/subject_subtopics` (`129`). `reconcileRelationships (postgres-helpers.js:649-664)` runs every boot via `ensureForeignKey` — will attempt FKs on nonexistent tables/columns each boot (noise + risk of `dropIfMismatch` drops on `attempt_answers/ tests.subject_id`). It also **omits** `revision_queue/practice_answers/wrong_questions/user_recommendations/source_attempt_id` FKs entirely (grep: zero matches) — consistent with `138:17-20` "MUST leave NULL" practice-path rule, but leaves test-path `source_attempt_id→attempts(id)` unenforced (only `019:447-456` covers legacy `attempt_id`, not new `source_attempt_id`).
 
 ### H. Encryption `m088/m104` regression
+
 16. **`104` regresses `088` hardening.** `088:54,153-154` sets `search_path=public,pg_catalog,pg_temp` + `088:96-110` revokes `PUBLIC/anon/authenticated`, grants `service_role` (hardened further in `115`). `104:21-50` redefines `encrypt_pii/decrypt_pii` **without** `SET search_path` and **without** REVOKE/GRANT → search_path hijack surface + privilege widening. `104:55-68` trigger syncs only `NEW.mobile` (`104:60`), dropping `088:162` `COALESCE(phone,mobile)` + phone→mobile mirroring (`088:164-169`) → phone-only writes leave `phone_enc` NULL. `088:22-23` promises follow-up `122` drops plaintext; `122` is response-time indexes (no drop) → plaintext retained indefinitely. Runtime write pool never sets `app.pgcrypto_key` (`104:1-10` comment; only `migrationRunner.js:168-170` sets it per-migration) → DB trigger is no-op in prod; app-layer `aes-256-gcm` in `postgres-helpers.js:684-767` is the real path — dual-cipher (`pgp_sym_encrypt aes256-CFB` vs `aes-256-gcm`) documented in `088:14-19` but rotation story untested here.
 
 ### I. Runtime DDL vs migrations (god-node adjacency)
+
 17. **Runtime DDL survives alongside no-op `initTables`.** `initTables (postgres-helpers.js:670-675)` is correctly a no-op with "new DDL MUST go through migration" comment — but `runEnsureTestSectionsSchema (182-231)` still `CREATE TABLE test_sections` + `ALTER tests/test_questions/attempts/bookmarks/csrf_tokens` at runtime, **outside** the advisory lock (`migrationRunner.js:28-39`) and duplicating `065:6-19`, `103` (bookmarks VARCHAR), `037` (csrf index). No signature change proposed to `PostgresHelpers/dbHelpers` (52/138 edges) or `pool` (113 edges) — flag only: delete or gate this path behind the migration chain; do not alter helper signatures lightly.
 
 ### J. Seeders
+
 18. **Minimal, FK-ordered but incomplete.** `seeders/index.js:30-37` order respects FKs; `runSeeders:43-46` runs migrations first + clears column cache (good). Only 6 seeders (subjects/tests/questions/live_tests/exam_rooms/app_settings) — no `stages/exam_categories/subscription_plans/roles/permissions/users` baseline → fresh-DB admin/RBAC/commerce paths unseeded. `BaseSeeder` conflict strategy (`ON CONFLICT DO NOTHING` vs upsert) not verified within budget — confirm before relying on idempotency claim in `index.js:8-9`.
 
 ## 3. Verification
+
 - **Enumerated:** `postgres-helpers.js` runtime DDL block, `migrationRunner.js` lock/sort/`CONCURRENTLY`/crypto-key logic, `relationships.js` full map, `constants.js` prefix registry, `065/088/104/093/096/099/116/129/137/138/139/140/141/032/042/128` full reads, `000/000a/018/019` targeted slices, `legacy README` chain notes.
 - **Grep-verified:** `revision_queue.priority` (VARCHAR in `018:116` vs INTEGER in `138:102-103`), `practice_answers` triple (in both `065:89-91` and `138:170-181`), `vector(1536)/ivfflat/hnsw` chain (`000→027→039→076→093→134`), `public_id` three-flavor split, `update_updated_at_column/deleted_reason/soft_delete_record` cross-refs, zero FK coverage for `revision_queue/practice_answers` new columns, `CONCURRENTLY` handling in runner.
 - **Not executed:** no DDL, no `DROP/TRUNCATE`, no live-DB `information_schema` check, no `scripts/` reads (forbidden), no frontend/admin/route reads (forbidden). Drift items citing "live DB verified via information_schema" rely on `138:13-15` / `139:10-12` header attestations.
 - **Suggested read-only follow-ups (for orchestrator):** `SELECT column_name,data_type FROM information_schema.columns WHERE table_name IN ('revision_queue','practice_answers','wrong_questions','user_recommendations')`; `SELECT tablename,policyname FROM pg_policies WHERE schemaname='public'`; `SELECT indexname FROM pg_indexes WHERE tablename IN ('embeddings','question_search_index','revision_queue','subject_topics')`; `SELECT * FROM schema_migrations ORDER BY 1` to confirm `128-141` applied + `134` hash (detect edited-shipped-file divergence).
 
 ## 4. Blockers
+
 1. **No live-DB access** — INTEGER-vs-VARCHAR priority, `practice_answers` extra columns, and `user_recommendations` drift cannot be closed as "fixed" without `information_schema` snapshots; `138/139` are conditional-ADD only and cannot repair wrong-typed columns.
 2. **Forbidden paths hide both ends of the contract** — writer column lists (`practice.js`, `analyticsService.recordPracticeAnalytics`, `smartRevision`, `recommendationService.saveRecommendations`) and `scripts/run-database-audit.js` schema patterns are out of territory; RLS/soft-delete/FK conclusions are schema-side only.
 3. **Unread within territory (budget):** full `116:101-404` policy table list, `106/107/108` DDL (Node Engine V2 / Practice redesign / baseline), `099:61-114` tail, `134` full body, `BaseSeeder.js` conflict semantics, `auditTrailManager.js`, `qb.js:61-371` remainder. Recommend a second pass scoped to those files before any DDL is authorized.
@@ -231,12 +248,14 @@ None — read-only dispatch; no commands executed (per contract, no destructive/
 ## 1. Files Inspected
 
 **Routing / shell:**
+
 - `apps/frontend/src/App.jsx` (381 lines) — all routes via `lazyWithRetry`, `createRoute`/`wrapElement`, `standaloneRoutes` + `layoutRoutes`, `AdminPanelRedirect`, skip-link
 - `apps/frontend/src/app/routes.jsx` (88 lines) — `RootRoute`, `wrapElement` (RouteErrorBoundary+ProtectedRoute+FeatureGate), `createRoute`
 - `apps/frontend/src/shared/utils/lazyWithRetry.js` (99 lines)
 - `apps/frontend/src/shared/components/common/RouteErrorBoundary.jsx` (78 lines)
 
 **Target pages:**
+
 - `apps/frontend/src/pages/exams/ExamCompare.jsx` (279 lines)
 - `apps/frontend/src/pages/exams/ExamYear.jsx` (463 lines)
 - `apps/frontend/src/pages/exams/ExamsNew.jsx` (1 line: `export {default} from "./Exams"`)
@@ -248,6 +267,7 @@ None — read-only dispatch; no commands executed (per contract, no destructive/
 - `apps/frontend/src/pages/dashboard/Bookmarks.jsx` (lines 63,126,150)
 
 **Lib / providers / hooks:**
+
 - `shared/lib/practiceAPI.js` (158 lines), `bookmarksAPI.js` (28 lines), `testsAPI.js` (97 lines), `language.js` (346 lines)
 - `shared/lib/telemetry/TelemetryService.js` (573 lines), `telemetry/OfflineQueue.js` (103 lines), `telemetry/index.js`, `telemetry/videoTelemetry.js`
 - `shared/lib/offline/IndexedDBAttemptVault.js` (637 lines)
@@ -259,21 +279,21 @@ None — read-only dispatch; no commands executed (per contract, no destructive/
 
 ## 2. Issues
 
-| # | Severity | Location (file:line) | Finding |
-|---|----------|----------------------|---------|
-| 1 | **Info / Fixed** | `pages/exams/ExamCompare.jsx:29-64,154-173` | **Sample fallback GONE.** No `getSampleData()`. Fetches `/api/exams/${examId}/compare?years=...`, error/empty renders "Comparison data unavailable" + Try Again. Prior REPO_BRAIN claim of fallback is stale. Residual nits: `selectedYears` setter unused (`_setSelectedYears:21`); years hard-coded `["2026","2025"]` with no UI; `comparisonFields:66-73` uses key `vacancies` while `ExamYear.jsx` uses `vacancy` — verify backend contract; `getChangeIndicator:92-100` does `parseInt` on date strings (NaN-safe only because `parseInt(current)>parseInt(previous)` is false → returns decrease arrow incorrectly for dates). |
-| 2 | **Low (orphan)** | `pages/exams/ExamDetails.jsx:1-773` vs `App.jsx:78-83,244-256` + `pages/exams/index.js:4` | **ExamDetails orphan confirmed.** Full React-Query implementation (exam-info/updates/yearly-data/category, enroll/unenroll mutations) but never `lazy()`-imported or routed; `App.jsx` routes `/exam/:examId` → `ExamInfoNew`, `/exam/:examId/year/:year` → `ExamYear`. Not in bundle (no import), but 773L dead code + exported from `index.js`. Route or delete. |
-| 3 | **Info (benign alias)** | `pages/exams/ExamsNew.jsx:1`, `index.js:3` | **Not an orphan page.** Single-line re-export of `./Exams`. Never routed directly, but harmless alias. Either route it or remove export to avoid confusion. No bundle cost. |
-| 4 | **Low (fixed, residual)** | `pages/exams/ExamYear.jsx:35-60,83-116` | **Sample fallback GONE.** Proper `error` state + Retry, `AbortController`, `isNaN(yearNum)` guard. Clean. |
-| 5 | **Low (fixed, residual)** | `pages/tests/PYPTest.jsx:31-99,207-250` | **Real-API wiring confirmed** (`getTestById` + `getQuestionsByTestId` + `POST /api/tests/:id/start`, `PUT /api/tests/:id/submit`). Residual: `navigate(/test-result/pyp/${pypId}):241` relies on generic `/test-result/:seriesId/:testId` route with `seriesId="pyp"` — works but `TestResult.jsx` must special-case it; empty-questions shows bare `Test not found:260-262` with no retry. |
-| 6 | **Medium-Fixed (verify child contract)** | `shared/lib/practiceAPI.js:3-8,10-46` + `pages/tests/PracticeLab.jsx:334-353,439-448` + `components/PracticeWorkspace.jsx:165` | **`undefined`-id hardened at API layer.** `getSessionId()` throws on `undefined/null/""` (no more `GET .../undefined` 500); `normalizeSession()` unifies `id/sessionId/session_id`; `startSession()` throws if response lacks ID. `handleStartSession` try/catches with toast. Residual risk: `onResume(session)` calls `practiceAPI.getSession(session.id):441` — shape of `session` comes from `PracticeHubDashboard` child (not audited here); if child passes `{sessionId}` only, `session.id` is undefined and throws client-side (good — explicit, but resume fails). `PracticeWorkspace getQuestion(session.id, idx):165` assumes normalized session. Recommend defensive `session.id ?? session.sessionId` at call-sites. |
-| 7 | **Medium (perf)** | `pages/tests/TestInterface.jsx:436-439` (GOOD) vs `pages/dashboard/Bookmarks.jsx:63,126,150` | **Split behavior.** TestInterface correctly uses `bookmarksAPI.getAll(1,100,{includeDetails:false})` with comment. Dashboard `Bookmarks.jsx` calls `getAll(1,50)` / `getAll(page,50)` with **no `includeDetails`** — falls back to backend default (likely enriching path → the 5.3s `?page=1&limit=100` symptom). `bookmarksAPI.js:4-11` supports the param. Fix: pass explicit `includeDetails` (false for ID-only prefetch, true + small limit for detail view) or paginate 20. |
-| 8 | **Good** | `App.jsx:12,38-125` + `lazyWithRetry.js:25,54-97` + `routes.jsx:47-65` | **Lazy-loading + boundaries correct.** Every page via `lazyWithRetry` (2 retries, backoff, one-time reload guard cleared only on success). `TEST_PATH_RE:25` correctly exempts `/tests/|/live-tests/|/pyp/*/test|/test/|/test-result/|/test-review/` from auto-reload (prevents killing attempts). Every route wrapped in `RouteErrorBoundary` via `wrapElement`. One root `Suspense → PageSkeleton`. `RouteErrorBoundary.jsx:16-25,54-69` distinguishes chunk vs generic errors, dev-only stack, Reload + Try-Again. Global `ErrorBoundary` outer in `App.jsx:349`. No missing boundary found. |
-| 9 | **Good** | `shared/lib/language.js:47-102,112-129,236-306` | **i18n robust.** `getLocalizedField(field, lang)` handles string/array/object, `<span class="eqt/hqt">` extraction, `decodeHtmlEntities`+`cleanHtmlWrapper`, en↔hi fallback, last-resort `en/hi/text/value`. `parseLanguageList/formatLanguagesDisplay/getLanguageDisplayName` handle arrays/JSON/CSV/`/`-separated + 22-language map. Minor: `pickDefaultLanguage:112` only scores en/hi, ignores bn/ta/te etc. — acceptable for current bilingual UI. |
-| 10 | **Good (minor note)** | `telemetry/TelemetryService.js:85-95,171-242,252-287,307-358,363-406` + `telemetry/OfflineQueue.js:10-26` + `offline/IndexedDBAttemptVault.js` | **Offline queue sound.** Batch flush 8s, heartbeat 30s, 100/batch cap, 1000-event memory cap with FIFO evict + `droppedEventsCount`, `sendBeacon` + sync-XHR fallback on unload, `OfflineQueue` (localStorage per-attempt) + `IndexedDBAttemptVault` (attempts/answers/syncQueue + memory fallback + `batchSyncAttemptReplay` with `idempotencyKey` + `setupAutoReplayListener` on `online`). `getMetrics()` exposes queueDepth/age/dropped. Minor: `OfflineQueue.enqueue` does sync `localStorage` read+write per event while offline (main-thread cost at high event rates); `droppedKey` never auto-cleared (monotonic per attempt). |
-| 11 | **Low-Medium (coupling)** | `shared/hooks/useProPass.js:12` (`import {useAuth} from '../providers/AuthContext'`) | **Coupling confirmed.** Hook hard-imports app `AuthContext`; not portable to `packages/` or admin-panel. Also dual source of truth: `AuthProvider.jsx:483-487 hasProPass()` (simple `isProUser+expiry`) vs `useProPass:18-138` (admin-unlimited, `is_pro/is_pro_user` variants, `remainingDays/urgencyLevel/statusText`). Refactor to `useProPass(user?)` / DI param. Functional correctness OK (admin→unlimited, expiry-gated `isActive`, `hasProPass:isActive` compat). |
-| 12 | **Medium (UX)** | `shared/types/index.js:148-167` + `config/assets-config.js:310-348` + consumers (`dashboard/Settings.jsx:794-799,920-925`, `components/layout/NavbarProfile.jsx:46-52`, `pages/tests/QuestionPalette.jsx:149-153`, `components/PracticeWorkspace.jsx:1072-1076`) | **Avatar 404 has no client fallback.** `mapUserToFrontend` → `getAssetUrl()` correctly resolves `data:/blob:` passthrough, absolute http(s), `/absolute` via `VITE_API_URL` minus `/api` (prod falls back to `window.location.origin`, never stale localhost). Returns `""` for null → callers show initials (good). But when backend returns a **dangling local path** (`/assets/avatar/avatar_1_*.webp` with no file / S3 provider), `<img src={user.avatar}>` 404s with broken-image icon — no `onError` handler in Settings/Navbar/QuestionPalette/PracticeWorkspace. `StudyMaterialChapter.jsx:1915,1950,2331` already uses `ui-avatars.com` fallback pattern — apply same (`onError` → initials or `getAvatarUrl(name)`) to profile/test avatars. |
-| 13 | **Good** | `App.jsx:343-348`, `TestInterface.jsx:496-527` | **a11y/UX positives.** Skip-to-main-content link present; bookmark toggle is optimistic with revert on failure; PracticeLab deep-link guarded by `deepLinkLaunchedRef` against StrictMode double-fire. |
+| #   | Severity                                 | Location (file:line)                                                                                                                                                                                                                                             | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Info / Fixed**                         | `pages/exams/ExamCompare.jsx:29-64,154-173`                                                                                                                                                                                                                      | **Sample fallback GONE.** No `getSampleData()`. Fetches `/api/exams/${examId}/compare?years=...`, error/empty renders "Comparison data unavailable" + Try Again. Prior REPO_BRAIN claim of fallback is stale. Residual nits: `selectedYears` setter unused (`_setSelectedYears:21`); years hard-coded `["2026","2025"]` with no UI; `comparisonFields:66-73` uses key `vacancies` while `ExamYear.jsx` uses `vacancy` — verify backend contract; `getChangeIndicator:92-100` does `parseInt` on date strings (NaN-safe only because `parseInt(current)>parseInt(previous)` is false → returns decrease arrow incorrectly for dates).                                                                                                                    |
+| 2   | **Low (orphan)**                         | `pages/exams/ExamDetails.jsx:1-773` vs `App.jsx:78-83,244-256` + `pages/exams/index.js:4`                                                                                                                                                                        | **ExamDetails orphan confirmed.** Full React-Query implementation (exam-info/updates/yearly-data/category, enroll/unenroll mutations) but never `lazy()`-imported or routed; `App.jsx` routes `/exam/:examId` → `ExamInfoNew`, `/exam/:examId/year/:year` → `ExamYear`. Not in bundle (no import), but 773L dead code + exported from `index.js`. Route or delete.                                                                                                                                                                                                                                                                                                                                                                                      |
+| 3   | **Info (benign alias)**                  | `pages/exams/ExamsNew.jsx:1`, `index.js:3`                                                                                                                                                                                                                       | **Not an orphan page.** Single-line re-export of `./Exams`. Never routed directly, but harmless alias. Either route it or remove export to avoid confusion. No bundle cost.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 4   | **Low (fixed, residual)**                | `pages/exams/ExamYear.jsx:35-60,83-116`                                                                                                                                                                                                                          | **Sample fallback GONE.** Proper `error` state + Retry, `AbortController`, `isNaN(yearNum)` guard. Clean.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 5   | **Low (fixed, residual)**                | `pages/tests/PYPTest.jsx:31-99,207-250`                                                                                                                                                                                                                          | **Real-API wiring confirmed** (`getTestById` + `getQuestionsByTestId` + `POST /api/tests/:id/start`, `PUT /api/tests/:id/submit`). Residual: `navigate(/test-result/pyp/${pypId}):241` relies on generic `/test-result/:seriesId/:testId` route with `seriesId="pyp"` — works but `TestResult.jsx` must special-case it; empty-questions shows bare `Test not found:260-262` with no retry.                                                                                                                                                                                                                                                                                                                                                             |
+| 6   | **Medium-Fixed (verify child contract)** | `shared/lib/practiceAPI.js:3-8,10-46` + `pages/tests/PracticeLab.jsx:334-353,439-448` + `components/PracticeWorkspace.jsx:165`                                                                                                                                   | **`undefined`-id hardened at API layer.** `getSessionId()` throws on `undefined/null/""` (no more `GET .../undefined` 500); `normalizeSession()` unifies `id/sessionId/session_id`; `startSession()` throws if response lacks ID. `handleStartSession` try/catches with toast. Residual risk: `onResume(session)` calls `practiceAPI.getSession(session.id):441` — shape of `session` comes from `PracticeHubDashboard` child (not audited here); if child passes `{sessionId}` only, `session.id` is undefined and throws client-side (good — explicit, but resume fails). `PracticeWorkspace getQuestion(session.id, idx):165` assumes normalized session. Recommend defensive `session.id ?? session.sessionId` at call-sites.                       |
+| 7   | **Medium (perf)**                        | `pages/tests/TestInterface.jsx:436-439` (GOOD) vs `pages/dashboard/Bookmarks.jsx:63,126,150`                                                                                                                                                                     | **Split behavior.** TestInterface correctly uses `bookmarksAPI.getAll(1,100,{includeDetails:false})` with comment. Dashboard `Bookmarks.jsx` calls `getAll(1,50)` / `getAll(page,50)` with **no `includeDetails`** — falls back to backend default (likely enriching path → the 5.3s `?page=1&limit=100` symptom). `bookmarksAPI.js:4-11` supports the param. Fix: pass explicit `includeDetails` (false for ID-only prefetch, true + small limit for detail view) or paginate 20.                                                                                                                                                                                                                                                                      |
+| 8   | **Good**                                 | `App.jsx:12,38-125` + `lazyWithRetry.js:25,54-97` + `routes.jsx:47-65`                                                                                                                                                                                           | **Lazy-loading + boundaries correct.** Every page via `lazyWithRetry` (2 retries, backoff, one-time reload guard cleared only on success). `TEST_PATH_RE:25` correctly exempts `/tests/                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | /live-tests/ | /pyp/*/test | /test/ | /test-result/ | /test-review/`from auto-reload (prevents killing attempts). Every route wrapped in`RouteErrorBoundary`via`wrapElement`. One root `Suspense → PageSkeleton`. `RouteErrorBoundary.jsx:16-25,54-69`distinguishes chunk vs generic errors, dev-only stack, Reload + Try-Again. Global`ErrorBoundary`outer in`App.jsx:349`. No missing boundary found. |
+| 9   | **Good**                                 | `shared/lib/language.js:47-102,112-129,236-306`                                                                                                                                                                                                                  | **i18n robust.** `getLocalizedField(field, lang)` handles string/array/object, `<span class="eqt/hqt">` extraction, `decodeHtmlEntities`+`cleanHtmlWrapper`, en↔hi fallback, last-resort `en/hi/text/value`. `parseLanguageList/formatLanguagesDisplay/getLanguageDisplayName` handle arrays/JSON/CSV/`/`-separated + 22-language map. Minor: `pickDefaultLanguage:112` only scores en/hi, ignores bn/ta/te etc. — acceptable for current bilingual UI.                                                                                                                                                                                                                                                                                                 |
+| 10  | **Good (minor note)**                    | `telemetry/TelemetryService.js:85-95,171-242,252-287,307-358,363-406` + `telemetry/OfflineQueue.js:10-26` + `offline/IndexedDBAttemptVault.js`                                                                                                                   | **Offline queue sound.** Batch flush 8s, heartbeat 30s, 100/batch cap, 1000-event memory cap with FIFO evict + `droppedEventsCount`, `sendBeacon` + sync-XHR fallback on unload, `OfflineQueue` (localStorage per-attempt) + `IndexedDBAttemptVault` (attempts/answers/syncQueue + memory fallback + `batchSyncAttemptReplay` with `idempotencyKey` + `setupAutoReplayListener` on `online`). `getMetrics()` exposes queueDepth/age/dropped. Minor: `OfflineQueue.enqueue` does sync `localStorage` read+write per event while offline (main-thread cost at high event rates); `droppedKey` never auto-cleared (monotonic per attempt).                                                                                                                 |
+| 11  | **Low-Medium (coupling)**                | `shared/hooks/useProPass.js:12` (`import {useAuth} from '../providers/AuthContext'`)                                                                                                                                                                             | **Coupling confirmed.** Hook hard-imports app `AuthContext`; not portable to `packages/` or admin-panel. Also dual source of truth: `AuthProvider.jsx:483-487 hasProPass()` (simple `isProUser+expiry`) vs `useProPass:18-138` (admin-unlimited, `is_pro/is_pro_user` variants, `remainingDays/urgencyLevel/statusText`). Refactor to `useProPass(user?)` / DI param. Functional correctness OK (admin→unlimited, expiry-gated `isActive`, `hasProPass:isActive` compat).                                                                                                                                                                                                                                                                               |
+| 12  | **Medium (UX)**                          | `shared/types/index.js:148-167` + `config/assets-config.js:310-348` + consumers (`dashboard/Settings.jsx:794-799,920-925`, `components/layout/NavbarProfile.jsx:46-52`, `pages/tests/QuestionPalette.jsx:149-153`, `components/PracticeWorkspace.jsx:1072-1076`) | **Avatar 404 has no client fallback.** `mapUserToFrontend` → `getAssetUrl()` correctly resolves `data:/blob:` passthrough, absolute http(s), `/absolute` via `VITE_API_URL` minus `/api` (prod falls back to `window.location.origin`, never stale localhost). Returns `""` for null → callers show initials (good). But when backend returns a **dangling local path** (`/assets/avatar/avatar_1_*.webp` with no file / S3 provider), `<img src={user.avatar}>` 404s with broken-image icon — no `onError` handler in Settings/Navbar/QuestionPalette/PracticeWorkspace. `StudyMaterialChapter.jsx:1915,1950,2331` already uses `ui-avatars.com` fallback pattern — apply same (`onError` → initials or `getAvatarUrl(name)`) to profile/test avatars. |
+| 13  | **Good**                                 | `App.jsx:343-348`, `TestInterface.jsx:496-527`                                                                                                                                                                                                                   | **a11y/UX positives.** Skip-to-main-content link present; bookmark toggle is optimistic with revert on failure; PracticeLab deep-link guarded by `deepLinkLaunchedRef` against StrictMode double-fire.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 ## 3. Verification
 
@@ -289,12 +309,14 @@ None — read-only dispatch; no commands executed (per contract, no destructive/
 ## 1. Files Inspected (~28, all under `apps/admin-panel/src`)
 
 **Routing / exports / nav:**
+
 - `App.jsx:1-377` — full route table (all `/admin/*` mounts, lazy imports, redirects, catch-all 404)
 - `features/admin/index.js:1-66` — barrel re-exports (40 entries)
 - `shared/config/adminNavConfig.js:1-150` (of 561) — nav categories/items
 - `shared/components/AdminLayout.jsx` (referenced, not re-read — sidebar/drawer host)
 
 **Target managers:**
+
 - `features/admin/study-materials/SubjectHierarchyManager.jsx:1-80,902` (902L total; default export line 40 + `export {SubjectHierarchyManager as SubjectHierarchyView}` line 902)
 - `features/admin/study-materials/StudyMaterialsManager.jsx:780-839` (tabs array 795-817)
 - `features/admin/study-materials/TopicsManager.jsx:17`, `SubjectRelationsManager.jsx:38`, `CurriculumBuilder.jsx:55,207,2523`, `components/ContentHierarchySidebar.jsx:4`
@@ -307,6 +329,7 @@ None — read-only dispatch; no commands executed (per contract, no destructive/
 - `features/admin/assessments-quizzes/TestsManager.jsx:92,734,1707` (SECTION_PRESETS consumer), `components/TestFormModal.jsx:13,751`, `components/BulkImportModal.jsx:1-60` (of 208), `QuizzesManager.jsx:448`
 
 **Shared guard/validation/data layer:**
+
 - `shared/components/ProtectedRoute.jsx:1-132`
 - `shared/lib/rbac.js:1-102`
 - `shared/lib/validationSchemas.js:1-121` (full)
@@ -318,27 +341,20 @@ None — read-only dispatch; no commands executed (per contract, no destructive/
 ## 2. Issues (file:line)
 
 **Missing / broken routes:**
+
 1. `SubjectHierarchyManager.jsx:40,902` — **unrouted orphan confirmed**. No `<Route>` in `App.jsx`, no export in `features/admin/index.js:27-33`, not in `StudyMaterialsManager.jsx:795-817` tabs (`subjects`/`curriculum`/`subject-relations` only), `ContentHierarchySidebar.jsx:4` does not import it. 902L of dead code; only direct import can reach it. Calls `apiClient.get("/admin/subjects|/topics|/chapters")` (`SubjectHierarchyManager.jsx:66-70`).
-2. `TopicsManager` — **redirect-to-nowhere**. `App.jsx:227-232` redirects `/admin/topics → /admin/study-materials?tab=topics`, but `StudyMaterialsManager.jsx:795-817` has no `topics` tab id (only `subjects|curriculum|subject-relations`), so `activeTab` (`:819-820`) falls back to `subjects`. Same pattern for `/admin/curriculum → ?tab=curriculum` (`App.jsx:233-238`) which **does** work (curriculum tab exists). Partial mitigation: `CurriculumBuilder.jsx:55` has an *internal* `topics` sub-tab, but it is not `TopicsManager.jsx:17`. `TopicsManager` is exported (`index.js:29`) but unreachable as its own page.
+2. `TopicsManager` — **redirect-to-nowhere**. `App.jsx:227-232` redirects `/admin/topics → /admin/study-materials?tab=topics`, but `StudyMaterialsManager.jsx:795-817` has no `topics` tab id (only `subjects|curriculum|subject-relations`), so `activeTab` (`:819-820`) falls back to `subjects`. Same pattern for `/admin/curriculum → ?tab=curriculum` (`App.jsx:233-238`) which **does** work (curriculum tab exists). Partial mitigation: `CurriculumBuilder.jsx:55` has an _internal_ `topics` sub-tab, but it is not `TopicsManager.jsx:17`. `TopicsManager` is exported (`index.js:29`) but unreachable as its own page.
 3. `features/admin/index.js` **stale vs `App.jsx`**: missing barrel exports for `PaymentsManager` (routed `App.jsx:297`), `ModerationManager` (`App.jsx:298`), `TwoFactorManager` (`App.jsx:299`), `LiveTestMonitor` (`App.jsx:247`), `LiveProctoringConsole` (`App.jsx:145-147,248-252`), `SubjectHierarchyManager`, `ServerLogsManager` (routed `App.jsx:288`). Also `ComingSoonManager` is exported (`index.js:62`) but its route redirects to settings (`App.jsx:268-271`) — dead nav entry if nav still lists it.
 4. `LiveProctoringConsole` — **extra unindexed route**: `App.jsx:248-252` (`live-proctoring`, `live-proctoring/:liveTestId`) exists but has no barrel export and (from nav header read) no confirmed `adminNavConfig` entry — verify nav before calling it discoverable.
 5. Duplicate `/admin/deep-analytics` route (`App.jsx:218` and `:285`) — harmless (same element) but indicates route-table drift.
 
-**Placeholders (narrowed, not fully cleared):**
-6. `ResultsManager.jsx:514-516` — list/export/detail modals are implemented (CSV `43-85`, detail `370-461`, analytics `464-529`, pagination `313-367`), but the analytics modal still renders `"Detailed question-wise analytics coming soon."` — the question-wise breakdown the dispatch asks for is still a placeholder. Minor: row key `result._id` (`:243`) vs backend integer/`public_id` id convention — confirm shape of `adminAPI.getResults()` (`adminAPI.js:358` → `GET /admin/results`).
+**Placeholders (narrowed, not fully cleared):** 6. `ResultsManager.jsx:514-516` — list/export/detail modals are implemented (CSV `43-85`, detail `370-461`, analytics `464-529`, pagination `313-367`), but the analytics modal still renders `"Detailed question-wise analytics coming soon."` — the question-wise breakdown the dispatch asks for is still a placeholder. Minor: row key `result._id` (`:243`) vs backend integer/`public_id` id convention — confirm shape of `adminAPI.getResults()` (`adminAPI.js:358` → `GET /admin/results`).
 
-**Duplication (resolved — no action):**
-7. `SECTION_PRESETS` — **single source confirmed**. Only definition is `shared/config/sectionPresets.js:3,866-868` (frozen). Consumers are `TestsManager.jsx:92,734,1707` and `TestFormModal.jsx:13,751`. No inline duplicate remains. Grep for `SECTION_PRESETS|sectionPresets` returns only these 3 files.
+**Duplication (resolved — no action):** 7. `SECTION_PRESETS` — **single source confirmed**. Only definition is `shared/config/sectionPresets.js:3,866-868` (frozen). Consumers are `TestsManager.jsx:92,734,1707` and `TestFormModal.jsx:13,751`. No inline duplicate remains. Grep for `SECTION_PRESETS|sectionPresets` returns only these 3 files.
 
-**Validation gaps (real bug + coverage holes):**
-8. `validationSchemas.js:82-97` — **dangling `.refine()`**. `topicSchema` closes at `:74`; lines 82-97 start with `.refine(data => data.subjectId !== data.relatedSubjectId, …)` with no base object on those lines (relies on ASI continuation of the `z.object(...)` expression). `relatedSubjectId` exists nowhere in `topicSchema` (`:65-74`), so the guard is vacuous (always `subjectId !== undefined` → pass). Any subject-prerequisite rule is unenforced client-side.
-9. **No Zod schemas for**: payments/refunds, moderation actions, 2FA, exams/stages info, study-materials/curriculum, banners/FAQs/coupons/promotions, enrollment, live-test entities. Only `questionSchema:3`, `testSchema:23`, `categorySchema:39`, `stageSchema:49`, `topicSchema:65` + `settingsSchema.js:11` exist. `SubjectHierarchyManager.jsx:23-26` correctly uses `validateForm+topicSchema`, but most managers have no schema to call — server-side `express-validator` remains the only gate (acceptable, but client UX degrades to raw API errors).
+**Validation gaps (real bug + coverage holes):** 8. `validationSchemas.js:82-97` — **dangling `.refine()`**. `topicSchema` closes at `:74`; lines 82-97 start with `.refine(data => data.subjectId !== data.relatedSubjectId, …)` with no base object on those lines (relies on ASI continuation of the `z.object(...)` expression). `relatedSubjectId` exists nowhere in `topicSchema` (`:65-74`), so the guard is vacuous (always `subjectId !== undefined` → pass). Any subject-prerequisite rule is unenforced client-side. 9. **No Zod schemas for**: payments/refunds, moderation actions, 2FA, exams/stages info, study-materials/curriculum, banners/FAQs/coupons/promotions, enrollment, live-test entities. Only `questionSchema:3`, `testSchema:23`, `categorySchema:39`, `stageSchema:49`, `topicSchema:65` + `settingsSchema.js:11` exist. `SubjectHierarchyManager.jsx:23-26` correctly uses `validateForm+topicSchema`, but most managers have no schema to call — server-side `express-validator` remains the only gate (acceptable, but client UX degrades to raw API errors).
 
-**Permission-bypass / guard-chain risks (frontend scope):**
-10. `ProtectedRoute.jsx:88-89` — **fail-open on empty perms**: `(user.role==="admin" && userPerms.length===0) || (user.isAdmin===true && userPerms.length===0)` → `isSuper=true`. The P1 comment at `:80` says empty arrays must not grant defaults, yet these two clauses do exactly that. Any `admin`/`isAdmin` account whose `/me` returns `permissions: []` gets `*` implicitly (`hasPermission` short-circuit `:67`, plus `adminOnly` resource check bypass at `:94`). Fix must be backend-perms authoritative (deny when empty, except `second_tier` role). No evidence of exploitation — flagged as risk, not incident.
-11. `ProtectedRoute.jsx:94-106` + `rbac.js:12-54,61-64` — **coarse resource mapping**. `getResourceFromPath` defaults unknown segments to `"content"` (`rbac.js:58`); unmapped admin segments (`study-materials`, `subjects`, `subject-relations`, `topics`, `curriculum`, `content-management`, `current-affairs`, `practice-questions`, `live-monitor`, `live-proctoring`, `users` sub-tabs ok) all collapse to `content`, and `:100` accepts `content:read` as sufficient. A role with any `content:read` can view all unmapped sections. Additionally `App.jsx` never passes `requireAnyPermission/requireAllPermissions` to any route — per-section enforcement rests solely on this coarse check.
-12. **Admin chain invariance (frontend portion) — compliant.** Chain `normalizeFields→restrictAdminOrigin→validateAdminApiKey→protect→admin→auditMiddleware` is backend-enforced and cannot be verified from this territory (forbidden path respected — no backend files opened). Frontend compliance surface is intact: all inspected managers call `apiClient`/`adminAPI`/`authAPI` (`dataService.js:3-13`, `SubjectHierarchyManager.jsx:19`, `PaymentsManager.jsx:14`, `ModerationManager.jsx:52`, `TwoFactorManager.jsx:17`); `apiClient.js:140-141` injects `X-CSRF-Token`, `:159-201` rotates on CSRF 403 with single retry; `adminAPI.js:4-9` enforces `requireId` (no `undefined`-id requests — cf. backend practice `undefined` incident, not reproducible here). `dataService.js:42-57` throws `DataError` on malformed list payloads instead of caching empty truth. No raw `fetch()` bypass observed in inspected files.
-13. `BulkImportModal.jsx:38-60` — client validation is extension (`.csv/.xlsx/.xls/.json`) + 50 MB cap only; no MIME strictness (acknowledged `:55`), no row-level Zod preview. Actual import goes through `adminAPI.bulkUploadQuestions:261-262` (`POST /admin/questions/bulk`), `bulkUploadTests:76-79`, `bulkUploadQuizzes:80-83`, `bulkUploadLiveTests:342-343`, `bulkUploadPYP:351-352`, full-test pipeline `:86-105`. No demo/sample fallback found (grep for `sample|demo|mockData` in `assessments-quizzes` returns only benign `fallback` variable names, e.g. `TestsManager.jsx:389,393`, `QuizzesManager.jsx:448`) — prior QuizzesManager demo-fallback issue reads as fixed.
+**Permission-bypass / guard-chain risks (frontend scope):** 10. `ProtectedRoute.jsx:88-89` — **fail-open on empty perms**: `(user.role==="admin" && userPerms.length===0) || (user.isAdmin===true && userPerms.length===0)` → `isSuper=true`. The P1 comment at `:80` says empty arrays must not grant defaults, yet these two clauses do exactly that. Any `admin`/`isAdmin` account whose `/me` returns `permissions: []` gets `*` implicitly (`hasPermission` short-circuit `:67`, plus `adminOnly` resource check bypass at `:94`). Fix must be backend-perms authoritative (deny when empty, except `second_tier` role). No evidence of exploitation — flagged as risk, not incident. 11. `ProtectedRoute.jsx:94-106` + `rbac.js:12-54,61-64` — **coarse resource mapping**. `getResourceFromPath` defaults unknown segments to `"content"` (`rbac.js:58`); unmapped admin segments (`study-materials`, `subjects`, `subject-relations`, `topics`, `curriculum`, `content-management`, `current-affairs`, `practice-questions`, `live-monitor`, `live-proctoring`, `users` sub-tabs ok) all collapse to `content`, and `:100` accepts `content:read` as sufficient. A role with any `content:read` can view all unmapped sections. Additionally `App.jsx` never passes `requireAnyPermission/requireAllPermissions` to any route — per-section enforcement rests solely on this coarse check. 12. **Admin chain invariance (frontend portion) — compliant.** Chain `normalizeFields→restrictAdminOrigin→validateAdminApiKey→protect→admin→auditMiddleware` is backend-enforced and cannot be verified from this territory (forbidden path respected — no backend files opened). Frontend compliance surface is intact: all inspected managers call `apiClient`/`adminAPI`/`authAPI` (`dataService.js:3-13`, `SubjectHierarchyManager.jsx:19`, `PaymentsManager.jsx:14`, `ModerationManager.jsx:52`, `TwoFactorManager.jsx:17`); `apiClient.js:140-141` injects `X-CSRF-Token`, `:159-201` rotates on CSRF 403 with single retry; `adminAPI.js:4-9` enforces `requireId` (no `undefined`-id requests — cf. backend practice `undefined` incident, not reproducible here). `dataService.js:42-57` throws `DataError` on malformed list payloads instead of caching empty truth. No raw `fetch()` bypass observed in inspected files. 13. `BulkImportModal.jsx:38-60` — client validation is extension (`.csv/.xlsx/.xls/.json`) + 50 MB cap only; no MIME strictness (acknowledged `:55`), no row-level Zod preview. Actual import goes through `adminAPI.bulkUploadQuestions:261-262` (`POST /admin/questions/bulk`), `bulkUploadTests:76-79`, `bulkUploadQuizzes:80-83`, `bulkUploadLiveTests:342-343`, `bulkUploadPYP:351-352`, full-test pipeline `:86-105`. No demo/sample fallback found (grep for `sample|demo|mockData` in `assessments-quizzes` returns only benign `fallback` variable names, e.g. `TestsManager.jsx:389,393`, `QuizzesManager.jsx:448`) — prior QuizzesManager demo-fallback issue reads as fixed.
 
 ## 3. Verification (read-only, no commands run per contract)
 
@@ -357,6 +373,7 @@ None — read-only dispatch; no commands executed (per contract, no destructive/
 All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 
 **OpenRouter gateway / shared client:**
+
 - `modules/ai/aiClient.js` (150 lines) — `AI_CONFIG`, `FALLBACK_CONFIG`, `callAI`, `callAIStream`, `callAIWithFallback`, `generateEmbedding`, `isContentToxic`
 - `modules/ai/aiCache.js` (44 lines) — `AICache` Redis wrapper
 - `modules/ai/aiMentor.service.js` (453 lines) — `callAI` wrapper + cache + `checkTokenBudget`, `sanitizeForPrompt`, study-plan/doubt/strategy/daily-tip/chat/socratic-hint
@@ -368,6 +385,7 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - `api/routes/admin-catalog.js:530-688` — `POST /ai/generate-questions` live call + structured template-generator fallback + real DB insert
 
 **RAG / embeddings / PDF:**
+
 - `modules/ai/rag.service.js` (89 lines) — `chunkText`, `addDocument`, `retrieveContext` (FTS only)
 - `modules/ai/embeddingService.js` (540 lines) — `generateEmbedding`, batch, `indexContent/indexBatch/indexAllUnindexed`, `searchSimilar` (pgvector `<=>`), `getStats/checkPgvector`
 - `modules/ai/embedding.routes.js` — verified via glob (7 endpoints)
@@ -378,12 +396,14 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - `data/models/search/QuestionSearchIndex.js` (390 lines) — FTS + `searchByEmbedding`, `upsertFromQuestion`, `setEmbedding`, `bulkIndexUnindexed`
 
 **Rate limiting / cost:**
+
 - `middleware/aiRateLimiter.js` (72 lines) — hourly fixed-window `ai:rate:{userId}:{hourBucket}`, 50/500 defaults, fail-open
 - `middleware/rateLimiterFactory.js` — referenced, not in deep scope
 - `__tests__/authRateLimiter.test.js:27-158` — aiRateLimiter tests
 - `__tests__/aiMentor.service.test.js:53-55` — AICache mock
 
 **Node Engine V2 / adaptive / revision:**
+
 - `services/core/NodeEngineService.js` (330 lines) — `calculateMastery`, `getTimeDecay`, `getRecommendationScore`, `shouldRevise`, `getRecommendations`, `generateLearningPath`, `getSpacedRepetitions`, `recordAttempt`
 - `modules/nodeEngine/nodeEngine.routes.js` (84 lines) — 4 endpoints, `protect` only
 - `modules/ai/adaptiveDifficulty.js` (241 lines) — EMA stub + `getDifficulty/updatePerformance/getDifficulties/resetDifficulty`, `localCache` + `global.redis`
@@ -474,6 +494,7 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 ## 1. Files Inspected
 
 **Guardrails:**
+
 - `E:\Tech\Testprep\Trstprep V2.1\.gitignore:22-29,187-190` — `.env` / `*.env` / `*.key` / `*.pem` blocks
 - `E:\Tech\Testprep\Trstprep V2.1\.github\workflows\no-env.yml:1-66` — tracked `.env` + hardcoded-secret scan
 - `E:\Tech\Testprep\Trstprep V2.1\.github\workflows\data-guard.yml:1-150` — PII keys, secret values, `M3 Key.txt`, migration gaps
@@ -481,6 +502,7 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - `E:\Tech\Testprep\Trstprep V2.1\.husky:post-commit,graphify-sync.sh,_/` (directory listing only)
 
 **Policy / history docs (values redacted, locations only):**
+
 - `docs/SECURITY_POSTURE.md:114-116` — scrub + PII history marked user-handled
 - `docs/REMEDIATION_PLAN.md:160-165,1483,1537,1606-1610` — Phase 0 + Phase 2.1 scrub deferred
 - `docs/SECURITY_CREDENTIAL_ROTATION_AND_DPDP_RUNBOOK.md:1-210` — full rotation + `filter-repo` + DPDP plan
@@ -491,6 +513,7 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - `docs/UNIFIED_TRSTPREP_AUDIT.md:7866,8879` — rotate-then-scrub order
 
 **Crypto / data:**
+
 - `apps/backend/src/infrastructure/database/migrations/088_encrypt_pii_at_rest.sql:1-188`
 - `apps/backend/src/infrastructure/database/migrations/104_fix_pgcrypto_key_resilience.sql:1-74`
 - `apps/backend/src/infrastructure/database/migrations/039_comprehensive_schema_consolidation.sql:799-819` + `048_rls_policies_and_final_reconciliations.sql:451-471` + `056a_fix_security_definer_views...:47-52` — `test_attempts` TABLE→VIEW
@@ -498,6 +521,7 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - `apps/backend/src/infrastructure/database/seeders/_fixtures/*.json` (6 files: `app_settings,exam_rooms,live_tests,questions,subjects,tests.json`) — PII-key grep, no hits
 
 **Logging / sanitization / PII flows:**
+
 - `apps/backend/src/infrastructure/logger/logger.js:22-43` — pino `redact[]`
 - `apps/backend/src/infrastructure/logger/logBuffer.js:13-61,76-86` — regex + key redaction
 - `apps/backend/src/utils/sanitizeError.js:1-29` — `sanitizeErrorMessage` / `createSafeError`
@@ -510,27 +534,16 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 ## 2. Issues (location only, values redacted — severity + rotation/scrub status)
 
 **CRITICAL — Open history, rotation must precede scrub:**
+
 1. **Committed `.env` history** — `apps/backend/.env` in 2 commits per `ISSUE_SWEEP_2026-09-15.md:39`. Runbook `SECURITY_CREDENTIAL_ROTATION_AND_DPDP_RUNBOOK.md:13-18` confirms historical blobs held live `DATABASE_URL`, `JWT_SECRET`/`JWT_REFRESH_SECRET`, Razorpay ID/Secret, OpenRouter/MiniMax keys. Current tree: `git rm --cached` done, `.gitignore:26` + `no-env.yml:22-28` + `data-guard.yml:54-59` block re-track. **Severity: Critical. Rotation: OPEN (Phase 0). Scrub: OPEN (Phase 2.1 `git filter-repo --invert-paths` + `--replace-text` not yet executed, force-push pending).**
 2. **MiniMax `M3 Key.txt`** — Removed from worktree (walkthrough-2026-09.md:621 confirms absent), but `data-guard.yml:54` still guards `(^|/)M3 Key\.txt$` and runbook `B.3:124-129` lists it for `--invert-paths` purge. Assume key compromised until rotation confirmed. **Severity: Critical. Rotation: VERIFY (revoke in provider console). Scrub: OPEN (same `filter-repo` batch as above).**
 3. **Legacy `test_attempts` 528 rows / 196 principals** — Runbook `C.1:170-178`: names, emails, phones, attempt histories in early snapshots; live DB converted to VIEW in `039/048/056a` (verified above) but history retains PII. **Severity: Critical (DPDP). Scrub: OPEN. DPDP Notice obligation (Sec 5/6): PARTIAL — `Privacy.jsx` notices added per walkthrough, but direct notice to 196 historical principals + Sec 8(5)/12/14 erasure workflow still OPEN per runbook `C.2`.**
 
-**HIGH — Encryption fail-open / guard gaps:**
-4. **PII-at-rest fail-open when key absent** — `088:62-63,85-87,148` + `104:30-32,45-47,59-65`: `encrypt_pii/decrypt_pii` return `NULL` + trigger no-op if `app.pgcrypto_key` missing; plaintext cols (`phone`/`mobile`,`date_of_birth`,`location`,`education`,`bio`) retained for transition, drop deferred to migration 122 (not verified applied). `postgres-helpers.js` requires `DB_ENCRYPTION_KEY` (no `JWT_SECRET` fallback) but runtime write pool never sets GUC (only `migrationRunner` does) — `104` header documents the `42704` logout 500 that forced resilience. If prod `DB_ENCRYPTION_KEY`/`PGCRYPTO_KEY` unset, `*_enc` stay `NULL`, reads fall back to plaintext. **Severity: High. Fix: set key in prod, verify backfill, then drop plaintext. Never log key (088:24,104:16 already warn).**
-5. **Key-name confusion** — `088:7-9` documents `DB_ENCRYPTION_KEY ↔ app.pgcrypto_key`, `104` + runbook `A.1:49` say `PGCRYPTO_KEY`. Two names for same secret across code/migrations/docs. **Severity: High (ops risk — key set under wrong name = silent no-encryption).**
-6. **Pre-commit PII hook weaker than docs claim** — Actual `.husky/pre-commit:1-15` only blocks staged `*.env*` + `lint-staged`. Runbook `5:204-205` claims “regex scanners for AWS, Supabase, JWT, Razorpay” in pre-commit — not present. PII (`full_name`, `phone_number`, etc.) has no pre-commit gate; relies solely on CI `data-guard`. **Severity: High.**
-7. **`validateAdminApiKey` timing-unsafe compare** — `ISSUE_SWEEP:18` cites `origin.middleware.js:333` using `===` for secret compare. **Severity: High (timing side-channel). Fix: `crypto.timingSafeEqual`.**
+**HIGH — Encryption fail-open / guard gaps:** 4. **PII-at-rest fail-open when key absent** — `088:62-63,85-87,148` + `104:30-32,45-47,59-65`: `encrypt_pii/decrypt_pii` return `NULL` + trigger no-op if `app.pgcrypto_key` missing; plaintext cols (`phone`/`mobile`,`date_of_birth`,`location`,`education`,`bio`) retained for transition, drop deferred to migration 122 (not verified applied). `postgres-helpers.js` requires `DB_ENCRYPTION_KEY` (no `JWT_SECRET` fallback) but runtime write pool never sets GUC (only `migrationRunner` does) — `104` header documents the `42704` logout 500 that forced resilience. If prod `DB_ENCRYPTION_KEY`/`PGCRYPTO_KEY` unset, `*_enc` stay `NULL`, reads fall back to plaintext. **Severity: High. Fix: set key in prod, verify backfill, then drop plaintext. Never log key (088:24,104:16 already warn).** 5. **Key-name confusion** — `088:7-9` documents `DB_ENCRYPTION_KEY ↔ app.pgcrypto_key`, `104` + runbook `A.1:49` say `PGCRYPTO_KEY`. Two names for same secret across code/migrations/docs. **Severity: High (ops risk — key set under wrong name = silent no-encryption).** 6. **Pre-commit PII hook weaker than docs claim** — Actual `.husky/pre-commit:1-15` only blocks staged `*.env*` + `lint-staged`. Runbook `5:204-205` claims “regex scanners for AWS, Supabase, JWT, Razorpay” in pre-commit — not present. PII (`full_name`, `phone_number`, etc.) has no pre-commit gate; relies solely on CI `data-guard`. **Severity: High.** 7. **`validateAdminApiKey` timing-unsafe compare** — `ISSUE_SWEEP:18` cites `origin.middleware.js:333` using `===` for secret compare. **Severity: High (timing side-channel). Fix: `crypto.timingSafeEqual`.**
 
-**MEDIUM — Logger redaction incomplete, PII in admin paths by design:**
-8. **Logger allowlist misses PII classes** — `logger.js:22-43` redacts `password,token,secret,apiKey,jwt,sessionId,cookie,csrfToken` + headers, `logBuffer.js:13-22,45-52` adds `bearer,jwt,authorization`. Neither redacts `phone,mobile,otp,email,full_name,avatar_url,aadhaar,pan,razorpay,pgcrypto,DB_ENCRYPTION_KEY`. `logBuffer` partially masks captured values (`p1.slice(0,2)…`) rather than full `[REDACTED]`. `ISSUE_SWEEP:421` notes ~300 `console.*` bypass logger entirely (captured into buffer via `hookConsole` but with weaker patterns). `phoneAuth.js:365,436` logs generic `Error verifying OTP / linking phone` — no OTP/phone value today (prior `[DEV OTP]` removed per `REMEDIATION 2.4`), but `error` object could carry phone if upstream attaches it. **Severity: Medium. Fix: extend redact lists + add `phone|email|otp|aadhaar|pan|full_name` patterns, replace `console.*` with `logger` in prod paths.**
-9. **Residual `user_email` exposure (admin-scoped)** — `admin-audit.js`, `admin-enrollments.js`, `enrollments-admin.js`, `admin-payments.js`, `leaderboards-admin.js`, `practice.js:2230,2315` return `u.email AS user_email` to authenticated admins. `admin-moderation.js:139-142` now correctly deletes `userEmail` + `user_email` + `email` (prior `REMEDIATION 3.20` snake_case leak FIXED — verified). Remaining exposures are behind `protect+admin+RBAC+auditMiddleware` + `restrictAdminOrigin+validateAdminApiKey`, so accepted if audit retention holds; `audit.middleware` GET-detail coverage fixed per `REMEDIATION 3.23`. **Severity: Medium (ensure `secondTier` on bulk export/purge per `REMEDIATION 3.21`, no CSV export without audit).**
-10. **`.gitignore` over-broad + under-specific** — `*.cjs:120`, `*.txt:168` (with only 3 `!` exceptions), `/*.test.js` anchoring noted in header. `ISSUE_SWEEP:10` reports 5 test files + 23 `scripts/` tools silently ignored at time of sweep; current header `70-83` claims anchored fix but `*.cjs` still globally ignores local scripts. `supabase_data/` (PII: `full_name,avatar_url` per `data-guard:20-24`) has no explicit `.gitignore` entry — relies on `data/` + CI fail-if-present. **Severity: Medium.**
-11. **JWT `algorithms` allowlist missing (10 sites)** — `ISSUE_SWEEP:19` reports 10× `jwt.verify()` without `algorithms`. Enables algorithm-confusion if attacker holds alternate key. **Severity: Medium.**
+**MEDIUM — Logger redaction incomplete, PII in admin paths by design:** 8. **Logger allowlist misses PII classes** — `logger.js:22-43` redacts `password,token,secret,apiKey,jwt,sessionId,cookie,csrfToken` + headers, `logBuffer.js:13-22,45-52` adds `bearer,jwt,authorization`. Neither redacts `phone,mobile,otp,email,full_name,avatar_url,aadhaar,pan,razorpay,pgcrypto,DB_ENCRYPTION_KEY`. `logBuffer` partially masks captured values (`p1.slice(0,2)…`) rather than full `[REDACTED]`. `ISSUE_SWEEP:421` notes ~300 `console.*` bypass logger entirely (captured into buffer via `hookConsole` but with weaker patterns). `phoneAuth.js:365,436` logs generic `Error verifying OTP / linking phone` — no OTP/phone value today (prior `[DEV OTP]` removed per `REMEDIATION 2.4`), but `error` object could carry phone if upstream attaches it. **Severity: Medium. Fix: extend redact lists + add `phone|email|otp|aadhaar|pan|full_name` patterns, replace `console.*` with `logger` in prod paths.** 9. **Residual `user_email` exposure (admin-scoped)** — `admin-audit.js`, `admin-enrollments.js`, `enrollments-admin.js`, `admin-payments.js`, `leaderboards-admin.js`, `practice.js:2230,2315` return `u.email AS user_email` to authenticated admins. `admin-moderation.js:139-142` now correctly deletes `userEmail` + `user_email` + `email` (prior `REMEDIATION 3.20` snake_case leak FIXED — verified). Remaining exposures are behind `protect+admin+RBAC+auditMiddleware` + `restrictAdminOrigin+validateAdminApiKey`, so accepted if audit retention holds; `audit.middleware` GET-detail coverage fixed per `REMEDIATION 3.23`. **Severity: Medium (ensure `secondTier` on bulk export/purge per `REMEDIATION 3.21`, no CSV export without audit).** 10. **`.gitignore` over-broad + under-specific** — `*.cjs:120`, `*.txt:168` (with only 3 `!` exceptions), `/*.test.js` anchoring noted in header. `ISSUE_SWEEP:10` reports 5 test files + 23 `scripts/` tools silently ignored at time of sweep; current header `70-83` claims anchored fix but `*.cjs` still globally ignores local scripts. `supabase_data/` (PII: `full_name,avatar_url` per `data-guard:20-24`) has no explicit `.gitignore` entry — relies on `data/` + CI fail-if-present. **Severity: Medium.** 11. **JWT `algorithms` allowlist missing (10 sites)** — `ISSUE_SWEEP:19` reports 10× `jwt.verify()` without `algorithms`. Enables algorithm-confusion if attacker holds alternate key. **Severity: Medium.**
 
-**LOW / Informational — verified clean:**
-12. **No live hardcoded secrets in tree** — Repo-wide grep for `BEGIN PRIVATE KEY|AKIA…|rzp_live_|sk-live-|sk-or-v1-` returns only `no-env.yml:40` + `data-guard.yml:62` (guard patterns), `settingsService.test.js:91-125` fake placeholders (`rzp_live_key_id` — explicitly excluded by guards), runbook prose `141-143` (excluded). **Severity: Low (hygiene holds at tracking layer). Weak-JWT scan (`JWT_SECRET\s*=\s*[A-Za-z0-9…]{32,}`) similarly clean in tree — history still dirty.**
-13. **Seeder fixtures clean** — 6 `_fixtures/*.json` grep for `full_name|avatar_url|password_hash|phone_number|aadhaar|pan_card`: zero hits. **Severity: None.**
-14. **`audit_logs` vs `audit_trail` naming** — Canonical is `audit_logs` everywhere (`audit.middleware.js:148`, `base.repository.js:41`, `postgres-helpers.js:322`, all `admin-*.js`). Zero `audit_trail` table references; only `136:17,194-207` explicitly forbidding creation. **Severity: None (naming consistent).**
-15. **Error-message PII** — `sanitizeError.js:1-17` fail-closed in prod (allowlisted 4xx messages, generic 5xx), `createSafeError:19-27` separates `userMessage`/`internalMessage`. Broad adoption verified (100+ call sites). Residual: dev returns raw `error.message`; any handler that bypasses `sanitizeErrorMessage` or interpolates `req.user.email/phone` into 4xx message would leak — no live case found in sampled routes. **Severity: Low.**
+**LOW / Informational — verified clean:** 12. **No live hardcoded secrets in tree** — Repo-wide grep for `BEGIN PRIVATE KEY|AKIA…|rzp_live_|sk-live-|sk-or-v1-` returns only `no-env.yml:40` + `data-guard.yml:62` (guard patterns), `settingsService.test.js:91-125` fake placeholders (`rzp_live_key_id` — explicitly excluded by guards), runbook prose `141-143` (excluded). **Severity: Low (hygiene holds at tracking layer). Weak-JWT scan (`JWT_SECRET\s*=\s*[A-Za-z0-9…]{32,}`) similarly clean in tree — history still dirty.** 13. **Seeder fixtures clean** — 6 `_fixtures/*.json` grep for `full_name|avatar_url|password_hash|phone_number|aadhaar|pan_card`: zero hits. **Severity: None.** 14. **`audit_logs` vs `audit_trail` naming** — Canonical is `audit_logs` everywhere (`audit.middleware.js:148`, `base.repository.js:41`, `postgres-helpers.js:322`, all `admin-*.js`). Zero `audit_trail` table references; only `136:17,194-207` explicitly forbidding creation. **Severity: None (naming consistent).** 15. **Error-message PII** — `sanitizeError.js:1-17` fail-closed in prod (allowlisted 4xx messages, generic 5xx), `createSafeError:19-27` separates `userMessage`/`internalMessage`. Broad adoption verified (100+ call sites). Residual: dev returns raw `error.message`; any handler that bypasses `sanitizeErrorMessage` or interpolates `req.user.email/phone` into 4xx message would leak — no live case found in sampled routes. **Severity: Low.**
 
 ## 3. Verification
 
@@ -547,6 +560,7 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 ## 1. Files Inspected
 
 **Queue / events / worker (READ_ONLY):**
+
 - `apps/backend/src/infrastructure/queue/queueManager.js` (270L)
 - `apps/backend/src/infrastructure/queue/outboxPoller.js` (146L)
 - `apps/backend/src/infrastructure/events/eventBus.js` (167L)
@@ -557,6 +571,7 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - `apps/backend/src/services/SubscriptionService.js:354-489` (sweeper)
 
 **WebSocket / cache:**
+
 - `apps/backend/src/infrastructure/websocket/websocketManager.js` (688L)
 - `apps/backend/src/infrastructure/cache/redisClient.js` (243L)
 - `apps/backend/src/infrastructure/cache/cacheService.js` (318L)
@@ -567,6 +582,7 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - `apps/backend/src/middleware/imageOptimization.js` (78L)
 
 **Payments / subscriptions / live / storage / email / composition root:**
+
 - `apps/backend/src/api/routes/payments.js` (1215L)
 - `apps/backend/src/api/routes/subscriptions.js` (292L)
 - `apps/backend/src/api/routes/live-tests-public.js` (165L)
@@ -580,6 +596,7 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 ## 2. Issues
 
 ### A. BullMQ queues — silent drops, unconsumed queue, connection misuse
+
 - **High — `addJob` silently drops when Redis down, `queueManager.js:67-75`.** Returns `null`; `eventBus.js:75-80,92-98` degrades to local-emit with only a `logger.warn`. Test-submitted analytics/leaderboard/recommendation jobs are lost, no spool/retry. Do not change signature; callers must check `null`.
 - **High — `EVENTS` queue has no consumer in default worker.** `jobHandlers.js:80-85` defines an EVENTS handler, but `worker/index.js:9-14` only sets concurrency for analytics/leaderboard/notifications/recommendations, and `app-port5001.js:1109-1113` calls `initQueues()` but never `startWorkers()`. If the separate worker process isn't deployed, `messageBroker.enqueue()` (`messageBroker.js:129-153`) piles up unprocessed. Verify worker deployment in compose.
 - **Medium — DLQ `Queue` objects share a live connection.** `queueManager.js:190` (`new Queue(..., {connection})` reusing the worker's connection) and `queueManager.js:233,256` (`getDeadLetterJobs`/`retryDeadLetterJob` pass `getRedisClient()` directly instead of `.duplicate()`). Violates the file's own rule at `queueManager.js:49,146` ("Don't share connections"); causes `Connection is closed` under load.
@@ -587,17 +604,20 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - **Medium — `closeQueueResources` has no timeout, `queueManager.js:216-228`.** Sequential `worker.close()` → `queue.close()` can hang `gracefulShutdown` indefinitely; duplicated ioredis connections are only closed implicitly.
 
 ### B. Outbox poller — `SKIP LOCKED` without transaction = double-processing
+
 - **High — `SELECT ... FOR UPDATE SKIP LOCKED` outside a transaction, `outboxPoller.js:16-26`.** `pool.connect()` + bare `SELECT FOR UPDATE` has no locking effect in Postgres (lock released at statement end). With `backend-1`/`backend-2` both polling every 5s, both select the same 10 `pending` rows → duplicate `emitDomainEvent` (line 45) → duplicate emails/analytics. Fix requires `BEGIN … COMMIT` (not proposed here per contract).
 - **High — emit-before-mark with no transaction, `outboxPoller.js:44-52`.** Event is published, then `UPDATE … processed` on the same client but without `BEGIN/COMMIT`. Crash between the two = redelivery with no downstream idempotency (eventBus has none). At-least-once without dedup.
 - **Medium — attempt cleaner overlap + blunt mass-update, `outboxPoller.js:102-138`.** `setInterval(async…)` has no overlap guard; `UPDATE … WHERE id IN (SELECT … FOR UPDATE SKIP LOCKED)` (lines 114-123) can hold a long write txn with no `LIMIT`. Also silently sets `abandoned/is_completed=true/submitted_at=NOW()` with no scoring/analytics side effects. Threshold `COALESCE(last_heartbeat_at,last_activity_at,updated_at,created_at)` (line 121) means autosave-touched rows may never qualify, or idle-but-open rows get force-closed.
 - **Medium — throughput cap.** `LIMIT 10` per 5s poll (`outboxPoller.js:24`) = ~120 events/min max; bulk-submit bursts backlog with no metric/alert.
 
 ### C. Scheduler + subscription sweeper — dual-instance duplication, un-stopped interval
+
 - **High — subscription sweeper has no distributed lock.** `testScheduler.js:25-29` correctly uses `scheduler:lock` (`SET PX 55000 NX`), but the hourly `processExpiredSubscriptions` interval at `app-port5001.js:1220-1231` has none. Both replicas send duplicate grace/expiry notifications (`SubscriptionService.js:424-473`).
 - **Medium — sweeper interval never cleared.** `app-port5001.js:1220` `setInterval` handle is discarded; `gracefulShutdown` at `1249-1279` stops scheduler/outbox/cleaner but not this interval → keeps event loop alive, delays exit.
 - **Medium — legacy downgrade over-reaches, `SubscriptionService.js:410-418`.** `UPDATE users SET is_pro_user=false WHERE pro_expiry<=…` doesn't exclude users holding an active `subscriptions` row (unlike the main path at 396-406). Read path (`subscriptions.js:46-52`) uses different grace semantics than the writer.
 
 ### D. Razorpay webhook / verify — forgery handling good, idempotency asymmetric
+
 - **OK — webhook HMAC is correct.** Raw body mounted before JSON at `app-port5001.js:471-474`; `timingSafeEqual` with length check at `payments.js:819-825`; missing `RAZORPAY_WEBHOOK_SECRET` fails closed at `payments.js:798-809`; `pg_advisory_xact_lock` + `payment_id` check at `payments.js:867-884` serializes concurrent retries (with correct signed-int64 comment at 871-875).
 - **High — `/verify` has no equivalent lock.** Guard at `payments.js:471-485` is a bare `findOne({orderId})` → two concurrent verifies for the same order both pass before either `insertOne` (601-616), granting Pro twice and double-incrementing coupons at `payments.js:555-580`. Webhook path is safe; verify path is not. Different keys (`orderId` vs `payment_id` at 878-881) also weaken cross-path dedup.
 - **Medium — coupon read-modify-write race, `payments.js:562-572,912-949`.** `usedCount+1` / `usedByUsers.push` with no atomic increment; verify+webhook racing double-counts.
@@ -606,6 +626,7 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - **Low — router raw-body fallback re-serializes, `payments.js:731-747`.** `JSON.stringify(req.body)` ≠ original bytes, so HMAC fails if app-level `express.raw` is ever skipped (e.g. content-type mismatch). Fail-closed (correct) but brittle in tests. Missing-secret 500 vs bad-signature 400 (`payments.js:806-833`) is a config oracle.
 
 ### E. Socket.IO — auth fixed, rooms over-broad, shutdown leaks
+
 - **OK — WS auth downgrade closed.** `websocketManager.js:205-235` rejects missing/invalid tokens; query-token path removed (`49-60`); revoked-session DB check at `242-265`.
 - **Medium — any authenticated socket can join any test room, `websocketManager.js:293-333`.** `live-tests:join` validates only `testId` shape via `normalizeTestRoom` (62-66); no enrollment/registration check. Joiners receive `live-test:participant_count` + `leaderboard:updated` broadcasts (`505-527,575-589`). Room enumeration / info disclosure.
 - **Medium — `notifications:subscribe` joins a global room, `websocketManager.js:361-371`,** but `notification:new` fan-out (`530-547`) only targets `user:{id}` — the global room is dead surface (any authed user can sit in it).
@@ -615,6 +636,7 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - **Low — dead `reconnect_attempt` server listener (`websocketManager.js:273-277`, client-only event); in-memory rate-limit Map (`30,90-109`) only freed on clean disconnect (`439`).** Heartbeat 25s/20s (`168-169`) = 45s dead-peer detection, disjoint from the 30-min attempt cleaner.
 
 ### F. Redis fail-soft / cache — coherent design, two barrier leaks
+
 - **OK — fail-soft is real.** `redisClient.js:43-46` circuit breaker (5 failures → 30s open), `cacheService.js:184-227` L1-then-L2 with `CACHE_IO_TIMEOUT_MS` cap, `queueManager.js:37-43` disables queues when Redis down, `messageBroker.js:27-32,130-133` falls back to local publish. `getRedisClient` (49 edges) / `pool` (113) usage is consistent.
 - **Medium — hot-path event emission pays 4 sequential Redis round-trips.** `eventBus.js:85-99` `await addJob` per target (analytics→leaderboard→recommendations→notifications) with `commandTimeout 1500ms` (`redisClient.js:21-22`); Redis flap injects seconds into `test_submitted`.
 - **High — `responseCache` in-flight barrier leaks on `res.send`.** Barrier released only inside the `res.json` wrapper (`responseCache.middleware.js:100-116,169-186`). Any cached route responding via `res.send` (imageOptimization buffers at `imageOptimization.js:54,69`; avatar SVG at `app-port5001.js:742-749`) never calls `finish()` → key stays in `inFlight` forever; all future GETs for that key await a never-resolving promise. Global mount at `app-port5001.js:637-649` makes this reachable.
@@ -625,11 +647,13 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - **`imageOptimization` DoS + 500.** No `?w` upper bound or quality floor (`imageOptimization.js:33-36,58-73`, `sharp().resize(width)` unbounded); `decodeURIComponent` at line 23 throws on malformed `%` → uncaught 500; webp-forced `Content-Type` on `.jpg` URLs risks CDN cache poisoning.
 
 ### G. Storage avatars (S3 vs local) — likely source of `avatar_1_*.webp` 404
+
 - **High — S3/Supabase failure fails open to ephemeral local disk, `storageProvider.js:300-325`.** `catch → console.warn → uploadLocal`. In prod (read-only/ephemeral containers, `logLocalFallbackWarningIfNeeded` at 293-298) the returned URL is a localhost `/uploads/…` URL (`134`) or later `/assets/avatar/…` fallback (`user.routes.js:251-259`), which doesn't survive redeploy/scale-out. `auth.routes.js:44-51` then nulls the missing file while old DB rows still reference `/assets/avatar/avatar_1_*.webp` → 404s. The `/assets/avatar` static mount (`app-port5001.js:726-750`) now masks this with a 200 SVG placeholder, but stale rows + per-avatar URL-scheme drift (S3 public URL vs local path depending on failure at upload time) remain.
 - **Medium — avatar save fallback bypasses provider, `user.routes.js:241-259`.** Direct `uploads/avatars` write returns `/assets/avatar/…` even when `STORAGE_PROVIDER=s3` — inconsistent scheme per avatar age.
 - **Low — orphaned remote objects.** `deleteOldProfileAsset` (`user.routes.js:143-183`) only parses Supabase public URLs (153-159); S3 URLs are never deleted; failures swallowed (`.catch(()=>{})` at 159).
 
 ### H. Email — durable, shutdown-bounded
+
 - **OK — spool persistence + retry, `emailService.js:46-105,151-193`.** `drainEmailQueue` awaited in shutdown (`app-port5001.js:1267`).
 - **Low — drain guard caps at ~5s (`emailService.js:356-360`, 50×100ms) then leaves mail in spool — correct but operators should expect replay-on-boot, not guaranteed flush.**
 
@@ -658,6 +682,7 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 ## 2. Issues
 
 ### A. apiClient — 3 implementations, 1 canonical + 1 wrapper + 1 fork
+
 - **Admin is a full fork, not a factory consumer.** `admin-panel/src/shared/lib/apiClient.js:107-322` re-implements request/response interceptors instead of calling `createApiClient` (frontend `frontend/.../apiClient.js:33-50` does it correctly). Drift is already real — see below. `file:line → admin-panel/src/shared/lib/apiClient.js:107-322` vs `packages/shared-config/src/apiClient.js:28-237`.
 - **BaseURL / path convention mismatch (cross-copy hazard).** Frontend: `baseURL = host origin`, callers use `/api/...` (`frontend/.../apiClient.js:12,33`). Admin: `baseURL = origin + /api` + strips leading `/api/` (`admin-panel/.../apiClient.js:13,123-125`). Admin `dataService.js:434-441` even carries a "do NOT add /api prefix" comment. Copying an endpoint string between apps breaks silently (`/api/api/...` or stripped path).
 - **Auth-endpoint match divergence.** Factory default `authUrlMatch:"includes"` (frontend passes `includes`, `frontend/.../apiClient.js:47`); admin hardcodes `startsWith` (`admin-panel/.../apiClient.js:211-215`). After admin's URL strip this happens to work, but the two apps match different URL shapes — fragile.
@@ -668,19 +693,23 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - **Admin `fetchFromAPI` destroys error types** (`admin-panel/.../apiClient.js:324-355`): spreads all `options` into axios config (no allowlist) and wraps `error.response.data` in a generic `DataError`, discarding the interceptor's `ValidationError/AuthenticationError/NotFoundError`. Frontend `fetchFromAPI` (`frontend/.../apiClient.js:94-157`) has an allowlist and preserves mapped types. Same function name, different contracts.
 
 ### B. Refresh-loop verdict
+
 - No infinite loop: both guard with `_authRefreshAttempted` + auth-endpoint bypass, and the refresh POST carries `_authRefreshAttempted:true`. `shared-config/src/apiClient.js:122-130,146-148`; `admin-panel/.../apiClient.js:216-226,240-244`. Single-flight queue via `isRefreshing`/`failedQueue` is sound in both.
 
 ### C. fetch-vs-axios inconsistency (shared-hooks bypasses every guard)
+
 - `shared-hooks/apiClientConfig.js:15-34` `request()` falls back to **raw `fetch`** with hardcoded `http://localhost:5001`, no `credentials:include`, no CSRF header, no `ok`-check, no typed errors. Prod leak if env vars missing.
 - `shared-hooks/useStages.js:27-33` (and by template `useExamCategories`/`useTestCategories`): when `getSharedApiClient()` is null (app forgot `setSharedApiClient`), taxonomy calls go over that raw fetch — no cookies, no CSRF, untyped errors surfaced only as `setError(err.message)` (`useStages.js:39-40`). Feels like a silent 401 factory.
 - `frontend/.../offline/IndexedDBAttemptVault.js:484-499` fallback fetch reads dead key `trstprep_auth_token`, sends `Authorization: Bearer` from localStorage, sets **no `credentials:include`, no CSRF header** on `POST /api/attempt/:id/sync-replay`. Contradicts the httpOnly model the rest of the tree just migrated to.
 
 ### D. CSRF injection gaps
+
 - `aiStreaming.js:57-63` native fetch **does** send CSRF + `credentials:include` (good) but has **no 401-refresh retry** (can't reuse axios interceptors), captures no rotated token, maps all failures to `onChunk({error: rawText})`, and `streamChatAsync:160` rethrows generic `Error(string)` — status/type lost. `res.body.getReader()` (`:71`) has no null guard.
 - `TelemetryService.flushSync:274-286` uses `navigator.sendBeacon(Blob)` — **headers cannot be set**, so no CSRF token on unload flush; `fallbackFlushSync:289-302` sets `withCredentials` but still no `X-CSRF-Token`. Unload-time telemetry is likely rejected by CSRF middleware (server side unverified — forbidden path) = silent event loss.
 - Two socket stacks coexist: `frontend/.../websocket.js:13-46` `initWebSocket({token})` still forwards `auth.token` from JS, while `shared-hooks/useWebSocket.js:69-83` deliberately reads no storage (cookie-only, `token` back-compat only). Different reconnect policies (`Infinity` vs 10 attempts). Double-connection risk if both are mounted.
 
 ### E. Error swallowing / wrong mapping
+
 - No `ForbiddenError`/`RateLimitError`: 403 → `AuthenticationError("Access forbidden")` (`shared-config/.../apiClient.js:211-213`), 429 → generic `DataError HTTP_429`, 500 message replaced with `"Server error"`, discarding backend detail (`:217-218`).
 - Frontend `dataService.fetchWithCache:188-193` retries everything except Validation/Auth — including 403/404/429 — 3× with backoff.
 - `useGenericCRUD.js`: `fetchItems` catch returns `[]` (`:65-68`); `saveItem`/`deleteItem` return `false` + toast (`:103-108,:143-148`); `console.error` only. Assumes `response.data.success` envelope (`:58,:94,:133`) — mismatches list-returning endpoints. `deleteItem:134-137` does optimistic filter **plus** full refetch (redundant). `toggleActive:183-186` PUTs the whole item (read-only field overwrite risk). `editItem:165` uses `_id||id`, ignoring `public_id` — an item keyed only by `public_id` yields `PUT <endpoint>/null`.
@@ -688,14 +717,17 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - `vectorSearch.js`: `deleteEmbedding:92-95` returns `r.data` vs everything else `r.data?.data`; `findSimilarQuestions:121` appends `?` even with empty params; `semanticSearch:103-108` (`/api/search/vector/semantic`) overlaps `searchSimilar:20-26` (`/api/embeddings/search`) with no canonical-choice note; no empty-query validation.
 
 ### F. Logger — "pino redaction" contract NOT met in territory
+
 - `shared-config/src/logger.js:52-79` is `console.*` with a DEV gate. **No pino, no redaction** — `logger.error(...args)` forwards tokens/PII verbatim to console → Loki. `admin-panel/.../logger.js:16-69` is a second fork (same no-redaction behavior + extra `timer()`). `logger.d.ts` types plain passthrough. If redaction exists, it lives in backend (forbidden path) — unverified.
 
 ### G. Hooks
+
 - `useProPass` coupling **fixed**: DI via `initProPassAuth(useAuth)` (`shared-hooks/useProPass.js:14-23`), degrades to warn + defaults (`:30-54`) instead of throwing. Residual: forgotten `init` renders **silent "Free Plan" for pro users**; `isAdmin` trusts client fields (`:59-60`, UI-gating only — must not be treated as authz).
 - `formatRemainingDays` duplicated identically in `shared-config/src/index.js:342-350` and `shared-hooks/useProPass.js:201-209` — drift risk.
 - `useWebSocket` singleton + refcount (`shared-hooks/useWebSocket.js:28-29,66-116`) is correct for StrictMode; `SOCKET_URL` frozen at module load (`:25`) so late env changes are ignored (minor).
 
 ### H. dataService / cache / enrollment / dashboardCache
+
 - Cache key divergence: frontend `generateKey` (`frontend/.../dataService.js:66-72`) uses raw interpolation, no encoding, `[object Object]` for nested params. Admin `cacheService.js:11-24` encodes + JSON-stringifies. Same inputs → different keys per app.
 - Frontend `refreshData`/`forceRefreshAll` deliberately omit `questions` because `getQuestions()` hits admin-only `/api/admin/questions` (`frontend/.../dataService.js:520-521,539`) — but `getQuestions` is still exported/callable from the student app → runtime 403.
 - Admin `getTestById:286-305` fetches **all tests then `Array.find`** — O(n), stale-cache-sensitive; no direct `GET /tests/:id`.
@@ -703,40 +735,48 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - Enrollment fork: frontend `enrollment.js` is a local fork (imports `dashboardCache`); canonical lives in `shared-config/src/enrollment.js`. Real divergence: FE normalizes `extraIdentifiers` via `normalizeEnrollmentEntry` (`frontend/.../enrollment.js:148`), canonical spreads them raw (`shared-config/.../enrollment.js:143-152`) — object extras match in FE, fail in canonical. Admin already delegates cleanly (`admin-panel/.../enrollment.js:10-22`); frontend should do the same.
 
 ### I. Telemetry correctness notes
+
 - `TelemetryService.js:194` / `:377` POST via `apiClient` (CSRF + refresh OK). But: `logEvent:138` drops silently when stopped; `flush:200-218` re-queues the whole batch on **any** error including 400/404 → poison-batch infinite retry; `flush` vs `flushOfflineEvents` share `isFlushing` without a mutex (race); `syncServerTime:414` depends on `GET /api/health` shape (backend — unverified); `OfflineQueue` caps at 1000 with silent FIFO eviction (`OfflineQueue.js:13-25`), counts preserved only via `getMetrics`.
 
 ## 3. Verification
+
 - Static read-only review only, per contract (no verification commands run). Every claim above cites `file:line` from files actually read. `useExamCategories`/`useTestCategories` fetch-fallback shape inferred from `useStages.js` + grep (same `API_URL`/`fetch(${API_URL}...)` template lines) — recommend a 2-minute read to confirm line numbers before acting.
 - No refresh-loop, CSRF, or error-type finding was executed at runtime; interceptor logic was traced by hand, not tested.
 
 ## 4. Blockers
+
 - **Forbidden paths blocked server-side confirmation:** backend CSRF exemptions (does `POST /api/attempt/:id/events` / `sync-replay` / sendBeacon-Blobs pass without `X-CSRF-Token`?), `/api/auth/refresh` response envelope (`token` vs `data.token` — both clients handle both, but only one path is tested per app), `/api/health` timestamp shape for `syncServerTime`, Socket.IO `protect` acceptance of `auth.token` vs cookie, and the exact 403-CSRF message string the admin retry sniffs (`admin-panel/.../apiClient.js:188`). All need a backend-territory agent or explicit scope expansion.
 - `useAuth` itself lives outside the assigned territory (frontend providers, not `shared/lib`) — only its DI surface (`initProPassAuth`) was verified here.
 
 ## 1. Files Inspected
 
 **CI / hooks / root config (11):**
+
 - `.github/workflows/ci.yml`, `security.yml`, `no-env.yml`, `data-guard.yml`
 - `.husky/pre-commit`, `.husky/post-commit`, `.husky/graphify-sync.sh`
 - `.lintstagedrc.json`, `package.json`, `turbo.json`, `pnpm-workspace.yaml`
 - `.nvmrc` (=`22`), `CONTRIBUTING.md`, `.gitignore`, `.env.example`
 
 **Docker / deploy (10):**
+
 - `docker-compose.yml`, `docker-compose.dev.yml`, `docker-compose.prod.yml`, `docker-compose.scale.yml`
 - `apps/backend/Dockerfile` + glob `apps/*/Dockerfile` (all 3 exist)
 - `deploy/rolling-deploy.sh`, `deploy/backup-db.sh`, `deploy/setup-ssl.sh`, `deploy/bootstrap.sh`
 - `scripts/scale.sh`
 
 **Scripts (sampled ~12/111):**
+
 - `scripts/run-database-audit.js`, `scripts/run-migrations.mjs`, `scripts/validate-routes.js`, `scripts/sync-repo-brain.mjs`, `scripts/dev-sequential.mjs`, `scripts/wait-for-backend.mjs`, `scripts/load-test-telemetry.js`
 - Taxonomy: `show-full-taxonomy.mjs`, `import-syllabus.js`, `dump-subjects-units.js` (listed), `generate_taxonomy_html.py`, `build_syllabus_brain.py`, `parse_master_syllabus.js`, `split_languages.cjs` (listed via dir)
 
 **Load tests (6):**
+
 - `tests/load/api.js`, `auth.js`, `realtime.js`, `k6.config.js`, `package.json`, `README.md`
 
 ## 2. Issues
 
 ### A. CI — pins good, but scope notes
+
 - **Pinned SHAs OK:** `ci.yml:10-13` pins checkout/setup-node/upload-artifact/codeql; all jobs use `node-version: '22'` (`ci.yml:34,54,112,183`), matching `.nvmrc:1` (`22`) and `CONTRIBUTING.md:3` (Node 22). **Dispatch premise "Node 20 / CONTRIBUTING Node 18" is stale — no such mismatch exists in tree.**
 - **Unpinned outlier:** `pnpm/action-setup@b906aff...` used 5× in `ci.yml` but NOT in the `ACTION_*` env pin table — inconsistent with H29 comment.
 - **Migration in CI fixed:** `ci.yml:186-192` runs `node scripts/run-migrations.mjs` (comment documents old broken path) + `ci.yml:193-196` runs `run-database-audit.js`. Good. Caveat: `test-migrations` service is bare `postgres:16.4` with `trust` auth, no Redis — Redis-dependent migrations/seed paths untested.
@@ -744,23 +784,27 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - **`validate-routes.js` never run in CI:** no reference in any workflow; drift gate is orphaned.
 
 ### B. `validate-routes.js` — narrow, brittle
+
 - **Only 9 checks** (`validate-routes.js:28-73`): 2 auth + 4 test + 3 admin-realtime. Zero coverage of 72 composition-root mounts, 30 extracted admin routers, 32 module route files.
 - Checks file-local `router.get('/pattern')` regex (`:88`), not actual mounts in `app-port5001.js`; will false-pass/false-fail on mount-prefix refactors.
 - Input is `apps/backend/openapi-spec.yaml:8` (exists per glob) — but spec freshness vs. mounted routes is itself unverified.
 
 ### C. `run-database-audit.js` — stale references, warn-only
+
 - **Stale migration pointers:** `run-database-audit.js:86` "Run migration 121" (junction), `:278` "Run 035/079/137", `:318` "run migration 093", `:385` "run 088/104/115" — current sequence is 000–129; numbers are historical, misleading for next-migration `142_*`.
 - **Table-name drift:** expected list (`:52-72`) includes `subject_units/subject_chapters/subject_topics/subject_subtopics` while taxonomy scripts query `units/chapters/topics/subtopics` (e.g. `show-full-taxonomy.mjs:80-162`) — audit may false-fail on canonical names.
 - **HNSW vs ivfflat:** audit (`:288-320`) enforces HNSW `m=32/ef=200`; schema docs elsewhere cite ivfflat cosine — tuning check may be wrong index type.
 - **Non-blocking:** missing indexes/FKs/encryption only `warnings++` (exit 0, `:427-429`); only RLS-bypass and short keys fail. CI gate is soft.
 
 ### D. Taxonomy scripts — hardcoded, coupled
+
 - `scripts/import-syllabus.js:98-112` hardcodes `SUBJECT_MAP` name→ID (e.g. mathematics→22); breaks on reseed. Reads `docs/reference-data/Master Syllabus.txt:122` (likely gitignored by `.gitignore:172 *.txt`); dry-run default (`:115`) safe but easy to mis-run with `--execute`.
 - `scripts/import-syllabus.js:119` imports `postgres-helpers.js` pool directly — couples standalone script to backend internals.
 - `show-full-taxonomy.mjs` assumes `subjects/units/chapters/topics` + `is_active` flags; no soft-delete (`is_deleted`) awareness, LIMIT 20 samples hide drift.
 - `.gitignore:120 *.cjs` ignores all `*.cjs`, yet `scripts/*.cjs` files are tracked (`add-attempt-number-column.cjs`, `split_languages.cjs`, `inspect-ssc-cgl-sections.cjs`) — new `.cjs` tooling silently ignored.
 
 ### E. k6 load tests — stale endpoints + dead auth
+
 - **Dead token fetch (confirmed, self-documented):** `tests/load/realtime.js:38` gates login on `__ENV.HTTP` (never set) → `getAuthToken()` always `""`; all WS scenarios unauthenticated. `tests/load/README.md:87-93` admits this.
 - **Stale endpoints in `api.js`:** `:85` `/api/test-series`, `:135` `/api/questions?limit=20`, `:154` `/api/user/dashboard` (canonical is `/api/users/*`), `:164` `/api/leaderboard` (canonical `/api/leaderboards`), `:199` `POST /api/test-attempts` (canonical `/api/tests/:id/start`, `/api/attempt/*`), `:210` `/api/questions/search`. Load coverage does not match mounted routes.
 - **Defaults wrong:** `k6.config.js:1` defaults `BASE_URL=http://localhost:3000` (frontend port; backend is :5001). `api.js:29`/`realtime.js` require unset `TEST_PASSWORD` → authenticated suites fail by default.
@@ -769,6 +813,7 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - `scripts/load-test-telemetry.js` is a bespoke 1000-event telemetry hammer (hardcoded `TARGET_URL :5001:31`, dummy `$2b$10$dummyhash:55`, forged `jwt.sign:88-92`) — not part of k6 suite, writes/deletes real `attempts/attempt_events`, requires live DB + `JWT_SECRET`.
 
 ### F. Docker — base hardened, `scale` fork stale
+
 - **Base `docker-compose.yml` (12 services: backend-1/2, frontend, admin-panel, redis, backend-db, nginx, certbot, certbot-init[profile init], prometheus, grafana, loki):** hardening verified — `cap_drop: ALL`, `no-new-privileges`, `read_only: true` + tmpfs, `127.0.0.1` bindings, 3-network isolation (`monitoring-net internal:true:444`), per-backend 512M/1.0 CPU, Redis `noeviction` (BullMQ-safe), Loki driver with loki itself on `json-file` (avoids self-loop `:416-420`), Grafana `GF_SECURITY_ADMIN_PASSWORD :?` required.
 - **`docker-compose.scale.yml` diverged/stale:** standalone 10-service file (not override): runs `pnpm run dev` (`:21,71,121`), host bind-mounts source (`:19-20`), hardcodes `FRONTEND_URL=https://localhost` + `REDIS_URL=redis://redis:6379`, collapses to single `backend-net` (loses frontend/monitoring isolation), drops Loki logging + certbot volumes, `grafana:311-326` has no password/anon-disable env, `frontend` on `backend-net`. Do not use as prod reference.
 - **`docker-compose.prod.yml` vs base comment conflict:** header claims base is "production-safe"; prod override still strips `volumes/ports` and swaps to `pnpm start` / `nginx -g 'daemon off'` — one of the two descriptions is outdated.
@@ -776,36 +821,43 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - **Deploy scripts OK:** `rolling-deploy.sh` (drain+health-gated, `rollback` subcommand, nginx reload), `backup-db.sh` (globals+custom dumps, 7d/4w retention), `setup-ssl.sh` (validates `DOMAIN/CERTBOT_EMAIL`, profile-init certbot), `bootstrap.sh` (Loki plugin + SSL). `scripts/scale.sh` only knows `backend-1..3`/ports 5001-5003 and `docker-compose.scale.yml` — tied to stale file.
 
 ### G. Pre-commit / lint — prettier-only
+
 - `.husky/pre-commit:4` blocks only `.env/.env.local/.env.production/.env.staging`; `.lintstagedrc.json:2-3` runs just `prettier --write` — no eslint, no secret scan at commit time. Uses `npx` while repo is pnpm (`package.json:28` `prepare` also uses npm-style `husky install` under husky v9).
 
 ### H. Secret-scan gaps (`file:line`)
+
 - `.github/workflows/no-env.yml:39` excludes `\.(lock|example|md|html|sql|css|png|jpg|svg|ico|woff|map|json)$` — **secrets in `*.json`/`*.sql`/`*.md`/`*.html` never scanned**; `:38` excludes `docs/archive`, `docs/database/Open`; `:50-51` second pass excludes `docs|archive` + `\.(lock|example|md|html|sql|css)$`. Git-history leaks (Supabase URL, Razorpay keys per AGENTS.md) live exactly in excluded shapes.
 - `.github/workflows/data-guard.yml:42` allowlists `scripts/*schema_dictionary*.json`, `src/data/collections/`; `:62` excludes `^docs/|\.md$|__tests__|/test/|SECURITY_POSTURE|REMEDIATION_PLAN|AGENTS.md` — placeholders vs live secrets indistinguishable to scanner.
 - CI `no-env.yml:20` checks only `(^|/)\.env$` + `M3 Key.txt` (`data-guard.yml:54`) — misses `.env.local/.env.production/.env.staging` variants that pre-commit blocks; `.gitignore:29 *.env` covers them from ignore but not from CI detection.
 - `.env.example:40-49` ships placeholder-shaped `JWT_SECRET/.../DB_ENCRYPTION_KEY` (sub-32-char? contains `generate_a_...`); scanners keyed on 32+ char values won't trip on placeholders — correct, but means example rotation can't be validated.
 
 ### I. `CONTRIBUTING.md` / misc stale (minor)
+
 - `CONTRIBUTING.md:55` "next is `136_*`" vs worktree 130 files (000–129); `:68` "scripts/ (108 files)" vs actual 111; `:56` "admin `generate-questions` is a stub" vs live OpenRouter gateway. Version lines themselves (Node 22) are current.
 - `.env.example:83-84` `AI_FREE_HOURLY_LIMIT=30 / AI_PRO=120` vs documented 50/500 elsewhere.
 
 ## 3. Verification
+
 - **Static read-only only** (per contract `Verification Commands: none`): all claims from file reads + globs above; no code executed, no DB/Redis probed, no `git` writes.
 - **Cross-checked:** pin SHAs line-by-line in all 4 workflows; `node-version` strings; `.nvmrc` vs `engines` vs CONTRIBUTING; compose service list counted from `docker-compose.yml:32-422`; `apps/*/Dockerfile` glob = 3 hits (no missing Dockerfiles); `openapi-spec.yaml` exists via glob; `modules/tests/test.routes.js` exists (so validate-routes file targets resolve, but coverage still 9/100+ endpoints); k6 dead-code confirmed at `realtime.js:38` + README admission.
 - **Not verified (needs live env):** actual migration run, `run-database-audit.js` output, k6 runs, `docker compose config` on scale/prod overrides, graphify hook end-to-end (log lives at `~/.cache/graphify-rebuild.log`, outside repo).
 
 ## 4. Blockers
+
 - None for research scope. No writes performed; forbidden paths (`apps/backend/src`, `apps/frontend/src`, `apps/admin-panel/src` edits, git writes) untouched.
 - Follow-ups requiring execution (out of scope): run `node scripts/run-database-audit.js` against live DB, `docker compose -f docker-compose.yml -f docker-compose.prod.yml config`, k6 smoke with `TEST_PASSWORD` set, and `node scripts/sync-repo-brain.mjs --check` in CI.
 
 ## 1. Files Inspected
 
 **Composition root & route indexes:**
+
 - `apps/backend/src/app-port5001.js:50,651-1047,1076` — all `app.use()` mounts; `mountExtractedRoutes` import + call; no `mountAdminRoutes` call
 - `apps/backend/src/api/routes/admin.js:1-124` — canonical admin router, aggregates ~38 modular routers (`admin-activity.js:23` … `admin-live-tests.js:60`), guard stack `normalizeFields:65 → restrictAdminOrigin:66 → validateAdminApiKey:67 → protect:68 → admin:69 → CSRF:70 → loadAdminPermissions:71 → requireAdminPermission:72 → audit:75-80`
 - `apps/backend/src/api/routes/admin-routes-index.js:1-19` — dead wrapper, only forwards to `admin.js`
 - `apps/backend/src/api/routes/public-routes-index.js:1-42` — `mountExtractedRoutes(app)`, 16 public routers
 
 **Alleged unmounted controllers:**
+
 - `apps/backend/src/modules/tests/test.controller.js:1-246` (own `express.Router`, `GET /`, `PUT /:id/state`)
 - `apps/backend/src/modules/attempts/attempt.controller.js:1-65` (own router, `POST /start|/save-progress|/pause|/resume`)
 - `apps/backend/src/modules/questions/question.controller.js:1-284` (own router + multer bulk upload, `adminAuth` stack `:22-28`)
@@ -814,6 +866,7 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 - `apps/backend/src/modules/attempts/attempt.routes.js:1-30` (1381 lines, inline handlers, canonical `/api/attempt` target)
 
 **Duplication/residue candidates:**
+
 - `apps/backend/src/middleware/responseCache.js:1-9` + `responseCache.middleware.js:1-277`
 - `apps/backend/src/config/upload.js:1-44` (multer `fileUpload` + `uploadLimiter`)
 - `apps/backend/scripts/check_user_attempts.js:1-47` (PII-safe argv/env version)
@@ -827,28 +880,28 @@ All absolute paths under `E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\`:
 
 ### A. Confirmed orphans / dead code
 
-| # | Finding | Location | Severity |
-|---|---------|----------|----------|
-| A1 | `test.controller.js` defines a full router but nothing imports it; canonical mount uses `test.routes.js` inline handlers (`app-port5001.js:977`) | `modules/tests/test.controller.js:18-40` | Medium — dead code, confusion risk |
-| A2 | `attempt.controller.js` defines a full router but nothing imports it; canonical mount uses `attempt.routes.js` (`app-port5001.js:1001` behind `protect`) | `modules/attempts/attempt.controller.js:8-40` | Medium — dead code |
-| A3 | `question.controller.js` defines a full router + multer bulk path but nothing imports it; `admin-questions.js:751` itself notes "unmounted question.controller.js but was never exposed" | `modules/questions/question.controller.js:20-40`, `api/routes/admin-questions.js:751` | Medium — dead code |
-| A4 | `mountAdminRoutes` dead: defined in `admin-routes-index.js:11-17` but zero call sites in `app-port5001.js` (only `mountExtractedRoutes` at `:1076`). Docs (`REPO_BRAIN.html:1691`, `UNIFIED_TRSTPREP_AUDIT.md:1243,8423`) still describe the old dual-mount world — stale prose | `api/routes/admin-routes-index.js:11` | Low — delete wrapper or doc note; no runtime effect |
-| A5 | `src/config/upload.js` residue: exports `uploadLimiter`/`fileUpload`, zero importers in `src/` (grep `config/upload` = 0 hits). Live upload path is `infrastructure/storage/upload.js` via `admin-assets.js` | `src/config/upload.js:4-16` | Low — safe delete |
-| A6 | `check_user_attempts.js` debug helper lives under `apps/backend/scripts/` (not `src/`); PII-hardened (argv/env, no hardcoded email). Not part of build | `apps/backend/scripts/check_user_attempts.js:1-16` | Info — keep or move to `scripts/`; not a leak |
-| A7 | Frontend barrel drift: `ExamsNew`, `ExamDetails` exported from `pages/exams/index.js:3-4` and re-exported `pages/index.js:45-46` but never `lazy()`-imported or routed in `App.jsx` (only `ExamCompare` at `App.jsx:82,256`) | `frontend/src/pages/exams/ExamsNew.jsx`, `ExamDetails.jsx:32` | Low — bundle dead weight |
-| A8 | `SubjectHierarchyManager.jsx:40` (+ named `SubjectHierarchyView:902`) has no `<Route>` in `admin-panel/src/App.jsx` (grep = 0 route hits; only Payments/Moderation/TwoFactor at `:297-299`) | `admin-panel/.../SubjectHierarchyManager.jsx:40` | Low — unrouted, sidebar-only |
-| A9 | Legacy migrations `005,007,008,009,010` in `docs/legacy-migrations/` are reference-only, superseded by `src/infrastructure/database/migrations/000-129` | `docs/legacy-migrations/005_*.sql` … `010-*.sql` | Info — keep with README guard, do not run |
+| #   | Finding                                                                                                                                                                                                                                                                         | Location                                                                              | Severity                                            |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| A1  | `test.controller.js` defines a full router but nothing imports it; canonical mount uses `test.routes.js` inline handlers (`app-port5001.js:977`)                                                                                                                                | `modules/tests/test.controller.js:18-40`                                              | Medium — dead code, confusion risk                  |
+| A2  | `attempt.controller.js` defines a full router but nothing imports it; canonical mount uses `attempt.routes.js` (`app-port5001.js:1001` behind `protect`)                                                                                                                        | `modules/attempts/attempt.controller.js:8-40`                                         | Medium — dead code                                  |
+| A3  | `question.controller.js` defines a full router + multer bulk path but nothing imports it; `admin-questions.js:751` itself notes "unmounted question.controller.js but was never exposed"                                                                                        | `modules/questions/question.controller.js:20-40`, `api/routes/admin-questions.js:751` | Medium — dead code                                  |
+| A4  | `mountAdminRoutes` dead: defined in `admin-routes-index.js:11-17` but zero call sites in `app-port5001.js` (only `mountExtractedRoutes` at `:1076`). Docs (`REPO_BRAIN.html:1691`, `UNIFIED_TRSTPREP_AUDIT.md:1243,8423`) still describe the old dual-mount world — stale prose | `api/routes/admin-routes-index.js:11`                                                 | Low — delete wrapper or doc note; no runtime effect |
+| A5  | `src/config/upload.js` residue: exports `uploadLimiter`/`fileUpload`, zero importers in `src/` (grep `config/upload` = 0 hits). Live upload path is `infrastructure/storage/upload.js` via `admin-assets.js`                                                                    | `src/config/upload.js:4-16`                                                           | Low — safe delete                                   |
+| A6  | `check_user_attempts.js` debug helper lives under `apps/backend/scripts/` (not `src/`); PII-hardened (argv/env, no hardcoded email). Not part of build                                                                                                                          | `apps/backend/scripts/check_user_attempts.js:1-16`                                    | Info — keep or move to `scripts/`; not a leak       |
+| A7  | Frontend barrel drift: `ExamsNew`, `ExamDetails` exported from `pages/exams/index.js:3-4` and re-exported `pages/index.js:45-46` but never `lazy()`-imported or routed in `App.jsx` (only `ExamCompare` at `App.jsx:82,256`)                                                    | `frontend/src/pages/exams/ExamsNew.jsx`, `ExamDetails.jsx:32`                         | Low — bundle dead weight                            |
+| A8  | `SubjectHierarchyManager.jsx:40` (+ named `SubjectHierarchyView:902`) has no `<Route>` in `admin-panel/src/App.jsx` (grep = 0 route hits; only Payments/Moderation/TwoFactor at `:297-299`)                                                                                     | `admin-panel/.../SubjectHierarchyManager.jsx:40`                                      | Low — unrouted, sidebar-only                        |
+| A9  | Legacy migrations `005,007,008,009,010` in `docs/legacy-migrations/` are reference-only, superseded by `src/infrastructure/database/migrations/000-129`                                                                                                                         | `docs/legacy-migrations/005_*.sql` … `010-*.sql`                                      | Info — keep with README guard, do not run           |
 
 ### B. Downgraded / no-longer-issues (verify before acting)
 
-| # | Prior claim | Current truth |
-|---|-------------|---------------|
-| B1 | "Dual admin mounting (legacy + 30 extracted)" | **Resolved.** `admin.js:23-60` now aggregates modular routers internally; single mount at `app-port5001.js:973`. No double `app.use("/api/admin")`. |
-| B2 | "Two responseCache implementations" | **Resolved.** `responseCache.js:6-9` is a 9-line re-export shim over `responseCache.middleware.js`. Mixed import styles persist (`exams-public.js:7`, `live-tests-public.js:7`, `pyp-public.js:7` use default; ~40 files use named) but single implementation. Cosmetic only. |
-| B3 | "Empty learnerIntelligence dir" | **No dir on disk.** Glob `src/modules/*` lists no such dir; only stale mentions in `REPO_BRAIN.html:1769,1868,2403`. Doc cleanup only. |
-| B4 | "Committed graphify-out artifacts in backend modules" | **Not found.** Glob `apps/backend/**/graphify-out/**` = 0 hits. Only repo-root `graphify-out/` exists. |
-| B5 | "ExamCompare sample-data fallback" | **Not found.** Grep `getSampleData\|sample` in `pages/exams/` = 0 hits. Already fixed. |
-| B6 | Admin barrel "dead VideosManager/MediaLibrary exports" | **Not found.** `features/admin/index.js:1-66` has no such exports. Already cleaned. |
+| #   | Prior claim                                            | Current truth                                                                                                                                                                                                                                                                 |
+| --- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1  | "Dual admin mounting (legacy + 30 extracted)"          | **Resolved.** `admin.js:23-60` now aggregates modular routers internally; single mount at `app-port5001.js:973`. No double `app.use("/api/admin")`.                                                                                                                           |
+| B2  | "Two responseCache implementations"                    | **Resolved.** `responseCache.js:6-9` is a 9-line re-export shim over `responseCache.middleware.js`. Mixed import styles persist (`exams-public.js:7`, `live-tests-public.js:7`, `pyp-public.js:7` use default; ~40 files use named) but single implementation. Cosmetic only. |
+| B3  | "Empty learnerIntelligence dir"                        | **No dir on disk.** Glob `src/modules/*` lists no such dir; only stale mentions in `REPO_BRAIN.html:1769,1868,2403`. Doc cleanup only.                                                                                                                                        |
+| B4  | "Committed graphify-out artifacts in backend modules"  | **Not found.** Glob `apps/backend/**/graphify-out/**` = 0 hits. Only repo-root `graphify-out/` exists.                                                                                                                                                                        |
+| B5  | "ExamCompare sample-data fallback"                     | **Not found.** Grep `getSampleData\|sample` in `pages/exams/` = 0 hits. Already fixed.                                                                                                                                                                                        |
+| B6  | Admin barrel "dead VideosManager/MediaLibrary exports" | **Not found.** `features/admin/index.js:1-66` has no such exports. Already cleaned.                                                                                                                                                                                           |
 
 ### C. Intentional aliases (not duplication)
 
@@ -877,6 +930,7 @@ None. Read-only contract observed: no git writes, no code writes, no `.env` valu
 ## 1. Files Inspected
 
 **Middleware (territory):**
+
 - `apps/backend/src/middleware/responseCache.middleware.js:36-190` — `responseCache()` dual-signature (object-form + positional `(namespace, ttl, options)`); both default `userScoped=true`, key = `{ns}:{u:id|anon|global}:{originalUrl}`; in-flight `Map` barrier; only caches `statusCode<400 && body.success!==false`; `swrCache()` at :201-275.
 - `apps/backend/src/middleware/responseCache.js:1-9` — now just re-exports `responseCache` (two-impl duplication **resolved**; god-node `responseCache` 39-edge concern closed).
 - `apps/backend/src/middleware/requestDedup.js:29-63` — GET-only, key = `METHOD:originalUrl:sha256(authHeader||cookie)[0:16]`; `anon` bucket for public; 10k cap, 30s TTL, 503/504 guards. Correctly does **not** collapse across identities.
@@ -886,6 +940,7 @@ None. Read-only contract observed: no git writes, no code writes, no `.env` valu
 - `apps/backend/src/middleware/compression.js:7-10` — level 6, threshold 1024; client `x-no-compression` override removed (good).
 
 **Routes:**
+
 - `apps/backend/src/api/routes/practice.js` — `POST /sessions` :1128-1254; `pickPracticeQuestionIds()` :175-356 (`ORDER BY RANDOM()` :341-351); `resolvePracticeFilters()` :69-170 (up to 4 slug lookups); `GET /sessions/:id/questions/:idx` :1448-1481; `GET /practice/bookmarks` :1793-1837 (`SELECT q.*` :1801); `GET /questions/:id/similar` :2828-2856 (`ORDER BY RANDOM()` :2842); dashboard :2001-2137 (cached 60s, 7-way `Promise.all` — good).
 - `apps/backend/src/api/routes/bookmarks.js` — `GET /` :238-293 (`includeDetails !== "false"` default true :246; fast-path :260-268; `batchResolveBookmarkEntities` :96-208 with `SELECT *` at :154, :170, :186); duplicate-check full-scan + JS `.find` at :331-336, :464-470, :510-516; **no `responseCache` on list/count/check**.
 - `apps/backend/src/api/routes/settings.js:52-53` — `responseCache('public-settings',120)` + `responseCache('site-settings',120)` positional form.
@@ -895,6 +950,7 @@ None. Read-only contract observed: no git writes, no code writes, no `.env` valu
 - `apps/backend/src/modules/users/user.routes.js:141-168,258` — avatar delete guards `/assets/avatar/` prefix; new uploads return `/assets/avatar/<file>`.
 
 **Frontend call-sites:**
+
 - `apps/frontend/src/shared/lib/practiceAPI.js:3-8` (`getSessionId` throws on `undefined/null/""`), `:10-25` (`normalizeSession` accepts `id|sessionId|session_id`), `:40-46` (`startSession` throws if response has no ID).
 - `apps/frontend/src/shared/lib/bookmarksAPI.js:4-11` — forwards `includeDetails` param.
 - `apps/frontend/src/pages/tests/TestInterface.jsx:436-439` — `getAll(1,100,{includeDetails:false})` (lightweight path correctly used here).
@@ -903,50 +959,59 @@ None. Read-only contract observed: no git writes, no code writes, no `.env` valu
 ## 2. Issues (per-signal)
 
 ### S1 — `POST /api/practice/sessions` 200 in 5190ms — HIGH
+
 - **Root cause (compound, all in `practice.js`):** (a) `resolvePracticeFilters()` runs **twice** per start — once inside `pickPracticeQuestionIds()` (:187) and again at :1175-1180 for the INSERT — up to 8 slug-lookup queries before any work. (b) `pickPracticeQuestionIds` main query (:346-353) is `SELECT q.id … ORDER BY RANDOM() LIMIT $n` with non-sargable filters: chapter clause `OR q.topic_id IN (SELECT…)` (:244-249) and subject clause with 3-way `OR` + 2 correlated subselects (:251-263); `RANDOM()` forces full seq-scan + sort of every matching row. (c) `weak_topic` mode adds an extra aggregate over all user `practice_answers` (:306-320) in series. (d) After INSERT, `getSafeQuestions()` (:1237) hydrates **full** question bodies (options/explanations/Hindi/tests JOIN) in the same request — payload + query cost counted in the 5.2s. (e) Hygiene `UPDATE`s (:1193-1210) run serially before INSERT. (f) `requestDedup` is GET-only — concurrent POST starts each run the full RANDOM scan → pool pressure; 5.2s is ~17% of the 30s `server.setTimeout` (app-port5001.js:1124), so p95 under load risks socket-timeout instead of JSON error.
 - **File:line:** `api/routes/practice.js:187` + `:1175` (double resolve); `:244-263`, `:341-351` (RANDOM scan); `:1128-1254` (no cache/POST-dedup).
 - **Recommended fix:** single `resolvePracticeFilters` call, pass through; replace `ORDER BY RANDOM()` with `TABLESAMPLE BERNOULLI` or precomputed `random_sort_key` column + `WHERE random_sort_key > rand() ORDER BY random_sort_key LIMIT n`; add covering indexes `questions(topic_id, is_active, is_deleted)`, `questions(chapter_id, …)`, `questions(subject_id, …)`, `practice_answers(user_id, topic_id)` / `(user_id, is_correct)`; return IDs on POST and hydrate questions via cached `GET /sessions/:id` (or cap `targetCount` default 20, already capped at 200); add POST idempotency key or short user-scoped lock — do **not** extend the 30s timeout to mask it.
 - **Body-shape note:** 200 is not proof — response must contain `data.id && data.sessionId && Array(data.questions)` (`practiceAPI.startSession` :42-45 now enforces this; older client did not).
 
 ### S2 — `GET /api/practice/sessions/undefined/questions/0` 500 — MEDIUM (now guarded, verify deploy)
+
 - **Root cause:** old frontend interpolated an uninitialized session id into the URL (`"…/sessions/undefined/…"`). Current `practiceAPI.js:3-8` **throws client-side** before fetch, and `practice.js:1291-1296` (`parsePositiveInt`) + `:1452-1456` (idx check) return **400** (`Invalid practice session ID`), while `toNullableInt` (:434-446) explicitly maps `"undefined"/"null"/""` → null. So the 500 signature matches a **pre-guard build** (or a direct curl); current tree should emit 400, and `startSession` (:43-44) throws `Practice session response did not include an ID` instead of storing `undefined`.
 - **File:line:** `frontend/src/shared/lib/practiceAPI.js:3-8,43-44`; `backend/src/api/routes/practice.js:429-446,1291-1296,1448-1457`.
 - **Recommended fix:** none in code — confirm deployed frontend ≥ this guard; add backend regression test asserting `GET /sessions/undefined/questions/0 → 400` (not 500) and a client test that `getSession(undefined)` throws before network.
 - **Body-shape note:** any 200 with `{id: undefined}` must be treated as failure — `normalizeSession` (:10-25) only backfills when id is non-null.
 
 ### S3 — `GET /api/bookmarks?page=1&limit=100` 200 in 5298ms — HIGH
+
 - **Root cause:** default `includeDetails=true` (bookmarks.js:246) with `limit=100` runs full enrichment: `batchResolveBookmarkEntities` fans out to up to 4 batched queries but each is **`SELECT *`** (`tests` :154, `study_materials` :170, `subject_videos` :186 — heavy JSONB/options/explanation columns × 100 rows) plus a wide `questions` column list (:125-129). No `responseCache` on `GET /`, `/count`, or `/check`. `dbHelpers.find("bookmarks",…)` has no explicit `ORDER BY` (pagination instability) and duplicate-check paths (`POST /` :331-336, `/check` :464-470, `/toggle` :510-516) load **all** user bookmarks then JS-`.find` — O(n) per toggle. `limit=100` is the max allowed (:241-244) so the worst case is the observed case.
 - **File:line:** `api/routes/bookmarks.js:238-293` (no cache), `:246` (default), `:154/:170/:186` (`SELECT *`), `:331-336/:464-470/:510-516` (full-scan duplicate check).
 - **Recommended fix:** (1) default `limit` 20 already; make `Bookmarks.jsx` dashboard page pass `includeDetails=false` for the list paint and lazy-load details (TestInterface.jsx:439 already does). (2) Add `responseCache("bookmarks-list",30)` user-scoped (default true — correct here) + invalidate on POST/PUT/DELETE. (3) Replace `SELECT *` with explicit column lists. (4) Indexes: `bookmarks(user_id, is_active)`, `bookmarks(user_id, item_type, is_active)`, `question_bookmarks(user_id)`, `questions(id) WHERE is_deleted=false` (if absent — verify via `run-database-audit.js`, forbidden to DDL here). (5) Rewrite duplicate-check as `SELECT 1 … WHERE user_id AND item_type AND item_id LIMIT 1` instead of fetch-all + JS match.
 - **Cache-key note:** user-scoping is **required** here (per-user bookmarks) — global cache would leak; current absence of cache is the perf bug, not a scoping bug.
 
 ### S4 — `GET /assets/avatar/avatar_1_*.webp` 404 — LOW (mitigated in tree)
+
 - **Root cause:** profile referenced a local `/assets/avatar/` file absent on this deployment (ephemeral `uploads/avatars/` or storage-provider mismatch local-vs-S3/Supabase). Current tree already mitigates twice: `auth.routes.js:44-51` suppresses advertising missing local files (returns `null`), and `app-port5001.js:741-749` serves a deterministic **200 SVG placeholder** instead of a 404 for any unmatched `/assets/avatar/*`. So a 404 implies the log predates this fallback or came from a CDN edge caching the old 404 (`immutable max-age=30d` at :735-737 makes stale 404s sticky).
 - **File:line:** `app-port5001.js:726-750`; `modules/auth/auth.routes.js:44-51`; `modules/users/user.routes.js:167-168,258`.
 - **Recommended fix:** purge CDN/edge cache for `/assets/avatar/*` after deploy; verify `STORAGE_PROVIDER` + `uploads/avatars` volume mount; add client `onError` avatar fallback (outside this territory's backend scope). No server change needed. Also note `app.use("/uploads", imageOptimization)` at :768 is registered **after** the `/uploads` static handler (:708-723) so it never runs for static hits — move before static if optimization is desired (separate issue, not the 404).
 
 ### S5 — `GET /api/tests/…/result` 200 in 1555ms — LOW (healthy, watch)
+
 - **Root cause:** none — 1.5s is expected for this handler: `findTestByIdentifier` + `fetchAttemptSnapshotQuestions`/`fetchTestQuestions` + parallel `getRankAndPercentile` + `fetchTestCommunityQuestionStats` (`test.routes.js:1666-1676`) + series lookup (:1685-1693). `responseCache("test-result[-attempt]",300)` is user-scoped by default (positional form defaults `userScoped=true` — correct, prevents cross-user result leakage) and key includes full `originalUrl` so per-attempt entries are isolated.
 - **File:line:** `modules/tests/test.routes.js:1593-1645,1666-1693,1727-1762`.
 - **Recommended fix:** keep 300s TTL; optional: shorten to 60-120s if live-rank staleness complaints arise (cached rank can lag the live leaderboard by 5 min); confirm `attempts(user_id, test_id, is_completed)` and `results(user_id, test_id)` indexes exist. No action unless p95 grows.
 
 ### S6 — `GET /api/settings/public` 304 in 1ms — HEALTHY (with efficiency note)
+
 - **Root cause:** none — 304 is ETag conditional-cache behavior, 1ms is optimal.
 - **File:line:** `api/routes/settings.js:52-53`; handler sets `Cache-Control: public, max-age=30, s-maxage=60` (:10).
 - **Efficiency note (not a bug):** both mounts use positional `responseCache(ns,120)` with no options → `userScoped` defaults **true** (`responseCache.middleware.js:121`), so identical public settings are cached **per user** (`u:<id>` + `anon` buckets) instead of once globally. Recommend `responseCache("public-settings",120,{userScoped:false})` (same pattern already used correctly by `practice-tree` at `practice.js:580` and `tests-series-v2` at `test.routes.js:164`) and likewise for `site-settings`. Also `settings.js` has a silent catch-all fallback (:22-44) returning 200 synthetic settings — a DB outage is indistinguishable from success; consider logging + `X-Settings-Fallback: 1` header.
 - **Severity:** informational.
 
 ### Cross-cutting cache-key audit (requested)
+
 - `responseCache` both signatures default `userScoped=true` — safe for user data (results, dashboard, mistakes, bookmarks if added). Only genuinely public endpoints should opt `userScoped:false` (`practice-tree`, `tests-series-v2` do; `settings public/site-settings` do not — fix above).
 - `requestDedup` fingerprint (`sha256(authHeader||cookie)`) correctly prevents cross-user response sharing; anonymous shared bucket is safe for public data.
 - `queryCache` blocklist covers auth/session/OTP keys — do not add `cachedQuery` to practice-session or bookmark-mutation paths.
 
 ## 3. Verification
+
 - Read-only inspection only (per contract): no commands run, no code written, no migrations touched.
 - `ORDER BY RANDOM()` confirmed at `practice.js:343-344,349` and `practice.js:2842`; `SELECT *` confirmed at `bookmarks.js:154,170,186` and `SELECT q.*` at `practice.js:1801`; double `resolvePracticeFilters` confirmed at `practice.js:187` + `:1175`; 30s timeout confirmed at `app-port5001.js:1124-1125`; avatar placeholder-fallback confirmed at `:741-749`; result 300s user-scoped cache confirmed at `test.routes.js:1596,1730` + middleware default `:121`; settings per-user cache inefficiency confirmed at `settings.js:52-53` + middleware `:121`; frontend `undefined` guard confirmed at `practiceAPI.js:3-8,43-44`.
 - Not verified (needs owner with DB access): actual index presence (`run-database-audit.js` + `pg_stat_statements`/`EXPLAIN ANALYZE` on the practice RANDOM query and bookmarks enrichment), Redis hit rates (`X-Cache`/`X-Dedup` headers), and whether the 404 log predates the avatar-fallback deploy (compare log timestamp vs deploy of `app-port5001.js:741`).
 
 ## 4. Blockers
+
 - None for research. Forbidden paths respected: no reads in `apps/admin-panel`, `packages`, migrations DDL, or git history; no writes performed.
 
 12-agent read-only sweep complete. Exclusive territories, no writes, graph-first per `MULTI_AGENT_DEPLOYMENT_RULE.md`.

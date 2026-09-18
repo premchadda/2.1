@@ -377,7 +377,9 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
             {/* Language Switch Option (Click to Change) */}
             <button
               type="button"
-              onClick={() => handleSetLang(preferredLang === "hi" ? "en" : "hi")}
+              onClick={() =>
+                handleSetLang(preferredLang === "hi" ? "en" : "hi")
+              }
               title={`Switch language (Current: ${preferredLang.toUpperCase()})`}
               aria-label={`Current language: ${preferredLang.toUpperCase()}. Click to switch.`}
               className="inline-flex items-center gap-1 h-8 px-2 sm:px-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs"

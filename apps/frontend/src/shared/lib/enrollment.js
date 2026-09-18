@@ -30,9 +30,5 @@ export const isSeriesEnrolled = (
   const normalizedExtras = (extraIdentifiers || []).map((extra) =>
     canonicalNormalizeEntry(extra),
   );
-  return canonicalIsEnrolled(
-    userOrEnrolledSeries,
-    series,
-    normalizedExtras,
-  );
+  return canonicalIsEnrolled(userOrEnrolledSeries, series, normalizedExtras);
 };

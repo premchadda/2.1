@@ -31,8 +31,7 @@ const WARNINGS = [
   },
   {
     key: "VITE_MAX_FILE_SIZE_MB",
-    description:
-      "Max upload file size in MB (optional — defaults to 10)",
+    description: "Max upload file size in MB (optional — defaults to 10)",
   },
 ];
 

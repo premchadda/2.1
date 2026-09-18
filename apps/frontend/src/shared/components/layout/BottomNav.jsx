@@ -134,113 +134,109 @@ function BottomNav() {
         {/* Ambient top spectrum gradient accent */}
         <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-blue-500 via-emerald-500 via-violet-500 via-amber-500 to-rose-500 opacity-80" />
 
-        {navItems.map(
-          ({ icon: Icon, label, path, hasLiveDot }, index) => {
-            const active = isActive(path);
-            const color =
-              navColorsByPath[path] ||
-              fallbackColors[index % fallbackColors.length];
-            return (
-              <Link
-                key={path}
-                to={path}
-                state={
-                  path === "/login"
-                    ? { backgroundLocation: location }
+        {navItems.map(({ icon: Icon, label, path, hasLiveDot }, index) => {
+          const active = isActive(path);
+          const color =
+            navColorsByPath[path] ||
+            fallbackColors[index % fallbackColors.length];
+          return (
+            <Link
+              key={path}
+              to={path}
+              state={
+                path === "/login" ? { backgroundLocation: location } : undefined
+              }
+              aria-label={label}
+              aria-current={active ? "page" : undefined}
+              className="group relative flex flex-col items-center justify-center py-1 px-1 min-w-0 flex-1 max-w-[72px] transition-all duration-300 ease-out"
+            >
+              {/* Active halo background */}
+              {active && (
+                <span
+                  className={`absolute inset-0 rounded-2xl ${color.inactiveBg} opacity-70 dark:opacity-40 -z-0 pointer-events-none transition-opacity duration-300`}
+                />
+              )}
+
+              {/* Icon Container Badge with vibrant item color */}
+              <div
+                className={`relative flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-300 ease-out ${
+                  active
+                    ? `bg-gradient-to-tr ${color.bg} text-white shadow-md scale-110 -translate-y-0.5`
+                    : `${color.inactiveBg} ${color.inactiveIcon} ${color.inactiveBorder} border hover:scale-105 group-hover:brightness-95 dark:group-hover:brightness-110`
+                }`}
+                style={
+                  active
+                    ? {
+                        boxShadow: `0 4px 14px ${color.glow}`,
+                      }
                     : undefined
                 }
-                aria-label={label}
-                aria-current={active ? "page" : undefined}
-                className="group relative flex flex-col items-center justify-center py-1 px-1 min-w-0 flex-1 max-w-[72px] transition-all duration-300 ease-out"
               >
-                {/* Active halo background */}
-                {active && (
+                {hasLiveDot && (
                   <span
-                    className={`absolute inset-0 rounded-2xl ${color.inactiveBg} opacity-70 dark:opacity-40 -z-0 pointer-events-none transition-opacity duration-300`}
-                  />
-                )}
-
-                {/* Icon Container Badge with vibrant item color */}
-                <div
-                  className={`relative flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-300 ease-out ${
-                    active
-                      ? `bg-gradient-to-tr ${color.bg} text-white shadow-md scale-110 -translate-y-0.5`
-                      : `${color.inactiveBg} ${color.inactiveIcon} ${color.inactiveBorder} border hover:scale-105 group-hover:brightness-95 dark:group-hover:brightness-110`
-                  }`}
-                  style={
-                    active
-                      ? {
-                          boxShadow: `0 4px 14px ${color.glow}`,
-                        }
-                      : undefined
-                  }
-                >
-                  {hasLiveDot && (
-                    <span
-                      className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"
-                      style={{
-                        animation: "livePulse 1.5s ease-in-out infinite",
-                        boxShadow: "0 0 8px rgba(239, 68, 68, 0.5)",
-                      }}
-                    />
-                  )}
-
-                  {path === "/profile" && user?.avatar ? (
-                    <div
-                      className={`w-7 h-7 rounded-full overflow-hidden transition-all duration-300 ${
-                        active
-                          ? "ring-2 ring-white dark:ring-gray-900 scale-100"
-                          : "ring-1.5 ring-rose-400/70 dark:ring-rose-500/60"
-                      }`}
-                    >
-                      <img
-                        loading="lazy"
-                        decoding="async"
-                        src={user.avatar}
-                        alt="Profile"
-                        className="w-full h-full object-cover"
-                        onError={handleAvatarError}
-                      />
-                      <Icon className="hidden w-full h-full text-rose-500" />
-                    </div>
-                  ) : path === "/login" ? (
-                    <Icon
-                      className="w-4 h-4 transition-transform duration-200 group-active:scale-95"
-                      strokeWidth={active ? 2.5 : 2.2}
-                    />
-                  ) : (
-                    <Icon
-                      className="w-[18px] h-[18px] transition-all duration-300 relative z-10 group-active:scale-95"
-                      strokeWidth={active ? 2.5 : 2.2}
-                    />
-                  )}
-                </div>
-
-                {/* Text Label */}
-                <span
-                  title={label}
-                  className={`text-[10px] tracking-tight transition-all duration-300 truncate w-full text-center mt-0.5 ${
-                    active
-                      ? `font-bold ${color.activeText}`
-                      : `font-semibold text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white`
-                  }`}
-                >
-                  {label}
-                </span>
-
-                {/* Active bottom capsule indicator */}
-                {active && (
-                  <span
-                    className={`absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-5 h-1 rounded-full bg-gradient-to-r ${color.bg}`}
+                    className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"
                     style={{
-                      boxShadow: `0 2px 6px ${color.glow}`,
+                      animation: "livePulse 1.5s ease-in-out infinite",
+                      boxShadow: "0 0 8px rgba(239, 68, 68, 0.5)",
                     }}
                   />
                 )}
-              </Link>
-            );
-          },
-        )}
+
+                {path === "/profile" && user?.avatar ? (
+                  <div
+                    className={`w-7 h-7 rounded-full overflow-hidden transition-all duration-300 ${
+                      active
+                        ? "ring-2 ring-white dark:ring-gray-900 scale-100"
+                        : "ring-1.5 ring-rose-400/70 dark:ring-rose-500/60"
+                    }`}
+                  >
+                    <img
+                      loading="lazy"
+                      decoding="async"
+                      src={user.avatar}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                      onError={handleAvatarError}
+                    />
+                    <Icon className="hidden w-full h-full text-rose-500" />
+                  </div>
+                ) : path === "/login" ? (
+                  <Icon
+                    className="w-4 h-4 transition-transform duration-200 group-active:scale-95"
+                    strokeWidth={active ? 2.5 : 2.2}
+                  />
+                ) : (
+                  <Icon
+                    className="w-[18px] h-[18px] transition-all duration-300 relative z-10 group-active:scale-95"
+                    strokeWidth={active ? 2.5 : 2.2}
+                  />
+                )}
+              </div>
+
+              {/* Text Label */}
+              <span
+                title={label}
+                className={`text-[10px] tracking-tight transition-all duration-300 truncate w-full text-center mt-0.5 ${
+                  active
+                    ? `font-bold ${color.activeText}`
+                    : `font-semibold text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white`
+                }`}
+              >
+                {label}
+              </span>
+
+              {/* Active bottom capsule indicator */}
+              {active && (
+                <span
+                  className={`absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-5 h-1 rounded-full bg-gradient-to-r ${color.bg}`}
+                  style={{
+                    boxShadow: `0 2px 6px ${color.glow}`,
+                  }}
+                />
+              )}
+            </Link>
+          );
+        })}
       </div>
     </nav>
   );

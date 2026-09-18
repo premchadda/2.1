@@ -6,7 +6,13 @@
 export { default as useStages } from "./useStages.js";
 export { default as useExamCategories } from "./useExamCategories.js";
 export { default as useTestCategories } from "./useTestCategories.js";
-export { default as useProPass, initProPassAuth, formatRemainingDays, getUrgencyColors, default } from "./useProPass.js";
+export {
+  default as useProPass,
+  initProPassAuth,
+  formatRemainingDays,
+  getUrgencyColors,
+  default,
+} from "./useProPass.js";
 export { default as useFormManager } from "./useFormManager.js";
 export { default as useGenericCRUD } from "./useGenericCRUD.js";
 export { default as useDraggableScroll } from "./useDraggableScroll.js";

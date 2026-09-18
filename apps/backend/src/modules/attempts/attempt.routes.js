@@ -946,7 +946,9 @@ router.post("/:attemptId/events", protect, async (req, res) => {
     // sequential lookups (lock contention + latency).
     const distinctQids = [
       ...new Set(
-        events.map((e) => e?.questionId).filter((q) => q !== undefined && q !== null && String(q) !== ""),
+        events
+          .map((e) => e?.questionId)
+          .filter((q) => q !== undefined && q !== null && String(q) !== ""),
       ),
     ];
     const qidMap = new Map();
@@ -1280,12 +1282,10 @@ router.post("/:attemptId/proctoring", protect, async (req, res) => {
       String(attempt.userId) !== String(req.user.id) &&
       req.user?.role !== "admin"
     ) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Unauthorized access to attempt telemetry",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access to attempt telemetry",
+      });
     }
 
     const internalId = getInternalId(attempt) || attemptId;
@@ -1326,12 +1326,10 @@ router.get("/:attemptId/proctoring", protect, async (req, res) => {
       String(attempt.userId) !== String(req.user.id) &&
       req.user?.role !== "admin"
     ) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Unauthorized access to attempt proctoring",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access to attempt proctoring",
+      });
     }
 
     const internalId = getInternalId(attempt) || attemptId;
@@ -1393,12 +1391,10 @@ router.post("/:attemptId/handoff/create", protect, async (req, res) => {
       String(attempt.userId) !== String(req.user.id) &&
       req.user?.role !== "admin"
     ) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Unauthorized access to attempt handoff",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access to attempt handoff",
+      });
     }
 
     const internalId = getInternalId(attempt) || attemptId;

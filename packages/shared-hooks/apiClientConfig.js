@@ -13,7 +13,7 @@ import {
   ForbiddenError as SharedForbiddenError,
   NotFoundError as SharedNotFoundError,
   RateLimitError as SharedRateLimitError,
-} from '../shared-config/src/errors.js';
+} from "../shared-config/src/errors.js";
 
 let globalApiClient = null;
 
@@ -204,9 +204,7 @@ export async function request(method, url, data = null, options = {}) {
   const csrfToken = options.csrfToken ?? readCsrfToken();
   if (
     csrfToken &&
-    ["POST", "PUT", "PATCH", "DELETE"].includes(
-      String(method).toUpperCase(),
-    )
+    ["POST", "PUT", "PATCH", "DELETE"].includes(String(method).toUpperCase())
   ) {
     headers["X-CSRF-Token"] = csrfToken;
   }

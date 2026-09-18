@@ -155,8 +155,7 @@ export function createApiClient(options = {}) {
   const applyReplayAuth = (requestConfig) => {
     requestConfig.headers = requestConfig.headers || {};
     if (lastRefreshedToken) {
-      requestConfig.headers["Authorization"] =
-        `Bearer ${lastRefreshedToken}`;
+      requestConfig.headers["Authorization"] = `Bearer ${lastRefreshedToken}`;
     } else if (stripAuthOnQueuedReplay && requestConfig.headers) {
       // Cookie-only refresh returns no bearer token. Do not replay an
       // expired bearer token — drop it so the httpOnly cookie session is used.
@@ -191,19 +190,19 @@ export function createApiClient(options = {}) {
           : (path) => url?.includes(path);
       const isAuthEndpoint = authEndpoints.some(matchFn);
 
-  const toAuthError = (err) => {
-    // Mirror the refresh-failure typing: 401/419 surfaces as
-    // AuthenticationError (carries .status) instead of the raw axios error.
-    const st = err?.response?.status ?? status;
-    const typed = new AuthenticationError(
-      err?.response?.data?.message ||
-        err?.message ||
-        "Session expired — please sign in again",
-      err?.response?.data ?? null,
-    );
-    if (typed.status === undefined && st) typed.status = st;
-    return typed;
-  };
+      const toAuthError = (err) => {
+        // Mirror the refresh-failure typing: 401/419 surfaces as
+        // AuthenticationError (carries .status) instead of the raw axios error.
+        const st = err?.response?.status ?? status;
+        const typed = new AuthenticationError(
+          err?.response?.data?.message ||
+            err?.message ||
+            "Session expired — please sign in again",
+          err?.response?.data ?? null,
+        );
+        if (typed.status === undefined && st) typed.status = st;
+        return typed;
+      };
 
       if (status === 401 || status === 419) {
         if (isAuthEndpoint) {
@@ -238,9 +237,17 @@ export function createApiClient(options = {}) {
             if (newAccessToken) {
               lastRefreshedToken = newAccessToken;
               if (safeStorageGet(getLocalStore(), "trstprep_token"))
-                safeStorageSet(getLocalStore(), "trstprep_token", newAccessToken);
+                safeStorageSet(
+                  getLocalStore(),
+                  "trstprep_token",
+                  newAccessToken,
+                );
               else if (safeStorageGet(getSessionStore(), "trstprep_token"))
-                safeStorageSet(getSessionStore(), "trstprep_token", newAccessToken);
+                safeStorageSet(
+                  getSessionStore(),
+                  "trstprep_token",
+                  newAccessToken,
+                );
               originalRequest.headers = originalRequest.headers || {};
               originalRequest.headers["Authorization"] =
                 `Bearer ${newAccessToken}`;
@@ -256,7 +263,9 @@ export function createApiClient(options = {}) {
                   "trstprep_refresh_token",
                   newRefreshToken,
                 );
-              else if (safeStorageGet(getSessionStore(), "trstprep_refresh_token"))
+              else if (
+                safeStorageGet(getSessionStore(), "trstprep_refresh_token")
+              )
                 safeStorageSet(
                   getSessionStore(),
                   "trstprep_refresh_token",

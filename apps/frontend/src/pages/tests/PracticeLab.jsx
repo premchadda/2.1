@@ -444,7 +444,11 @@ export default function PracticeLab() {
               // may pass raw rows). Never let this become ".../undefined".
               const resumeId =
                 session?.id ?? session?.sessionId ?? session?.session_id;
-              if (resumeId === undefined || resumeId === null || resumeId === "") {
+              if (
+                resumeId === undefined ||
+                resumeId === null ||
+                resumeId === ""
+              ) {
                 throw new Error("Practice session ID is missing");
               }
               const fullSession = await practiceAPI.getSession(resumeId);
@@ -633,7 +637,8 @@ function ExamPracticeHub({
   initialSubjectSlug,
 }) {
   const { hasProPass } = useProPass();
-  const [mobileSubjectDropdownOpen, setMobileSubjectDropdownOpen] = useState(false);
+  const [mobileSubjectDropdownOpen, setMobileSubjectDropdownOpen] =
+    useState(false);
   const { data: treeData, isLoading: subjectsLoading } = useQuery({
     queryKey: ["practice-tree", "exam-practice"],
     queryFn: practiceAPI.getTree,
@@ -809,7 +814,9 @@ function ExamPracticeHub({
               aria-haspopup="listbox"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className="text-xl flex-shrink-0">{currentSubjectObj.icon}</span>
+                <span className="text-xl flex-shrink-0">
+                  {currentSubjectObj.icon}
+                </span>
                 <div className="min-w-0">
                   <div className="text-sm font-black text-slate-900 dark:text-white truncate">
                     {currentSubjectObj.label}
@@ -822,7 +829,9 @@ function ExamPracticeHub({
                 </span>
                 <ChevronDown
                   className={`w-4 h-4 text-slate-400 dark:text-gray-400 transition-transform duration-200 ${
-                    mobileSubjectDropdownOpen ? "rotate-180 text-indigo-600" : ""
+                    mobileSubjectDropdownOpen
+                      ? "rotate-180 text-indigo-600"
+                      : ""
                   }`}
                 />
               </div>
@@ -850,7 +859,9 @@ function ExamPracticeHub({
                         onClick={() => {
                           setActiveSubject(s.id);
                           if (onSelectSubject) {
-                            onSelectSubject(s.id === "all" ? null : s.slug || s.id);
+                            onSelectSubject(
+                              s.id === "all" ? null : s.slug || s.id,
+                            );
                           }
                           setMobileSubjectDropdownOpen(false);
                         }}
@@ -861,7 +872,9 @@ function ExamPracticeHub({
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="text-base flex-shrink-0">{s.icon}</span>
+                          <span className="text-base flex-shrink-0">
+                            {s.icon}
+                          </span>
                           <span className="truncate">{s.label}</span>
                         </div>
                         {isActive && (
@@ -922,9 +935,7 @@ function ExamPracticeHub({
         </div>
 
         {/* RIGHT COLUMN: CHAPTERS CONTENT (col-span-9 on desktop, full-width on mobile) */}
-        <div
-          className="w-full md:col-span-9 flex flex-col md:max-h-[calc(100vh-80px)]"
-        >
+        <div className="w-full md:col-span-9 flex flex-col md:max-h-[calc(100vh-80px)]">
           {/* Chapter Cards Header — fixed, doesn't scroll */}
           <div className="flex items-center justify-between mb-5 flex-shrink-0">
             <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center">
@@ -1869,7 +1880,8 @@ function PracticeHubDashboard({
             Practice Workspace
           </h1>
           <p className="text-[11px] sm:text-sm text-slate-500 dark:text-gray-400 mt-0.5 truncate sm:whitespace-normal">
-            Build core concepts, train calculation speed, and master exam topics.
+            Build core concepts, train calculation speed, and master exam
+            topics.
           </p>
         </div>
 

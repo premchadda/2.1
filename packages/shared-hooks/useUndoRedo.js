@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from "react";
 
 /**
  * Custom hook for managing undo/redo history
@@ -13,8 +13,8 @@ export function useUndoRedo(maxHistory = 50) {
 
   // Keep ref in sync
   const setIndex = useCallback((updater) => {
-    setCurrentIndex(prev => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
+    setCurrentIndex((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
       currentIndexRef.current = next;
       return next;
     });
@@ -26,42 +26,50 @@ export function useUndoRedo(maxHistory = 50) {
    * @param {Function} undoAction - Function to undo the action
    * @param {string} label - Optional label for the operation
    */
-  const execute = useCallback(async (doAction, undoAction, label = '') => {
-    isExecutingRef.current = true;
-    
-    try {
-      const result = await doAction();
-      
-      // Use ref to get the current index at time of execution, avoiding stale closure
-      const idxAtCall = currentIndexRef.current;
+  const execute = useCallback(
+    async (doAction, undoAction, label = "") => {
+      isExecutingRef.current = true;
 
-      setHistory(prev => {
-        // Remove any future history if we're not at the end
-        const newHistory = prev.slice(0, idxAtCall + 1);
-        newHistory.push({ doAction, undoAction, label, timestamp: Date.now() });
-        
-        // Trim history if exceeding max
-        if (newHistory.length > maxHistory) {
-          return newHistory.slice(-maxHistory);
-        }
-        return newHistory;
-      });
-      
-      setIndex(prev => Math.min(prev + 1, maxHistory - 1));
-      isExecutingRef.current = false;
-      return result;
-    } catch (error) {
-      isExecutingRef.current = false;
-      throw error;
-    }
-  }, [maxHistory, setIndex]);
+      try {
+        const result = await doAction();
+
+        // Use ref to get the current index at time of execution, avoiding stale closure
+        const idxAtCall = currentIndexRef.current;
+
+        setHistory((prev) => {
+          // Remove any future history if we're not at the end
+          const newHistory = prev.slice(0, idxAtCall + 1);
+          newHistory.push({
+            doAction,
+            undoAction,
+            label,
+            timestamp: Date.now(),
+          });
+
+          // Trim history if exceeding max
+          if (newHistory.length > maxHistory) {
+            return newHistory.slice(-maxHistory);
+          }
+          return newHistory;
+        });
+
+        setIndex((prev) => Math.min(prev + 1, maxHistory - 1));
+        isExecutingRef.current = false;
+        return result;
+      } catch (error) {
+        isExecutingRef.current = false;
+        throw error;
+      }
+    },
+    [maxHistory, setIndex],
+  );
 
   /**
    * Undo the last operation
    */
   const undo = useCallback(async () => {
     if (currentIndexRef.current < 0 || isExecutingRef.current) return null;
-    
+
     isExecutingRef.current = true;
 
     // Read from ref + current history snapshot
@@ -75,7 +83,7 @@ export function useUndoRedo(maxHistory = 50) {
     // M44: execute side effect OUTSIDE the state updater (updater must be pure)
     await entry.undoAction();
 
-    setIndex(prev => prev - 1);
+    setIndex((prev) => prev - 1);
     isExecutingRef.current = false;
 
     return { result: true, label: entry.label };
@@ -85,8 +93,9 @@ export function useUndoRedo(maxHistory = 50) {
    * Redo the previously undone operation
    */
   const redo = useCallback(async () => {
-    if (currentIndexRef.current >= history.length - 1 || isExecutingRef.current) return null;
-    
+    if (currentIndexRef.current >= history.length - 1 || isExecutingRef.current)
+      return null;
+
     isExecutingRef.current = true;
 
     const idx = currentIndexRef.current;
@@ -98,7 +107,7 @@ export function useUndoRedo(maxHistory = 50) {
 
     try {
       const result = await entry.doAction();
-      setIndex(prev => prev + 1);
+      setIndex((prev) => prev + 1);
       isExecutingRef.current = false;
       return { result, label: entry.label };
     } catch (error) {
@@ -116,7 +125,8 @@ export function useUndoRedo(maxHistory = 50) {
   }, [setIndex]);
 
   const canUndo = currentIndexRef.current >= 0 && !isExecutingRef.current;
-  const canRedo = currentIndexRef.current < history.length - 1 && !isExecutingRef.current;
+  const canRedo =
+    currentIndexRef.current < history.length - 1 && !isExecutingRef.current;
 
   return {
     execute,
@@ -126,7 +136,7 @@ export function useUndoRedo(maxHistory = 50) {
     canRedo,
     clearHistory,
     history,
-    currentIndex
+    currentIndex,
   };
 }
 

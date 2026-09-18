@@ -327,7 +327,9 @@ Use simple Hindi words and avoid complex technical terms where possible.`,
    * Build prompt for explanation generation.
    */
   buildExplanationPrompt(question, options = {}) {
-    const optionsList = (Array.isArray(question.options) ? question.options : [])
+    const optionsList = (
+      Array.isArray(question.options) ? question.options : []
+    )
       .map((opt, i) => `Option ${i + 1}: ${sanitizeForPrompt(String(opt))}`)
       .join("\n");
 

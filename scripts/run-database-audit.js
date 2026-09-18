@@ -83,7 +83,9 @@ async function runAudit() {
       } else {
         // Junction is critical but allow soft fail if legacy array still present
         if (table === "test_category_series") {
-          console.error(`❌ Table "${table}" is MISSING! (Run pending migrations: next is 143_*)`);
+          console.error(
+            `❌ Table "${table}" is MISSING! (Run pending migrations: next is 143_*)`,
+          );
           failed = true;
         } else if (["certificates", "audit_logs"].includes(table)) {
           console.warn(`⚠️ Table "${table}" missing (non-critical)`);
@@ -315,7 +317,9 @@ async function runAudit() {
       }
     }
     if (hnsw.rows.length === 0) {
-      console.warn(`⚠️ No HNSW indexes found — expected from 093 (CONCURRENTLY, live) or 134 (transactional, fresh)`);
+      console.warn(
+        `⚠️ No HNSW indexes found — expected from 093 (CONCURRENTLY, live) or 134 (transactional, fresh)`,
+      );
       warnings++;
     }
     // Check ef_search setting (may require superuser, so warn only)
@@ -379,7 +383,10 @@ async function runAudit() {
       console.log(
         `✅ encrypt_pii/decrypt_pii functions exist (SECURITY DEFINER, search_path fixed)`,
       );
-      else console.warn(`⚠️ Missing encrypt_pii/decrypt_pii — expected from 088/104/115/142`);
+    else
+      console.warn(
+        `⚠️ Missing encrypt_pii/decrypt_pii — expected from 088/104/115/142`,
+      );
     if (!process.env.DB_ENCRYPTION_KEY) {
       // Fail-closed in production: without the key, *_enc columns stay NULL
       // and reads silently fall back to plaintext (088/104 fail-open). In

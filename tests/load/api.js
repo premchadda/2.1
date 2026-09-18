@@ -226,7 +226,10 @@ function testStartTestAttempt() {
 
   return check(res, {
     "start-attempt - status is 200/201/400/401": (r) =>
-      r.status === 200 || r.status === 201 || r.status === 400 || r.status === 401,
+      r.status === 200 ||
+      r.status === 201 ||
+      r.status === 400 ||
+      r.status === 401,
   });
 }
 

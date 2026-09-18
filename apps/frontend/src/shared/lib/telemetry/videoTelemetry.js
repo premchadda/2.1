@@ -3,8 +3,8 @@
  * Captures play, pause, resume, seek, rate changes, heartbeat, and watch duration.
  */
 
-import { apiClient } from '../apiClient'
-import { API_BASE_URL } from '../apiBase'
+import { apiClient } from "../apiClient";
+import { API_BASE_URL } from "../apiBase";
 
 // Resolve an absolute beacon URL from the apiClient baseURL. sendBeacon can
 // only run on pagehide/unload where the axios instance (and its baseURL) may
@@ -12,27 +12,36 @@ import { API_BASE_URL } from '../apiBase'
 // cannot set custom headers (no X-CSRF-Token); the backend must accept the
 // cookie-session beacon path without CSRF or the beacon will be rejected.
 const resolveBeaconUrl = (videoId) => {
-  const path = `/api/videos/${videoId}/activity`
-  const base = (apiClient?.defaults?.baseURL || API_BASE_URL || '').replace(/\/+$/, '')
-  if (!base) return path
-  if (typeof window !== 'undefined' && base.startsWith('/')) {
-    return `${window.location.origin}${base}${path}`
+  const path = `/api/videos/${videoId}/activity`;
+  const base = (apiClient?.defaults?.baseURL || API_BASE_URL || "").replace(
+    /\/+$/,
+    "",
+  );
+  if (!base) return path;
+  if (typeof window !== "undefined" && base.startsWith("/")) {
+    return `${window.location.origin}${base}${path}`;
   }
-  return `${base}${path}`
-}
+  return `${base}${path}`;
+};
 
 class VideoTelemetry {
   constructor() {
-    this.currentSession = null
-    this.heartbeatTimer = null
-    this.batchQueue = []
+    this.currentSession = null;
+    this.heartbeatTimer = null;
+    this.batchQueue = [];
   }
 
   /**
    * Start a video telemetry session
    */
-  startSession({ videoId, duration, initialOffset = 0, videoTitle = '', userId = null }) {
-    this.endSession() // Clean up any active session
+  startSession({
+    videoId,
+    duration,
+    initialOffset = 0,
+    videoTitle = "",
+    userId = null,
+  }) {
+    this.endSession(); // Clean up any active session
 
     this.currentSession = {
       sessionId: `vses_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
@@ -49,24 +58,24 @@ class VideoTelemetry {
       startedAt: Date.now(),
       lastPlayTime: null,
       events: [],
-    }
+    };
 
-    this.logEvent('VIDEO_INIT', { initialOffset, duration })
+    this.logEvent("VIDEO_INIT", { initialOffset, duration });
 
     // Heartbeat every 8 seconds
     this.heartbeatTimer = setInterval(() => {
-      this.tickHeartbeat()
-    }, 8000)
+      this.tickHeartbeat();
+    }, 8000);
 
     // Save initial progress to localStorage
-    this.persistLocalProgress()
+    this.persistLocalProgress();
   }
 
   /**
    * Log an event
    */
   logEvent(type, metadata = {}) {
-    if (!this.currentSession) return
+    if (!this.currentSession) return;
 
     const event = {
       type,
@@ -76,14 +85,14 @@ class VideoTelemetry {
       currentSecond: Math.round(this.currentSession.currentSecond || 0),
       playbackSpeed: this.currentSession.playbackSpeed,
       metadata,
-    }
+    };
 
-    this.currentSession.events.push(event)
-    this.batchQueue.push(event)
+    this.currentSession.events.push(event);
+    this.batchQueue.push(event);
 
     // If critical event, flush immediately
-    if (['VIDEO_COMPLETE', 'VIDEO_PAUSE', 'VIDEO_SEEK'].includes(type)) {
-      this.flushEvents()
+    if (["VIDEO_COMPLETE", "VIDEO_PAUSE", "VIDEO_SEEK"].includes(type)) {
+      this.flushEvents();
     }
   }
 
@@ -91,78 +100,78 @@ class VideoTelemetry {
    * Called when user presses Play or resumes playback
    */
   trackPlay(currentSecond) {
-    if (!this.currentSession) return
-    this.currentSession.isPlaying = true
-    this.currentSession.currentSecond = currentSecond
-    this.currentSession.lastPlayTime = Date.now()
+    if (!this.currentSession) return;
+    this.currentSession.isPlaying = true;
+    this.currentSession.currentSecond = currentSecond;
+    this.currentSession.lastPlayTime = Date.now();
 
-    this.logEvent('VIDEO_PLAY', {
+    this.logEvent("VIDEO_PLAY", {
       fromSecond: Math.round(currentSecond),
-    })
+    });
   }
 
   /**
    * Called when user pauses
    */
   trackPause(currentSecond) {
-    if (!this.currentSession) return
-    this.accumulateWatchTime()
-    this.currentSession.isPlaying = false
-    this.currentSession.currentSecond = currentSecond
+    if (!this.currentSession) return;
+    this.accumulateWatchTime();
+    this.currentSession.isPlaying = false;
+    this.currentSession.currentSecond = currentSecond;
 
-    this.logEvent('VIDEO_PAUSE', {
+    this.logEvent("VIDEO_PAUSE", {
       atSecond: Math.round(currentSecond),
       segmentWatchSeconds: this.currentSession.segmentWatchSeconds,
       totalWatchSeconds: this.currentSession.totalWatchSeconds,
-    })
+    });
 
-    this.currentSession.segmentWatchSeconds = 0
-    this.persistLocalProgress()
+    this.currentSession.segmentWatchSeconds = 0;
+    this.persistLocalProgress();
   }
 
   /**
    * Called when user seeks or scrubs
    */
   trackSeek(fromSecond, toSecond) {
-    if (!this.currentSession) return
-    this.accumulateWatchTime()
-    const delta = toSecond - fromSecond
+    if (!this.currentSession) return;
+    this.accumulateWatchTime();
+    const delta = toSecond - fromSecond;
 
-    this.logEvent('VIDEO_SEEK', {
+    this.logEvent("VIDEO_SEEK", {
       fromSecond: Math.round(fromSecond),
       toSecond: Math.round(toSecond),
       deltaSeconds: Math.round(delta),
-      seekType: delta > 0 ? 'FORWARD' : 'BACKWARD',
-    })
+      seekType: delta > 0 ? "FORWARD" : "BACKWARD",
+    });
 
-    this.currentSession.currentSecond = toSecond
-    this.persistLocalProgress()
+    this.currentSession.currentSecond = toSecond;
+    this.persistLocalProgress();
   }
 
   /**
    * Called when user changes playback speed
    */
   trackRateChange(newRate, currentSecond) {
-    if (!this.currentSession) return
-    this.accumulateWatchTime()
-    const prevRate = this.currentSession.playbackSpeed
-    this.currentSession.playbackSpeed = newRate
+    if (!this.currentSession) return;
+    this.accumulateWatchTime();
+    const prevRate = this.currentSession.playbackSpeed;
+    this.currentSession.playbackSpeed = newRate;
 
-    this.logEvent('VIDEO_RATE_CHANGE', {
+    this.logEvent("VIDEO_RATE_CHANGE", {
       previousSpeed: prevRate,
       newSpeed: newRate,
       atSecond: Math.round(currentSecond),
-    })
+    });
   }
 
   /**
    * Called on timeupdate / progress tick
    */
   trackTimeUpdate(currentSecond, duration) {
-    if (!this.currentSession) return
-    this.currentSession.currentSecond = currentSecond
+    if (!this.currentSession) return;
+    this.currentSession.currentSecond = currentSecond;
     if (duration && !this.currentSession.duration) {
-      this.currentSession.duration = duration
+      this.currentSession.duration = duration;
     }
   }
 
@@ -170,57 +179,68 @@ class VideoTelemetry {
    * Called when video finishes
    */
   trackComplete() {
-    if (!this.currentSession) return
-    this.accumulateWatchTime()
-    this.currentSession.isPlaying = false
+    if (!this.currentSession) return;
+    this.accumulateWatchTime();
+    this.currentSession.isPlaying = false;
 
-    this.logEvent('VIDEO_COMPLETE', {
+    this.logEvent("VIDEO_COMPLETE", {
       totalWatchSeconds: this.currentSession.totalWatchSeconds,
       duration: this.currentSession.duration,
-    })
+    });
 
-    this.persistLocalProgress(true)
-    this.flushEvents()
+    this.persistLocalProgress(true);
+    this.flushEvents();
   }
 
   /**
    * Internal accumulator for real elapsed watch seconds
    */
   accumulateWatchTime() {
-    if (!this.currentSession || !this.currentSession.isPlaying || !this.currentSession.lastPlayTime) return
-    const now = Date.now()
-    const elapsedSeconds = Math.max(0, (now - this.currentSession.lastPlayTime) / 1000)
-    this.currentSession.totalWatchSeconds += elapsedSeconds
-    this.currentSession.segmentWatchSeconds += elapsedSeconds
-    this.currentSession.lastPlayTime = now
+    if (
+      !this.currentSession ||
+      !this.currentSession.isPlaying ||
+      !this.currentSession.lastPlayTime
+    )
+      return;
+    const now = Date.now();
+    const elapsedSeconds = Math.max(
+      0,
+      (now - this.currentSession.lastPlayTime) / 1000,
+    );
+    this.currentSession.totalWatchSeconds += elapsedSeconds;
+    this.currentSession.segmentWatchSeconds += elapsedSeconds;
+    this.currentSession.lastPlayTime = now;
   }
 
   /**
    * Periodic heartbeat
    */
   tickHeartbeat() {
-    if (!this.currentSession || !this.currentSession.isPlaying) return
-    this.accumulateWatchTime()
+    if (!this.currentSession || !this.currentSession.isPlaying) return;
+    this.accumulateWatchTime();
 
-    this.logEvent('VIDEO_HEARTBEAT', {
+    this.logEvent("VIDEO_HEARTBEAT", {
       currentSecond: Math.round(this.currentSession.currentSecond),
       totalWatchSeconds: Math.round(this.currentSession.totalWatchSeconds),
       speed: this.currentSession.playbackSpeed,
-    })
+    });
 
-    this.persistLocalProgress()
-    this.flushEvents()
+    this.persistLocalProgress();
+    this.flushEvents();
   }
 
   /**
    * Persist progress to localStorage for instantaneous offline sync & resume
    */
   persistLocalProgress(completed = false) {
-    if (!this.currentSession?.videoId) return
-    const videoId = this.currentSession.videoId
-    const duration = this.currentSession.duration || 1
-    const lastTimestamp = Math.round(this.currentSession.currentSecond || 0)
-    const percentage = Math.min(100, Math.round((lastTimestamp / duration) * 100))
+    if (!this.currentSession?.videoId) return;
+    const videoId = this.currentSession.videoId;
+    const duration = this.currentSession.duration || 1;
+    const lastTimestamp = Math.round(this.currentSession.currentSecond || 0);
+    const percentage = Math.min(
+      100,
+      Math.round((lastTimestamp / duration) * 100),
+    );
 
     const record = {
       videoId,
@@ -229,17 +249,17 @@ class VideoTelemetry {
       percentage,
       completed: completed || percentage >= 90,
       updatedAt: Date.now(),
-    }
+    };
 
     try {
-      localStorage.setItem(`video_progress_${videoId}`, JSON.stringify(record))
+      localStorage.setItem(`video_progress_${videoId}`, JSON.stringify(record));
 
       // Also update master list of watched videos
-      const masterKey = 'trstprep_user_video_progress_map'
-      const raw = localStorage.getItem(masterKey)
-      const map = raw ? JSON.parse(raw) : {}
-      map[videoId] = record
-      localStorage.setItem(masterKey, JSON.stringify(map))
+      const masterKey = "trstprep_user_video_progress_map";
+      const raw = localStorage.getItem(masterKey);
+      const map = raw ? JSON.parse(raw) : {};
+      map[videoId] = record;
+      localStorage.setItem(masterKey, JSON.stringify(map));
     } catch {}
   }
 
@@ -247,11 +267,11 @@ class VideoTelemetry {
    * Flush batch of events to backend API
    */
   async flushEvents() {
-    if (this.batchQueue.length === 0 || !this.currentSession?.videoId) return
+    if (this.batchQueue.length === 0 || !this.currentSession?.videoId) return;
 
-    const eventsToFlush = [...this.batchQueue]
-    this.batchQueue = []
-    const videoId = this.currentSession.videoId
+    const eventsToFlush = [...this.batchQueue];
+    this.batchQueue = [];
+    const videoId = this.currentSession.videoId;
 
     try {
       await apiClient.post(`/api/videos/${videoId}/activity`, {
@@ -259,16 +279,16 @@ class VideoTelemetry {
         events: eventsToFlush,
         lastTimestamp: Math.round(this.currentSession.currentSecond || 0),
         totalTimeSpent: Math.round(this.currentSession.totalWatchSeconds || 0),
-      })
+      });
     } catch (err) {
       // 5xx-only retry: requeue on server/network failures, drop 4xx
       // (validation/auth) failures — retrying those can never succeed and
       // grows the queue unboundedly.
-      const status = err?.response?.status ?? err?.status
-      const retryable = status == null || status >= 500
+      const status = err?.response?.status ?? err?.status;
+      const retryable = status == null || status >= 500;
       if (retryable) {
         // Put events back in queue if network/server failed
-        this.batchQueue = [...eventsToFlush, ...this.batchQueue]
+        this.batchQueue = [...eventsToFlush, ...this.batchQueue];
       }
     }
   }
@@ -277,34 +297,43 @@ class VideoTelemetry {
    * End session and send final beacon
    */
   endSession() {
-    if (!this.currentSession) return
+    if (!this.currentSession) return;
 
     if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer)
-      this.heartbeatTimer = null
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
     }
 
-    this.accumulateWatchTime()
-    this.persistLocalProgress()
+    this.accumulateWatchTime();
+    this.persistLocalProgress();
 
     // Final flush via sendBeacon or API
-    if (this.batchQueue.length > 0 && typeof navigator !== 'undefined' && navigator.sendBeacon) {
+    if (
+      this.batchQueue.length > 0 &&
+      typeof navigator !== "undefined" &&
+      navigator.sendBeacon
+    ) {
       try {
         const payload = JSON.stringify({
           sessionId: this.currentSession.sessionId,
           events: this.batchQueue,
           lastTimestamp: Math.round(this.currentSession.currentSecond || 0),
-          totalTimeSpent: Math.round(this.currentSession.totalWatchSeconds || 0),
-        })
-        const blob = new Blob([payload], { type: 'application/json' })
-        navigator.sendBeacon(resolveBeaconUrl(this.currentSession.videoId), blob)
+          totalTimeSpent: Math.round(
+            this.currentSession.totalWatchSeconds || 0,
+          ),
+        });
+        const blob = new Blob([payload], { type: "application/json" });
+        navigator.sendBeacon(
+          resolveBeaconUrl(this.currentSession.videoId),
+          blob,
+        );
       } catch {}
     } else {
-      this.flushEvents()
+      this.flushEvents();
     }
 
-    this.currentSession = null
+    this.currentSession = null;
   }
 }
 
-export default new VideoTelemetry()
+export default new VideoTelemetry();

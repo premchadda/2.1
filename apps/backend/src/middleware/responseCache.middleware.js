@@ -398,12 +398,9 @@ export const swrCache = (
       res.json = originalJson;
       res.send = originalSend;
       if (res.statusCode < 400 && body && body.success !== false) {
-        setCache(
-          namespace,
-          key,
-          { cachedAt: Date.now(), body },
-          staleTtl,
-        ).catch(() => {}).finally(finishCold);
+        setCache(namespace, key, { cachedAt: Date.now(), body }, staleTtl)
+          .catch(() => {})
+          .finally(finishCold);
       } else {
         finishCold();
       }

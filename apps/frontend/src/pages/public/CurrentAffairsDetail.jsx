@@ -69,9 +69,7 @@ const CurrentAffairsDetail = () => {
       return;
     }
     try {
-      const response = await api.get(
-        `/api/current-affairs/${articleId}/quiz`,
-      );
+      const response = await api.get(`/api/current-affairs/${articleId}/quiz`);
       setQuiz(response.data?.data || null);
       setShowQuiz(true);
     } catch (error) {
@@ -120,7 +118,8 @@ const CurrentAffairsDetail = () => {
   }
 
   const formatDate = (dateString) => {
-    const normalized = dateString || article?.published_at || article?.created_at;
+    const normalized =
+      dateString || article?.published_at || article?.created_at;
     if (!normalized) return "";
     return new Date(normalized).toLocaleDateString("en-US", {
       year: "numeric",
@@ -265,7 +264,9 @@ const CurrentAffairsDetail = () => {
                           key={
                             typeof option === "string"
                               ? `${idx}-${option}`
-                              : (option?.id ?? option?._id ?? `${idx}-${optIdx}`)
+                              : (option?.id ??
+                                option?._id ??
+                                `${idx}-${optIdx}`)
                           }
                           className={`ca-quiz-option ${
                             quizAnswers[idx] === option ? "selected" : ""

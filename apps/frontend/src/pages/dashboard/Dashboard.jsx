@@ -325,7 +325,10 @@ function Dashboard() {
           setDashboardCache(activeUserId, cachePayload);
         }
       } catch (err) {
-        console.error("[Dashboard] Error fetching dashboard data:", err?.message ?? err);
+        console.error(
+          "[Dashboard] Error fetching dashboard data:",
+          err?.message ?? err,
+        );
       } finally {
         if (!cancelled) {
           setLoading(false);
