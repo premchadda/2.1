@@ -325,7 +325,8 @@ export const initWebSocket = async (server) => {
       let roomTestId = testId;
       if (!Number.isInteger(numericId) || numericId <= 0) {
         try {
-          const { pool: slugPool } = await import("../database/postgres-helpers.js");
+          const { pool: slugPool } =
+            await import("../database/postgres-helpers.js");
           const slug = String(testId).trim();
           let resolved = null;
           try {
@@ -348,7 +349,11 @@ export const initWebSocket = async (server) => {
               /* tests.slug may not exist */
             }
           }
-          if (resolved == null || !Number.isInteger(resolved) || resolved <= 0) {
+          if (
+            resolved == null ||
+            !Number.isInteger(resolved) ||
+            resolved <= 0
+          ) {
             return acknowledge?.({
               success: false,
               // Distinct from "Not registered": the slug itself is invalid.
@@ -387,7 +392,12 @@ export const initWebSocket = async (server) => {
                 [numericId],
               );
               const row = lt.rows[0];
-              if (row && (row.max_participants == null || row.registered < row.max_participants)) allowed = true;
+              if (
+                row &&
+                (row.max_participants == null ||
+                  row.registered < row.max_participants)
+              )
+                allowed = true;
             } catch {
               // Fail-closed: an unreadable capacity row must not grant entry.
               // (The only allow-open path is the live_test_registrations
@@ -453,7 +463,8 @@ export const initWebSocket = async (server) => {
       const asNumber = Number(testId);
       if (!Number.isInteger(asNumber) || asNumber <= 0) {
         try {
-          const { pool: leavePool } = await import("../database/postgres-helpers.js");
+          const { pool: leavePool } =
+            await import("../database/postgres-helpers.js");
           const slug = String(testId).trim();
           let resolved = null;
           try {
@@ -476,7 +487,11 @@ export const initWebSocket = async (server) => {
               /* tests.slug may not exist */
             }
           }
-          if (resolved == null || !Number.isInteger(resolved) || resolved <= 0) {
+          if (
+            resolved == null ||
+            !Number.isInteger(resolved) ||
+            resolved <= 0
+          ) {
             return acknowledge?.({
               success: false,
               message: "Invalid test",

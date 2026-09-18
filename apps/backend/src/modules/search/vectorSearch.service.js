@@ -19,7 +19,10 @@ const VECTOR_CONFIG = {
   batchSize: parseInt(process.env.EMBEDDING_BATCH_SIZE) || 20,
   // Unified with embeddingService: AI_API_KEY || OPENROUTER_API_KEY ||
   // OPENAI_API_KEY; baseUrl AI_BASE_URL || openrouter (26).
-  apiKey: process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY,
+  apiKey:
+    process.env.AI_API_KEY ||
+    process.env.OPENROUTER_API_KEY ||
+    process.env.OPENAI_API_KEY,
   baseUrl: process.env.AI_BASE_URL || "https://openrouter.ai/api/v1",
 };
 
@@ -39,7 +42,9 @@ const assertEmbeddingVector = (vec) => {
   return vec;
 };
 
-const TRANSIENT_EMBEDDING_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const TRANSIENT_EMBEDDING_STATUSES = new Set([
+  408, 425, 429, 500, 502, 503, 504,
+]);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -95,7 +100,8 @@ async function generateEmbedding(text, options = {}) {
         );
         err.status = status;
         lastError = err;
-        if (!TRANSIENT_EMBEDDING_STATUSES.has(status) || attempt >= retries) throw err;
+        if (!TRANSIENT_EMBEDDING_STATUSES.has(status) || attempt >= retries)
+          throw err;
         await sleep(status === 429 ? 1000 : 500 * (attempt + 1));
         continue;
       }
@@ -154,7 +160,8 @@ const vectorSearchService = {
         entityId: questionId,
         model: VECTOR_CONFIG.embeddingModel,
         provider: "openai",
-        tokensInput: result.tokens || Math.max(1, Math.ceil(searchText.length / 4)),
+        tokensInput:
+          result.tokens || Math.max(1, Math.ceil(searchText.length / 4)),
         tokensOutput: 0,
         latencyMs: result.latencyMs,
         metadata: {

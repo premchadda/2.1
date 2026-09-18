@@ -780,16 +780,12 @@ router.post("/:testId/start", protect, async (req, res) => {
         ...new Set(
           [test._id, test.id, test.public_id, test.publicId, test.slug]
             .filter((v) => v !== undefined && v !== null && String(v) !== "")
-            .filter((v) =>
-              canonicalIsInt ? /^[0-9]+$/.test(String(v)) : true,
-            )
+            .filter((v) => (canonicalIsInt ? /^[0-9]+$/.test(String(v)) : true))
             .map((v) => (canonicalIsInt ? Number(v) : String(v))),
         ),
       ];
       const testIdPredicate =
-        testIdForms.length > 0
-          ? { $in: testIdForms }
-          : (test._id ?? test.id);
+        testIdForms.length > 0 ? { $in: testIdForms } : (test._id ?? test.id);
       const existingAttempts = await dbHelpers.find(
         "attempts",
         {
@@ -811,189 +807,189 @@ router.post("/:testId/start", protect, async (req, res) => {
           !a.isCompleted,
       );
 
-    // Check Live Test eligibility rules (Authoritative Server Time Check):
-    const isLiveTest = Boolean(
-      test.isLive ||
-      test.is_live ||
-      test.type === "live-tests" ||
-      test.type === "live" ||
-      test.testType === "live-tests" ||
-      test.testType === "live" ||
-      test.scheduledAt ||
-      test.scheduled_at ||
-      test.startTime ||
-      test.start_time ||
-      test.liveSchedule ||
-      test.live_schedule,
-    );
-    if (isLiveTest) {
-      const now = new Date();
-      const scheduledStart =
+      // Check Live Test eligibility rules (Authoritative Server Time Check):
+      const isLiveTest = Boolean(
+        test.isLive ||
+        test.is_live ||
+        test.type === "live-tests" ||
+        test.type === "live" ||
+        test.testType === "live-tests" ||
+        test.testType === "live" ||
         test.scheduledAt ||
         test.scheduled_at ||
         test.startTime ||
         test.start_time ||
-        test.scheduledStart ||
-        test.scheduled_start;
-      const scheduledEnd =
-        test.scheduledEnd ||
-        test.scheduled_end ||
-        test.dateEnd ||
-        test.date_end ||
-        test.endTime ||
-        test.end_time;
+        test.liveSchedule ||
+        test.live_schedule,
+      );
+      if (isLiveTest) {
+        const now = new Date();
+        const scheduledStart =
+          test.scheduledAt ||
+          test.scheduled_at ||
+          test.startTime ||
+          test.start_time ||
+          test.scheduledStart ||
+          test.scheduled_start;
+        const scheduledEnd =
+          test.scheduledEnd ||
+          test.scheduled_end ||
+          test.dateEnd ||
+          test.date_end ||
+          test.endTime ||
+          test.end_time;
 
-      if (scheduledStart && now < new Date(scheduledStart)) {
-        if (!attempt) {
-          await finalizeStartTxn(false);
-          return res.status(403).json({
-            success: false,
-            code: "LIVE_TEST_NOT_STARTED",
-            message: `This live test contest has not started yet. Starts at ${new Date(scheduledStart).toLocaleString("en-IN")}.`,
-          });
+        if (scheduledStart && now < new Date(scheduledStart)) {
+          if (!attempt) {
+            await finalizeStartTxn(false);
+            return res.status(403).json({
+              success: false,
+              code: "LIVE_TEST_NOT_STARTED",
+              message: `This live test contest has not started yet. Starts at ${new Date(scheduledStart).toLocaleString("en-IN")}.`,
+            });
+          }
+        }
+
+        if (scheduledEnd && now > new Date(scheduledEnd)) {
+          if (!attempt) {
+            await finalizeStartTxn(false);
+            return res.status(403).json({
+              success: false,
+              code: "LIVE_TEST_EXPIRED",
+              message:
+                "This live test contest has ended and is no longer accepting new attempts. View your analysis & scorecard from your results section.",
+            });
+          }
         }
       }
 
-      if (scheduledEnd && now > new Date(scheduledEnd)) {
-        if (!attempt) {
-          await finalizeStartTxn(false);
-          return res.status(403).json({
-            success: false,
-            code: "LIVE_TEST_EXPIRED",
-            message:
-              "This live test contest has ended and is no longer accepting new attempts. View your analysis & scorecard from your results section.",
-          });
-        }
-      }
-    }
-
-    const isReattempt = Boolean(req.body?.isReattempt);
-    if (isReattempt && attempt) {
-      const nowIso = new Date().toISOString();
-      const internalAttemptId = getInternalId(attempt);
-      await dbHelpers.updateById(
-        "attempts",
-        internalAttemptId,
-        {
-          status: "abandoned",
-          isCompleted: true,
-          is_completed: true,
-          submittedAt: nowIso,
-          submitted_at: nowIso,
-          updated_at: nowIso,
-        },
-        startClient,
-      );
-      attempt = null;
-    }
-
-    wasResumed = Boolean(attempt);
-
-    if (!attempt) {
-      // Check attempt limits for non-pro users (per-test count — scoped query;
-      // checkAttemptLimit filters by test id in JS as a second pass).
-      const allUserAttempts = await dbHelpers.find(
-        "attempts",
-        {
-          userId: req.user.id,
-          testId: testIdPredicate,
-        },
-        null,
-        null,
-        null,
-        startClient,
-      );
-      const limitCheck = checkAttemptLimit(req.user, allUserAttempts, test);
-
-      if (limitCheck.hasReached) {
-        await finalizeStartTxn(false);
-        return res.status(403).json({
-          success: false,
-          code: "ATTEMPT_LIMIT_REACHED",
-          message: limitCheck.message,
-          limitReached: true,
-        });
-      }
-
-      // Calculate attempt number (1 for 1st attempt, 2 for 2nd attempt, etc.)
-      const previousAttempts = allUserAttempts.filter(
-        (a) =>
-          idsMatch(a.testId, test._id || test.id) ||
-          idsMatch(a.test_id, test._id || test.id),
-      );
-      const attemptNumber = previousAttempts.length + 1;
-      const nowIso = new Date().toISOString();
-
-      // Savepoint so a 23505 race on insert can be rolled back without
-      // aborting the whole transaction (plain ROLLBACK would end it).
-      await startClient.query("SAVEPOINT start_insert");
-      try {
-        attempt = await dbHelpers.insertOne(
+      const isReattempt = Boolean(req.body?.isReattempt);
+      if (isReattempt && attempt) {
+        const nowIso = new Date().toISOString();
+        const internalAttemptId = getInternalId(attempt);
+        await dbHelpers.updateById(
           "attempts",
+          internalAttemptId,
           {
-            userId: req.user.id,
-            testId: test._id || test.id,
-            seriesId: test.seriesId || test.series_id,
-            attemptNumber: attemptNumber,
-            attempt_number: attemptNumber,
-            status: "in_progress",
-            startTime: nowIso,
-            duration: test.duration,
-            answers: [],
-            markedForReview: [],
-            sectionTimers: {},
-            currentSection: null,
-            timeSpent: 0,
-            isCompleted: false,
-            lastActivityAt: nowIso,
-            last_activity_at: nowIso,
-            lastHeartbeatAt: nowIso,
-            last_heartbeat_at: nowIso,
-            createdAt: nowIso,
+            status: "abandoned",
+            isCompleted: true,
+            is_completed: true,
+            submittedAt: nowIso,
+            submitted_at: nowIso,
+            updated_at: nowIso,
           },
           startClient,
         );
+        attempt = null;
+      }
 
-        // Emitted after COMMIT below (outside the txn) so a rolled-back
-        // insert never publishes a phantom test_started event.
-        startEventPayload = {
-          source: "tests",
-          userId: req.user.id,
-          testId: test._id || test.id,
-          attemptId: attempt._id || attempt.id,
-          attemptNumber,
-        };
-      } catch (insertErr) {
-        // Unique constraint violation (23505) means a concurrent request
-        // already created an in-progress attempt for this user+test.
-        // Return the existing attempt instead of failing.
-        if (insertErr?.code === "23505") {
-          await startClient.query("ROLLBACK TO SAVEPOINT start_insert");
-          const retryExisting = await dbHelpers.find(
+      wasResumed = Boolean(attempt);
+
+      if (!attempt) {
+        // Check attempt limits for non-pro users (per-test count — scoped query;
+        // checkAttemptLimit filters by test id in JS as a second pass).
+        const allUserAttempts = await dbHelpers.find(
+          "attempts",
+          {
+            userId: req.user.id,
+            testId: testIdPredicate,
+          },
+          null,
+          null,
+          null,
+          startClient,
+        );
+        const limitCheck = checkAttemptLimit(req.user, allUserAttempts, test);
+
+        if (limitCheck.hasReached) {
+          await finalizeStartTxn(false);
+          return res.status(403).json({
+            success: false,
+            code: "ATTEMPT_LIMIT_REACHED",
+            message: limitCheck.message,
+            limitReached: true,
+          });
+        }
+
+        // Calculate attempt number (1 for 1st attempt, 2 for 2nd attempt, etc.)
+        const previousAttempts = allUserAttempts.filter(
+          (a) =>
+            idsMatch(a.testId, test._id || test.id) ||
+            idsMatch(a.test_id, test._id || test.id),
+        );
+        const attemptNumber = previousAttempts.length + 1;
+        const nowIso = new Date().toISOString();
+
+        // Savepoint so a 23505 race on insert can be rolled back without
+        // aborting the whole transaction (plain ROLLBACK would end it).
+        await startClient.query("SAVEPOINT start_insert");
+        try {
+          attempt = await dbHelpers.insertOne(
             "attempts",
             {
               userId: req.user.id,
-              testId: testIdPredicate,
+              testId: test._id || test.id,
+              seriesId: test.seriesId || test.series_id,
+              attemptNumber: attemptNumber,
+              attempt_number: attemptNumber,
+              status: "in_progress",
+              startTime: nowIso,
+              duration: test.duration,
+              answers: [],
+              markedForReview: [],
+              sectionTimers: {},
+              currentSection: null,
+              timeSpent: 0,
               isCompleted: false,
+              lastActivityAt: nowIso,
+              last_activity_at: nowIso,
+              lastHeartbeatAt: nowIso,
+              last_heartbeat_at: nowIso,
+              createdAt: nowIso,
             },
-            null,
-            null,
-            null,
             startClient,
           );
-          attempt = retryExisting.find(
-            (a) =>
-              idsMatch(a.testId, test._id || test.id) ||
-              idsMatch(a.test_id, test._id || test.id),
-          );
-          if (!attempt) {
-            throw insertErr; // Shouldn't happen — re-throw if no existing attempt found
+
+          // Emitted after COMMIT below (outside the txn) so a rolled-back
+          // insert never publishes a phantom test_started event.
+          startEventPayload = {
+            source: "tests",
+            userId: req.user.id,
+            testId: test._id || test.id,
+            attemptId: attempt._id || attempt.id,
+            attemptNumber,
+          };
+        } catch (insertErr) {
+          // Unique constraint violation (23505) means a concurrent request
+          // already created an in-progress attempt for this user+test.
+          // Return the existing attempt instead of failing.
+          if (insertErr?.code === "23505") {
+            await startClient.query("ROLLBACK TO SAVEPOINT start_insert");
+            const retryExisting = await dbHelpers.find(
+              "attempts",
+              {
+                userId: req.user.id,
+                testId: testIdPredicate,
+                isCompleted: false,
+              },
+              null,
+              null,
+              null,
+              startClient,
+            );
+            attempt = retryExisting.find(
+              (a) =>
+                idsMatch(a.testId, test._id || test.id) ||
+                idsMatch(a.test_id, test._id || test.id),
+            );
+            if (!attempt) {
+              throw insertErr; // Shouldn't happen — re-throw if no existing attempt found
+            }
+          } else {
+            throw insertErr;
           }
-        } else {
-          throw insertErr;
         }
       }
-    }
 
       await finalizeStartTxn(true);
     } catch (startTxnErr) {
@@ -1202,7 +1198,10 @@ router.put("/:testId/submit", protect, async (req, res) => {
     }
 
     // Clamp timeSpent to test duration + tolerance (network latency grace)
-    const clampedTimeSpent = Math.min(timeSpent, testDurationSeconds + tolerance);
+    const clampedTimeSpent = Math.min(
+      timeSpent,
+      testDurationSeconds + tolerance,
+    );
 
     // Server-side per-section timer validation (anti-tampering)
     // The frontend auto-advances sections at their allotted limit, so a section reporting

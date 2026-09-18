@@ -325,15 +325,15 @@ export default function QuestionDetailModal({
               <div className="h-4 w-5/6 bg-gray-200 dark:bg-gray-700 rounded" />
             </div>
           ) : (
-          <div className="bg-gray-50 dark:bg-gray-950/60 p-3 sm:p-3.5 rounded-xl border border-gray-200/80 dark:border-gray-800/80 space-y-1.5">
-            <div className="text-[9px] sm:text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1">
-              <HelpCircle className="w-3 h-3" />
-              <span>Question Statement</span>
+            <div className="bg-gray-50 dark:bg-gray-950/60 p-3 sm:p-3.5 rounded-xl border border-gray-200/80 dark:border-gray-800/80 space-y-1.5">
+              <div className="text-[9px] sm:text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                <HelpCircle className="w-3 h-3" />
+                <span>Question Statement</span>
+              </div>
+              <div className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 leading-relaxed">
+                <MathRenderer text={sanitizeHtml(questionText)} />
+              </div>
             </div>
-            <div className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 leading-relaxed">
-              <MathRenderer text={sanitizeHtml(questionText)} />
-            </div>
-          </div>
           )}
 
           {/* Active Recall Notice */}

@@ -75,7 +75,9 @@ function getAuthToken() {
     }
     try {
       const jar = http.cookieJar();
-      const cookies = jar.cookiesForURL(res.url || `${TARGET_URL}/api/auth/login`);
+      const cookies = jar.cookiesForURL(
+        res.url || `${TARGET_URL}/api/auth/login`,
+      );
       if (cookies && cookies.token) return cookies.token;
     } catch (e) {
       // no cookie fallback available

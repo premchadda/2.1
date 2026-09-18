@@ -244,12 +244,12 @@ class SubscriptionService {
       const existingDate = existingRaw ? new Date(existingRaw) : null;
       const now = new Date();
       const base =
-        existingDate && !Number.isNaN(existingDate.getTime()) && existingDate > now
+        existingDate &&
+        !Number.isNaN(existingDate.getTime()) &&
+        existingDate > now
           ? existingDate
           : now;
-      const serverExpiry = new Date(
-        base.getTime() + cappedDays * 86400000,
-      );
+      const serverExpiry = new Date(base.getTime() + cappedDays * 86400000);
       if (serverExpiry <= new Date()) {
         throw new Error("Computed subscription expiry is in the past");
       }

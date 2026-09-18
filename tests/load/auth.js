@@ -1,35 +1,35 @@
-import http from 'k6/http';
-import { check, sleep } from 'k6';
-import { Rate, Trend } from 'k6/metrics';
-import { config } from './k6.config.js';
+import http from "k6/http";
+import { check, sleep } from "k6";
+import { Rate, Trend } from "k6/metrics";
+import { config } from "./k6.config.js";
 
 const BASE_URL = config.baseUrl;
 
-const loginSuccessRate = new Rate('login_success_rate');
-const registerSuccessRate = new Rate('register_success_rate');
-const refreshSuccessRate = new Rate('refresh_success_rate');
-const loginDuration = new Trend('login_duration', true);
-const registerDuration = new Trend('register_duration', true);
+const loginSuccessRate = new Rate("login_success_rate");
+const registerSuccessRate = new Rate("register_success_rate");
+const refreshSuccessRate = new Rate("refresh_success_rate");
+const loginDuration = new Trend("login_duration", true);
+const registerDuration = new Trend("register_duration", true);
 
 export const options = {
   stages: config.stages,
   thresholds: {
     ...config.thresholds,
-    login_success_rate: ['rate>0.99'],
-    register_success_rate: ['rate>0.99'],
+    login_success_rate: ["rate>0.99"],
+    register_success_rate: ["rate>0.99"],
     // Refresh runs against a cookie-settled contract (refresh may legitimately
     // 401 when the jar/cookie shape differs); keep the floor lenient so the
     // signal is recorded without failing the suite.
-    refresh_success_rate: ['rate>0.5'],
-    login_duration: ['p(95)<500'],
-    register_duration: ['p(95)<800'],
+    refresh_success_rate: ["rate>0.5"],
+    login_duration: ["p(95)<500"],
+    register_duration: ["p(95)<800"],
   },
 };
 
 const TEST_USER = {
   email: `loadtest_${Date.now()}@example.com`,
-  password: 'LoadTest123!',
-  name: 'Load Test User',
+  password: "LoadTest123!",
+  name: "Load Test User",
 };
 
 // Backend auth envelope is { success, data: { token, ... } } (JWT also set as
@@ -53,12 +53,12 @@ function register() {
 
   const res = http.post(`${BASE_URL}/api/auth/register`, payload, {
     headers: config.defaults.headers,
-    tags: { name: 'Register' },
+    tags: { name: "Register" },
   });
 
   const success = check(res, {
-    'register - status is 201': (r) => r.status === 201,
-    'register - has token': (r) => bodyToken(r) !== undefined,
+    "register - status is 201": (r) => r.status === 201,
+    "register - has token": (r) => bodyToken(r) !== undefined,
   });
 
   registerSuccessRate.add(success);
@@ -74,12 +74,12 @@ function login(email, password) {
 
   const res = http.post(`${BASE_URL}/api/auth/login`, payload, {
     headers: config.defaults.headers,
-    tags: { name: 'Login' },
+    tags: { name: "Login" },
   });
 
   const success = check(res, {
-    'login - status is 200': (r) => r.status === 200,
-    'login - has token': (r) => bodyToken(r) !== undefined,
+    "login - status is 200": (r) => r.status === 200,
+    "login - has token": (r) => bodyToken(r) !== undefined,
   });
 
   loginSuccessRate.add(success);
@@ -93,11 +93,11 @@ function refreshToken(token) {
       ...config.defaults.headers,
       Authorization: `Bearer ${token}`,
     },
-    tags: { name: 'RefreshToken' },
+    tags: { name: "RefreshToken" },
   });
 
   const refreshOk = check(res, {
-    'refresh - status is 200': (r) => r.status === 200,
+    "refresh - status is 200": (r) => r.status === 200,
   });
 
   refreshSuccessRate.add(refreshOk);
@@ -127,14 +127,14 @@ export default function () {
 
 export function handleSummary(data) {
   return {
-    'tests/load/summary-auth.json': JSON.stringify(data, null, 2),
-    stdout: textSummary(data, { indent: ' ', enableColors: true }),
+    "tests/load/summary-auth.json": JSON.stringify(data, null, 2),
+    stdout: textSummary(data, { indent: " ", enableColors: true }),
   };
 }
 
 function textSummary(data, options = {}) {
-  const indent = options.indent || '';
-  let summary = '\n';
+  const indent = options.indent || "";
+  let summary = "\n";
 
   summary += `${indent}========================================\n`;
   summary += `${indent}  Auth Load Test Summary\n`;
@@ -142,7 +142,7 @@ function textSummary(data, options = {}) {
   summary += `${indent}  Total Requests: ${data.metrics.http_reqs?.values?.count || 0}\n`;
   summary += `${indent}  Failed Requests: ${data.metrics.http_req_failed?.values?.rate || 0}\n`;
   summary += `${indent}  Avg Response Time: ${data.metrics.http_req_duration?.values?.avg?.toFixed(2) || 0}ms\n`;
-  summary += `${indent}  P95 Response Time: ${data.metrics.http_req_duration?.values?.['p(95)']?.toFixed(2) || 0}ms\n`;
+  summary += `${indent}  P95 Response Time: ${data.metrics.http_req_duration?.values?.["p(95)"]?.toFixed(2) || 0}ms\n`;
   summary += `${indent}  Login Success Rate: ${(data.metrics.login_success_rate?.values?.rate * 100 || 0).toFixed(2)}%\n`;
   summary += `${indent}  Register Success Rate: ${(data.metrics.register_success_rate?.values?.rate * 100 || 0).toFixed(2)}%\n`;
   summary += `${indent}========================================\n`;

@@ -77,7 +77,8 @@ function toCrudError(status, message, details, retryAfter = null) {
   const fallback = new Error(msg);
   fallback.name = (status && nameByStatus[status]) || "DataError";
   fallback.code =
-    (status && codeByStatus[status]) || (status ? `HTTP_${status}` : "CRUD_ERROR");
+    (status && codeByStatus[status]) ||
+    (status ? `HTTP_${status}` : "CRUD_ERROR");
   fallback.status = status ?? null;
   fallback.details = body;
   if (status === 429) fallback.retryAfter = retryAfter ?? null;
@@ -86,20 +87,12 @@ function toCrudError(status, message, details, retryAfter = null) {
 
 function getErrorStatus(error) {
   return (
-    error?.status ??
-    error?.response?.status ??
-    error?.cause?.status ??
-    null
+    error?.status ?? error?.response?.status ?? error?.cause?.status ?? null
   );
 }
 
 function getErrorDetails(error) {
-  return (
-    error?.details ??
-    error?.response?.data ??
-    error?.data ??
-    null
-  );
+  return error?.details ?? error?.response?.data ?? error?.data ?? null;
 }
 
 function getRetryAfter(error, response = null) {
@@ -118,9 +111,7 @@ function getRetryAfter(error, response = null) {
 // numeric ids (avoids PUT null when only public_id is present).
 function getItemKey(item) {
   if (!item) return null;
-  return (
-    item._id ?? item.public_id ?? item.publicId ?? item.id ?? null
-  );
+  return item._id ?? item.public_id ?? item.publicId ?? item.id ?? null;
 }
 
 /**
@@ -349,14 +340,7 @@ export const useGenericCRUD = ({
         throw err;
       }
     },
-    [
-      api,
-      endpoint,
-      getSuccessMessage,
-      getErrorMessage,
-      confirmFn,
-      notifyFn,
-    ],
+    [api, endpoint, getSuccessMessage, getErrorMessage, confirmFn, notifyFn],
   );
 
   // Edit item (populate form)
@@ -390,7 +374,11 @@ export const useGenericCRUD = ({
           minimalPayload,
         );
         if (response.data.success) {
-          const updatedData = { ...item, isActive: nextActive, is_active: nextActive };
+          const updatedData = {
+            ...item,
+            isActive: nextActive,
+            is_active: nextActive,
+          };
           setItems((prev) =>
             prev.map((i) =>
               String(getItemKey(i)) === String(itemKey) ? updatedData : i,

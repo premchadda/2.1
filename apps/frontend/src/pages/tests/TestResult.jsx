@@ -665,7 +665,6 @@ function TestResult() {
     return breakdown;
   };
 
-
   const getFilteredQuestions = () => {
     if (!result.questions) return [];
     let list = result.questions;

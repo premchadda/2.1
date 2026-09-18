@@ -71,11 +71,15 @@ for (const name of files) {
     env: process.env,
   });
   if (result.error) {
-    console.error(`Failed to launch k6 for ${name}.js: ${result.error.message}`);
+    console.error(
+      `Failed to launch k6 for ${name}.js: ${result.error.message}`,
+    );
     process.exit(1);
   }
   if (result.status !== 0) {
-    console.error(`k6 run tests/load/${name}.js exited with code ${result.status}`);
+    console.error(
+      `k6 run tests/load/${name}.js exited with code ${result.status}`,
+    );
     process.exit(result.status);
   }
 }

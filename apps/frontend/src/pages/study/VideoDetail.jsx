@@ -284,10 +284,7 @@ function PlaylistSidebar({
                     return (
                       <button
                         key={
-                          video.publicId ||
-                          video._id ||
-                          video.id ||
-                          video.slug
+                          video.publicId || video._id || video.id || video.slug
                         }
                         onClick={() => onVideoSelect(video)}
                         aria-current={isActive ? "true" : undefined}
@@ -519,12 +516,8 @@ export default function VideoDetail() {
     if (v) {
       localStorage.setItem(`video:notes:${v}`, notes);
       setNotesSaved(true);
-      if (notesSavedTimerRef.current)
-        clearTimeout(notesSavedTimerRef.current);
-      notesSavedTimerRef.current = setTimeout(
-        () => setNotesSaved(false),
-        2000,
-      );
+      if (notesSavedTimerRef.current) clearTimeout(notesSavedTimerRef.current);
+      notesSavedTimerRef.current = setTimeout(() => setNotesSaved(false), 2000);
     }
   };
 

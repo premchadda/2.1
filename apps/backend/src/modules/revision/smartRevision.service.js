@@ -80,16 +80,16 @@ Create a ${options.days || 14}-day revision plan that:
 `;
 
     const aiResult = await callAI([
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
     ]).catch(async (genErr) => {
       await AiGenerationLog.logFailure({
-        entityType: 'revision_plan',
+        entityType: "revision_plan",
         entityId: userId,
         prompt: userPrompt.substring(0, 500),
         model: AI_CONFIG.model,
         provider: AI_CONFIG.provider,
-        errorMessage: genErr?.message || 'Revision plan generation failed',
+        errorMessage: genErr?.message || "Revision plan generation failed",
         metadata: { days: options.days || 14 },
         createdBy: userId,
       }).catch(() => {});

@@ -186,14 +186,9 @@ export function getAssetUrl(path) {
       apiHost =
         import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "";
     } else if (typeof process !== "undefined" && process?.env) {
-      apiHost =
-        process.env.VITE_API_URL || process.env.VITE_BACKEND_URL || "";
+      apiHost = process.env.VITE_API_URL || process.env.VITE_BACKEND_URL || "";
     }
-    if (
-      !apiHost &&
-      typeof window !== "undefined" &&
-      window.location?.origin
-    ) {
+    if (!apiHost && typeof window !== "undefined" && window.location?.origin) {
       apiHost = window.location.origin;
     }
     const baseUrl = /^https?:\/\//i.test(apiHost)

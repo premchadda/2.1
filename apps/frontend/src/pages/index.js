@@ -16,15 +16,11 @@ export {
   SearchPage,
   TagPage,
   Terms,
-  CurrentAffairsDetail
-} from './public'
+  CurrentAffairsDetail,
+} from "./public";
 
 // Auth Pages
-export {
-  ForgotPassword,
-  EmailVerification,
-  ResetPassword
-} from './auth'
+export { ForgotPassword, EmailVerification, ResetPassword } from "./auth";
 
 // Dashboard Pages
 export {
@@ -36,8 +32,8 @@ export {
   AttemptedTests,
   Notifications,
   Achievements,
-  ReferAndEarn
-} from './dashboard'
+  ReferAndEarn,
+} from "./dashboard";
 
 // Exam Pages
 export {
@@ -47,7 +43,7 @@ export {
   ExamYear,
   ExamCompare,
   ExamUpdates,
-} from './exams'
+} from "./exams";
 
 // Test Pages
 export {
@@ -63,8 +59,8 @@ export {
   PreviousYearPapers,
   Leaderboard,
   SeriesLeaderboard,
-  PYPTest
-} from './tests'
+  PYPTest,
+} from "./tests";
 
 // Study Pages
 export {
@@ -72,16 +68,11 @@ export {
   StudyMaterialDetail,
   StudyMaterialChapter,
   Videos,
-  CurrentAffairs
-} from './study'
+  CurrentAffairs,
+} from "./study";
 
 // Community Pages
-export {
-  Community
-} from './community'
+export { Community } from "./community";
 
 // Error Pages
-export {
-  NotFound,
-  ServerError
-} from './errors'
+export { NotFound, ServerError } from "./errors";

@@ -303,7 +303,9 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
                 <div className="flex flex-wrap gap-2">
                   {contentData.tags.map((tag) => (
                     <span
-                      key={typeof tag === "string" ? tag : (tag?.id ?? tag?.title)}
+                      key={
+                        typeof tag === "string" ? tag : (tag?.id ?? tag?.title)
+                      }
                       className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full hover:bg-gray-200 transition-colors cursor-pointer"
                     >
                       #{tag}

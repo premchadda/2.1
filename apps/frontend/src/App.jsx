@@ -373,7 +373,10 @@ function App() {
                   <Route key={path} path={path} element={element} />
                 ))}
               </Route>
-              <Route path="/admin/*" element={wrapElement(<AdminPanelRedirect />)} />
+              <Route
+                path="/admin/*"
+                element={wrapElement(<AdminPanelRedirect />)}
+              />
               <Route path="*" element={wrapElement(<NotFound />)} />
             </Routes>
 

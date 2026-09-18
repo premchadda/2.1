@@ -22,7 +22,10 @@ import {
   logAuditEvent,
   AUDIT_ACTIONS,
 } from "../../middleware/audit.middleware.js";
-import { recordLoginAttempt, clearLoginAttempts } from "../../middleware/lockout.middleware.js";
+import {
+  recordLoginAttempt,
+  clearLoginAttempts,
+} from "../../middleware/lockout.middleware.js";
 import { invalidateResponseCache } from "../../middleware/responseCache.middleware.js";
 import { messageBroker } from "../../infrastructure/events/messageBroker.js";
 import { getIO } from "../../infrastructure/websocket/websocketManager.js";

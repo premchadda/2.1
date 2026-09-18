@@ -1,6 +1,6 @@
-import { emitDomainEvent, validateDomainEvent } from '../events/eventBus.js';
-import { validateDomainEvent as assertDomainEventContract } from '../events/eventSchemas.js';
-import { pool } from '../database/postgres-helpers.js';
+import { emitDomainEvent, validateDomainEvent } from "../events/eventBus.js";
+import { validateDomainEvent as assertDomainEventContract } from "../events/eventSchemas.js";
+import { pool } from "../database/postgres-helpers.js";
 
 let pollerTimeout = null;
 let consecutiveFailures = 0;
@@ -15,7 +15,9 @@ export const startOutboxPoller = (intervalMs = 5000) => {
   if (pollerTimeout) return;
   stopped = false;
 
-  console.log(`\n📬 [Outbox Poller] Initializing Transactional Outbox Poller (base interval: ${intervalMs}ms)...`);
+  console.log(
+    `\n📬 [Outbox Poller] Initializing Transactional Outbox Poller (base interval: ${intervalMs}ms)...`,
+  );
 
   const poll = async () => {
     // Overlap guard: skip this tick if the previous poll is still running.
@@ -52,11 +54,16 @@ export const startOutboxPoller = (intervalMs = 5000) => {
 
       for (const row of res.rows) {
         try {
-          console.log(`📬 [Outbox Poller] Dispatching event: ${row.event_type} (${row.id})`);
+          console.log(
+            `📬 [Outbox Poller] Dispatching event: ${row.event_type} (${row.id})`,
+          );
 
           let payload;
           try {
-            payload = typeof row.payload === 'string' ? JSON.parse(row.payload) : (row.payload ?? {});
+            payload =
+              typeof row.payload === "string"
+                ? JSON.parse(row.payload)
+                : (row.payload ?? {});
           } catch (parseErr) {
             throw new Error(`unparseable payload: ${parseErr.message}`);
           }
@@ -68,7 +75,9 @@ export const startOutboxPoller = (intervalMs = 5000) => {
           // legacy shape, non-object payload) fail fast to dead-letter
           // instead of fanning out malformed jobs to every queue.
           if (!validateDomainEvent(row.event_type, payload)) {
-            throw new Error(`invalid domain event shape: type=${JSON.stringify(row.event_type)}`);
+            throw new Error(
+              `invalid domain event shape: type=${JSON.stringify(row.event_type)}`,
+            );
           }
 
           // Strict contract: zod schema validation (throws on unknown event
@@ -77,28 +86,41 @@ export const startOutboxPoller = (intervalMs = 5000) => {
 
           // Publish event to local bus and external queues safely.
           // Idempotent jobId lets BullMQ dedup redeliveries of this row.
-          await emitDomainEvent(row.event_type, payload, { jobId: `outbox-${row.id}` });
+          await emitDomainEvent(row.event_type, payload, {
+            jobId: `outbox-${row.id}`,
+          });
 
           // Mark event as processed successfully
-          await client.query(`
+          await client.query(
+            `
             UPDATE outbox_events 
             SET status = 'processed', processed_at = NOW() 
             WHERE id = $1
-          `, [row.id]);
-          
-          console.log(`📬 [Outbox Poller] Event ${row.id} marked as processed.`);
+          `,
+            [row.id],
+          );
+
+          console.log(
+            `📬 [Outbox Poller] Event ${row.id} marked as processed.`,
+          );
         } catch (eventError) {
-          console.error(`❌ [Outbox Poller] Failed event processing for ${row.id}:`, eventError.message);
-          
+          console.error(
+            `❌ [Outbox Poller] Failed event processing for ${row.id}:`,
+            eventError.message,
+          );
+
           const nextRetryCount = (row.retry_count || 0) + 1;
-          const status = nextRetryCount >= 5 ? 'dead_letter' : 'pending';
+          const status = nextRetryCount >= 5 ? "dead_letter" : "pending";
 
           // Mark event as failed and update metrics
-          await client.query(`
+          await client.query(
+            `
             UPDATE outbox_events
             SET status = $1, retry_count = $2, failed_reason = $3
             WHERE id = $4
-          `, [status, nextRetryCount, eventError.message, row.id]);
+          `,
+            [status, nextRetryCount, eventError.message, row.id],
+          );
         }
       }
       await client.query("COMMIT");
@@ -110,8 +132,14 @@ export const startOutboxPoller = (intervalMs = 5000) => {
       }
       consecutiveFailures++;
       // Exponential backoff: 5s, 10s, 20s, 40s, 60s (capped)
-      const backoff = Math.min(intervalMs * Math.pow(2, consecutiveFailures - 1), MAX_BACKOFF_MS);
-      console.error(`❌ [Outbox Poller] Error polling outbox table (failure #${consecutiveFailures}, retrying in ${backoff / 1000}s):`, err.message);
+      const backoff = Math.min(
+        intervalMs * Math.pow(2, consecutiveFailures - 1),
+        MAX_BACKOFF_MS,
+      );
+      console.error(
+        `❌ [Outbox Poller] Error polling outbox table (failure #${consecutiveFailures}, retrying in ${backoff / 1000}s):`,
+        err.message,
+      );
       // Schedule next attempt after backoff instead of fixed interval
       if (!stopped) pollerTimeout = setTimeout(poll, backoff);
       return;
@@ -137,7 +165,7 @@ export const stopOutboxPoller = () => {
     pollerTimeout = null;
     consecutiveFailures = 0;
     isPolling = false;
-    console.log('📬 [Outbox Poller] Outbox poller stopped.');
+    console.log("📬 [Outbox Poller] Outbox poller stopped.");
   }
 };
 
@@ -147,7 +175,9 @@ let isCleaning = false;
 export const startAttemptCleaner = (intervalMs = 60000) => {
   if (cleanerInterval) return;
 
-  console.log(`🧹 [Attempt Cleaner] Initializing Auto-Recovery Attempt Session Cleaner (interval: ${intervalMs}ms)...`);
+  console.log(
+    `🧹 [Attempt Cleaner] Initializing Auto-Recovery Attempt Session Cleaner (interval: ${intervalMs}ms)...`,
+  );
 
   cleanerInterval = setInterval(async () => {
     // Overlap guard: a slow sweep must never stack with the next tick.
@@ -176,10 +206,16 @@ export const startAttemptCleaner = (intervalMs = 60000) => {
       `);
 
       if (result.rows.length > 0) {
-        console.log(`🧹 [Attempt Cleaner] Auto-abandoned ${result.rows.length} inactive or orphaned test attempts:`, result.rows.map(r => r.id));
+        console.log(
+          `🧹 [Attempt Cleaner] Auto-abandoned ${result.rows.length} inactive or orphaned test attempts:`,
+          result.rows.map((r) => r.id),
+        );
       }
     } catch (err) {
-      console.error('❌ [Attempt Cleaner] Error auto-cleaning stale attempts:', err.message);
+      console.error(
+        "❌ [Attempt Cleaner] Error auto-cleaning stale attempts:",
+        err.message,
+      );
     } finally {
       isCleaning = false;
       if (client) {
@@ -193,6 +229,6 @@ export const stopAttemptCleaner = () => {
   if (cleanerInterval) {
     clearInterval(cleanerInterval);
     cleanerInterval = null;
-    console.log('🧹 [Attempt Cleaner] Stale attempt session cleaner stopped.');
+    console.log("🧹 [Attempt Cleaner] Stale attempt session cleaner stopped.");
   }
 };

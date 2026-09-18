@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient.js'
+import { apiClient } from "./apiClient.js";
 
 export const adaptiveDifficultyAPI = {
   /**
@@ -9,7 +9,9 @@ export const adaptiveDifficultyAPI = {
   getDifficulty: (topicId) =>
     topicId == null
       ? Promise.resolve(null)
-      : apiClient.get(`/api/adaptive-difficulty/${topicId}`).then(r => r.data?.data),
+      : apiClient
+          .get(`/api/adaptive-difficulty/${topicId}`)
+          .then((r) => r.data?.data),
 
   /**
    * Submit a single performance event.
@@ -17,7 +19,9 @@ export const adaptiveDifficultyAPI = {
    * @returns {Promise<{score, level, totalAttempts, recentAccuracy}>}
    */
   submitPerformance: (payload) =>
-    apiClient.post('/api/adaptive-difficulty/submit', payload).then(r => r.data?.data),
+    apiClient
+      .post("/api/adaptive-difficulty/submit", payload)
+      .then((r) => r.data?.data),
 
   /**
    * Batch-fetch difficulties for multiple topics.
@@ -30,8 +34,8 @@ export const adaptiveDifficultyAPI = {
     );
     if (ids.length === 0) return Promise.resolve([]);
     return apiClient
-      .post('/api/adaptive-difficulty/batch', { topicIds: ids })
-      .then(r => r.data?.data);
+      .post("/api/adaptive-difficulty/batch", { topicIds: ids })
+      .then((r) => r.data?.data);
   },
 
   /**
@@ -42,5 +46,7 @@ export const adaptiveDifficultyAPI = {
   resetDifficulty: (topicId) =>
     topicId == null
       ? Promise.resolve(null)
-      : apiClient.post(`/api/adaptive-difficulty/reset/${topicId}`).then(r => r.data?.data),
-}
+      : apiClient
+          .post(`/api/adaptive-difficulty/reset/${topicId}`)
+          .then((r) => r.data?.data),
+};

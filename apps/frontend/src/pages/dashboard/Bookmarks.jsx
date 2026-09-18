@@ -120,7 +120,10 @@ export default function Bookmarks() {
             !controller.signal.aborted &&
             !cancelledRef.current
           ) {
-            console.error("Failed to fetch reported questions:", err?.message ?? err);
+            console.error(
+              "Failed to fetch reported questions:",
+              err?.message ?? err,
+            );
             setError("Failed to fetch reported questions.");
           }
         } finally {
@@ -179,7 +182,9 @@ export default function Bookmarks() {
       });
       const newBookmarks = response.data || [];
       if (!cancelledRef.current) {
-        setBookmarks((prev) => [...prev, ...newBookmarks].slice(0, MAX_BOOKMARK_ROWS));
+        setBookmarks((prev) =>
+          [...prev, ...newBookmarks].slice(0, MAX_BOOKMARK_ROWS),
+        );
         setPage(nextPage);
         setHasMore(newBookmarks.length >= 20);
       }
@@ -372,7 +377,9 @@ export default function Bookmarks() {
         const key = `${bookmark.itemType || "unknown"}:${bookmark.itemId || bookmark.id || "?"}`;
         if (!unknownTypeWarned.has(key)) {
           unknownTypeWarned.add(key);
-          console.warn(`[Bookmarks] Unknown bookmark itemType: ${bookmark.itemType}`);
+          console.warn(
+            `[Bookmarks] Unknown bookmark itemType: ${bookmark.itemType}`,
+          );
           toast.error(
             `Unsupported saved item type (${bookmark.itemType || "unknown"}).`,
           );
@@ -858,12 +865,12 @@ export default function Bookmarks() {
                     filters to narrow results.
                   </p>
                 ) : (
-                <button
-                  onClick={loadMore}
-                  className="px-4 py-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors shadow-2xs"
-                >
-                  Load More Questions
-                </button>
+                  <button
+                    onClick={loadMore}
+                    className="px-4 py-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors shadow-2xs"
+                  >
+                    Load More Questions
+                  </button>
                 )}
               </div>
             )}

@@ -204,7 +204,9 @@ export function usePwaInstall() {
     !isTestRoute(
       typeof window !== "undefined" ? window.location.pathname : "",
     ) &&
-    (!!deferredPrompt || (platform.isIOS && platform.isSafari) || (platform.isMacSafari));
+    (!!deferredPrompt ||
+      (platform.isIOS && platform.isSafari) ||
+      platform.isMacSafari);
 
   return {
     isInstallable,

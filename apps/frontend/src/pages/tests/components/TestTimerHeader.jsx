@@ -142,7 +142,6 @@ export default function TestTimerHeader({
               </button>
             )}
 
-
             {/* Fullscreen Button (Desktop) */}
             {!reviewMode && (
               <button

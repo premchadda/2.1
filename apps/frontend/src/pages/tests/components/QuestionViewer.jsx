@@ -1,4 +1,3 @@
-
 import PropTypes from "prop-types";
 import {
   Clock,
@@ -195,7 +194,6 @@ export default function QuestionViewer({
 
         {/* Right: Socratic Hint, Save Question (and Discuss in Review mode) */}
         <div className="flex items-center gap-1.5 shrink-0">
-
           {reviewMode && (
             <button
               onClick={() => setShowDiscussions(true)}
@@ -924,8 +922,6 @@ export default function QuestionViewer({
           </div>
         </div>
       )}
-
-
     </div>
   );
 }

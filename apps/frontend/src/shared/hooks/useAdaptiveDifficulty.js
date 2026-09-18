@@ -1,6 +1,6 @@
-import { useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { adaptiveDifficultyAPI } from '../lib/adaptiveDifficultyAPI'
+import { useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { adaptiveDifficultyAPI } from "../lib/adaptiveDifficultyAPI";
 
 /**
  * useAdaptiveDifficulty – React Query hook for adaptive difficulty.
@@ -18,7 +18,7 @@ import { adaptiveDifficultyAPI } from '../lib/adaptiveDifficultyAPI'
  * }}
  */
 export function useAdaptiveDifficulty(topicId) {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   // ── Query: fetch current difficulty ──
   const {
@@ -26,14 +26,14 @@ export function useAdaptiveDifficulty(topicId) {
     isLoading,
     refetch: _refetch,
   } = useQuery({
-    queryKey: ['adaptive-difficulty', topicId],
+    queryKey: ["adaptive-difficulty", topicId],
     queryFn: () => adaptiveDifficultyAPI.getDifficulty(topicId),
     // Guard against both null and undefined — questions may not be loaded yet,
     // causing topicId to be undefined, which produced /api/adaptive-difficulty/undefined
     enabled: topicId != null,
     staleTime: 30_000,
     retry: 1,
-  })
+  });
 
   // ── Mutation: submit performance ──
   const submitMutation = useMutation({
@@ -41,20 +41,20 @@ export function useAdaptiveDifficulty(topicId) {
       adaptiveDifficultyAPI.submitPerformance({ topicId, correct, timeSpent }),
     onSuccess: (newData) => {
       // Optimistically update the cache
-      queryClient.setQueryData(['adaptive-difficulty', topicId], newData)
+      queryClient.setQueryData(["adaptive-difficulty", topicId], newData);
     },
     onError: (err) => {
-      console.error('[useAdaptiveDifficulty] submit failed:', err.message)
+      console.error("[useAdaptiveDifficulty] submit failed:", err.message);
     },
-  })
+  });
 
   // ── Mutation: reset difficulty ──
   const resetMutation = useMutation({
     mutationFn: () => adaptiveDifficultyAPI.resetDifficulty(topicId),
     onSuccess: (newData) => {
-      queryClient.setQueryData(['adaptive-difficulty', topicId], newData)
+      queryClient.setQueryData(["adaptive-difficulty", topicId], newData);
     },
-  })
+  });
 
   const submitPerformance = useCallback(
     (correct, timeSpent = 0) => {
@@ -64,8 +64,8 @@ export function useAdaptiveDifficulty(topicId) {
       return submitMutation.mutateAsync({ correct, timeSpent });
     },
     // eslint-disable-next-line -- submitMutation identity is stable per topicId; topicId drives the guard
-    [submitMutation, topicId]
-  )
+    [submitMutation, topicId],
+  );
 
   const resetDifficulty = useCallback(
     () => {
@@ -74,8 +74,8 @@ export function useAdaptiveDifficulty(topicId) {
       return resetMutation.mutateAsync();
     },
     // eslint-disable-next-line -- resetMutation identity is stable per topicId; topicId drives the guard
-    [resetMutation, topicId]
-  )
+    [resetMutation, topicId],
+  );
 
   return {
     score: data?.score ?? null,
@@ -86,7 +86,7 @@ export function useAdaptiveDifficulty(topicId) {
     submitPerformance,
     isSubmitting: submitMutation.isPending,
     resetDifficulty,
-  }
+  };
 }
 
 /**
@@ -95,14 +95,14 @@ export function useAdaptiveDifficulty(topicId) {
  */
 export function useAdaptiveDifficultyBatch(topicIds = []) {
   const { data, isLoading } = useQuery({
-    queryKey: ['adaptive-difficulty-batch', ...[...topicIds].sort()],
+    queryKey: ["adaptive-difficulty-batch", ...[...topicIds].sort()],
     queryFn: () => adaptiveDifficultyAPI.getBatchDifficulties(topicIds),
     enabled: topicIds.length > 0,
     staleTime: 60_000,
-  })
+  });
 
   return {
     difficulties: data ?? [],
     isLoading,
-  }
+  };
 }

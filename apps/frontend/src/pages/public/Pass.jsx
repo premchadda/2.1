@@ -258,7 +258,7 @@ function Pass() {
 
       // Helper to submit verification payload
       const verifyPaymentPayload = async (payload) => {
-          const verifyRes = await apiClient.post("/api/payments/verify", {
+        const verifyRes = await apiClient.post("/api/payments/verify", {
           ...payload,
           planId: currentPlan.id,
           couponCode: appliedCoupon?.code,

@@ -71,22 +71,29 @@ router.post("/by-description", protect, aiRateLimiter, async (req, res) => {
   }
 });
 
-router.post("/index/:questionId", protect, admin, aiRateLimiter, async (req, res, next) => {
-  // Registered before POST /index/batch and POST /index/all-unindexed: forward
-  // those literals so they are not parsed as a question id (both were
-  // unreachable — /api/search/vector/index/batch returned a 400 instead).
-  if (["batch", "all-unindexed"].includes(req.params.questionId)) return next();
-  try {
-    const result = await vectorSearchService.indexQuestion(
-      req.params.questionId,
-    );
-    res.json({ success: true, data: result });
-  } catch (error) {
-    res
-      .status(400)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+router.post(
+  "/index/:questionId",
+  protect,
+  admin,
+  aiRateLimiter,
+  async (req, res, next) => {
+    // Registered before POST /index/batch and POST /index/all-unindexed: forward
+    // those literals so they are not parsed as a question id (both were
+    // unreachable — /api/search/vector/index/batch returned a 400 instead).
+    if (["batch", "all-unindexed"].includes(req.params.questionId))
+      return next();
+    try {
+      const result = await vectorSearchService.indexQuestion(
+        req.params.questionId,
+      );
+      res.json({ success: true, data: result });
+    } catch (error) {
+      res
+        .status(400)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 router.post("/index/batch", protect, admin, aiRateLimiter, async (req, res) => {
   try {
@@ -114,22 +121,28 @@ router.post("/index/batch", protect, admin, aiRateLimiter, async (req, res) => {
   }
 });
 
-router.post("/index/all-unindexed", protect, admin, aiRateLimiter, async (req, res) => {
-  try {
-    // Cursor params (15): afterId/maxPages passthrough to the service.
-    const { limit, afterId, afterCursor, maxPages } = req.body;
-    const results = await vectorSearchService.indexAllUnindexed(
-      parseInt(limit) || 100,
-      afterId ?? afterCursor ?? null,
-      parseInt(maxPages) || 10,
-    );
-    res.json({ success: true, data: results });
-  } catch (error) {
-    res
-      .status(400)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+router.post(
+  "/index/all-unindexed",
+  protect,
+  admin,
+  aiRateLimiter,
+  async (req, res) => {
+    try {
+      // Cursor params (15): afterId/maxPages passthrough to the service.
+      const { limit, afterId, afterCursor, maxPages } = req.body;
+      const results = await vectorSearchService.indexAllUnindexed(
+        parseInt(limit) || 100,
+        afterId ?? afterCursor ?? null,
+        parseInt(maxPages) || 10,
+      );
+      res.json({ success: true, data: results });
+    } catch (error) {
+      res
+        .status(400)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 router.get("/stats", protect, admin, aiRateLimiter, async (req, res) => {
   try {

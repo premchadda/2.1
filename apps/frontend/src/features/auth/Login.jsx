@@ -390,7 +390,10 @@ function Login() {
                       );
                     }
                   } catch (err) {
-                    console.error("Failed to logout other sessions:", err?.message ?? err);
+                    console.error(
+                      "Failed to logout other sessions:",
+                      err?.message ?? err,
+                    );
                     toast.error("Failed to logout other sessions");
                   } finally {
                     setRevoking(false);

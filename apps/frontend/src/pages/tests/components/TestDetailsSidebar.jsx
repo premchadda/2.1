@@ -12,8 +12,7 @@ import {
 } from "lucide-react";
 import { handleAvatarError } from "../../../shared/utils/avatarFallback.js";
 
-const isAvatarUrl = (v) =>
-  typeof v === "string" && /^(https?:|data:)/.test(v);
+const isAvatarUrl = (v) => typeof v === "string" && /^(https?:|data:)/.test(v);
 
 export default function TestDetailsSidebar({
   user,

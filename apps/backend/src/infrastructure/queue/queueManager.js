@@ -222,7 +222,9 @@ export const startWorkers = (handlersByQueue = {}, concurrencyByQueue = {}) => {
           // "dead-letter" queue (QUEUE_NAMES.DEAD_LETTER). No per-queue
           // "<queue>:dead-letter" throwaway queues — they fragment ops and
           // the retry tooling only watches the canonical queue.
-          const dlq = new Queue(QUEUE_NAMES.DEAD_LETTER, { connection: dlqConnection });
+          const dlq = new Queue(QUEUE_NAMES.DEAD_LETTER, {
+            connection: dlqConnection,
+          });
           await dlq.add("failed-job", {
             originalQueue: queueName,
             jobId,
@@ -287,7 +289,9 @@ export const getDeadLetterJobs = async (queueName) => {
       "failed",
     ]);
     const filtered = queueName
-      ? jobs.filter((job) => (job.data?.originalQueue || job.data?.queue) === queueName)
+      ? jobs.filter(
+          (job) => (job.data?.originalQueue || job.data?.queue) === queueName,
+        )
       : jobs;
     return filtered.map((job) => ({
       id: job.id,
