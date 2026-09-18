@@ -43,6 +43,11 @@ export const handlersByQueue = {
   },
   [QUEUE_NAMES.LEADERBOARD]: async (job) => {
     logJobStart(QUEUE_NAMES.LEADERBOARD, job)
+    // Broadcast-only ticks carry no new submission data — skip the heavy
+    // recalculation and return lightweight.
+    if (job.name === 'leaderboard.broadcast-update') {
+      return defaultResult({ action: 'leaderboard-broadcast-skip' })
+    }
     const payload = job.data?.payload || {}
     const recalculated = await leaderboardService.recalculateLeaderboards({
       testId: payload.testId || null,

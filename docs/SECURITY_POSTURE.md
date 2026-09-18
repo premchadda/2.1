@@ -95,8 +95,8 @@ This document records the security controls implemented after the unified audit 
 | ------------------------------------------- | ----------------------- | ------ |
 | restrictAdminOrigin middleware              | `admin-routes-index.js` | ✅     |
 | validateAdminApiKey middleware              | `admin-routes-index.js` | ✅     |
-| superAdmin required for user status changes | `admin-users.js`        | ✅     |
-| Cannot demote super_admin                   | `admin-users.js`        | ✅     |
+| secondTier required for user status changes | `admin-users.js`        | ✅     |
+| Cannot demote second_tier                   | `admin-users.js`        | ✅     |
 | Mass assignment whitelists                  | All admin POST/PUT      | ✅     |
 | Defense-in-depth middleware chain           | `admin-routes-index.js` | ✅     |
 

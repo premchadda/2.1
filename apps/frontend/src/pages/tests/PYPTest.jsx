@@ -87,7 +87,7 @@ const PYPTest = () => {
             console.warn("Could not start PYP attempt:", startErr.message);
         }
       } catch (error) {
-        console.error("Error loading PYP test:", error);
+        console.error("Error loading PYP test:", error?.message ?? error);
         toast.error("Failed to load test");
       } finally {
         setLoading(false);
@@ -242,7 +242,7 @@ const PYPTest = () => {
         state: { attemptId: submittedAttemptId },
       });
     } catch (error) {
-      console.error("Error submitting test:", error);
+      console.error("Error submitting test:", error?.message ?? error);
       toast.error("Error submitting test");
     } finally {
       setIsSubmitting(false);

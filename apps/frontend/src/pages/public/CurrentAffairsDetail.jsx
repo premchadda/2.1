@@ -29,7 +29,25 @@ const CurrentAffairsDetail = () => {
         const response = await api.get(`/api/current-affairs/${caId}`, {
           signal: controller.signal,
         });
-        setArticle(response.data?.data || null);
+        const raw = response.data?.data || null;
+        if (!raw) {
+          setArticle(null);
+          return;
+        }
+        // Mirror list-page normalization (pages/study/CurrentAffairs.jsx):
+        // backend may return `description` instead of `content`, `summary`
+        // instead of `excerpt`, and `published_at`/`created_at` instead of `date`.
+        const a = raw;
+        setArticle({
+          ...a,
+          _id: a.id || a._id,
+          id: a.id || a._id,
+          content: a.description || a.content || "",
+          excerpt: a.summary || a.description || a.excerpt || "",
+          summary: a.summary || a.description || a.excerpt || "",
+          description: a.description || a.content || "",
+          date: a.date || a.published_at || a.created_at,
+        });
       } catch (error) {
         if (api.isCancel(error)) return;
         console.error("Error fetching article:", error);
@@ -42,6 +60,8 @@ const CurrentAffairsDetail = () => {
     return () => controller.abort();
   }, [caId]);
 
+  const articleId = article?.id || article?._id || caId;
+
   const fetchQuiz = async () => {
     if (!isAuthenticated) {
       toast("Please login to take the quiz", { icon: "🔒" });
@@ -49,7 +69,9 @@ const CurrentAffairsDetail = () => {
       return;
     }
     try {
-      const response = await api.get(`/api/current-affairs/${caId}/quiz`);
+      const response = await api.get(
+        `/api/current-affairs/${articleId}/quiz`,
+      );
       setQuiz(response.data?.data || null);
       setShowQuiz(true);
     } catch (error) {
@@ -67,7 +89,7 @@ const CurrentAffairsDetail = () => {
   const handleSubmitQuiz = async () => {
     try {
       const response = await api.post(
-        `/api/current-affairs/${caId}/quiz/attempt`,
+        `/api/current-affairs/${article?.id || article?._id || caId}/quiz/attempt`,
         { answers: quizAnswers },
       );
       const result = response.data?.data || null;
@@ -98,7 +120,9 @@ const CurrentAffairsDetail = () => {
   }
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+    const normalized = dateString || article?.published_at || article?.created_at;
+    if (!normalized) return "";
+    return new Date(normalized).toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -146,7 +170,9 @@ const CurrentAffairsDetail = () => {
               <div className="ca-detail-meta">
                 <span className="ca-detail-category">{article.category}</span>
                 <span className="ca-detail-date">
-                  {formatDate(article.date)}
+                  {formatDate(
+                    article.date || article.published_at || article.created_at,
+                  )}
                 </span>
                 <span className="ca-detail-language">
                   {getLanguageDisplayName(article.language) || article.language}
@@ -156,13 +182,20 @@ const CurrentAffairsDetail = () => {
               <h1 className="ca-detail-title">{article.title}</h1>
 
               <div className="ca-detail-excerpt">
-                <p>{article.excerpt}</p>
+                <p>
+                  {article.summary ||
+                    article.description ||
+                    article.excerpt ||
+                    ""}
+                </p>
               </div>
 
               <div className="ca-detail-body">
                 <div
                   dangerouslySetInnerHTML={{
-                    __html: sanitizeHtml(article.content),
+                    __html: sanitizeHtml(
+                      article.description || article.content || "",
+                    ),
                   }}
                 />
               </div>
@@ -173,7 +206,14 @@ const CurrentAffairsDetail = () => {
                   <h3>Related Topics</h3>
                   <div className="ca-detail-topics-list">
                     {article.topics.map((topic, idx) => (
-                      <span key={idx} className="ca-detail-topic-tag">
+                      <span
+                        key={
+                          typeof topic === "string"
+                            ? topic
+                            : (topic?.id ?? topic?._id ?? idx)
+                        }
+                        className="ca-detail-topic-tag"
+                      >
                         {topic}
                       </span>
                     ))}
@@ -210,7 +250,10 @@ const CurrentAffairsDetail = () => {
 
               <div className="ca-quiz-questions">
                 {quiz?.questions?.map((question, idx) => (
-                  <div key={idx} className="ca-quiz-question">
+                  <div
+                    key={question.id || question._id || `q-${idx}`}
+                    className="ca-quiz-question"
+                  >
                     <h3 className="ca-quiz-question-title flex items-center gap-1.5">
                       <span>Question {idx + 1}:</span>
                       <MathRenderer text={sanitizeHtml(question.text)} />
@@ -219,7 +262,11 @@ const CurrentAffairsDetail = () => {
                     <div className="ca-quiz-options">
                       {question.options.map((option, optIdx) => (
                         <label
-                          key={optIdx}
+                          key={
+                            typeof option === "string"
+                              ? `${idx}-${option}`
+                              : (option?.id ?? option?._id ?? `${idx}-${optIdx}`)
+                          }
                           className={`ca-quiz-option ${
                             quizAnswers[idx] === option ? "selected" : ""
                           } ${

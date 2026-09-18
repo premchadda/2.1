@@ -11,7 +11,7 @@ import {
   Check,
 } from "lucide-react";
 import sanitizeHtml from "../../lib/sanitizeHtml";
-import apiClient from "../../lib/api";
+import { apiClient } from "../../lib/dataService";
 import { toast } from "react-hot-toast";
 
 export default function ContentReader({ isOpen, onClose, contentData }) {
@@ -301,9 +301,9 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
                   Tags
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {contentData.tags.map((tag, index) => (
+                  {contentData.tags.map((tag) => (
                     <span
-                      key={index}
+                      key={typeof tag === "string" ? tag : (tag?.id ?? tag?.title)}
                       className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full hover:bg-gray-200 transition-colors cursor-pointer"
                     >
                       #{tag}
@@ -320,9 +320,9 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
                   Related Content
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {contentData.related.map((item, index) => (
+                  {contentData.related.map((item) => (
                     <div
-                      key={index}
+                      key={item.id || item._id || item.title}
                       className="p-4 border border-gray-200 rounded-lg hover:border-brand-start transition-colors cursor-pointer"
                     >
                       <h4 className="font-semibold text-gray-900 mb-1">

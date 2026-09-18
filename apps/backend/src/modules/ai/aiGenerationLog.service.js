@@ -41,14 +41,16 @@ const aiGenerationLogService = {
     const { pool } = await import('../../../infrastructure/database/postgres-helpers.js')
     const client = await pool.connect()
     try {
+      // Physical columns are snake_case (tokens_input/tokens_output/cost_usd)
+      // — the old camelCase identifiers 500'd this endpoint on Postgres.
       const result = await client.query(`
         SELECT
           DATE(created_at) as date,
-          SUM(tokensInput) as total_input_tokens,
-          SUM(tokensOutput) as total_output_tokens,
-          SUM(tokensInput + tokensOutput) as total_tokens,
+          SUM(tokens_input) as total_input_tokens,
+          SUM(tokens_output) as total_output_tokens,
+          SUM(tokens_input + tokens_output) as total_tokens,
           COUNT(*) as total_calls,
-          SUM(costUsd) as total_cost_usd,
+          SUM(cost_usd) as total_cost_usd,
           model,
           provider
         FROM ai_generation_logs
@@ -75,12 +77,31 @@ const aiGenerationLogService = {
   },
 
   async cleanupOldLogs(days = 90) {
-    return AiGenerationLog.deleteOlderThan(days)
+    const parsed = parseInt(days, 10)
+    if (Number.isNaN(parsed)) {
+      throw new Error('days must be a number')
+    }
+    // Clamp to a sane retention window (1 day .. 1 year).
+    const clamped = Math.min(Math.max(parsed, 1), 365)
+    return AiGenerationLog.deleteOlderThan(clamped)
   },
 
   async count(query = {}) {
     return AiGenerationLog.count(query)
   }
+}
+
+// NOTE: no cron/scheduler wiring here by design — invoke
+// `scheduleAiLogCleanup(days)` from the host app boot sequence (or an ops
+// runbook) if periodic purging is desired. Unexported timers inside a service
+// module would start/stop unpredictably across replicas and tests.
+export const scheduleAiLogCleanup = ({ days = 90, intervalMs = 24 * 60 * 60 * 1000, runNow = false } = {}) => {
+  const run = () => AiGenerationLog.deleteOlderThan(days).catch(() => 0)
+  let timer = null
+  if (runNow) run()
+  timer = setInterval(run, intervalMs)
+  if (typeof timer.unref === 'function') timer.unref()
+  return () => clearInterval(timer)
 }
 
 export default aiGenerationLogService

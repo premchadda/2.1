@@ -167,15 +167,32 @@ export function normalizeRequestBody(body) {
   }
 
   const result = {};
+  // Tracks which raw input key won each canonical slot, so normalization
+  // collisions are deterministic AND visible (key names only — never values).
+  const winners = {};
 
   for (const [key, value] of Object.entries(body)) {
     // Determine the canonical snake_case name for this field
     let canonicalKey = FIELD_ALIASES[key] || camelToSnake(key);
 
-    // If the canonical key already exists in result, skip (prefer existing)
+    // On collision prefer the explicit snake_case form (already canonical);
+    // otherwise first-writer wins. Either way, record it for the warn below.
     if (canonicalKey in result) {
+      const prevKey = winners[canonicalKey];
+      const keyIsCanonical = key === canonicalKey;
+      const prevIsCanonical = prevKey === canonicalKey;
+      if (keyIsCanonical && !prevIsCanonical) {
+        result[canonicalKey] = value;
+        winners[canonicalKey] = key;
+      }
+      if (typeof console !== "undefined" && process.env.NODE_ENV !== "test") {
+        console.warn(
+          `[normalizeFields] colliding keys "${prevKey}" and "${key}" both map to "${canonicalKey}" — kept "${winners[canonicalKey]}"`,
+        );
+      }
       continue;
     }
+    winners[canonicalKey] = key;
 
     // Recursively normalize nested objects/arrays
     if (

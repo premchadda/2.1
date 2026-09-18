@@ -24,7 +24,9 @@ const GCM_AUTH_TAG_LENGTH = 16;
 // Configurable default row limit for query helpers. Override via the
 // DEFAULT_QUERY_LIMIT env var (falls back to 1000 to avoid loading whole
 // tables into memory).
-const DEFAULT_QUERY_LIMIT = process.env.DEFAULT_QUERY_LIMIT
+const DEFAULT_QUERY_LIMIT = Number.isFinite(
+  Number(process.env.DEFAULT_QUERY_LIMIT),
+)
   ? Number(process.env.DEFAULT_QUERY_LIMIT)
   : 1000;
 const getEncryptionKey = () => {

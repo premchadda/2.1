@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 ARG VITE_API_URL
@@ -13,7 +13,7 @@ COPY . .
 RUN if [ -f pnpm-lock.yaml ]; then pnpm run build; else npm run build; fi
 
 # FIX 2.17: Run as non-root user in production
-FROM nginx:alpine
+FROM nginx:1.27.3-alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 RUN chown -R nginx:nginx /usr/share/nginx/html && \

@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { secretsEqual } from "./origin.middleware.js";
 import { dbHelpers } from "../infrastructure/database/postgres-helpers.js";
 import { getRedisClient } from "../infrastructure/cache/redisClient.js";
 
@@ -63,6 +64,10 @@ const hashAuthToken = (authToken) => {
   }
   return crypto.createHmac("sha256", pepper).update(authToken).digest("hex");
 };
+
+// L5: timing-safe CSRF token compare — never use `!==` here (length/content
+// timing leak). Shared helper from origin.middleware.js.
+const csrfTokensEqual = (a, b) => secretsEqual(a, b);
 
 // Generate CSRF token
 export const generateCsrfToken = () => {
@@ -402,6 +407,7 @@ export const validateCsrfToken = async (req, res, next) => {
   }
 
   // Skip CSRF for stateless auth routes, logout, sessions, and payment endpoints (handled with signature verification & session auth)
+  // NOTE: 2FA state-changing endpoints (enroll/verify/disable/regenerate) REQUIRE CSRF.
   const csrfExemptPaths = [
     "/api/auth/login",
     "/api/auth/logout",
@@ -415,10 +421,6 @@ export const validateCsrfToken = async (req, res, next) => {
     "/api/auth/google",
     "/api/auth/login/2fa",
     "/api/auth/2fa/status",
-    "/api/auth/2fa/enroll",
-    "/api/auth/2fa/verify",
-    "/api/auth/2fa/backup-codes/regenerate",
-    "/api/auth/2fa/disable",
     "/api/auth/resend-verification",
     "/api/payments",
     "/payments",
@@ -449,7 +451,7 @@ export const validateCsrfToken = async (req, res, next) => {
   if (
     !csrfToken ||
     (!storedToken && !previousValid) ||
-    (csrfToken !== storedToken && !previousValid)
+    (!csrfTokensEqual(csrfToken, storedToken) && !previousValid)
   ) {
     // Generate/fetch fresh token and send in response so client can immediately self-heal and retry
     const recoveryToken = storedToken || generateCsrfToken();

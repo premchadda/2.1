@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../shared/providers/AuthContext";
-import api from "../../shared/lib/dataService";
+// NOTE: dataService default-exports the shared axios instance (apiClient).
+import apiClient from "../../shared/lib/dataService";
 
 const DEFAULT_REWARDS = [
   { referrals: 1, discount: "10%", bonus: "₹100" },
@@ -43,7 +44,7 @@ export default function ReferAndEarn() {
   const fetchReferralData = async (signal) => {
     try {
       setLoading(true);
-      const response = await api.get("/api/referrals", { signal });
+      const response = await apiClient.get("/api/referrals", { signal });
       if (signal?.aborted) return;
       if (response.data?.success) {
         const { referralCode: code, stats: referralStats } = response.data.data;
@@ -83,24 +84,33 @@ export default function ReferAndEarn() {
     const _url = window.location.origin;
 
     if (platform === "whatsapp") {
-      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+      const newWindow = window.open(
+        `https://wa.me/?text=${encodeURIComponent(text)}`,
+        "_blank",
+        "noopener",
+      );
+      if (newWindow) newWindow.opener = null;
     } else if (platform === "mail") {
-      window.open(
+      const newWindow = window.open(
         `mailto:?subject=Join Trstprep&body=${encodeURIComponent(text)}`,
         "_blank",
+        "noopener",
       );
+      if (newWindow) newWindow.opener = null;
     } else if (platform === "twitter") {
-      window.open(
+      const newWindow = window.open(
         `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
         "_blank",
+        "noopener",
       );
+      if (newWindow) newWindow.opener = null;
     }
   };
 
   const { data: referralConfig } = useQuery({
     queryKey: ["referral-config"],
     queryFn: async () => {
-      const res = await api.get("/api/referrals/config");
+      const res = await apiClient.get("/api/referrals/config");
       return res.data?.data;
     },
     staleTime: 1000 * 60 * 30,

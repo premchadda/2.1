@@ -3,13 +3,27 @@ import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { auth } from "../../middleware/auth.middleware.js";
 import crypto from "crypto";
 import SmsService from "../../services/SmsService.js";
-import jwt from "jsonwebtoken";
 import EmailService from "../../services/EmailService.js";
-import { lockoutMiddleware } from "../../middleware/lockout.middleware.js";
+import {
+  lockoutMiddleware,
+  recordLoginAttempt,
+  clearLoginAttempts,
+} from "../../middleware/lockout.middleware.js";
 import { authRateLimiter } from "../../middleware/auth.middleware.js";
+import {
+  validateCsrfToken,
+  generateCsrfToken,
+  storeCsrfToken,
+  setCsrfCookie,
+} from "../../middleware/csrf.middleware.js";
+import {
+  generateToken,
+  setAuthCookies,
+} from "../../modules/auth/auth.service.js";
 import {
   captureSession,
   invalidateSession,
+  setSessionRefreshHash,
 } from "../../services/SessionCaptureService.js";
 import { getRedisClient } from "../../infrastructure/cache/redisClient.js";
 import logger from "../../infrastructure/logger/logger.js";
@@ -32,6 +46,39 @@ const router = express.Router();
 const MAX_DEV_OTP_STORE_SIZE = 1000;
 const devOtpStore = new Map();
 let redisWarned = false;
+
+// Login-attempt tracking key for phone flows (lockout.middleware counts by
+// email OR ip; the phone: key gives per-number brute-force accounting).
+const phoneAttemptKey = (phoneNumber) => `phone:${String(phoneNumber)}`;
+
+const getClientIp = (req) => {
+  if (req?.ip) {
+    let ip = String(req.ip).trim();
+    if (ip.startsWith("::ffff:")) ip = ip.slice(7);
+    if (ip === "::1") return "127.0.0.1";
+    if (ip) return ip;
+  }
+  const forwardedFor = req.headers?.["x-forwarded-for"];
+  if (forwardedFor) {
+    const first = String(forwardedFor).split(",")[0].trim();
+    if (first.startsWith("::ffff:")) return first.slice(7);
+    return first;
+  }
+  const sock = req.socket?.remoteAddress || req.connection?.remoteAddress;
+  if (sock) {
+    if (sock.startsWith("::ffff:")) return sock.slice(7);
+    if (sock === "::1") return "127.0.0.1";
+    return sock;
+  }
+  return "unknown";
+};
+
+// Phone refresh secret — mirrors auth.controller getRefreshSecret (no predictable
+// fallback: JWT_REFRESH_SECRET must be set).
+function getPhoneRefreshSecret() {
+  if (process.env.JWT_REFRESH_SECRET) return process.env.JWT_REFRESH_SECRET;
+  throw new Error("JWT_REFRESH_SECRET must be set for phone session issuance.");
+}
 
 // Returns the active store backend or null.
 // shape: { type: 'redis', client } | { type: 'memory', map } | null
@@ -62,90 +109,104 @@ function resolveOtpStore() {
  * POST /api/auth/phone/send-otp
  * Send OTP to phone number via SMS
  */
-router.post("/send-otp", authRateLimiter, async (req, res) => {
-  try {
-    // FIX 2.7: Reject if OTP store unavailable (Redis required in prod)
-    const store = resolveOtpStore();
-    if (!store) {
-      return res.status(503).json({
-        success: false,
-        error: "Phone authentication is temporarily unavailable",
+router.post(
+  "/send-otp",
+  lockoutMiddleware,
+  authRateLimiter,
+  async (req, res) => {
+    try {
+      // FIX 2.7: Reject if OTP store unavailable (Redis required in prod)
+      const store = resolveOtpStore();
+      if (!store) {
+        return res.status(503).json({
+          success: false,
+          error: "Phone authentication is temporarily unavailable",
+        });
+      }
+
+      const { phoneNumber } = req.body;
+
+      if (!(await SmsService.isEnabled())) {
+        return res.status(503).json({
+          success: false,
+          code: "SMS_NOTIFICATIONS_DISABLED",
+          error: "SMS authentication is currently unavailable",
+        });
+      }
+
+      // Validate phone number (10 digits for India)
+      if (!phoneNumber || !phoneNumber.match(/^[0-9]{10}$/)) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid phone number format (10 digits required)",
+        });
+      }
+
+      // Check rate limiting (max 3 OTPs per hour)
+      const rateLimitKey = `otp:rate:${phoneNumber}`;
+      const otpCount = await getFromStore(rateLimitKey);
+      if (otpCount && parseInt(otpCount) >= 3) {
+        await recordLoginAttempt(
+          phoneAttemptKey(phoneNumber),
+          getClientIp(req),
+          false,
+          req.headers?.["user-agent"],
+        );
+        return res.status(429).json({
+          success: false,
+          error: "Too many OTP requests. Please try again after 1 hour.",
+        });
+      }
+
+      // Generate 6-digit OTP
+      const otp = crypto.randomInt(100000, 1000000).toString();
+
+      // Store OTP with 10 minute expiry
+      const otpKey = `otp:${phoneNumber}`;
+      const otpData = {
+        otp,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+        attempts: 0,
+        createdAt: Date.now(),
+      };
+
+      await setInStore(otpKey, JSON.stringify(otpData), 600); // 10 minutes
+
+      // Increment rate limit counter (1 hour expiry)
+      if (otpCount) {
+        await setInStore(rateLimitKey, String(parseInt(otpCount) + 1), 3600);
+      } else {
+        await setInStore(rateLimitKey, "1", 3600);
+      }
+
+      // Send OTP via SMS (Twilio/AWS SNS)
+      const formattedPhone = "+91" + phoneNumber;
+      const result = await SmsService.sendOtp(formattedPhone, otp);
+
+      if (!result.success && process.env.NODE_ENV !== "development") {
+        await recordLoginAttempt(
+          phoneAttemptKey(phoneNumber),
+          getClientIp(req),
+          false,
+          req.headers?.["user-agent"],
+        );
+        return res.status(500).json({
+          success: false,
+          error: "Failed to send OTP. Please try again.",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "OTP sent to your registered mobile number",
       });
+      // Never log OTPs, even in development — security best practice.
+    } catch (error) {
+      logger.error({ err: error }, "Error sending OTP");
+      res.status(500).json({ success: false, error: "Failed to send OTP" });
     }
-
-    const { phoneNumber } = req.body;
-
-    if (!(await SmsService.isEnabled())) {
-      return res.status(503).json({
-        success: false,
-        code: "SMS_NOTIFICATIONS_DISABLED",
-        error: "SMS authentication is currently unavailable",
-      });
-    }
-
-    // Validate phone number (10 digits for India)
-    if (!phoneNumber || !phoneNumber.match(/^[0-9]{10}$/)) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid phone number format (10 digits required)",
-      });
-    }
-
-    // Check rate limiting (max 3 OTPs per hour)
-    const rateLimitKey = `otp:rate:${phoneNumber}`;
-    const otpCount = await getFromStore(rateLimitKey);
-    if (otpCount && parseInt(otpCount) >= 3) {
-      return res.status(429).json({
-        success: false,
-        error: "Too many OTP requests. Please try again after 1 hour.",
-      });
-    }
-
-    // Generate 6-digit OTP
-    const otp = crypto.randomInt(100000, 1000000).toString();
-
-    // Store OTP with 10 minute expiry
-    const otpKey = `otp:${phoneNumber}`;
-    const otpData = {
-      otp,
-      expiresAt: Date.now() + 10 * 60 * 1000,
-      attempts: 0,
-      createdAt: Date.now(),
-    };
-
-    await setInStore(otpKey, JSON.stringify(otpData), 600); // 10 minutes
-
-    // Increment rate limit counter (1 hour expiry)
-    if (otpCount) {
-      await setInStore(rateLimitKey, String(parseInt(otpCount) + 1), 3600);
-    } else {
-      await setInStore(rateLimitKey, "1", 3600);
-    }
-
-    // Send OTP via SMS (Twilio/AWS SNS)
-    const formattedPhone = "+91" + phoneNumber;
-    const result = await SmsService.sendOtp(formattedPhone, otp);
-
-    if (!result.success && process.env.NODE_ENV !== "development") {
-      return res.status(500).json({
-        success: false,
-        error: "Failed to send OTP. Please try again.",
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "OTP sent to your registered mobile number",
-    });
-    // Never log OTPs, even in development — security best practice.
-  } catch (error) {
-    logger.error(
-      { err: error, phoneNumber: req.body?.phoneNumber },
-      "Error sending OTP",
-    );
-    res.status(500).json({ success: false, error: "Failed to send OTP" });
-  }
-});
+  },
+);
 
 /**
  * POST /api/auth/phone/verify-otp
@@ -179,6 +240,12 @@ router.post(
       const otpDataStr = await getFromStore(otpKey);
 
       if (!otpDataStr) {
+        await recordLoginAttempt(
+          phoneAttemptKey(phoneNumber),
+          getClientIp(req),
+          false,
+          req.headers?.["user-agent"],
+        );
         return res
           .status(400)
           .json({ success: false, error: "OTP expired or not requested" });
@@ -189,6 +256,12 @@ router.post(
       // Check if OTP is expired
       if (otpData.expiresAt < Date.now()) {
         await deleteFromStore(otpKey);
+        await recordLoginAttempt(
+          phoneAttemptKey(phoneNumber),
+          getClientIp(req),
+          false,
+          req.headers?.["user-agent"],
+        );
         return res.status(400).json({ success: false, error: "OTP expired" });
       }
 
@@ -202,12 +275,24 @@ router.post(
         otpData.attempts++;
         if (otpData.attempts >= 3) {
           await deleteFromStore(otpKey);
+          await recordLoginAttempt(
+            phoneAttemptKey(phoneNumber),
+            getClientIp(req),
+            false,
+            req.headers?.["user-agent"],
+          );
           return res
             .status(400)
             .json({ success: false, error: "Too many failed attempts" });
         }
         // Update attempts counter
         await setInStore(otpKey, JSON.stringify(otpData), 600);
+        await recordLoginAttempt(
+          phoneAttemptKey(phoneNumber),
+          getClientIp(req),
+          false,
+          req.headers?.["user-agent"],
+        );
         return res.status(400).json({ success: false, error: "Invalid OTP" });
       }
 
@@ -219,25 +304,76 @@ router.post(
 
       let userId,
         isNewUser = false;
+      // Normalize attacker-supplied profile fields (trim + cap length).
+      const suppliedEmail =
+        typeof email === "string" && email.trim()
+          ? email.trim().slice(0, 255)
+          : null;
+      const suppliedName =
+        typeof name === "string" && name.trim()
+          ? name.trim().slice(0, 255)
+          : `User${String(phoneNumber).slice(-4)}`;
+      const finalEmail = suppliedEmail || `${phoneNumber}@trstprep.local`;
       if (userResult.rows.length === 0) {
-        // Create new user
-        const createResult = await dbHelpers.query(
-          `INSERT INTO users (phone, email, name, auth_type, phone_verified, last_login, created_at)
-         VALUES ($1, $2, $3, 'phone', true, NOW(), NOW())
-         RETURNING id, email, name`,
-          [
-            phoneNumber,
-            email || `${phoneNumber}@trstprep.local`,
-            name || `User${phoneNumber.slice(-4)}`,
-          ],
-        );
+        // Uniqueness-check email before insert so a taken email returns 409,
+        // not a DB 23505 bubbling to 500.
+        if (suppliedEmail) {
+          const emailTaken = await dbHelpers.query(
+            "SELECT id FROM users WHERE email = $1",
+            [suppliedEmail],
+          );
+          if (emailTaken.rows.length > 0) {
+            return res.status(409).json({
+              success: false,
+              code: "EMAIL_ALREADY_REGISTERED",
+              error:
+                "Email already registered. Please log in with email or use a different email.",
+            });
+          }
+        }
+        // H1 FIX: phone OTP is a possession factor — the phone number itself is
+        // verified by the OTP challenge above. A synthetic `<phone>@trstprep.local`
+        // email has no mailbox to verify, so mark is_email_verified=true
+        // alongside phone_verified=true; otherwise protect()'s production
+        // email-verification gate returns 403 for every phone-authed user.
+        // An attacker-supplied email is still stored UNVERIFIED-equivalent in
+        // practice: it is only trusted after the existing email-verification
+        // flow (sendVerificationEmail) confirms mailbox control. Do NOT treat
+        // suppliedEmail as verified for recovery/notifications until then.
+        let createResult;
+        try {
+          // Create new user
+          createResult = await dbHelpers.query(
+            `INSERT INTO users (phone, email, name, auth_type, phone_verified, is_email_verified, last_login, created_at)
+          VALUES ($1, $2, $3, 'phone', true, true, NOW(), NOW())
+          RETURNING id, email, name`,
+            [phoneNumber, finalEmail, suppliedName],
+          );
+        } catch (insErr) {
+          // Race safety: unique violation between check and insert -> 409, not 500.
+          if (
+            insErr &&
+            (insErr.code === "23505" ||
+              /duplicate|unique/i.test(insErr.message || ""))
+          ) {
+            return res.status(409).json({
+              success: false,
+              code: "EMAIL_ALREADY_REGISTERED",
+              error:
+                "Email already registered. Please log in with email or use a different email.",
+            });
+          }
+          throw insErr;
+        }
         userId = createResult.rows[0].id;
         isNewUser = true;
       } else {
         userId = userResult.rows[0].id;
-        // Update last login
+        // Update last login (H1: phone OTP verifies possession — also mark
+        // is_email_verified so the production email-verification gate in
+        // protect() does not 403 phone-authed users with synthetic emails).
         await dbHelpers.query(
-          "UPDATE users SET last_login = NOW(), phone_verified = true WHERE id = $1",
+          "UPDATE users SET last_login = NOW(), phone_verified = true, is_email_verified = true WHERE id = $1",
           [userId],
         );
       }
@@ -265,7 +401,7 @@ router.post(
           );
           const customLimit = userRow.session_limit ?? userRow.sessionLimit;
           let phoneSessionLimit = 1;
-          if (role === "admin" || role === "super_admin") {
+          if (role === "admin") {
             phoneSessionLimit = Infinity;
             if (customLimit !== null && customLimit !== undefined) {
               phoneSessionLimit = customLimit;
@@ -327,42 +463,93 @@ router.post(
         }
       }
 
-      // Generate JWT token — embed sessionId so protect middleware can validate it.
-      // Use a dedicated phone-auth secret (JWT_2FA_SECRET) to keep session,
-      // password reset, and phone-auth token namespaces isolated. Falls back to
-      // JWT_SECRET for backward compat during the migration window.
-      const phoneSecret = process.env.JWT_2FA_SECRET || process.env.JWT_SECRET;
-      const token = jwt.sign(
-        { id: userId, phone: phoneNumber, type: "phone", sessionId },
-        phoneSecret,
-        { expiresIn: "30d" },
-      );
+      // Session issuance via canonical web-flow helpers (auth.service).
+      // Access token: JWT_SECRET, default 7d (JWT_EXPIRES_IN override) — never
+      // the 2FA temp secret, never 30d. Refresh token: JWT_REFRESH_SECRET, 30d.
+      // CROSS-DEP (auth.middleware.js, owned by another agent): protect() must
+      // accept type="phone" as a first-class authenticated session; it
+      // validates sessionId against user_sessions. Do not change here.
+      const phoneRole = userResult.rows[0]?.role || "user";
+      const token = generateToken(userId, phoneRole, {
+        claims: {
+          phone: phoneNumber,
+          type: "phone",
+          ...(sessionId ? { sessionId } : {}),
+        },
+      });
+      let refreshToken = null;
+      try {
+        refreshToken = generateToken(userId, phoneRole, {
+          secret: getPhoneRefreshSecret(),
+          expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "30d",
+          claims: { ...(sessionId ? { sessionId } : {}) },
+        });
+      } catch (refreshErr) {
+        logger.error(
+          { err: refreshErr },
+          "[Phone Auth] Refresh token issuance failed",
+        );
+        return res
+          .status(500)
+          .json({ success: false, error: "Failed to create session" });
+      }
+
+      // Bind refresh token to session for per-device revocation (mirror web login).
+      if (sessionId && refreshToken) {
+        try {
+          await setSessionRefreshHash(sessionId, refreshToken);
+        } catch (hashErr) {
+          logger.error(
+            { err: hashErr },
+            "[Phone Auth] Refresh hash bind failed (non-fatal)",
+          );
+        }
+      }
+
+      // Deliver session via httpOnly cookies (never a long-lived token in body).
+      setAuthCookies(res, { token, refreshToken, rememberMe: false });
+
+      // Bootstrap CSRF for the new session (mirror web login; non-fatal).
+      try {
+        const csrfToken = generateCsrfToken();
+        await storeCsrfToken(token, csrfToken);
+        setCsrfCookie(res, csrfToken);
+      } catch (csrfErr) {
+        logger.error(
+          { err: csrfErr },
+          "[Phone Auth] CSRF bootstrap failed (non-fatal)",
+        );
+      }
 
       // Clear OTP from store
       await deleteFromStore(otpKey);
 
-      // Send welcome email for new users
-      if (isNewUser && email) {
+      // OTP verified — clear brute-force counters for this number.
+      await clearLoginAttempts(phoneAttemptKey(phoneNumber));
+
+      // Send welcome email for new users (phone is verified; supplied email is
+      // NOT verified — see TODO above; welcome mail is best-effort only).
+      if (isNewUser && suppliedEmail) {
         try {
-          await EmailService.sendWelcomeEmail(email, name || "User");
+          await EmailService.sendWelcomeEmail(suppliedEmail, suppliedName);
         } catch (err) {
-          console.error("Error sending welcome email:", err);
+          logger.error({ err }, "Error sending welcome email");
         }
       }
 
       res.json({
         success: true,
-        token,
         isNewUser,
+        sessionId,
         user: {
           id: userId,
           phone: phoneNumber,
-          email: userResult.rows[0]?.email || email,
-          name,
+          email: userResult.rows[0]?.email || finalEmail,
+          name: userResult.rows[0]?.name || suppliedName,
         },
       });
     } catch (error) {
-      console.error("Error verifying OTP:", error);
+      logger.error({ err: error }, "Error verifying OTP");
       res.status(500).json({ success: false, error: "Failed to verify OTP" });
     }
   },
@@ -372,71 +559,123 @@ router.post(
  * POST /api/auth/phone/link-phone
  * Link phone to existing account (authenticated)
  */
-router.post("/link-phone", auth, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { phoneNumber, otp } = req.body;
+router.post(
+  "/link-phone",
+  auth,
+  lockoutMiddleware,
+  authRateLimiter,
+  validateCsrfToken,
+  async (req, res) => {
+    try {
+      // Fail CLOSED when OTP store unavailable (mirror verify-otp).
+      if (!resolveOtpStore()) {
+        return res.status(503).json({
+          success: false,
+          error: "Phone authentication is temporarily unavailable",
+        });
+      }
+      const userId = req.user.id;
+      const { phoneNumber, otp } = req.body;
 
-    if (!phoneNumber || !otp) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Phone and OTP required" });
+      if (!phoneNumber || !otp) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Phone and OTP required" });
+      }
+
+      // Verify OTP
+      const otpKey = `otp:${phoneNumber}`;
+      const otpDataStr = await getFromStore(otpKey);
+
+      if (!otpDataStr) {
+        await recordLoginAttempt(
+          phoneAttemptKey(phoneNumber),
+          getClientIp(req),
+          false,
+          req.headers?.["user-agent"],
+        );
+        return res
+          .status(400)
+          .json({ success: false, error: "OTP invalid or expired" });
+      }
+
+      const otpData = JSON.parse(otpDataStr);
+      if (otpData.expiresAt < Date.now()) {
+        await deleteFromStore(otpKey);
+        await recordLoginAttempt(
+          phoneAttemptKey(phoneNumber),
+          getClientIp(req),
+          false,
+          req.headers?.["user-agent"],
+        );
+        return res.status(400).json({ success: false, error: "OTP expired" });
+      }
+      // Timing-safe OTP comparison + bounded guesses (mirror verify-otp:
+      // increment attempts, delete after 3 failures).
+      const linkOtpBuf = Buffer.from(otpData.otp, "utf8");
+      const linkInputBuf = Buffer.from(String(otp), "utf8");
+      if (
+        linkOtpBuf.length !== linkInputBuf.length ||
+        !crypto.timingSafeEqual(linkOtpBuf, linkInputBuf)
+      ) {
+        otpData.attempts = (otpData.attempts || 0) + 1;
+        if (otpData.attempts >= 3) {
+          await deleteFromStore(otpKey);
+          await recordLoginAttempt(
+            phoneAttemptKey(phoneNumber),
+            getClientIp(req),
+            false,
+            req.headers?.["user-agent"],
+          );
+          return res
+            .status(400)
+            .json({ success: false, error: "Too many failed attempts" });
+        }
+        await setInStore(otpKey, JSON.stringify(otpData), 600);
+        await recordLoginAttempt(
+          phoneAttemptKey(phoneNumber),
+          getClientIp(req),
+          false,
+          req.headers?.["user-agent"],
+        );
+        return res
+          .status(400)
+          .json({ success: false, error: "Invalid or expired OTP" });
+      }
+
+      // Check if phone already linked to another user
+      const existingUser = await dbHelpers.query(
+        "SELECT id FROM users WHERE phone = $1 AND id != $2",
+        [phoneNumber, userId],
+      );
+
+      if (existingUser.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Phone already linked to another account",
+        });
+      }
+
+      // Update user with phone (H1: OTP proves possession — mark
+      // is_email_verified alongside phone_verified so protect() does not 403).
+      await dbHelpers.query(
+        "UPDATE users SET phone = $1, phone_verified = true, is_email_verified = true, updated_at = NOW() WHERE id = $2",
+        [phoneNumber, userId],
+      );
+
+      // Clear OTP
+      await deleteFromStore(otpKey);
+
+      // Phone linked — clear brute-force counters for this number.
+      await clearLoginAttempts(phoneAttemptKey(phoneNumber));
+
+      res.json({ success: true, message: "Phone linked successfully" });
+    } catch (error) {
+      logger.error({ err: error }, "Error linking phone");
+      res.status(500).json({ success: false, error: "Failed to link phone" });
     }
-
-    // Verify OTP
-    const otpKey = `otp:${phoneNumber}`;
-    const otpDataStr = await getFromStore(otpKey);
-
-    if (!otpDataStr) {
-      return res
-        .status(400)
-        .json({ success: false, error: "OTP invalid or expired" });
-    }
-
-    const otpData = JSON.parse(otpDataStr);
-    if (otpData.expiresAt < Date.now()) {
-      return res.status(400).json({ success: false, error: "OTP expired" });
-    }
-    // Timing-safe OTP comparison
-    const linkOtpBuf = Buffer.from(otpData.otp, "utf8");
-    const linkInputBuf = Buffer.from(String(otp), "utf8");
-    if (
-      linkOtpBuf.length !== linkInputBuf.length ||
-      !crypto.timingSafeEqual(linkOtpBuf, linkInputBuf)
-    ) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Invalid or expired OTP" });
-    }
-
-    // Check if phone already linked to another user
-    const existingUser = await dbHelpers.query(
-      "SELECT id FROM users WHERE phone = $1 AND id != $2",
-      [phoneNumber, userId],
-    );
-
-    if (existingUser.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        error: "Phone already linked to another account",
-      });
-    }
-
-    // Update user with phone
-    await dbHelpers.query(
-      "UPDATE users SET phone = $1, phone_verified = true, updated_at = NOW() WHERE id = $2",
-      [phoneNumber, userId],
-    );
-
-    // Clear OTP
-    await deleteFromStore(otpKey);
-
-    res.json({ success: true, message: "Phone linked successfully" });
-  } catch (error) {
-    console.error("Error linking phone:", error);
-    res.status(500).json({ success: false, error: "Failed to link phone" });
-  }
-});
+  },
+);
 
 // ========== Helper Functions ==========
 // Resolved per-call so a Redis connection that becomes available after

@@ -13,7 +13,7 @@ import Breadcrumb from "../../shared/components/common/Breadcrumb";
 import FundamentalsGym from "./components/FundamentalsGym";
 import PracticeWorkspace from "./components/PracticeWorkspace";
 import PracticeTopicTree from "./components/PracticeTopicTree";
-import { useProPass } from "../../shared/hooks/useProPass";
+import { useProPass } from "@trstprep/shared-hooks";
 import SEO from "../../shared/components/SEO";
 
 function formatSlugToTitle(slug) {
@@ -36,6 +36,7 @@ import {
   Play,
   ChevronDown,
   RotateCcw,
+  Check,
 } from "lucide-react";
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -438,7 +439,15 @@ export default function PracticeLab() {
           onLaunchSmart={handleLaunchSmartEntry}
           onResume={async (session) => {
             try {
-              const fullSession = await practiceAPI.getSession(session.id);
+              // Defensive: resume payloads may carry id, sessionId, or session_id
+              // depending on the list source (practiceAPI normalizes, but callers
+              // may pass raw rows). Never let this become ".../undefined".
+              const resumeId =
+                session?.id ?? session?.sessionId ?? session?.session_id;
+              if (resumeId === undefined || resumeId === null || resumeId === "") {
+                throw new Error("Practice session ID is missing");
+              }
+              const fullSession = await practiceAPI.getSession(resumeId);
               setSessionReturnScreen("dashboard");
               setActiveSession(fullSession);
               navigateScreen("session");
@@ -624,6 +633,7 @@ function ExamPracticeHub({
   initialSubjectSlug,
 }) {
   const { hasProPass } = useProPass();
+  const [mobileSubjectDropdownOpen, setMobileSubjectDropdownOpen] = useState(false);
   const { data: treeData, isLoading: subjectsLoading } = useQuery({
     queryKey: ["practice-tree", "exam-practice"],
     queryFn: practiceAPI.getTree,
@@ -775,9 +785,100 @@ function ExamPracticeHub({
 
       {/* ── TWO-COLUMN MASTER-DETAIL LAYOUT: SUBJECTS LEFT, CONTENT RIGHT ── */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
-        {/* LEFT COLUMN: SUBJECTS SIDEBAR (col-span-3) — sticky, self-contained height */}
+        {/* MOBILE ONLY: COMPACT SUBJECT DROPDOWN SELECTOR (saves massive screen space on mobile) */}
+        <div className="block md:hidden col-span-1 w-full">
+          <div className="relative">
+            <div className="flex items-center justify-between mb-1.5 px-1">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-gray-400 flex items-center gap-1.5">
+                <span>Subject</span>
+                {subjectsLoading && (
+                  <span className="inline-block w-2.5 h-2.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                )}
+              </span>
+              <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
+                {chaptersList.length} Chapters
+              </span>
+            </div>
+
+            {/* Dropdown Trigger Button */}
+            <button
+              type="button"
+              onClick={() => setMobileSubjectDropdownOpen((prev) => !prev)}
+              className="w-full px-4 py-3 bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 shadow-xs flex items-center justify-between gap-3 text-left transition active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              aria-expanded={mobileSubjectDropdownOpen}
+              aria-haspopup="listbox"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-xl flex-shrink-0">{currentSubjectObj.icon}</span>
+                <div className="min-w-0">
+                  <div className="text-sm font-black text-slate-900 dark:text-white truncate">
+                    {currentSubjectObj.label}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
+                  Change
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 dark:text-gray-400 transition-transform duration-200 ${
+                    mobileSubjectDropdownOpen ? "rotate-180 text-indigo-600" : ""
+                  }`}
+                />
+              </div>
+            </button>
+
+            {/* Dropdown Options Popover */}
+            {mobileSubjectDropdownOpen && (
+              <>
+                {/* Backdrop to close when tapping outside */}
+                <div
+                  className="fixed inset-0 z-30 bg-black/20 backdrop-blur-[2px]"
+                  onClick={() => setMobileSubjectDropdownOpen(false)}
+                />
+                <div className="absolute z-40 top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-2xl shadow-2xl overflow-hidden p-2 space-y-1 max-h-72 overflow-y-auto">
+                  <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-gray-500 border-b border-slate-100 dark:border-gray-700/60 flex items-center justify-between">
+                    <span>Filter by Subject</span>
+                    <span>{subjectsList.length} Options</span>
+                  </div>
+                  {subjectsList.map((s) => {
+                    const isActive = String(activeSubject) === String(s.id);
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveSubject(s.id);
+                          if (onSelectSubject) {
+                            onSelectSubject(s.id === "all" ? null : s.slug || s.id);
+                          }
+                          setMobileSubjectDropdownOpen(false);
+                        }}
+                        className={`w-full p-2.5 rounded-xl text-left text-xs font-bold transition flex items-center justify-between ${
+                          isActive
+                            ? "bg-indigo-600 text-white shadow-xs"
+                            : "text-slate-700 dark:text-gray-200 hover:bg-slate-50 dark:hover:bg-gray-700/60"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-base flex-shrink-0">{s.icon}</span>
+                          <span className="truncate">{s.label}</span>
+                        </div>
+                        {isActive && (
+                          <Check className="w-4 h-4 text-white flex-shrink-0 ml-2" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* DESKTOP ONLY: SUBJECTS SIDEBAR (col-span-3) — sticky on md+ */}
         <div
-          className="md:col-span-3 bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 shadow-2xs sticky top-4 flex flex-col"
+          className="hidden md:flex md:col-span-3 bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 shadow-2xs sticky top-4 flex-col"
           style={{ maxHeight: "calc(100vh - 80px)" }}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-gray-700 flex-shrink-0">
@@ -820,10 +921,9 @@ function ExamPracticeHub({
           </div>
         </div>
 
-        {/* RIGHT COLUMN: CHAPTERS CONTENT (col-span-9) — scrolls to match left sidebar height */}
+        {/* RIGHT COLUMN: CHAPTERS CONTENT (col-span-9 on desktop, full-width on mobile) */}
         <div
-          className="md:col-span-9 flex flex-col"
-          style={{ maxHeight: "calc(100vh - 80px)" }}
+          className="w-full md:col-span-9 flex flex-col md:max-h-[calc(100vh-80px)]"
         >
           {/* Chapter Cards Header — fixed, doesn't scroll */}
           <div className="flex items-center justify-between mb-5 flex-shrink-0">
@@ -948,6 +1048,7 @@ function ExamPracticeHub({
 // ════════════════════════════════════════════════════════════════════════════
 function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
   const [activeTopic, setActiveTopic] = useState(null);
+  const [mobileTopicDropdownOpen, setMobileTopicDropdownOpen] = useState(false);
 
   // Fetch topics from DB using chapter.id (numeric) if available
   const { data: chapterData, isLoading } = useQuery({
@@ -1250,8 +1351,146 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
 
       {/* ── TWO-COLUMN: TOPICS LEFT + PRACTICE SETS RIGHT ── */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-        {/* LEFT: Topics Sidebar */}
-        <div className="md:col-span-4 bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 shadow-xs sticky top-6">
+        {/* MOBILE ONLY: COMPACT TOPIC DROPDOWN SELECTOR (saves screen space on mobile) */}
+        <div className="block md:hidden col-span-1 w-full">
+          <div className="relative">
+            <div className="flex items-center justify-between mb-1.5 px-1">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-gray-400 flex items-center gap-1.5">
+                <span>Select Topic</span>
+                {isLoading && (
+                  <span className="inline-block w-2.5 h-2.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                )}
+              </span>
+              <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
+                {topics.length} Topics
+              </span>
+            </div>
+
+            {/* Dropdown Trigger Button */}
+            <button
+              type="button"
+              onClick={() => setMobileTopicDropdownOpen((prev) => !prev)}
+              className="w-full px-4 py-3 bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 shadow-xs flex items-center justify-between gap-3 text-left transition active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              aria-expanded={mobileTopicDropdownOpen}
+              aria-haspopup="listbox"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-black text-slate-900 dark:text-white truncate">
+                  {currentTopic ? currentTopic.name : "Select a topic"}
+                </div>
+                <div className="text-[11px] font-medium text-slate-400 dark:text-gray-400 flex items-center gap-2 mt-0.5">
+                  <span>{currentTopic?.questionCount || 0} questions</span>
+                  {currentTopic?.accuracy !== null &&
+                    currentTopic?.accuracy !== undefined &&
+                    currentTopic?.attempts > 0 && (
+                      <span
+                        className={`text-[9.5px] font-black px-1.5 py-0.2 rounded-full ${
+                          currentTopic.accuracy >= 80
+                            ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                            : currentTopic.accuracy >= 50
+                              ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                              : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                        }`}
+                      >
+                        {currentTopic.accuracy}% acc
+                      </span>
+                    )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
+                  Change
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 dark:text-gray-400 transition-transform duration-200 ${
+                    mobileTopicDropdownOpen ? "rotate-180 text-indigo-600" : ""
+                  }`}
+                />
+              </div>
+            </button>
+
+            {/* Dropdown Options Popover */}
+            {mobileTopicDropdownOpen && (
+              <>
+                {/* Backdrop */}
+                <div
+                  className="fixed inset-0 z-30 bg-black/20 backdrop-blur-[2px]"
+                  onClick={() => setMobileTopicDropdownOpen(false)}
+                />
+                <div className="absolute z-40 top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-2xl shadow-2xl overflow-hidden p-2 space-y-1 max-h-72 overflow-y-auto">
+                  <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-gray-500 border-b border-slate-100 dark:border-gray-700/60 flex items-center justify-between">
+                    <span>Topics in this Chapter</span>
+                    <span>{topics.length} Options</span>
+                  </div>
+                  {topics.length > 0 ? (
+                    topics.map((topic, idx) => {
+                      const isActive =
+                        currentTopic?.id === topic.id ||
+                        (!activeTopic && idx === 0);
+                      const hasAccuracy =
+                        topic.accuracy !== null && topic.attempts > 0;
+                      return (
+                        <button
+                          key={topic.id || idx}
+                          type="button"
+                          onClick={() => {
+                            setActiveTopic(topic);
+                            setMobileTopicDropdownOpen(false);
+                          }}
+                          className={`w-full p-2.5 rounded-xl text-left text-xs font-bold transition flex items-center justify-between ${
+                            isActive
+                              ? "bg-indigo-600 text-white shadow-xs"
+                              : "text-slate-700 dark:text-gray-200 hover:bg-slate-50 dark:hover:bg-gray-700/60"
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1 pr-2">
+                            <div className="truncate">{topic.name}</div>
+                            <div
+                              className={`text-[10px] font-medium mt-0.5 ${
+                                isActive
+                                  ? "text-indigo-200"
+                                  : "text-slate-400 dark:text-gray-400"
+                              }`}
+                            >
+                              {topic.questionCount || 0} questions
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {hasAccuracy && (
+                              <span
+                                className={`text-[9.5px] font-black px-1.5 py-0.5 rounded-full ${
+                                  isActive
+                                    ? "bg-white/20 text-white"
+                                    : topic.accuracy >= 80
+                                      ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                                      : topic.accuracy >= 50
+                                        ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                                        : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                                }`}
+                              >
+                                {topic.accuracy}%
+                              </span>
+                            )}
+                            {isActive && (
+                              <Check className="w-4 h-4 text-white ml-1" />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="py-4 text-center text-xs text-slate-400">
+                      No topics available
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* DESKTOP ONLY: Topics Sidebar */}
+        <div className="hidden md:block md:col-span-4 bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 shadow-xs sticky top-6">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-gray-700">
             <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400 dark:text-gray-500">
               Topics in this Chapter
@@ -1331,7 +1570,7 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
         </div>
 
         {/* RIGHT: Practice Sets Panel */}
-        <div className="md:col-span-8 space-y-5">
+        <div className="w-full md:col-span-8 space-y-5">
           {/* Selected topic header */}
           {currentTopic && (
             <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-5 shadow-xs">
@@ -1624,37 +1863,38 @@ function PracticeHubDashboard({
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-4 py-5 sm:py-8 space-y-4 sm:space-y-8">
       {/* Title & Daily Streak */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+      <div className="flex items-center justify-between gap-2 sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-base sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">
             Practice Workspace
           </h1>
-          <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">
-            Build core concepts, train calculation speed, and master exam
-            topics.
+          <p className="text-[11px] sm:text-sm text-slate-500 dark:text-gray-400 mt-0.5 truncate sm:whitespace-normal">
+            Build core concepts, train calculation speed, and master exam topics.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-gray-700 px-3 py-1.5 sm:px-4 sm:py-2 flex items-center gap-2 sm:gap-2.5 shadow-xs">
-            <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
-            <div>
-              <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-none">
+        <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+          <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-gray-700 px-2.5 py-1.5 sm:px-4 sm:py-2 flex items-center gap-1.5 sm:gap-2.5 shadow-xs">
+            <Flame className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-orange-500 flex-shrink-0" />
+            <div className="leading-tight">
+              <div className="text-xs sm:text-lg font-black text-slate-900 dark:text-white leading-none">
                 {streak.currentStreak ?? 0}
               </div>
-              <div className="text-[9px] sm:text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-wider">
-                Day streak
+              <div className="text-[8px] sm:text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-wider whitespace-nowrap">
+                <span className="inline sm:hidden">Streak</span>
+                <span className="hidden sm:inline">Day streak</span>
               </div>
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-gray-700 px-3 py-1.5 sm:px-4 sm:py-2 flex items-center gap-2 sm:gap-2.5 shadow-xs">
-            <Star className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500" />
-            <div>
-              <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-none">
+          <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-gray-700 px-2.5 py-1.5 sm:px-4 sm:py-2 flex items-center gap-1.5 sm:gap-2.5 shadow-xs">
+            <Star className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-indigo-500 flex-shrink-0" />
+            <div className="leading-tight">
+              <div className="text-xs sm:text-lg font-black text-slate-900 dark:text-white leading-none">
                 {streak.totalCorrect ?? 0}
               </div>
-              <div className="text-[9px] sm:text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-wider">
-                Correct Total
+              <div className="text-[8px] sm:text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-wider whitespace-nowrap">
+                <span className="inline sm:hidden">Correct</span>
+                <span className="hidden sm:inline">Correct Total</span>
               </div>
             </div>
           </div>
@@ -1685,29 +1925,34 @@ function PracticeHubDashboard({
         </div>
       )}
 
-      {/* 🧮 4-HUB PRACTICE GRID (Responsive: 1 col mobile, 2 cols tablet, 4 cols desktop) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+      {/* 🧮 4-HUB PRACTICE GRID (Responsive: 2 cols on mobile, 4 cols on desktop) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5">
         {/* Hub 1: Fundamentals */}
         <div
           onClick={onOpenFundamentals}
-          className="animate-slide-in-up bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-white cursor-pointer hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all duration-200 group flex flex-col justify-between"
+          className="animate-slide-in-up relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 text-white cursor-pointer hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 group flex flex-col justify-between shadow-md"
         >
-          <div>
-            <div className="flex items-center justify-between mb-2.5 sm:mb-4">
-              <span className="text-lg sm:text-2xl lg:text-3xl">🧮</span>
-              <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider bg-white/20 px-2 sm:px-3 py-1 rounded-full text-indigo-100">
+          {/* Ambient background effects */}
+          <div className="absolute -right-8 -top-8 w-28 h-28 sm:w-36 sm:h-36 bg-purple-400/30 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+          <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-indigo-400/20 rounded-full blur-xl pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:14px_14px] opacity-10 pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col flex-1">
+            <div className="flex items-center justify-between gap-1 mb-2.5 sm:mb-4">
+              <span className="text-xl sm:text-2xl lg:text-3xl">🧮</span>
+              <span className="text-[8.5px] sm:text-[10px] uppercase font-bold tracking-wider bg-white/20 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-indigo-100 max-w-[65%] truncate">
                 Calculation Gym
               </span>
             </div>
-            <h3 className="text-base sm:text-xl font-extrabold mb-1">
+            <h3 className="text-sm sm:text-xl font-extrabold mb-1">
               Fundamentals
             </h3>
-            <p className="text-[11px] sm:text-xs text-indigo-100 leading-relaxed mb-4 sm:mb-6">
+            <p className="text-[11px] sm:text-xs text-indigo-100/90 leading-relaxed mb-4 sm:mb-6">
               Tables (1–30), Squares (1–50), Cubes, Roots, Fractions ↔ %, Ratios
               & Triplets for 5x exam calculation speed.
             </p>
           </div>
-          <button className="w-full py-2 sm:py-2.5 bg-white dark:bg-gray-800 text-indigo-700 dark:text-white rounded-xl text-xs font-black group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <button className="relative z-10 w-full py-2 sm:py-2.5 px-2 bg-white dark:bg-gray-800 text-indigo-700 dark:text-white rounded-xl text-[11px] sm:text-xs font-black shadow-xs group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition focus:outline-none focus:ring-2 focus:ring-indigo-500">
             Train Calculation Speed →
           </button>
         </div>
@@ -1716,24 +1961,29 @@ function PracticeHubDashboard({
         <div
           onClick={onOpenExamPractice}
           style={{ animationDelay: "60ms" }}
-          className="animate-slide-in-up bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-gray-700 p-4 sm:p-6 cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-800 hover:shadow-md hover:-translate-y-1 active:scale-[0.98] transition-all duration-200 group flex flex-col justify-between"
+          className="animate-slide-in-up relative overflow-hidden bg-gradient-to-br from-blue-50/80 via-white to-sky-50/50 dark:from-slate-800/95 dark:via-gray-800 dark:to-blue-950/30 rounded-2xl sm:rounded-3xl border border-blue-200/80 dark:border-blue-900/40 p-3.5 sm:p-6 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 group flex flex-col justify-between shadow-xs"
         >
-          <div>
-            <div className="flex items-center justify-between mb-2.5 sm:mb-4">
-              <span className="text-lg sm:text-2xl lg:text-3xl">📚</span>
-              <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 sm:px-3 py-1 rounded-full max-w-[60%] truncate">
+          {/* Ambient background effects */}
+          <div className="absolute -right-8 -top-8 w-28 h-28 sm:w-36 sm:h-36 bg-blue-500/15 dark:bg-blue-400/15 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+          <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-sky-400/10 dark:bg-sky-400/10 rounded-full blur-xl pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-blue-500/5 to-transparent pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col flex-1">
+            <div className="flex items-center justify-between gap-1 mb-2.5 sm:mb-4">
+              <span className="text-xl sm:text-2xl lg:text-3xl">📚</span>
+              <span className="text-[8.5px] sm:text-[10px] uppercase font-bold tracking-wider bg-blue-100/80 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full max-w-[65%] truncate">
                 {selectedExam ? selectedExam.name : "Choose Exam"}
               </span>
             </div>
-            <h3 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
+            <h3 className="text-sm sm:text-xl font-bold text-slate-900 dark:text-white mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
               Exam & Concepts
             </h3>
-            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 leading-relaxed mb-4 sm:mb-6">
+            <p className="text-[11px] sm:text-xs text-slate-600 dark:text-gray-300 leading-relaxed mb-4 sm:mb-6">
               Targeted practice questions across SSC, Railway, Banking, UPSC.
               Select subject, topic, and difficulty.
             </p>
           </div>
-          <button className="w-full py-2 sm:py-2.5 bg-slate-100 dark:bg-gray-700 text-slate-800 dark:text-gray-200 rounded-xl text-xs font-bold group-hover:bg-indigo-600 group-hover:text-white transition focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <button className="relative z-10 w-full py-2 sm:py-2.5 px-2 bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-600 text-blue-700 dark:text-blue-300 group-hover:text-white border border-blue-200/60 dark:border-blue-800/60 group-hover:border-blue-600 rounded-xl text-[11px] sm:text-xs font-black transition-all focus:outline-none focus:ring-2 focus:ring-blue-500">
             {selectedExam
               ? `Practice ${selectedExam.name} Questions →`
               : "Select Exam to Practice →"}
@@ -1744,24 +1994,29 @@ function PracticeHubDashboard({
         <div
           onClick={() => onLaunchSmart("weak_topic")}
           style={{ animationDelay: "120ms" }}
-          className="animate-slide-in-up bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-gray-700 p-4 sm:p-6 cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-800 hover:shadow-md hover:-translate-y-1 active:scale-[0.98] transition-all duration-200 group flex flex-col justify-between"
+          className="animate-slide-in-up relative overflow-hidden bg-gradient-to-br from-purple-50/80 via-white to-fuchsia-50/50 dark:from-slate-800/95 dark:via-gray-800 dark:to-purple-950/30 rounded-2xl sm:rounded-3xl border border-purple-200/80 dark:border-purple-900/40 p-3.5 sm:p-6 cursor-pointer hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 group flex flex-col justify-between shadow-xs"
         >
-          <div>
-            <div className="flex items-center justify-between mb-2.5 sm:mb-4">
-              <span className="text-lg sm:text-2xl lg:text-3xl">🎯</span>
-              <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-2 sm:px-3 py-1 rounded-full">
+          {/* Ambient background effects */}
+          <div className="absolute -right-8 -top-8 w-28 h-28 sm:w-36 sm:h-36 bg-purple-500/15 dark:bg-purple-400/15 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+          <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-fuchsia-400/10 dark:bg-fuchsia-400/10 rounded-full blur-xl pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-purple-500/5 to-transparent pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col flex-1">
+            <div className="flex items-center justify-between gap-1 mb-2.5 sm:mb-4">
+              <span className="text-xl sm:text-2xl lg:text-3xl">🎯</span>
+              <span className="text-[8.5px] sm:text-[10px] uppercase font-bold tracking-wider bg-purple-100/80 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full max-w-[65%] truncate">
                 Personalized AI
               </span>
             </div>
-            <h3 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
+            <h3 className="text-sm sm:text-xl font-bold text-slate-900 dark:text-white mb-1 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition">
               Smart Practice
             </h3>
-            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 leading-relaxed mb-4 sm:mb-6">
+            <p className="text-[11px] sm:text-xs text-slate-600 dark:text-gray-300 leading-relaxed mb-4 sm:mb-6">
               AI-driven speed drills and weak-topic reinforcement calculated
               from your past test performance.
             </p>
           </div>
-          <button className="w-full py-2 sm:py-2.5 bg-slate-100 dark:bg-gray-700 text-slate-800 dark:text-gray-200 rounded-xl text-xs font-bold group-hover:bg-amber-500 group-hover:text-white transition focus:outline-none focus:ring-2 focus:ring-amber-500">
+          <button className="relative z-10 w-full py-2 sm:py-2.5 px-2 bg-purple-50 dark:bg-purple-900/30 group-hover:bg-purple-600 text-purple-700 dark:text-purple-300 group-hover:text-white border border-purple-200/60 dark:border-purple-800/60 group-hover:border-purple-600 rounded-xl text-[11px] sm:text-xs font-black transition-all focus:outline-none focus:ring-2 focus:ring-purple-500">
             Start Smart Drill →
           </button>
         </div>
@@ -1772,26 +2027,31 @@ function PracticeHubDashboard({
             mistakeCount > 0 ? () => onLaunchSmart("mistakes") : undefined
           }
           style={{ animationDelay: "180ms" }}
-          className={`animate-slide-in-up bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-gray-700 p-4 sm:p-6 transition-all duration-200 group flex flex-col justify-between ${
+          className={`animate-slide-in-up relative overflow-hidden bg-gradient-to-br from-amber-50/80 via-white to-orange-50/50 dark:from-slate-800/95 dark:via-gray-800 dark:to-amber-950/30 rounded-2xl sm:rounded-3xl border border-amber-200/80 dark:border-amber-900/40 p-3.5 sm:p-6 transition-all duration-300 group flex flex-col justify-between shadow-xs ${
             mistakeCount > 0
-              ? "cursor-pointer hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-md hover:-translate-y-1 active:scale-[0.98]"
-              : "opacity-80 cursor-default"
+              ? "cursor-pointer hover:border-amber-400 dark:hover:border-amber-500 hover:shadow-xl hover:-translate-y-1 active:scale-[0.98]"
+              : "opacity-90 cursor-default"
           }`}
         >
-          <div>
-            <div className="flex items-center justify-between mb-2.5 sm:mb-4">
-              <span className="text-lg sm:text-2xl lg:text-3xl">📓</span>
-              <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-2 sm:px-3 py-1 rounded-full">
+          {/* Ambient background effects */}
+          <div className="absolute -right-8 -top-8 w-28 h-28 sm:w-36 sm:h-36 bg-amber-500/15 dark:bg-amber-400/15 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+          <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-orange-400/10 dark:bg-orange-400/10 rounded-full blur-xl pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-amber-500/5 to-transparent pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col flex-1">
+            <div className="flex items-center justify-between gap-1 mb-2.5 sm:mb-4">
+              <span className="text-xl sm:text-2xl lg:text-3xl">📓</span>
+              <span className="text-[8.5px] sm:text-[10px] uppercase font-bold tracking-wider bg-amber-100/80 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full max-w-[65%] truncate">
                 Cross-Platform Mistakes
               </span>
             </div>
-            <h3 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white mb-0.5 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition">
+            <h3 className="text-sm sm:text-xl font-bold text-slate-900 dark:text-white mb-0.5 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition">
               Mistake Notebook
             </h3>
-            <div className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 mb-1">
+            <div className="text-[11px] sm:text-xs font-semibold text-amber-600 dark:text-amber-400 mb-1">
               Re-Practice Past Incorrect Questions
             </div>
-            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 leading-relaxed mb-4 sm:mb-6">
+            <p className="text-[11px] sm:text-xs text-slate-600 dark:text-gray-300 leading-relaxed mb-4 sm:mb-6">
               {mistakeCount > 0
                 ? `You have ${mistakeCount} questions answered incorrectly across mock tests & practice sets. Turn your mistakes into mastered concepts.`
                 : "No mistakes pending! Every question you miss in tests and practice will appear here for targeted revision."}
@@ -1800,15 +2060,15 @@ function PracticeHubDashboard({
           <button
             type="button"
             disabled={mistakeCount === 0}
-            className={`w-full py-2 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+            className={`relative z-10 w-full py-2 sm:py-2.5 px-2 rounded-xl text-[11px] sm:text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
               mistakeCount > 0
-                ? "bg-slate-100 dark:bg-gray-700 text-slate-800 dark:text-gray-200 group-hover:bg-gradient-to-r group-hover:from-amber-500 group-hover:to-orange-500 group-hover:text-white cursor-pointer"
-                : "bg-slate-100 dark:bg-gray-700/50 text-slate-400 dark:text-gray-500 cursor-not-allowed"
+                ? "bg-amber-50 dark:bg-amber-900/30 group-hover:bg-gradient-to-r group-hover:from-amber-500 group-hover:to-orange-500 text-amber-700 dark:text-amber-300 group-hover:text-white border border-amber-200/60 dark:border-amber-800/60 group-hover:border-transparent cursor-pointer shadow-xs"
+                : "bg-slate-100 dark:bg-gray-700/50 text-slate-400 dark:text-gray-500 cursor-not-allowed border border-slate-200/50 dark:border-gray-700/50"
             }`}
           >
             {mistakeCount > 0 ? (
               <>
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className="w-3.5 h-3.5 flex-shrink-0" />
                 <span>Re-Practice {mistakeCount} Mistakes →</span>
               </>
             ) : (

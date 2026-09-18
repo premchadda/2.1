@@ -6,7 +6,7 @@
 export { default as useStages } from "./useStages.js";
 export { default as useExamCategories } from "./useExamCategories.js";
 export { default as useTestCategories } from "./useTestCategories.js";
-export { default as useProPass, initProPassAuth } from "./useProPass.js";
+export { default as useProPass, initProPassAuth, formatRemainingDays, getUrgencyColors, default } from "./useProPass.js";
 export { default as useFormManager } from "./useFormManager.js";
 export { default as useGenericCRUD } from "./useGenericCRUD.js";
 export { default as useDraggableScroll } from "./useDraggableScroll.js";
@@ -22,6 +22,9 @@ export {
 // Note: useDraggableScroll.fixed.js - merge into useDraggableScroll.js for single source
 
 export { default as EmptyState } from "./src/EmptyState.jsx";
+export { default as Logo } from "./src/Logo.jsx";
+export { default as ScrollToTop } from "./src/ScrollToTop.jsx";
+export { default as HorizontalScroll } from "./src/HorizontalScroll.jsx";
 export { ThemeProvider, useTheme } from "./ThemeContext.jsx";
 export { setSharedApiClient, getSharedApiClient } from "./apiClientConfig.js";
 export { default as usePwaInstall } from "./usePwaInstall.js";

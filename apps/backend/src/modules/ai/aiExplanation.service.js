@@ -13,6 +13,7 @@
 import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import AiGenerationLog from "../../data/models/ai/AiGenerationLog.js";
 import { AI_CONFIG, callAIWithFallback } from "./aiClient.js";
+import { sanitizeForPrompt } from "./aiMentor.service.js";
 
 /**
  * Call AI API for text generation.
@@ -65,16 +66,60 @@ const aiExplanationService = {
         );
       }
 
+      const feature = `explanation:${options.language || "en"}`;
+      const modelName = options.model || AI_CONFIG.model;
+
+      // practice_ai_cache (Practice↔Test bridge): reuse a fresh cached
+      // explanation instead of re-billing the LLM for repeat generations.
+      // Keyed by (question_id, feature, model); entries older than 24h are
+      // regenerated so stale pedagogy doesn't stick around.
+      try {
+        const cached = await client.query(
+          `SELECT content, model, generated_at FROM practice_ai_cache
+           WHERE question_id = $1 AND feature = $2 AND model = $3
+             AND generated_at > NOW() - INTERVAL '24 hours' LIMIT 1`,
+          [questionId, feature, modelName],
+        );
+        if (cached.rows.length > 0) {
+          const content = cached.rows[0].content || {};
+          return {
+            questionId,
+            explanation: content.explanation,
+            model: cached.rows[0].model,
+            tokens: 0,
+            latencyMs: 0,
+            cached: true,
+          };
+        }
+      } catch {
+        /* cache table missing/unavailable — fall through to generation */
+      }
+
       // Build prompt
       const prompt = this.buildExplanationPrompt(question, options);
 
       // Call AI
-      const aiResult = await callAI(prompt, {
-        model: options.model,
-        maxTokens: options.maxTokens || 1500,
-        systemPrompt:
-          options.systemPrompt || this.getSystemPrompt(options.language),
-      });
+      let aiResult;
+      try {
+        aiResult = await callAI(prompt, {
+          model: options.model,
+          maxTokens: options.maxTokens || 1500,
+          systemPrompt:
+            options.systemPrompt || this.getSystemPrompt(options.language),
+        });
+      } catch (genErr) {
+        await AiGenerationLog.logFailure({
+          entityType: "explanation",
+          entityId: questionId,
+          prompt: prompt.substring(0, 500),
+          model: modelName,
+          provider: AI_CONFIG.provider,
+          errorMessage: genErr?.message || "Generation failed",
+          metadata: { language: options.language || "en" },
+          createdBy: options.userId || null,
+        }).catch(() => {});
+        throw genErr;
+      }
 
       // Log the generation
       await AiGenerationLog.logSuccess({
@@ -101,12 +146,31 @@ const aiExplanationService = {
         );
       }
 
+      // Store in practice_ai_cache for reuse (best-effort upsert).
+      try {
+        await client.query(
+          `INSERT INTO practice_ai_cache (question_id, feature, content, model, generated_at)
+           VALUES ($1, $2, $3::jsonb, $4, NOW())
+           ON CONFLICT (question_id, feature)
+           DO UPDATE SET content = EXCLUDED.content, model = EXCLUDED.model, generated_at = NOW()`,
+          [
+            questionId,
+            feature,
+            JSON.stringify({ explanation: aiResult.text }),
+            aiResult.model || modelName,
+          ],
+        );
+      } catch {
+        /* cache write is best-effort */
+      }
+
       return {
         questionId,
         explanation: aiResult.text,
         model: aiResult.model,
         tokens: aiResult.tokensInput + aiResult.tokensOutput,
         latencyMs: aiResult.latencyMs,
+        cached: false,
       };
     } finally {
       client.release();
@@ -117,9 +181,23 @@ const aiExplanationService = {
    * Generate explanations for multiple questions.
    * Bounded concurrency (pool of 3) so a 20-item bulk request cannot fan out
    * into 20 parallel LLM calls; input capped at 50 ids per call.
+   * Cost bomb guard: >20 ids requires explicit confirmBulk:true alongside an
+   * estimate the caller has seen (returned in the confirmation error).
    */
   async generateBulk(questionIds, options = {}) {
     const ids = Array.isArray(questionIds) ? questionIds.slice(0, 50) : [];
+    const BULK_CONFIRM_THRESHOLD = 20;
+    if (ids.length > BULK_CONFIRM_THRESHOLD && !options.confirmBulk) {
+      const estTokens = ids.length * (options.maxTokens || 1500);
+      const estCostUsd = ((estTokens * 0.002) / 1000).toFixed(2);
+      const err = new Error(
+        `Bulk generation of ${ids.length} explanations ≈ ${estTokens.toLocaleString()} tokens (≈ $${estCostUsd}). Resubmit with confirmBulk:true to proceed.`,
+      );
+      err.code = "BULK_CONFIRM_REQUIRED";
+      err.estimatedTokens = estTokens;
+      err.estimatedCostUsd = Number(estCostUsd);
+      throw err;
+    }
     const CONCURRENCY = 3;
     const results = {
       total: ids.length,
@@ -188,15 +266,15 @@ const aiExplanationService = {
       }
 
       const prompt = `
-Question: ${question.question_text}
-Options: ${JSON.stringify(question.options)}
-Correct Answer: Option ${question.correct_option + 1}
-Current Explanation: ${question.explanation}
+ Question: ${sanitizeForPrompt(question.question_text)}
+ Options: ${sanitizeForPrompt(JSON.stringify(question.options))}
+  Correct Answer: Option ${Number(question.correct_option) + 1}
+  Current Explanation: ${sanitizeForPrompt(question.explanation)}
 
-Improvement Instructions: ${instructions || "Make the explanation clearer, more detailed, and easier to understand."}
+ Improvement Instructions: ${sanitizeForPrompt(instructions) || "Make the explanation clearer, more detailed, and easier to understand."}
 
-Please provide an improved explanation.
-`;
+ Please provide an improved explanation.
+ `;
 
       const aiResult = await callAI(prompt, {
         model: options.model,
@@ -249,22 +327,22 @@ Use simple Hindi words and avoid complex technical terms where possible.`,
    * Build prompt for explanation generation.
    */
   buildExplanationPrompt(question, options = {}) {
-    const optionsList = question.options
-      .map((opt, i) => `Option ${i + 1}: ${opt}`)
+    const optionsList = (Array.isArray(question.options) ? question.options : [])
+      .map((opt, i) => `Option ${i + 1}: ${sanitizeForPrompt(String(opt))}`)
       .join("\n");
 
     return `
-Question: ${question.question_text}
+ Question: ${sanitizeForPrompt(question.question_text)}
 
-${optionsList}
+ ${optionsList}
 
-Correct Answer: Option ${question.correct_option + 1}
+  Correct Answer: Option ${Number(question.correct_option) + 1}
 
-Please provide a detailed explanation for why Option ${question.correct_option + 1} is correct.
-${options.includeSteps ? "Include step-by-step reasoning." : ""}
-${options.includeRelatedConcepts ? "Also mention related concepts that might be useful." : ""}
-Keep the explanation clear and concise, suitable for exam preparation.
-`;
+  Please provide a detailed explanation for why Option ${Number(question.correct_option) + 1} is correct.
+ ${options.includeSteps ? "Include step-by-step reasoning." : ""}
+ ${options.includeRelatedConcepts ? "Also mention related concepts that might be useful." : ""}
+ Keep the explanation clear and concise, suitable for exam preparation.
+ `;
   },
 
   /**

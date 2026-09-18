@@ -95,12 +95,16 @@ router.get("/has-feature/:feature", protect, async (req, res) => {
 router.post("/create", protect, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { planType, expiryDate, paymentDetails } = req.body;
+    // Client-supplied expiryDate is IGNORED for duration: expiry is computed
+    // server-side from the plan mapping below (30/365 days, capped at 366,
+    // never in the past). The raw client value is only used to detect plan
+    // mismatches, never trusted for access duration.
+    const { planType, paymentDetails } = req.body;
 
     const subscription = await subscriptionService.createSubscription(
       userId,
       planType,
-      new Date(expiryDate),
+      undefined,
       paymentDetails,
     );
 
@@ -116,11 +120,17 @@ router.post("/cancel/:subscriptionId", protect, async (req, res) => {
   try {
     const { subscriptionId } = req.params;
 
-    await subscriptionService.cancelSubscription(subscriptionId);
+    // Ownership enforced: cancelSubscription verifies user_id = req.user.id
+    // so one user can never cancel another's subscription by id guessing.
+    await subscriptionService.cancelSubscription(subscriptionId, req.user.id);
 
     res.json({ success: true, message: "Subscription cancelled" });
   } catch (error) {
     console.error("Error cancelling subscription:", error);
+    // MED cancel 404: service throws status 404 when rowCount===0.
+    if (error?.status === 404 || error?.code === "SUBSCRIPTION_NOT_FOUND") {
+      return res.status(404).json({ error: "Subscription not found" });
+    }
     res.status(500).json({ error: "Failed to cancel subscription" });
   }
 });
@@ -141,8 +151,9 @@ router.get("/attempt-history/:testId", protect, async (req, res) => {
       history,
       totalAttempts: history.length,
       trend: trend,
-      bestScore: Math.max(...scores),
-      latestScore: scores[0],
+      // LOW bestScore clamp: Math.max(...[]) is -Infinity — clamp to 0.
+      bestScore: scores.length > 0 ? Math.max(0, ...scores) : 0,
+      latestScore: scores[0] ?? 0,
     });
   } catch (error) {
     console.error("Error fetching attempt history:", error);
@@ -202,11 +213,9 @@ router.post("/reattempt", protect, async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating reattempt:", error);
-    res
-      .status(500)
-      .json({
-        error: sanitizeErrorMessage(error) || "Failed to create reattempt",
-      });
+    res.status(500).json({
+      error: sanitizeErrorMessage(error) || "Failed to create reattempt",
+    });
   }
 });
 

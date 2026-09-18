@@ -10,10 +10,11 @@ export class NodeEngineService {
   calculateMastery(correct, total, timeSpentSeconds = 60) {
     if (!total || total <= 0) return 0.0;
     const accuracy = correct / total;
-    // Speed factor: optimal time per question is ~60s
+    // Speed factor only penalizes slowness (fast answers gain nothing above
+    // accuracy): optimal time per question is ~60s.
     const speedFactor =
-      timeSpentSeconds > 0 ? Math.min(1.2, 60 / timeSpentSeconds) : 1.0;
-    const mastery = accuracy * Math.min(1.0, speedFactor);
+      timeSpentSeconds > 0 ? Math.min(1.0, 60 / timeSpentSeconds) : 1.0;
+    const mastery = accuracy * speedFactor;
     return Math.min(1.0, Math.max(0.0, Number(mastery.toFixed(4))));
   }
 
@@ -62,7 +63,7 @@ export class NodeEngineService {
 
   // 4. Forgetting curve threshold check for spaced repetition.
   // High mastery EXTENDS the interval (threshold grows with mastery):
-  // mastery 0 → ~0.9d, 0.5 → ~1.7d, 0.9 → 5d, 1.0 → 10d.
+  // mastery 0 → ~0.97d, 0.5 → ~1.9d, 0.9 → ~7.7d, 1.0 → ~33d (exam-prep scale).
   shouldRevise(userSkill) {
     if (!userSkill || !userSkill.last_attempted_at) return true;
     // Honor an explicit scheduler date when present.
@@ -79,19 +80,37 @@ export class NodeEngineService {
       1.0,
       Math.max(0.0, Number(userSkill.mastery_score || 0)),
     );
-    const thresholdDays = 1 / (1.1 - mastery);
+    const thresholdDays = 1 / (1.03 - mastery);
     return daysSince > thresholdDays;
   }
 
-  // 5. Get top personalized node recommendations for student
-  async getRecommendations(userId, limit = 5) {
-    const nodesRes = await this.db.query(`
+  // 5. Get top personalized node recommendations for student.
+  // The 100-node scan window can be narrowed with subject/exam filters so
+  // large graphs don't score (and discard) the same first-100 rows for
+  // every request regardless of what the student studies.
+  async getRecommendations(userId, limit = 5, filters = {}) {
+    const nodeConds = [`is_active = true`];
+    const nodeParams = [];
+    const subjectId = Number(filters.subjectId);
+    if (Number.isInteger(subjectId) && subjectId > 0) {
+      nodeParams.push(subjectId);
+      nodeConds.push(`subject_id = $${nodeParams.length}`);
+    }
+    const examId = Number(filters.examId);
+    if (Number.isInteger(examId) && examId > 0) {
+      nodeParams.push(examId);
+      nodeConds.push(`exam_id = $${nodeParams.length}`);
+    }
+    const nodesRes = await this.db.query(
+      `
       SELECT id, title, slug, parent_id, node_type, exam_id, subject_id, display_order, ai_meta
       FROM nodes
-      WHERE is_active = true
+      WHERE ${nodeConds.join(" AND ")}
       ORDER BY id ASC
       LIMIT 100
-    `);
+    `,
+      nodeParams,
+    );
 
     if (nodesRes.rows.length === 0) return [];
 

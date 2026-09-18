@@ -83,7 +83,7 @@ async function runAudit() {
       } else {
         // Junction is critical but allow soft fail if legacy array still present
         if (table === "test_category_series") {
-          console.error(`❌ Table "${table}" is MISSING! (Run migration 121)`);
+          console.error(`❌ Table "${table}" is MISSING! (Run pending migrations: next is 143_*)`);
           failed = true;
         } else if (["certificates", "audit_logs"].includes(table)) {
           console.warn(`⚠️ Table "${table}" missing (non-critical)`);
@@ -273,7 +273,7 @@ async function runAudit() {
         );
       } else {
         console.warn(
-          `⚠️ Warning: Index "${idx.index}" on "${idx.table}" is MISSING! (Run 035/079/137)`,
+          `⚠️ Warning: Index "${idx.index}" on "${idx.table}" is MISSING! (Historical refs 035/079/137 — current chain is 000–142, add via next 143_*)`,
         );
         warnings++;
       }
@@ -315,7 +315,7 @@ async function runAudit() {
       }
     }
     if (hnsw.rows.length === 0) {
-      console.warn(`⚠️ No HNSW indexes found — run migration 093`);
+      console.warn(`⚠️ No HNSW indexes found — expected from 093 (CONCURRENTLY, live) or 134 (transactional, fresh)`);
       warnings++;
     }
     // Check ef_search setting (may require superuser, so warn only)
@@ -379,12 +379,22 @@ async function runAudit() {
       console.log(
         `✅ encrypt_pii/decrypt_pii functions exist (SECURITY DEFINER, search_path fixed)`,
       );
-    else console.warn(`⚠️ Missing encrypt_pii/decrypt_pii — run 088/104/115`);
+      else console.warn(`⚠️ Missing encrypt_pii/decrypt_pii — expected from 088/104/115/142`);
     if (!process.env.DB_ENCRYPTION_KEY) {
-      console.warn(
-        `⚠️ DB_ENCRYPTION_KEY not set in env — production must set 32+ char key (no JWT_SECRET fallback)`,
-      );
-      warnings++;
+      // Fail-closed in production: without the key, *_enc columns stay NULL
+      // and reads silently fall back to plaintext (088/104 fail-open). In
+      // non-prod this stays a warning so local dev keeps working.
+      if (process.env.NODE_ENV === "production") {
+        console.error(
+          `❌ DB_ENCRYPTION_KEY not set in production — PII encryption would silently no-op`,
+        );
+        failed = true;
+      } else {
+        console.warn(
+          `⚠️ DB_ENCRYPTION_KEY not set in env — production must set 32+ char key (no JWT_SECRET fallback)`,
+        );
+        warnings++;
+      }
     } else if (process.env.DB_ENCRYPTION_KEY.length < 32) {
       console.error(`❌ DB_ENCRYPTION_KEY too short (must be 32+)`);
       failed = true;

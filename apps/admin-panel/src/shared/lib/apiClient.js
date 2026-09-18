@@ -1,3 +1,13 @@
+// Admin-panel API client (documented fork of @trstprep/shared-config createApiClient).
+// Kept as a fork (not delegated) because admin needs: in-memory bearer cache
+// with legacy sessionStorage/localStorage mirrors + rotation persistence,
+// leading "/api/" prefix normalization (shared endpoint strings), the
+// "admin-web" X-Client-App header, CSRF 403 single-retry, 401/419 refresh
+// queue that strips stale bearer on cookie-only refresh, and fetchFromAPI.
+// The shared factory (packages/shared-config/src/apiClient.js) covers the
+// generic case; this file mirrors its CSRF capture incl. data.data.csrfToken.
+// Admin enrollment flows already delegate to adminAPI (shared/lib/api/),
+// which re-exports this instance — keep that delegation.
 import axios from "axios";
 import { API_BASE_URL } from "./apiBase.js";
 import {
@@ -11,6 +21,98 @@ import {
 } from "@trstprep/shared-config";
 
 const apiUrl = `${API_BASE_URL}/api`;
+
+// In-memory token cache (consulted first). Web storage mirrors below are
+// legacy migration paths only: sessionStorage is the session-scoped fallback,
+// localStorage is read-only legacy (never create new entries there, as any
+// XSS could exfiltrate long-lived tokens; httpOnly cookies are preferred).
+let memoryToken = null;
+let memoryRefreshToken = null;
+
+export const getMemoryToken = () => memoryToken;
+export const setMemoryToken = (token) => {
+  memoryToken = token || null;
+};
+export const getMemoryRefreshToken = () => memoryRefreshToken;
+export const setMemoryRefreshToken = (token) => {
+  memoryRefreshToken = token || null;
+};
+
+const readStoredToken = () => {
+  if (memoryToken) return memoryToken;
+  try {
+    return (
+      (typeof sessionStorage !== "undefined" &&
+        sessionStorage.getItem("trstprep_token")) ||
+      (typeof localStorage !== "undefined" &&
+        localStorage.getItem("trstprep_token")) ||
+      null
+    );
+  } catch {
+    return memoryToken || null;
+  }
+};
+
+const readStoredRefreshToken = () => {
+  if (memoryRefreshToken) return memoryRefreshToken;
+  try {
+    return (
+      (typeof sessionStorage !== "undefined" &&
+        sessionStorage.getItem("trstprep_refresh_token")) ||
+      (typeof localStorage !== "undefined" &&
+        localStorage.getItem("trstprep_refresh_token")) ||
+      null
+    );
+  } catch {
+    return memoryRefreshToken || null;
+  }
+};
+
+const persistRotatedTokens = (newToken, newRefreshToken) => {
+  try {
+    if (newToken) {
+      memoryToken = newToken;
+      if (typeof sessionStorage !== "undefined")
+        sessionStorage.setItem("trstprep_token", newToken);
+      // Mirror to localStorage ONLY when a legacy entry already exists,
+      // to avoid orphaning active sessions (never create new entries).
+      if (
+        typeof localStorage !== "undefined" &&
+        localStorage.getItem("trstprep_token")
+      )
+        localStorage.setItem("trstprep_token", newToken);
+    }
+    if (newRefreshToken) {
+      memoryRefreshToken = newRefreshToken;
+      if (typeof sessionStorage !== "undefined")
+        sessionStorage.setItem("trstprep_refresh_token", newRefreshToken);
+      if (
+        typeof localStorage !== "undefined" &&
+        localStorage.getItem("trstprep_refresh_token")
+      )
+        localStorage.setItem("trstprep_refresh_token", newRefreshToken);
+    }
+  } catch {
+    // ignore storage access errors
+  }
+};
+
+export const clearStoredTokens = () => {
+  memoryToken = null;
+  memoryRefreshToken = null;
+  try {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.removeItem("trstprep_token");
+      sessionStorage.removeItem("trstprep_refresh_token");
+    }
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("trstprep_token");
+      localStorage.removeItem("trstprep_refresh_token");
+    }
+  } catch {
+    // ignore storage access errors
+  }
+};
 
 const apiClient = axios.create({
   baseURL: apiUrl,
@@ -37,11 +139,7 @@ apiClient.interceptors.request.use(
     }
     if (!config.headers["Authorization"] && !config.headers["authorization"]) {
       try {
-        const token =
-          (typeof sessionStorage !== "undefined" &&
-            sessionStorage.getItem("trstprep_token")) ||
-          (typeof localStorage !== "undefined" &&
-            localStorage.getItem("trstprep_token"));
+        const token = readStoredToken();
         if (token) config.headers["Authorization"] = `Bearer ${token}`;
       } catch {
         // ignore storage access errors
@@ -69,7 +167,10 @@ const processQueue = (error) => {
 apiClient.interceptors.response.use(
   (response) => {
     const csrfToken =
-      response.headers?.["x-csrf-token"] || response.headers?.["X-CSRF-Token"];
+      response.headers?.["x-csrf-token"] ||
+      response.headers?.["X-CSRF-Token"] ||
+      response.data?.data?.csrfToken ||
+      response.data?.csrfToken;
     if (csrfToken) setCsrfToken(csrfToken);
     return response;
   },
@@ -86,6 +187,7 @@ apiClient.interceptors.response.use(
       const rotatedCsrf =
         errorResponse.headers?.["x-csrf-token"] ||
         errorResponse.headers?.["X-CSRF-Token"] ||
+        errorResponse.data?.data?.csrfToken ||
         errorResponse.data?.csrfToken;
       if (rotatedCsrf) {
         setCsrfToken(rotatedCsrf);
@@ -105,6 +207,7 @@ apiClient.interceptors.response.use(
         const freshCsrf =
           error.response.headers?.["x-csrf-token"] ||
           error.response.headers?.["X-CSRF-Token"] ||
+          error.response.data?.data?.csrfToken ||
           error.response.data?.csrfToken ||
           getCsrfToken();
         if (freshCsrf) {
@@ -141,12 +244,7 @@ apiClient.interceptors.response.use(
           try {
             let fallbackRefreshToken;
             try {
-              fallbackRefreshToken =
-                (typeof sessionStorage !== "undefined" &&
-                  sessionStorage.getItem("trstprep_refresh_token")) ||
-                (typeof localStorage !== "undefined" &&
-                  localStorage.getItem("trstprep_refresh_token")) ||
-                undefined;
+              fallbackRefreshToken = readStoredRefreshToken() || undefined;
             } catch {
               // ignore storage access errors
             }
@@ -164,28 +262,7 @@ apiClient.interceptors.response.use(
             const newRefreshToken =
               refreshResponse?.data?.data?.refreshToken ||
               refreshResponse?.data?.refreshToken;
-            try {
-              if (newToken) {
-                if (localStorage.getItem("trstprep_token"))
-                  localStorage.setItem("trstprep_token", newToken);
-                else if (sessionStorage.getItem("trstprep_token"))
-                  sessionStorage.setItem("trstprep_token", newToken);
-              }
-              if (newRefreshToken) {
-                if (localStorage.getItem("trstprep_refresh_token"))
-                  localStorage.setItem(
-                    "trstprep_refresh_token",
-                    newRefreshToken,
-                  );
-                else if (sessionStorage.getItem("trstprep_refresh_token"))
-                  sessionStorage.setItem(
-                    "trstprep_refresh_token",
-                    newRefreshToken,
-                  );
-              }
-            } catch {
-              // ignore storage access errors
-            }
+            persistRotatedTokens(newToken, newRefreshToken);
             if (newToken) {
               originalRequest.headers = originalRequest.headers || {};
               originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
@@ -207,7 +284,13 @@ apiClient.interceptors.response.use(
         }
         return new Promise((resolve, reject) =>
           failedQueue.push({ resolve, reject }),
-        ).then(() => apiClient(originalRequest));
+        ).then(() => {
+          if (originalRequest.headers) {
+            delete originalRequest.headers["Authorization"];
+            delete originalRequest.headers["authorization"];
+          }
+          return apiClient(originalRequest);
+        });
       }
     }
 

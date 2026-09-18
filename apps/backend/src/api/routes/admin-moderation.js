@@ -2,11 +2,7 @@ import express from "express";
 import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import logger from "../../infrastructure/logger/logger.js";
-import {
-  protect,
-  admin,
-  superAdmin,
-} from "../../middleware/auth.middleware.js";
+import { protect, admin } from "../../middleware/auth.middleware.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
 
 const router = express.Router();
@@ -19,15 +15,32 @@ const VALID_STATUSES = ["open", "resolved", "pending", "hidden"];
 // GET /admin/moderation/stats — counts: total, open, resolved, flagged
 router.get("/stats", responseCache("admin-mod-stats", 60), async (req, res) => {
   try {
+    const cols = await getDoubtsColumns();
+    const hasStatus = cols.has("status");
+    const hasFlagged = cols.has("is_flagged");
+    const hasActive = cols.has("is_active");
+    const whereActive = hasActive ? "WHERE is_active = true" : "";
+    const openExpr = hasStatus
+      ? "COUNT(*) FILTER (WHERE status = 'open')::int AS open"
+      : "0::int AS open";
+    const resolvedExpr = hasStatus
+      ? "COUNT(*) FILTER (WHERE status = 'resolved')::int AS resolved"
+      : "0::int AS resolved";
+    const hiddenExpr = hasStatus
+      ? "COUNT(*) FILTER (WHERE status = 'hidden')::int AS hidden"
+      : "0::int AS hidden";
+    const flaggedExpr = hasFlagged
+      ? "COUNT(*) FILTER (WHERE is_flagged = true)::int AS flagged"
+      : "0::int AS flagged";
     const resCount = await pool.query(`
       SELECT
         COUNT(*)::int AS total,
-        COUNT(*) FILTER (WHERE status = 'open')::int AS open,
-        COUNT(*) FILTER (WHERE status = 'resolved')::int AS resolved,
-        COUNT(*) FILTER (WHERE is_flagged = true)::int AS flagged,
-        COUNT(*) FILTER (WHERE status = 'hidden')::int AS hidden
+        ${openExpr},
+        ${resolvedExpr},
+        ${flaggedExpr},
+        ${hiddenExpr}
       FROM doubts
-      WHERE is_active = true
+      ${whereActive}
     `);
 
     const stats = resCount.rows[0] || {
@@ -167,12 +180,10 @@ router.put("/doubts/:id/status", async (req, res) => {
     const { status } = req.body;
 
     if (!status || !VALID_STATUSES.includes(status)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}`,
-        });
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}`,
+      });
     }
 
     // Check doubt exists

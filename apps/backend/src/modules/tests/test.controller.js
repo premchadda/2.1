@@ -18,7 +18,7 @@ import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 const router = express.Router();
 const testReviewLimiter = createRateLimiter("moderate");
 
-router.get("/", async (req, res) => {
+router.get("/", protect, async (req, res) => {
   try {
     const tests = await testService.list();
     res.json({ success: true, data: tests });
@@ -119,7 +119,7 @@ router.put("/:id/review", protect, admin, async (req, res) => {
   }
 });
 
-router.get("/:id", async (req, res) => {
+router.get("/:id", protect, async (req, res) => {
   try {
     const test = await testService.getById(req.params.id);
     if (!test)

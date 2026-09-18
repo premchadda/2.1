@@ -1,5 +1,6 @@
 import { getPublicSettings } from "../services/SettingsService.js";
 import jwt from "jsonwebtoken";
+import { pool } from "../infrastructure/database/postgres-helpers.js";
 
 // Whitelisted paths that must ALWAYS be reachable during maintenance
 const WHITELIST_PATH_PATTERNS = [
@@ -41,6 +42,9 @@ export const maintenanceMiddleware = async (req, res, next) => {
     }
 
     // 2. If maintenance is enabled and allowAdminAccess is true, check if current user is an admin
+    // Single-admin model: never trust stale JWT claims alone — re-check the
+    // live DB row (users.role must be admin) and the session row
+    // (user_sessions.is_active must be true). Any lookup failure blocks.
     if (maintenance.allowAdminAccess !== false) {
       const authHeader = req.headers.authorization || "";
       const token = authHeader.startsWith("Bearer ")
@@ -51,13 +55,37 @@ export const maintenanceMiddleware = async (req, res, next) => {
           const decoded = jwt.verify(token, process.env.JWT_SECRET, {
             algorithms: ["HS256"],
           });
-          if (
-            decoded &&
-            (decoded.role === "admin" ||
-              decoded.role === "super_admin" ||
-              decoded.isAdmin)
-          ) {
-            return next();
+          if (decoded && decoded.id) {
+            const userRes = await pool.query(
+              "SELECT role FROM users WHERE id = $1",
+              [decoded.id],
+            );
+            const liveRole = userRes.rows[0]?.role;
+            if (liveRole === "admin") {
+              // M4 FIX: admin bypass requires a sessionId bound to the token
+              // PLUS a live active session row. The legacy branch that let a
+              // session-less token through is removed (fail closed) — a bare
+              // JWT with no server-side session record must not bypass
+              // maintenance mode.
+              if (decoded.sessionId) {
+                try {
+                  const sessRes = await pool.query(
+                    "SELECT is_active FROM user_sessions WHERE session_id = $1 OR id::text = $1",
+                    [String(decoded.sessionId)],
+                  );
+                  if (
+                    sessRes.rows.length > 0 &&
+                    sessRes.rows[0].is_active === true
+                  ) {
+                    return next();
+                  }
+                  // Missing/inactive session row — fall through to block.
+                } catch {
+                  // DB lookup failure — fail closed (fall through to block).
+                }
+              }
+              // No sessionId or no active row — fall through to block.
+            }
           }
         } catch {
           // Token invalid or expired — proceed to maintenance block
@@ -75,7 +103,13 @@ export const maintenanceMiddleware = async (req, res, next) => {
       endTime: maintenance.endTime || null,
       estimatedDowntime: maintenance.estimatedDowntime || "30 minutes",
     });
-  } catch {
+  } catch (settingsErr) {
+    // L7: fail-open here is intentional (avoid cascading outages), but a
+    // settings-lookup failure must be visible — alert before passing through.
+    console.error(
+      "[Maintenance] settings lookup failed, failing open:",
+      settingsErr?.message || settingsErr,
+    );
     // If settings lookup fails, fail open to avoid cascading outages
     return next();
   }

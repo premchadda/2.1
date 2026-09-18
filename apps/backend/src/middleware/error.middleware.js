@@ -88,7 +88,28 @@ export const errorHandler = (err, req, res, next) => {
     };
     const errorName = e.constructor?.name || e.name;
     if (knownErrors[errorName]) return knownErrors[errorName];
-    if (e.statusCode && e.statusCode < 500) return e.message;
+    if (e.statusCode && e.statusCode < 500) {
+      const msg = typeof e.message === "string" ? e.message : "";
+      // Never leak DB/driver internals or secret-shaped text on 4xx either.
+      if (
+        msg &&
+        msg.length <= 500 &&
+        !/select\s+["'\w*]|insert\s+into|update\s+["'\w]+\s+set|delete\s+from|relation\s+"?[\w.]+"?|column\s+"?[\w.]+"?\s+does not exist|violates\s+\w+|duplicate\s+key|constraint\s+"|pg_|sequelize|ECONN|ENOENT|ETIMEDOUT|ENOTFOUND|\s+at\s+[\w./\\-]+\.(js|ts):\d+|password|secret|Bearer\s+[A-Za-z0-9]|BEGIN\s+PRIVATE\s+KEY|sk-(live|or-v1)-|rzp_(live|test)_/i.test(
+          msg,
+        )
+      )
+        return msg;
+      const fallbacks = {
+        400: "Invalid request",
+        401: "Authentication required",
+        403: "Access denied",
+        404: "Resource not found",
+        409: "Resource conflict",
+        422: "Invalid input data",
+        429: "Too many requests, please try again later",
+      };
+      return fallbacks[e.statusCode] || "Invalid request. Please try again.";
+    }
     return "An unexpected error occurred. Please try again later.";
   };
 

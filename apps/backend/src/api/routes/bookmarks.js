@@ -9,6 +9,8 @@ import {
   getInternalId,
 } from "../../shared/utils/identifier-utils.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import { responseCache } from "../../middleware/responseCache.middleware.js";
+import { deleteCacheByPrefix } from "../../infrastructure/cache/cacheService.js";
 
 const router = express.Router();
 
@@ -16,6 +18,19 @@ const router = express.Router();
 const bookmarkLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 50, // Max 50 bookmark operations per 15 minutes
+  message: {
+    success: false,
+    message: "Too many bookmark requests. Please slow down.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Looser bucket for read-only list/count/check traffic: scraping protection
+// that never starves the mutation budget above.
+const bookmarkListLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
   message: {
     success: false,
     message: "Too many bookmark requests. Please slow down.",
@@ -48,11 +63,46 @@ const validateItemType = (itemType) => {
 const sanitizeInput = (input) => {
   if (typeof input !== "string") return input;
   return input
-    .replace(/</g, "<")
-    .replace(/>/g, ">")
-    .replace(/"/g, '"')
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
     .replace(/'/g, "&#x27;")
     .trim();
+};
+
+// Decode a single layer of entity-escaping (inverse of sanitizeInput).
+// Stored rows were written sanitized, so READ paths decode once to avoid
+// double-encoded output (e.g. "&amp;amp;"). Named entities are decoded
+// before &amp; so one pass never decodes twice. Write paths are unchanged
+// (POST keeps sanitize-only for back-compat; PUT decodes-then-sanitizes
+// to avoid re-encoding an already-encoded value).
+const decodeOnce = (input) => {
+  if (typeof input !== "string") return input;
+  return input
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&amp;/g, "&");
+};
+
+// Strip answer keys from enriched question rows (mirrors practice.js
+// toSafeQuestion). Options/explanation are kept for review display.
+const stripAnswerKeys = (row) => {
+  if (!row || typeof row !== "object") return row;
+  const {
+    correctAnswer,
+    correct_answer,
+    correctOption,
+    correct_option,
+    correct,
+    answer,
+    isCorrect,
+    is_correct,
+    ...safe
+  } = row;
+  return safe;
 };
 
 const resolveBookmarkEntity = async (itemType, itemId) => {
@@ -68,13 +118,14 @@ const resolveBookmarkEntity = async (itemType, itemId) => {
         "questions",
         itemId,
       );
-      if (found) return found;
+      if (found) return stripAnswerKeys(found);
       try {
         const qRes = await dbHelpers.pool.query(
           `SELECT id, question_text, options, correct_answer, explanation, subject, topic, chapter, difficulty, marks, negative_marks, tags FROM questions WHERE id::text = $1 OR public_id = $1 LIMIT 1`,
           [String(itemId)],
         );
-        if (qRes.rows.length > 0) return dbHelpers.toCamel(qRes.rows[0]);
+        if (qRes.rows.length > 0)
+          return stripAnswerKeys(dbHelpers.toCamel(qRes.rows[0]));
       } catch (e) {
         console.warn("Direct question lookup failed:", e.message);
       }
@@ -131,7 +182,7 @@ const batchResolveBookmarkEntities = async (bookmarks = []) => {
           );
 
           for (const row of qRes.rows) {
-            const camel = dbHelpers.toCamel(row);
+            const camel = stripAnswerKeys(dbHelpers.toCamel(row));
             resultMap.set(`question:${row.id}`, camel);
             resultMap.set(`question:${String(row.id)}`, camel);
             if (row.public_id) {
@@ -151,9 +202,9 @@ const batchResolveBookmarkEntities = async (bookmarks = []) => {
             .map(Number)
             .filter((n) => Number.isInteger(n) && n > 0);
           const tRes = await dbHelpers.pool.query(
-            `SELECT * FROM tests
-             WHERE (id = ANY($1::int[]) OR slug = ANY($2::text[]) OR id::text = ANY($2::text[]))
-               AND (is_deleted = false OR is_deleted IS NULL)`,
+            `SELECT id, public_id, slug, title, description, status, is_active, created_at FROM tests
+              WHERE (id = ANY($1::int[]) OR slug = ANY($2::text[]) OR id::text = ANY($2::text[]))
+                AND (is_deleted = false OR is_deleted IS NULL)`,
             [numericIds.length ? numericIds : [-1], ids],
           );
           for (const row of tRes.rows) {
@@ -167,7 +218,7 @@ const batchResolveBookmarkEntities = async (bookmarks = []) => {
             .map(Number)
             .filter((n) => Number.isInteger(n) && n > 0);
           const smRes = await dbHelpers.pool.query(
-            `SELECT * FROM study_materials
+            `SELECT id, slug, title, description, subject_id, chapter_id, status, created_at FROM study_materials
              WHERE (id = ANY($1::int[]) OR slug = ANY($2::text[]) OR id::text = ANY($2::text[]))
                AND (is_deleted = false OR is_deleted IS NULL)`,
             [numericIds.length ? numericIds : [-1], ids],
@@ -183,7 +234,7 @@ const batchResolveBookmarkEntities = async (bookmarks = []) => {
             .map(Number)
             .filter((n) => Number.isInteger(n) && n > 0);
           const vRes = await dbHelpers.pool.query(
-            `SELECT * FROM subject_videos
+            `SELECT id, slug, title, description, subject_id, chapter_id, video_url, duration_sec, created_at FROM subject_videos
              WHERE (id = ANY($1::int[]) OR slug = ANY($2::text[]) OR id::text = ANY($2::text[]))
                AND (is_deleted = false OR is_deleted IS NULL)`,
             [numericIds.length ? numericIds : [-1], ids],
@@ -207,13 +258,53 @@ const batchResolveBookmarkEntities = async (bookmarks = []) => {
   return resultMap;
 };
 
+// Practice bridge (read-only): unified bookmarked question ids for a user.
+// Unions legacy `question_bookmarks` rows with generic `bookmarks` rows
+// (item_type='question', question_id mapped from the canonical int form of
+// item_id), deduped by question_id. Write paths are untouched.
+// NOTE: wiring this into practice.js mode=bookmark / /bookmarks read paths
+// lives outside this file's territory — see return notes for the patch.
+export const getUnifiedBookmarkedQuestionIds = async (userId) => {
+  const ids = new Set();
+  try {
+    const r1 = await dbHelpers.pool.query(
+      `SELECT question_id FROM question_bookmarks WHERE user_id = $1`,
+      [userId],
+    );
+    for (const r of r1.rows) {
+      const n = Number(r.question_id);
+      if (Number.isInteger(n) && n > 0) ids.add(n);
+    }
+  } catch (e) {
+    console.warn(
+      "[Bookmarks bridge] question_bookmarks read failed:",
+      e.message,
+    );
+  }
+  try {
+    const r2 = await dbHelpers.pool.query(
+      `SELECT item_id FROM bookmarks
+        WHERE user_id = $1 AND item_type = 'question' AND is_active = true`,
+      [userId],
+    );
+    for (const r of r2.rows) {
+      const raw = String(r.item_id ?? "").replace(/^qst_/, "");
+      const n = parseNumericId(raw) ?? Number(raw);
+      if (Number.isInteger(n) && n > 0) ids.add(n);
+    }
+  } catch (e) {
+    console.warn("[Bookmarks bridge] bookmarks read failed:", e.message);
+  }
+  return [...ids];
+};
+
 // All bookmark routes require authentication
 router.use(protect);
 
 // @route   GET /api/bookmarks/count
 // @desc    Get total count of active bookmarks for logged in user
 // @access  Private
-router.get("/count", async (req, res) => {
+router.get("/count", bookmarkListLimiter, async (req, res) => {
   try {
     const count = await dbHelpers.count("bookmarks", {
       userId: req.user.id,
@@ -235,62 +326,94 @@ router.get("/count", async (req, res) => {
 // @route   GET /api/bookmarks
 // @desc    Get paginated bookmarks for logged in user
 // @access  Private
-router.get("/", async (req, res) => {
-  try {
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.min(
-      Math.max(parseInt(req.query.limit, 10) || 20, 1),
-      100,
-    );
-    const offset = (page - 1) * limit;
-    const includeDetails = req.query.includeDetails !== "false";
+router.get(
+  "/",
+  bookmarkListLimiter,
+  responseCache("bookmarks-list", 30, { userScoped: true }),
+  async (req, res) => {
+    try {
+      const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+      const limit = Math.min(
+        Math.max(parseInt(req.query.limit, 10) || 20, 1),
+        100,
+      );
+      const offset = (page - 1) * limit;
+      // Default lightweight when paginating wide: includeDetails=false when
+      // limit>20 unless explicitly requested (avoids expensive JOINs).
+      const rawInclude = req.query.includeDetails;
+      const includeDetails =
+        rawInclude === undefined ? limit <= 20 : rawInclude !== "false";
 
-    const bookmarks = await dbHelpers.find(
-      "bookmarks",
-      {
+      // Deterministic newest-first pagination: dbHelpers.find() takes no ORDER
+      // BY, so an explicit query keeps pages stable (created_at DESC, id DESC
+      // tiebreak) instead of relying on heap order.
+      // Enriched (includeDetails) path is capped at 20 rows: each row fans out
+      // to entity batch resolution, so unbounded enriched pages are the slow
+      // path observed in production (5s+ at limit=100). Paginate wide with
+      // includeDetails=false; fetch details per page instead.
+      const effectiveLimit = includeDetails ? Math.min(limit, 20) : limit;
+      const listRes = await dbHelpers.pool.query(
+        `SELECT id, user_id, item_id, item_type, title, notes, is_active, created_at, updated_at
+       FROM bookmarks
+       WHERE user_id = $1 AND is_active = true
+       ORDER BY created_at DESC, id DESC
+       LIMIT $2 OFFSET $3`,
+        [req.user.id, effectiveLimit, offset],
+      );
+      const bookmarks = listRes.rows.map((r) => {
+        const b = dbHelpers.toCamel(r);
+        // Stored title/notes were written sanitized: decode once on READ so
+        // clients never see double-encoded entities. Write shape unchanged.
+        if (typeof b.title === "string") b.title = decodeOnce(b.title);
+        if (typeof b.notes === "string") b.notes = decodeOnce(b.notes);
+        return b;
+      });
+
+      // Test interfaces only need item IDs to paint saved-state controls. Avoid
+      // one entity lookup per bookmark when callers explicitly opt out of details.
+      if (!includeDetails) {
+        return res.json({
+          success: true,
+          data: bookmarks,
+          count: bookmarks.length,
+          page,
+          limit,
+        });
+      }
+
+      // Batch enrich bookmark data with actual item details in 1-2 queries total
+      const resultMap = await batchResolveBookmarkEntities(bookmarks);
+
+      const enrichedBookmarks = bookmarks.map((bookmark) => ({
+        ...bookmark,
+        item:
+          resultMap.get(`${bookmark.itemType}:${bookmark.itemId}`) ||
+          resultMap.get(`${bookmark.itemType}:${String(bookmark.itemId)}`) ||
+          null,
+      }));
+
+      const total = await dbHelpers.count("bookmarks", {
         userId: req.user.id,
         isActive: true,
-      },
-      limit,
-      offset,
-    );
+      });
 
-    // Test interfaces only need item IDs to paint saved-state controls. Avoid
-    // one entity lookup per bookmark when callers explicitly opt out of details.
-    if (!includeDetails) {
-      return res.json({
+      res.json({
         success: true,
-        data: bookmarks,
-        count: bookmarks.length,
+        data: enrichedBookmarks,
+        count: enrichedBookmarks.length,
         page,
-        limit,
+        limit: effectiveLimit,
+        total,
+      });
+    } catch (error) {
+      console.error("Get bookmarks error:", error);
+      res.status(500).json({
+        success: false,
+        message: sanitizeErrorMessage(error),
       });
     }
-
-    // Batch enrich bookmark data with actual item details in 1-2 queries total
-    const resultMap = await batchResolveBookmarkEntities(bookmarks);
-
-    const enrichedBookmarks = bookmarks.map((bookmark) => ({
-      ...bookmark,
-      item:
-        resultMap.get(`${bookmark.itemType}:${bookmark.itemId}`) ||
-        resultMap.get(`${bookmark.itemType}:${String(bookmark.itemId)}`) ||
-        null,
-    }));
-
-    res.json({
-      success: true,
-      data: enrichedBookmarks,
-      count: enrichedBookmarks.length,
-    });
-  } catch (error) {
-    console.error("Get bookmarks error:", error);
-    res.status(500).json({
-      success: false,
-      message: sanitizeErrorMessage(error),
-    });
-  }
-});
+  },
+);
 
 // @route   POST /api/bookmarks
 // @desc    Create a new bookmark
@@ -326,16 +449,13 @@ router.post("/", bookmarkLimiter, async (req, res) => {
       });
     }
 
-    // Check if already bookmarked
-    const existing = (
-      await dbHelpers.find("bookmarks", {
-        userId: req.user.id,
-        itemType,
-        isActive: true,
-      })
-    ).find((bookmark) => idsMatch(bookmark.itemId, canonicalItemId));
+    // Duplicate check: single indexed existence probe (no full-table scan)
+    const dupCheck = await dbHelpers.pool.query(
+      `SELECT 1 FROM bookmarks WHERE user_id = $1 AND item_type = $2 AND item_id::text = $3::text AND is_active = true LIMIT 1`,
+      [req.user.id, itemType, String(canonicalItemId)],
+    );
 
-    if (existing) {
+    if (dupCheck.rows.length > 0) {
       return res.status(400).json({
         success: false,
         message: "Item already bookmarked",
@@ -360,6 +480,12 @@ router.post("/", bookmarkLimiter, async (req, res) => {
       createdAt: new Date().toISOString(),
     });
 
+    await deleteCacheByPrefix(
+      "bookmarks-list",
+      "",
+      `bookmarks-list:u:${req.user.id}`,
+    );
+
     res.status(201).json({
       success: true,
       data: bookmark,
@@ -377,7 +503,7 @@ router.post("/", bookmarkLimiter, async (req, res) => {
 // @route   PUT /api/bookmarks/:id
 // @desc    Update bookmark (notes, etc.)
 // @access  Private
-router.put("/:id", async (req, res) => {
+router.put("/:id", bookmarkLimiter, async (req, res) => {
   try {
     const { notes, title } = req.body;
 
@@ -394,14 +520,29 @@ router.put("/:id", async (req, res) => {
       });
     }
 
+    // Decode-then-sanitize: stored values are already encoded, so decoding
+    // first prevents double-encoding on update. POST keeps sanitize-only
+    // for back-compat with existing rows.
     const updated = await dbHelpers.updateById(
       "bookmarks",
       getInternalId(bookmark),
       {
-        notes: notes !== undefined ? notes : bookmark.notes,
-        title: title !== undefined ? title : bookmark.title,
+        notes:
+          notes !== undefined
+            ? sanitizeInput(decodeOnce(String(notes).substring(0, 1000)))
+            : bookmark.notes,
+        title:
+          title !== undefined
+            ? sanitizeInput(decodeOnce(String(title).substring(0, 200)))
+            : bookmark.title,
         updatedAt: new Date().toISOString(),
       },
+    );
+
+    await deleteCacheByPrefix(
+      "bookmarks-list",
+      "",
+      `bookmarks-list:u:${req.user.id}`,
     );
 
     res.json({
@@ -421,7 +562,7 @@ router.put("/:id", async (req, res) => {
 // @route   DELETE /api/bookmarks/:id
 // @desc    Delete bookmark (soft delete)
 // @access  Private
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", bookmarkLimiter, async (req, res) => {
   try {
     // Verify bookmark belongs to user
     const bookmark = await findEntityByIdentifier(
@@ -441,6 +582,12 @@ router.delete("/:id", async (req, res) => {
       deletedAt: new Date().toISOString(),
     });
 
+    await deleteCacheByPrefix(
+      "bookmarks-list",
+      "",
+      `bookmarks-list:u:${req.user.id}`,
+    );
+
     res.json({
       success: true,
       message: "Bookmark removed successfully",
@@ -457,31 +604,40 @@ router.delete("/:id", async (req, res) => {
 // @route   GET /api/bookmarks/check/:itemType/:itemId
 // @desc    Check if item is bookmarked by user
 // @access  Private
-router.get("/check/:itemType/:itemId", async (req, res) => {
-  try {
-    const { itemType, itemId } = req.params;
+router.get(
+  "/check/:itemType/:itemId",
+  bookmarkListLimiter,
+  async (req, res) => {
+    try {
+      const { itemType, itemId } = req.params;
 
-    const bookmark = (
-      await dbHelpers.find("bookmarks", {
-        userId: req.user.id,
-        itemType,
-        isActive: true,
-      })
-    ).find((entry) => idsMatch(entry.itemId, itemId));
+      // Targeted existence probe (no full-table scan): canonicalize first so
+      // slug / numeric / prefixed forms all match the stored canonical id.
+      const resolved = await resolveBookmarkEntity(itemType, itemId);
+      const canonical = getInternalId(resolved) ?? parseNumericId(itemId);
+      let bookmark = null;
+      if (canonical !== null && canonical !== undefined) {
+        const probe = await dbHelpers.pool.query(
+          `SELECT id FROM bookmarks WHERE user_id = $1 AND item_type = $2 AND item_id::text = $3::text AND is_active = true LIMIT 1`,
+          [req.user.id, itemType, String(canonical)],
+        );
+        if (probe.rows.length) bookmark = { _id: probe.rows[0].id };
+      }
 
-    res.json({
-      success: true,
-      isBookmarked: !!bookmark,
-      bookmarkId: bookmark?._id || null,
-    });
-  } catch (error) {
-    console.error("Check bookmark error:", error);
-    res.status(500).json({
-      success: false,
-      message: sanitizeErrorMessage(error),
-    });
-  }
-});
+      res.json({
+        success: true,
+        isBookmarked: !!bookmark,
+        bookmarkId: bookmark?._id || null,
+      });
+    } catch (error) {
+      console.error("Check bookmark error:", error);
+      res.status(500).json({
+        success: false,
+        message: sanitizeErrorMessage(error),
+      });
+    }
+  },
+);
 
 // @route   POST /api/bookmarks/toggle
 // @desc    Toggle bookmark (add if not exists, remove if exists)
@@ -506,21 +662,37 @@ router.post("/toggle", bookmarkLimiter, async (req, res) => {
       });
     }
 
-    // Check if already bookmarked
-    const existing = (
-      await dbHelpers.find("bookmarks", {
-        userId: req.user.id,
-        itemType,
-        isActive: true,
-      })
-    ).find((bookmark) => idsMatch(bookmark.itemId, itemId));
+    // Canonicalize through the same resolver as POST so slug / numeric /
+    // prefixed id forms never create duplicate rows for the same entity.
+    const resolvedEntity = await resolveBookmarkEntity(itemType, itemId);
+    const canonicalItemId =
+      getInternalId(resolvedEntity) ?? parseNumericId(itemId);
+    if (canonicalItemId === null || canonicalItemId === undefined) {
+      return res.status(404).json({
+        success: false,
+        message: "Bookmark item not found",
+      });
+    }
 
-    if (existing) {
+    // Targeted existence probe (no full-table scan).
+    const existingProbe = await dbHelpers.pool.query(
+      `SELECT id FROM bookmarks WHERE user_id = $1 AND item_type = $2 AND item_id::text = $3::text AND is_active = true LIMIT 1`,
+      [req.user.id, itemType, String(canonicalItemId)],
+    );
+
+    if (existingProbe.rows.length) {
       // Remove bookmark
-      await dbHelpers.updateById("bookmarks", existing._id || existing.id, {
+      const existingId = existingProbe.rows[0].id;
+      await dbHelpers.updateById("bookmarks", existingId, {
         isActive: false,
         deletedAt: new Date().toISOString(),
       });
+
+      await deleteCacheByPrefix(
+        "bookmarks-list",
+        "",
+        `bookmarks-list:u:${req.user.id}`,
+      );
 
       res.json({
         success: true,
@@ -533,16 +705,22 @@ router.post("/toggle", bookmarkLimiter, async (req, res) => {
         ? sanitizeInput(String(title).substring(0, 200))
         : "";
 
-      // Add bookmark
+      // Add bookmark (canonical id — same form POST stores)
       const bookmark = await dbHelpers.insertOne("bookmarks", {
         userId: req.user.id,
-        itemId: String(itemId),
+        itemId: canonicalItemId,
         itemType,
         title: sanitizedTitle,
         notes: "",
         isActive: true,
         createdAt: new Date().toISOString(),
       });
+
+      await deleteCacheByPrefix(
+        "bookmarks-list",
+        "",
+        `bookmarks-list:u:${req.user.id}`,
+      );
 
       res.status(201).json({
         success: true,

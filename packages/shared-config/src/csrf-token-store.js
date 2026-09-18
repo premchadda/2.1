@@ -37,11 +37,23 @@ function getCookie(name) {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+function isHttpsContext() {
+  try {
+    return (
+      typeof location !== "undefined" && location.protocol === "https:"
+    );
+  } catch {
+    return false;
+  }
+}
+
 function setCookie(name, value) {
   if (typeof document === "undefined") return;
   try {
-    // Session cookie, SameSite=Strict, path=/
-    document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; SameSite=Strict`;
+    // Session cookie, SameSite=Strict, path=/; Secure on HTTPS so the
+    // double-submit mirror cookie is never sent over plaintext.
+    const secure = isHttpsContext() ? "; Secure" : "";
+    document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; SameSite=Strict${secure}`;
   } catch {
     // ignore cookie write failures (e.g. blocked third-party)
   }
@@ -50,7 +62,9 @@ function setCookie(name, value) {
 function deleteCookie(name) {
   if (typeof document === "undefined") return;
   try {
-    document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Strict`;
+    // Match the Secure attribute used on write so deletion succeeds on HTTPS.
+    const secure = isHttpsContext() ? "; Secure" : "";
+    document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Strict${secure}`;
   } catch {
     // ignore
   }

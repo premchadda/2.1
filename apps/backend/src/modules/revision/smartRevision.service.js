@@ -12,6 +12,7 @@ import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import weakAreaDetectionService from "../analytics/weakAreaDetection.service.js";
 import AiGenerationLog from "../../data/models/ai/AiGenerationLog.js";
 import { AI_CONFIG, callAIWithFallback } from "../ai/aiClient.js";
+import { sanitizeForPrompt } from "../ai/aiMentor.service.js";
 
 // All LLM calls go through the shared aiClient (provider fallback, input
 // moderation, budget tracking) — no direct fetch() here.
@@ -56,18 +57,18 @@ Student Performance Analysis:
 - Overall Accuracy: ${weakAreas.overallAccuracy}%
 - Total Questions Attempted: ${weakAreas.totalQuestionsAttempted}
 
-Weak Topics (Priority for Revision):
+ Weak Topics (Priority for Revision):
 ${weakAreas.weakTopics
   .slice(0, 10)
   .map(
     (t, i) =>
-      `${i + 1}. ${t.topicName} (${t.subjectName}) - ${t.accuracy}% accuracy, ${t.totalAttempts} attempts`,
+      `${i + 1}. ${sanitizeForPrompt(t.topicName)} (${sanitizeForPrompt(t.subjectName)}) - ${t.accuracy}% accuracy, ${t.totalAttempts} attempts`,
   )
   .join("\n")}
 
-Wrong Questions Analysis:
-- Total Wrong Questions: ${wrongQuestions.length}
-- Most Common Topics: ${this.getMostCommonTopics(wrongQuestions)}
+ Wrong Questions Analysis:
+ - Total Wrong Questions: ${wrongQuestions.length}
+ - Most Common Topics: ${sanitizeForPrompt(this.getMostCommonTopics(wrongQuestions))}
 
 Create a ${options.days || 14}-day revision plan that:
 1. Uses spaced repetition (review after 1 day, 3 days, 7 days, 14 days)
@@ -79,9 +80,21 @@ Create a ${options.days || 14}-day revision plan that:
 `;
 
     const aiResult = await callAI([
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ]);
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ]).catch(async (genErr) => {
+      await AiGenerationLog.logFailure({
+        entityType: 'revision_plan',
+        entityId: userId,
+        prompt: userPrompt.substring(0, 500),
+        model: AI_CONFIG.model,
+        provider: AI_CONFIG.provider,
+        errorMessage: genErr?.message || 'Revision plan generation failed',
+        metadata: { days: options.days || 14 },
+        createdBy: userId,
+      }).catch(() => {});
+      throw genErr;
+    });
 
     await AiGenerationLog.logSuccess({
       entityType: "revision_plan",

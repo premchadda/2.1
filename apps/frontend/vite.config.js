@@ -273,7 +273,7 @@ export default defineConfig(({ mode }) => {
     ],
     optimizeDeps: {
       exclude: ["@trstprep/shared-config", "@trstprep/shared-hooks"],
-      include: ["react", "react-dom", "react-router-dom", "katex"],
+      include: ["react", "react-dom", "react-router-dom"],
     },
     resolve: {
       alias: {
@@ -333,7 +333,6 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             vendor: ["react", "react-dom", "axios", "react-hot-toast"],
             router: ["react-router-dom"],
-            charts: ["chart.js", "react-chartjs-2"],
             recharts: ["recharts"],
             katex: ["katex"],
             query: ["@tanstack/react-query"],

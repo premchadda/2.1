@@ -10,6 +10,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { useAuth } from "../../providers/AuthContext";
+import { handleAvatarError } from "../../utils/avatarFallback.js";
 import { usePwaInstall } from "@trstprep/shared-hooks";
 
 /**
@@ -51,11 +52,7 @@ export default function NavbarProfile() {
               src={user.avatar.startsWith("data:") ? user.avatar : user.avatar}
               alt={`${user.name || "User"} avatar`}
               className="w-full h-full object-cover"
-              onError={(e) => {
-                e.target.style.display = "none";
-                if (e.target.nextSibling)
-                  e.target.nextSibling.style.display = "flex";
-              }}
+              onError={handleAvatarError}
             />
             <div className="hidden w-full h-full items-center justify-center bg-gradient-to-br from-brand-start to-brand-end text-white font-bold text-sm">
               {user.name?.charAt(0) || "U"}

@@ -8,11 +8,7 @@ import {
 } from "../../infrastructure/storage/storageProvider.js";
 import { upload } from "../../infrastructure/storage/upload.js";
 import logger from "../../infrastructure/logger/logger.js";
-import {
-  protect,
-  admin,
-  superAdmin,
-} from "../../middleware/auth.middleware.js";
+import { protect, admin } from "../../middleware/auth.middleware.js";
 
 const router = express.Router();
 

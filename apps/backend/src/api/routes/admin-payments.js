@@ -3,11 +3,7 @@ import {
   dbHelpers,
   pool,
 } from "../../infrastructure/database/postgres-helpers.js";
-import {
-  protect,
-  admin,
-  superAdmin,
-} from "../../middleware/auth.middleware.js";
+import { protect, admin } from "../../middleware/auth.middleware.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
@@ -16,6 +12,9 @@ const router = express.Router();
 
 router.use(protect);
 router.use(admin);
+
+// PII guard for list endpoints: mask emails (detail-by-id keeps full email)
+const maskEmail = () => "***@***";
 
 const PAYMENT_STATUSES = ["success", "failed", "pending", "refunded"];
 
@@ -144,7 +143,8 @@ router.get(
       id: row.id,
       userId: row.user_id,
       userName: row.user_name || null,
-      userEmail: row.user_email || null,
+      // PII: mask email on list endpoint
+      userEmail: row.user_email ? maskEmail() : null,
       amount: parseFloat(row.amount) || 0,
       currency: row.currency || "INR",
       status: row.status,
@@ -193,7 +193,7 @@ router.get(
   }),
 );
 
-// POST /admin/payments/:id/refund — mark a payment as refunded (admin per spec, not superAdmin)
+// POST /admin/payments/:id/refund — mark a payment as refunded (single-tier admin per spec)
 // P0 FIX: sync both ledgers + call Razorpay refund API + revoke Pro status
 router.post(
   "/:id/refund",
@@ -223,16 +223,32 @@ router.post(
         .status(400)
         .json({ success: false, message: "Payment already refunded" });
     }
-    if (payment.status !== "success") {
+    if (
+      payment.status !== "success" &&
+      payment.status !== "partially_refunded"
+    ) {
       return res.status(400).json({
         success: false,
         message: "Only successful payments can be refunded",
       });
     }
 
+    // HIGH partials (admin): optional req.body.amount (rupees) for partial
+    // refunds; default = full captured amount. Only full (>=captured)
+    // revokes Pro; partial keeps Pro + note. Razorpay API stays OUTSIDE the
+    // txn (network I/O must never hold the DB txn open).
+    const capturedAmount = parseFloat(payment.amount) || 0;
+    const requestedAmount = Number(req.body?.amount);
+    const refundAmountRupees =
+      Number.isFinite(requestedAmount) && requestedAmount > 0
+        ? Math.min(requestedAmount, capturedAmount)
+        : capturedAmount;
+    const isFullRefund = refundAmountRupees >= capturedAmount - 0.005;
+
     // Attempt Razorpay refund if real payment (not mock)
     let razorpayRefundId = null;
     let razorpayRefundError = null;
+    let razorpayRefundAmount = null;
     const isMock =
       payment.gateway_payment_id?.startsWith("pay_mock_") ||
       payment.metadata?.isMock;
@@ -257,10 +273,12 @@ router.post(
           const Razorpay = (await import("razorpay")).default;
           const rzp = new Razorpay({ key_id: keyId, key_secret: keySecret });
           const refund = await rzp.payments.refund(payment.gateway_payment_id, {
-            amount: Math.round(parseFloat(payment.amount) * 100),
+            amount: Math.round(refundAmountRupees * 100),
             notes: { reason: "admin_refund", adminId: String(req.user.id) },
           });
           razorpayRefundId = refund?.id || null;
+          razorpayRefundAmount =
+            refund?.amount != null ? Number(refund.amount) / 100 : null;
         }
       } catch (rzpErr) {
         razorpayRefundError = rzpErr?.error?.description || rzpErr.message;
@@ -277,31 +295,37 @@ router.post(
       }
     }
 
-    const updated = await pool.query(
-      `UPDATE payments
-       SET status = 'refunded',
-           refunded_at = NOW(),
-           refunded_by = $2,
-           metadata = COALESCE(metadata, '{}'::jsonb) || $3::jsonb
-     WHERE id = $1
-     RETURNING *`,
-      [
-        paymentId,
-        req.user.id,
-        JSON.stringify({
-          refund: {
-            razorpayRefundId,
-            razorpayRefundError,
-            refundedAt: new Date().toISOString(),
-            source: "admin",
-          },
-        }),
-      ],
-    );
-
-    // Sync transactions ledger + revoke Pro
+    // HIGH admin refund: SINGLE withTransaction covering payments +
+    // transactions + users (Razorpay call above stays outside before BEGIN).
+    let updated = null;
     try {
-      await dbHelpers.withTransaction(async (client) => {
+      updated = await dbHelpers.withTransaction(async (client) => {
+        const payRes = await client.query(
+          `UPDATE payments
+           SET status = $4,
+               refunded_at = NOW(),
+               refunded_by = $2,
+               metadata = COALESCE(metadata, '{}'::jsonb) || $3::jsonb
+         WHERE id = $1
+         RETURNING *`,
+          [
+            paymentId,
+            req.user.id,
+            JSON.stringify({
+              refund: {
+                razorpayRefundId,
+                razorpayRefundError,
+                refundAmount: razorpayRefundAmount ?? refundAmountRupees,
+                isPartial: !isFullRefund,
+                refundedAt: new Date().toISOString(),
+                source: "admin",
+              },
+            }),
+            isFullRefund ? "refunded" : "partially_refunded",
+          ],
+        );
+
+        // Sync transactions ledger (same txn).
         if (payment.gateway_payment_id) {
           const tx = await dbHelpers.findOne("transactions", {
             paymentId: payment.gateway_payment_id,
@@ -311,8 +335,9 @@ router.post(
               "transactions",
               tx.id || tx._id,
               {
-                status: "refunded",
+                status: isFullRefund ? "refunded" : "partially_refunded",
                 refundId: razorpayRefundId,
+                refundAmount: razorpayRefundAmount ?? refundAmountRupees,
                 updatedAt: new Date().toISOString(),
               },
               client,
@@ -327,19 +352,21 @@ router.post(
                 "transactions",
                 tx2.id || tx2._id,
                 {
-                  status: "refunded",
+                  status: isFullRefund ? "refunded" : "partially_refunded",
                   refundId: razorpayRefundId,
+                  refundAmount: razorpayRefundAmount ?? refundAmountRupees,
                   updatedAt: new Date().toISOString(),
                 },
                 client,
               );
           }
         }
-        if (payment.user_id) {
-          // Only revoke if no other active successful payment remains
+        if (payment.user_id && isFullRefund) {
+          // Only revoke if no other active successful payment remains.
+          // Partial refunds keep Pro (note stored in metadata above).
           const otherSuccess = await client.query(
-            `SELECT 1 FROM payments WHERE user_id=$1 AND status='success' LIMIT 1`,
-            [payment.user_id],
+            `SELECT 1 FROM payments WHERE user_id=$1 AND status='success' AND id != $2 LIMIT 1`,
+            [payment.user_id, paymentId],
           );
           if (otherSuccess.rows.length === 0) {
             await dbHelpers.updateById(
@@ -350,9 +377,13 @@ router.post(
             );
           }
         }
+        return payRes.rows[0];
       });
     } catch (syncErr) {
       logger.error("[Refund] ledger sync failed:", syncErr.message);
+      return res
+        .status(500)
+        .json({ success: false, message: "Refund ledger sync failed" });
     }
 
     try {
@@ -390,10 +421,10 @@ router.post(
       return res.json({
         success: true,
         warning: `Local refund marked but Razorpay refund failed: ${razorpayRefundError}. Please refund manually in Razorpay dashboard.`,
-        data: updated.rows[0],
+        data: updated,
       });
     }
-    res.json({ success: true, data: updated.rows[0] });
+    res.json({ success: true, data: updated });
   }),
 );
 

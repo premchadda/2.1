@@ -88,7 +88,8 @@ export const getLiveTestCandidates = async (liveTestId, options = {}) => {
         userId: row.user_id,
         candidateName:
           row.user_name || `Candidate #${String(row.user_id).slice(-4)}`,
-        candidateEmail: row.user_email || "candidate@domain.com",
+        // PII: mask list-feed email; keep "candidate@domain.com" placeholder for nulls.
+        candidateEmail: row.user_email ? "***@***" : "candidate@domain.com",
         status: row.status,
         remainingTimeSeconds: Number(row.remaining_time_seconds || 0),
         currentSectionId: row.current_section || row.current_section_id,

@@ -107,7 +107,7 @@ function SettingsContent({
         },
       });
     } catch (error) {
-      console.error("Failed to update password:", error);
+      console.error("Failed to update password:", error?.message ?? error);
       toast.error(error.response?.data?.message || "Failed to update password");
     } finally {
       setSaving(false);
@@ -182,7 +182,7 @@ function SettingsContent({
         state: { from: "/", message: "Account deactivated" },
       });
     } catch (error) {
-      console.error("Failed to deactivate account:", error);
+      console.error("Failed to deactivate account:", error?.message ?? error);
       toast.error(
         error?.response?.data?.message ||
           "Failed to deactivate account. Please try again.",
@@ -204,7 +204,7 @@ function SettingsContent({
       await logout();
       navigate("/login", { state: { from: "/", message: "Account deleted" } });
     } catch (error) {
-      console.error("Failed to delete account:", error);
+      console.error("Failed to delete account:", error?.message ?? error);
       toast.error(
         error?.response?.data?.message ||
           "Failed to delete account. Please try again.",
@@ -218,7 +218,7 @@ function SettingsContent({
       const res = await userAPI.getSessions();
       setSessions(res.data?.data || []);
     } catch (err) {
-      console.error("Failed to load active sessions:", err);
+      console.error("Failed to load active sessions:", err?.message ?? err);
       if (err?.response?.status && err.response.status !== 401) {
         toast.error("Failed to load sessions");
       }
@@ -547,20 +547,22 @@ function SettingsContent({
               icon={<HelpCircle className="w-4 h-4 text-blue-500" />}
               iconBg="#EFF5FF"
               label="Help Center"
-              onClick={() => window.open("https://help.trstprep.com", "_blank")}
+              onClick={() =>
+                window.open("https://help.trstprep.com", "_blank", "noopener")
+              }
             />
             <Cell
               icon={<Shield className="w-4 h-4 text-gray-500" />}
               iconBg="#F9FAFB"
               label="Privacy Policy"
-              onClick={() => window.open("/privacy", "_blank")}
+              onClick={() => window.open("/privacy", "_blank", "noopener")}
             />
             <Cell
               icon={<BookOpen className="w-4 h-4 text-gray-500" />}
               iconBg="#F9FAFB"
               label="Terms of Service"
               last
-              onClick={() => window.open("/terms", "_blank")}
+              onClick={() => window.open("/terms", "_blank", "noopener")}
             />
           </div>
         </div>

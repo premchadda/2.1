@@ -6,10 +6,32 @@ if [ -n "$STAGED_ENV" ]; then
   echo "🚨 SECURITY: Blocked commit — the following .env file(s) contain secrets:"
   echo "$STAGED_ENV"
   echo ""
-  echo "   Remove them:  git reset HEAD <file>"
-  echo "   See:          docs/SECURITY.md"
+   echo "   Remove them:  git reset HEAD <file>"
+   echo "   See:          docs/SECURITY_POSTURE.md"
   echo ""
   exit 1
 fi
 
-npx lint-staged
+# Secret scan — block staged content matching known live-secret shapes.
+# Patterns only (no values). Kept aligned with .github/workflows/no-env.yml
+# (secret prefixes) + data-guard.yml (secret values): AWS access keys,
+# Razorpay live keys, OpenRouter keys, generic live secret keys, GitHub
+# tokens, Slack tokens, PEM private keys, and real-looking JWT assignments.
+# Runs on staged blobs so unstaged work is untouched.
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM || true)
+if [ -n "$STAGED_FILES" ]; then
+  SECRET_HIT=$(git diff --cached --diff-filter=ACM -- $STAGED_FILES 2>/dev/null | grep -nE 'AKIA[0-9A-Z]{16}|rzp_live_[A-Za-z0-9]+|rk_live_[A-Za-z0-9]{16,}|sk-or-v1-[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9]{16,}|sk-live-[A-Za-z0-9]+|sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}|xox[abp]-[A-Za-z0-9-]+|JWT_SECRET\s*=\s*[A-Za-z0-9!@#$%^&*_+\-]{32,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY' || true)
+  if [ -n "$SECRET_HIT" ]; then
+    echo ""
+    echo "🚨 SECURITY: Blocked commit — staged diff matches a live-secret pattern:"
+    echo "$SECRET_HIT" | cut -c1-160
+    echo ""
+    echo "   Remove the secret:  git reset -p HEAD / edit, then re-stage."
+    echo "   If this is a false positive (docs/tests fixture), use a redacted"
+    echo "   placeholder (e.g. AKIA...REDACTED) instead of a key-shaped string."
+    echo ""
+    exit 1
+  fi
+fi
+
+pnpm exec lint-staged

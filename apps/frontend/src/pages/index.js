@@ -42,8 +42,6 @@ export {
 // Exam Pages
 export {
   Exams,
-  ExamsNew,
-  ExamDetails,
   ExamInfoNew,
   ExamCategory,
   ExamYear,

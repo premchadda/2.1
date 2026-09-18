@@ -53,7 +53,7 @@ function Signup() {
           });
         }
       } catch (error) {
-        console.error("Failed to fetch stats:", error);
+        console.error("Failed to fetch stats:", error?.message ?? error);
       }
     };
     fetchStats();

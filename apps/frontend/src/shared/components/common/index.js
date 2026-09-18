@@ -8,7 +8,6 @@ export { default as SearchBox } from "./SearchBox";
 export { default as VideoPlayer } from "./VideoPlayer";
 export { default as ImageCropperModal } from "./ImageCropperModal";
 export { default as ScrollToTop } from "./ScrollToTop";
-export { default as OnboardingWizard } from "./OnboardingWizard";
 export {
   hasCompletedOnboarding,
   getOnboardingPrefs,

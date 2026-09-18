@@ -1,13 +1,16 @@
 import express from "express";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
-import { protect, admin, superAdmin } from '../../middleware/auth.middleware.js';
+import { protect, admin } from "../../middleware/auth.middleware.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { sanitizeUser } from "../../shared/utils/user-utils.js";
 
 const router = express.Router();
 
-router.use(protect)
-router.use(admin)
+router.use(protect);
+router.use(admin);
+
+// PII guard for list endpoints: mask emails (detail-by-id keeps full email)
+const maskEmail = () => "***@***";
 
 // Centralized sanitization helper to avoid PII leakage (SEC-12)
 
@@ -28,7 +31,7 @@ router.get("/enrollments", async (req, res) => {
     const countResult = await dbHelpers.pool.query(
       `SELECT COUNT(DISTINCT user_id) as count 
        FROM enrollments 
-       WHERE is_active = true`
+       WHERE is_active = true`,
     );
     const total = parseInt(countResult.rows[0]?.count || 0, 10);
 
@@ -42,9 +45,9 @@ router.get("/enrollments", async (req, res) => {
        WHERE e.is_active = true
        ORDER BY u.id DESC
        LIMIT $1 OFFSET $2`,
-      [limitNum, offset]
+      [limitNum, offset],
     );
-    
+
     const paginatedUsers = usersResult.rows;
 
     if (paginatedUsers.length === 0) {
@@ -74,7 +77,7 @@ router.get("/enrollments", async (req, res) => {
       dbHelpers.pool.query(
         `SELECT id, user_id, series_id, enrolled_at, expires_at, status, progress, exam_id, study_material_id, is_paid, payment_id, amount, is_active, updated_at, created_at, is_deleted, deleted_at, deleted_by FROM enrollments 
          WHERE is_active = true AND user_id = ANY($1)`,
-        [userIds]
+        [userIds],
       ),
       dbHelpers.find("testSeries"),
       dbHelpers.find("studyMaterials"),
@@ -169,18 +172,20 @@ router.get("/enrollments", async (req, res) => {
       // Determine pass type label from users.pass_type field
       const rawPassType = safeUser.passType || safeUser.pass_type || "free";
       const plan = planMap[rawPassType];
-      const passLabel = safeUser.isProUser || safeUser.is_pro_user
-        ? plan
-          ? `${plan.name} (${plan.period})`
-          : "Pro Pass"
-        : "Free";
-      const passBadge = safeUser.isProUser || safeUser.is_pro_user
-        ? plan?.period === "yearly"
-          ? "Pro Yearly"
-          : plan?.period === "monthly"
-            ? "Pro Monthly"
+      const passLabel =
+        safeUser.isProUser || safeUser.is_pro_user
+          ? plan
+            ? `${plan.name} (${plan.period})`
             : "Pro Pass"
-        : "Free";
+          : "Free";
+      const passBadge =
+        safeUser.isProUser || safeUser.is_pro_user
+          ? plan?.period === "yearly"
+            ? "Pro Yearly"
+            : plan?.period === "monthly"
+              ? "Pro Monthly"
+              : "Pro Pass"
+          : "Free";
 
       // Find earliest enrollment date
       const allDates = [
@@ -196,7 +201,7 @@ router.get("/enrollments", async (req, res) => {
       records.push({
         userId: safeUser.id,
         userName: safeUser.name || "Unknown",
-        userEmail: safeUser.email || "",
+        userEmail: safeUser.email ? maskEmail() : "",
         isActive: safeUser.isActive !== false,
         isProUser: !!(safeUser.isProUser || safeUser.is_pro_user),
         proPassExpiry:
@@ -238,7 +243,7 @@ router.get("/enrollments", async (req, res) => {
       },
     });
   } catch (err) {
-    logger.error('Failed to fetch enrollments list with pagination', err);
+    logger.error("Failed to fetch enrollments list with pagination", err);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
@@ -279,17 +284,15 @@ router.get("/results", async (req, res) => {
       return {
         _id: a.id,
         id: a.id,
-        userName:
-          a.user_name || a.user_email || "User " + a.user_id,
+        // PII: never leak user_email into userName fallback on list endpoint
+        userName: a.user_name || "User " + a.user_id,
         testName: a.test_title || "Mock Test",
         score,
         totalMarks,
         percentage: totalMarks > 0 ? Math.round((score / totalMarks) * 100) : 0,
         rank: a.rank || 0,
-        timeTaken:
-          Math.round((parseFloat(a.time_spent) || 0) / 60) || 1,
-        attemptedAt:
-          a.submitted_at || a.created_at,
+        timeTaken: Math.round((parseFloat(a.time_spent) || 0) / 60) || 1,
+        attemptedAt: a.submitted_at || a.created_at,
       };
     });
 
@@ -305,7 +308,7 @@ router.get("/results", async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error('Failed to fetch results', error);
+    logger.error("Failed to fetch results", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 });

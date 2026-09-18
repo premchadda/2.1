@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   BookOpen,
   Layers,
+  Tag,
   Plus,
   Edit2,
   Trash2,
@@ -22,11 +23,12 @@ import {
   EyeOff,
   Minus,
 } from "lucide-react";
-import { apiClient } from "../../../shared/api/adminApi";
+import { apiClient } from "../../../shared/lib/dataService.js";
 import { toast } from "react-hot-toast";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 import CurriculumBuilder from "./CurriculumBuilder";
 import SubjectRelationsManager from "./SubjectRelationsManager";
+import TopicsManager from "./TopicsManager";
 
 // Robust ID, ParentID, and Order extractors
 const getSubjectId = (s) => String(s?._id ?? s?.id ?? "");
@@ -799,6 +801,13 @@ export default function StudyMaterialsManager() {
       icon: BookOpen,
       Component: SubjectsPanel,
       description: "Manage root subjects",
+    },
+    {
+      id: "topics",
+      label: "Topics",
+      icon: Tag,
+      Component: TopicsManager,
+      description: "Manage topics within chapters",
     },
     {
       id: "curriculum",

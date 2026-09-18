@@ -9,6 +9,43 @@ const __dirname = path.dirname(__filename);
 // every instance uses the same one. Chosen arbitrarily but kept constant.
 const MIGRATION_ADVISORY_LOCK_KEY = 727274266; // "trstprep-migrations"
 
+// Returns only the executable SQL: strips `--` line comments, `/* */`
+// block comments, and string/identifier/dollar-quoted literals before sniff
+// tests run. Without this, a comment mentioning an index build (or a string
+// containing the word) would be misread as an executable statement and route
+// the file down the wrong execution path.
+function stripSqlNonExecutable(sql) {
+  let out = sql;
+  // Dollar-quoted bodies ($tag$...$tag_) first — they can span lines and may
+  // contain comment markers or quotes that must not be parsed.
+  out = out.replace(
+    /\$[A-Za-z_][A-Za-z_0-9]*\$[\s\S]*?\$[A-Za-z_][A-Za-z_0-9]*\$/g,
+    " ",
+  );
+  out = out.replace(/\$\$[\s\S]*?\$\$/g, " ");
+  // Single-quoted strings ('' escape) and double-quoted identifiers ("" escape).
+  out = out.replace(/'(?:[^']|'')*'/g, "''");
+  out = out.replace(/"(?:[^"]|"")*"/g, '""');
+  // Block comments, then line comments (safe now that literals are gone).
+  out = out.replace(/\/\*[\s\S]*?\*\//g, " ");
+  out = out.replace(/--[^\r\n]*/g, " ");
+  return out;
+}
+
+// Sniffs the executable SQL of a migration file. Leading comments are
+// ignored when detecting an explicit transaction wrapper; the concurrent
+// path requires an actual executable CREATE ... INDEX ... CONCURRENTLY —
+// a bare word in a comment or string no longer qualifies.
+function sniffMigrationStatements(trimmedSql) {
+  const executableSql = stripSqlNonExecutable(trimmedSql);
+  return {
+    hasTransaction: /^\s*BEGIN\b/i.test(executableSql),
+    isConcurrent: /CREATE\b[\s\S]*\bINDEX\b[\s\S]*\bCONCURRENTLY\b/i.test(
+      executableSql,
+    ),
+  };
+}
+
 export async function runMigrations(pool, { afterMigrations } = {}) {
   const migrationsDir = path.join(__dirname, "migrations");
   console.log(`[Migrations] Scanning migrations from: ${migrationsDir}`);
@@ -46,7 +83,9 @@ export async function runMigrations(pool, { afterMigrations } = {}) {
       console.log("[Migrations] Advisory lock acquired.");
     }
 
-    await runMigrationsLocked(lockClient, migrationsDir, { afterMigrations });
+    await runMigrationsLocked(pool, lockClient, migrationsDir, {
+      afterMigrations,
+    });
   } finally {
     if (acquired) {
       try {
@@ -65,6 +104,7 @@ export async function runMigrations(pool, { afterMigrations } = {}) {
 }
 
 async function runMigrationsLocked(
+  pool,
   client,
   migrationsDir,
   { afterMigrations } = {},
@@ -92,7 +132,8 @@ async function runMigrationsLocked(
     );
 
   // 2a. Detect duplicate numeric prefixes (e.g., 038_a.sql + 038_b.sql,
-  //     or letter-suffixed 038a_x.sql colliding with 038_x.sql).
+  //     or letter-suffixed 038a_x.sql colliding with 038_x.sql, or
+  //     hyphen/underscore separator variants like 038-x.sql vs 038_x.sql).
   //     Lexicographic sort alone does not prevent the runner from applying both,
   //     but humans + tooling rely on a unique prefix. Fail fast with a
   //     descriptive error pointing at the conflicting files.
@@ -100,7 +141,7 @@ async function runMigrationsLocked(
   //     prefix instead (e.g., prefer 136_ over 135b_).
   const prefixMap = new Map();
   for (const file of files) {
-    const match = file.match(/^(\d{3})[a-z]?_/i);
+    const match = file.match(/^(\d{3})[a-z]?[-_]/i);
     if (!match) continue;
     const prefix = match[1];
     if (!prefixMap.has(prefix)) prefixMap.set(prefix, []);
@@ -167,8 +208,8 @@ async function runMigrationsLocked(
       ]);
 
       const trimmedSql = sql.trim();
-      const hasTransaction = /^\s*BEGIN\b/i.test(trimmedSql);
-      const isConcurrent = /CONCURRENTLY/i.test(trimmedSql);
+      const { hasTransaction, isConcurrent } =
+        sniffMigrationStatements(trimmedSql);
       if (hasTransaction) {
         await client.query(trimmedSql);
       } else if (isConcurrent) {
@@ -186,8 +227,8 @@ async function runMigrationsLocked(
       console.log(`[Migrations] Successfully applied: ${file}`);
     } catch (error) {
       const trimmedSql = sql.trim();
-      const hasTransaction = /^\s*BEGIN\b/i.test(trimmedSql);
-      const isConcurrent = /CONCURRENTLY/i.test(trimmedSql);
+      const { hasTransaction, isConcurrent } =
+        sniffMigrationStatements(trimmedSql);
       if (!hasTransaction && !isConcurrent) {
         try {
           await client.query("ROLLBACK");

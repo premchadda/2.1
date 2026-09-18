@@ -68,7 +68,7 @@
           "id": { "type": "integer" },
           "email": { "type": "string", "format": "email" },
           "name": { "type": "string" },
-          "role": { "type": "string", "enum": ["user", "admin", "super_admin"] },
+          "role": { "type": "string", "enum": ["user", "admin"] },
           "isActive": { "type": "boolean" },
           "isProUser": { "type": "boolean" }
         }
@@ -131,7 +131,10 @@
             }
           },
           "timeSpent": { "type": "number" },
-          "markedForReview": { "type": "array", "items": { "type": "integer" } },
+          "markedForReview": {
+            "type": "array",
+            "items": { "type": "integer" }
+          },
           "sectionTimers": { "type": "object" },
           "currentSection": { "type": "string" }
         }
@@ -198,9 +201,7 @@
       }
     }
   },
-  "security": [
-    { "bearerAuth": [] }
-  ],
+  "security": [{ "bearerAuth": [] }],
   "paths": {
     "/auth/login": {
       "post": {
@@ -226,19 +227,35 @@
           },
           "400": {
             "description": "Invalid credentials payload",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           },
           "401": {
             "description": "Invalid email or password",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           },
           "429": {
             "description": "Too many authentication attempts",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           },
           "500": {
             "description": "Internal server error",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           }
         }
       }
@@ -258,15 +275,27 @@
         "responses": {
           "200": {
             "description": "Token refreshed",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthResponse" }
+              }
+            }
           },
           "401": {
             "description": "Invalid or expired refresh token",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           },
           "500": {
             "description": "Internal server error",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           }
         }
       }
@@ -279,11 +308,19 @@
         "responses": {
           "200": {
             "description": "List of tests",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TestListResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TestListResponse" }
+              }
+            }
           },
           "500": {
             "description": "Internal server error",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           }
         }
       }
@@ -305,15 +342,27 @@
         "responses": {
           "200": {
             "description": "Test details",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TestDetailResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TestDetailResponse" }
+              }
+            }
           },
           "404": {
             "description": "Test not found",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           },
           "500": {
             "description": "Internal server error",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           }
         }
       }
@@ -322,10 +371,7 @@
       "put": {
         "summary": "Submit a completed test attempt",
         "tags": ["Tests"],
-        "security": [
-          { "bearerAuth": [] },
-          { "cookieAuth": [] }
-        ],
+        "security": [{ "bearerAuth": [] }, { "cookieAuth": [] }],
         "parameters": [
           {
             "name": "testId",
@@ -346,31 +392,59 @@
         "responses": {
           "200": {
             "description": "Submission accepted and evaluated",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SubmitTestResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SubmitTestResponse" }
+              }
+            }
           },
           "400": {
             "description": "Invalid submission (e.g. time exceeds duration)",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           },
           "401": {
             "description": "Not authenticated",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           },
           "403": {
             "description": "Pro Pass required or not authorized",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           },
           "404": {
             "description": "Test or attempt not found",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           },
           "409": {
             "description": "Attempt already submitted",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           },
           "500": {
             "description": "Internal server error",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           }
         }
       }
@@ -379,34 +453,59 @@
       "get": {
         "summary": "List paginated audit logs (admin only)",
         "tags": ["Admin"],
-        "security": [
-          { "bearerAuth": [] },
-          { "cookieAuth": [] }
-        ],
+        "security": [{ "bearerAuth": [] }, { "cookieAuth": [] }],
         "parameters": [
-          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": { "type": "integer", "default": 1 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 50 }
+          },
           { "name": "action", "in": "query", "schema": { "type": "string" } },
-          { "name": "entity_type", "in": "query", "schema": { "type": "string" } },
+          {
+            "name": "entity_type",
+            "in": "query",
+            "schema": { "type": "string" }
+          },
           { "name": "user_id", "in": "query", "schema": { "type": "integer" } },
           { "name": "search", "in": "query", "schema": { "type": "string" } }
         ],
         "responses": {
           "200": {
             "description": "Paginated audit logs",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuditLogsResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuditLogsResponse" }
+              }
+            }
           },
           "401": {
             "description": "Not authenticated",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           },
           "403": {
             "description": "Not authorized as admin",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           },
           "500": {
             "description": "Internal server error",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           }
         }
       }
@@ -419,15 +518,27 @@
         "responses": {
           "200": {
             "description": "Service is healthy",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HealthResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" }
+              }
+            }
           },
           "500": {
             "description": "Service degraded",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           },
           "503": {
             "description": "Service unavailable (e.g. database down)",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           }
         }
       }

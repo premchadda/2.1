@@ -3,11 +3,7 @@ import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { parsePagination, paginateResponse } from "./admin-helpers.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
-import {
-  protect,
-  admin,
-  superAdmin,
-} from "../../middleware/auth.middleware.js";
+import { protect, admin } from "../../middleware/auth.middleware.js";
 
 const router = express.Router();
 

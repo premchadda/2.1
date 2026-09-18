@@ -186,7 +186,7 @@ The **Digital Personal Data Protection Act, 2023 (DPDP Act 2023)** mandates that
      - The mechanisms for exercising Data Principal rights (Access, Correction, Erasure).
 2. **Right to Erasure / Nominee (Section 12 & 14):**
    - Confirm that the database supports the soft-delete and purge pattern implemented in migration `008` / `094-101`.
-   - Admin panel endpoint `/api/admin/users/:id` with `super_admin` role allows fulfilling user erasure and data portability requests.
+   - Admin panel endpoint `/api/admin/users/:id` with `second_tier` role allows fulfilling user erasure and data portability requests.
 3. **Security Safeguards (Section 8(5)):**
    - Document technical controls:
      - Storage at rest encrypted via Supabase AES-256.

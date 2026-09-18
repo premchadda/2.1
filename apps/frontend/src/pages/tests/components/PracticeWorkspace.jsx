@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
 import { practiceAPI } from "../../../shared/lib/practiceAPI";
 import sanitizeHtml from "../../../shared/lib/sanitizeHtml.js";
@@ -19,10 +19,13 @@ import {
   Play,
   ArrowLeft,
   Languages,
+  Globe,
+  Menu,
   Tag,
   X,
 } from "lucide-react";
 import { formatPyqSourceLabel } from "../../../shared/lib/questionUtils.js";
+import { handleAvatarError } from "../../../shared/utils/avatarFallback.js";
 
 export default function PracticeWorkspace({
   session,
@@ -57,6 +60,8 @@ export default function PracticeWorkspace({
   const [loading, setLoading] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [skipping, setSkipping] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+  const loadIdRef = useRef(0);
   const [answerResults, setAnswerResults] = useState({});
   const [userSelections, setUserSelections] = useState({});
 
@@ -113,6 +118,11 @@ export default function PracticeWorkspace({
     .toUpperCase();
   const userEmail = user?.email || "";
 
+  // Defensive: session rows may carry id, sessionId, or session_id depending
+  // on the list source. Resolve once so no call-site can hit ".../undefined".
+  const activeSessionId =
+    session?.id ?? session?.sessionId ?? session?.session_id;
+
   const totalQuestions = Number(
     session?.totalQuestions ?? session?.questions?.length ?? 0,
   );
@@ -134,8 +144,13 @@ export default function PracticeWorkspace({
   }, [currentIdx]);
 
   const loadQuestion = async (idx) => {
+    const loadId = ++loadIdRef.current;
     try {
-      if (!session?.id) {
+      if (
+        activeSessionId === undefined ||
+        activeSessionId === null ||
+        activeSessionId === ""
+      ) {
         throw new Error("Practice session ID is missing");
       }
       setAiTutorResponse(null);
@@ -155,10 +170,12 @@ export default function PracticeWorkspace({
       // Check if question is already available in cache for instant render
       let q = questionCache[idx];
       if (q) {
+        if (loadId !== loadIdRef.current) return;
         setQuestion(q);
       } else {
         setLoading(true);
-        q = await practiceAPI.getQuestion(session.id, idx);
+        q = await practiceAPI.getQuestion(activeSessionId, idx);
+        if (loadId !== loadIdRef.current) return;
         setQuestion(q);
         setQuestionCache((prev) => ({ ...prev, [idx]: q }));
         setLoading(false);
@@ -166,17 +183,20 @@ export default function PracticeWorkspace({
 
       // Fetch supplementary learning data asynchronously in the background
       if (q?.id) {
+        const bgLoadId = loadId;
         Promise.all([
           practiceAPI.getExplanations(q.id).catch(() => null),
           practiceAPI.getApproaches(q.id).catch(() => []),
           practiceAPI.getSimilarQuestions(q.id).catch(() => []),
         ]).then(([expl, apprs, sim]) => {
+          if (bgLoadId !== loadIdRef.current) return;
           setExplanations(expl);
           setApproaches(apprs || []);
           setSimilarQs(sim || []);
         });
       }
     } catch {
+      if (loadId !== loadIdRef.current) return;
       toast.error("Failed to load question");
       setLoading(false);
     }
@@ -197,9 +217,16 @@ export default function PracticeWorkspace({
 
   const handleCheckAnswer = async () => {
     if (selectedOption === null || selectedOption === undefined) return;
+    if (isChecking || skipping || finishing) return;
     try {
-      if (!session?.id) throw new Error("Practice session ID is missing");
-      const res = await practiceAPI.checkAnswer(session.id, currentIdx, {
+      if (
+        activeSessionId === undefined ||
+        activeSessionId === null ||
+        activeSessionId === ""
+      )
+        throw new Error("Practice session ID is missing");
+      setIsChecking(true);
+      const res = await practiceAPI.checkAnswer(activeSessionId, currentIdx, {
         selectedOption: selectedOption,
       });
       setCheckResult(res);
@@ -219,6 +246,8 @@ export default function PracticeWorkspace({
       setIsChecked(true);
     } catch {
       toast.error("Failed to check answer");
+    } finally {
+      setIsChecking(false);
     }
   };
 
@@ -277,9 +306,14 @@ export default function PracticeWorkspace({
     if (finishing) return;
 
     try {
-      if (!session?.id) throw new Error("Practice session ID is missing");
+      if (
+        activeSessionId === undefined ||
+        activeSessionId === null ||
+        activeSessionId === ""
+      )
+        throw new Error("Practice session ID is missing");
       setFinishing(true);
-      const result = await practiceAPI.completeSession(session.id);
+      const result = await practiceAPI.completeSession(activeSessionId);
       const completedSession = result?.session || {};
       const completedCorrect = Number(completedSession.correctCount || 0);
       const completedWrong = Number(completedSession.wrongCount || 0);
@@ -334,9 +368,14 @@ export default function PracticeWorkspace({
     if (skipping || finishing) return;
 
     try {
-      if (!session?.id) throw new Error("Practice session ID is missing");
+      if (
+        activeSessionId === undefined ||
+        activeSessionId === null ||
+        activeSessionId === ""
+      )
+        throw new Error("Practice session ID is missing");
       setSkipping(true);
-      await practiceAPI.skipQuestion(session.id, currentIdx);
+      await practiceAPI.skipQuestion(activeSessionId, currentIdx);
       setUserSelections((prev) => ({
         ...prev,
         [currentIdx]: {
@@ -407,55 +446,77 @@ export default function PracticeWorkspace({
     : null;
 
   return (
-    <div className="max-w-7xl mx-auto py-6 px-4">
-      <div className="lg:grid lg:grid-cols-12 lg:gap-6 items-start">
-        {/* Left Column: Context, Question Workspace, Learning System */}
-        <div className="lg:col-span-8 xl:col-span-8 space-y-6">
-          {/* ── 1. HEADER / BREADCRUMB CONTEXT BAR ────────────────────────── */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 mb-6 shadow-xs flex flex-wrap items-center justify-between gap-4">
-            <div className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
-              <span className="text-indigo-600 font-bold">Practice</span>
-              <span>→</span>
-              <span>{question.subject || "Subject"}</span>
-              <span>→</span>
-              <span>{question.topic || "Topic"}</span>
-              <span>→</span>
-              <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono">
-                {question.difficulty || "Difficulty not set"}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 sm:gap-4 text-xs font-bold">
-              <span className="text-slate-600 dark:text-slate-300">
-                Question {currentIdx + 1} / {totalQuestions}
-              </span>
-              <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-300 px-2.5 py-1 rounded-full">
-                Accuracy: {accuracy}%
-              </span>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 pb-12">
+      {/* ── 1. TOP STICKY APP BAR (Matches Test Interface on Mobile & Desktop) ── */}
+      <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 px-3 sm:px-6 py-2.5 shadow-xs mb-4 sm:mb-6">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+          {/* Top Left: Back to Section Button */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {onExit && (
               <button
                 type="button"
-                onClick={() => setShowMobilePalette(true)}
-                className="lg:hidden inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 px-2.5 py-1.5 rounded-lg transition active:scale-95 cursor-pointer"
-                aria-label="Open question palette"
+                onClick={onExit}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 border border-slate-200 dark:border-slate-600 px-2.5 sm:px-3 py-1.5 rounded-xl transition active:scale-95 shadow-2xs cursor-pointer"
+                title="Back to Section"
+                aria-label="Back to Section"
               >
-                <BookOpen className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span>
-                  Palette ({answeredCount}/{totalQuestions})
-                </span>
+                <ArrowLeft className="w-4 h-4 shrink-0" />
+                <span className="hidden xs:inline">Back to Section</span>
+                <span className="xs:hidden">Back</span>
               </button>
-              {onExit && (
-                <button
-                  type="button"
-                  onClick={onExit}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-indigo-700 bg-slate-100 hover:bg-indigo-50 border border-slate-200 px-3 py-1.5 rounded-lg transition active:scale-95"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" /> Back to Section
-                </button>
-              )}
-            </div>
+            )}
           </div>
 
-          {/* ── 2. QUESTION WORKSPACE ──────────────────────────────────────── */}
+          {/* Top Center: Question Counter & Accuracy */}
+          <div className="flex items-center gap-1.5 sm:gap-2 text-xs font-bold">
+            <span className="text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-700/60 px-2.5 py-1 rounded-lg border border-slate-200/60 dark:border-slate-700">
+              Q{currentIdx + 1} / {totalQuestions}
+            </span>
+            <span className="hidden sm:inline-flex text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-300 px-2 py-1 rounded-lg">
+              {accuracy}% Acc
+            </span>
+          </div>
+
+          {/* Top Right: Language Switch Option (Click to Change) & Question Palette (Mobile) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Language Switch: 1-Click Toggle EN ↔ HI */}
+            <button
+              type="button"
+              onClick={() => {
+                const nextLang = preferredLang === "hi" ? "en" : "hi";
+                handleSetLang(nextLang);
+              }}
+              title={`Switch language (Current: ${preferredLang.toUpperCase()})`}
+              aria-label={`Current language: ${preferredLang.toUpperCase()}. Click to switch.`}
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs"
+            >
+              <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+              <span>{preferredLang === "hi" ? "हिन्दी" : "English"}</span>
+              <span className="text-[10px] bg-indigo-200/80 dark:bg-indigo-800/80 text-indigo-900 dark:text-indigo-100 px-1 py-0.5 rounded font-black uppercase">
+                {preferredLang}
+              </span>
+            </button>
+
+            {/* Mobile Question Palette Toggle: Top Right Side (Same as Test Interface) */}
+            <button
+              type="button"
+              onClick={() => setShowMobilePalette(!showMobilePalette)}
+              title="Question Palette"
+              aria-label="Toggle Question Palette"
+              className="lg:hidden inline-flex items-center gap-1.5 h-8 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs"
+            >
+              <Menu className="w-4 h-4 text-slate-700 dark:text-slate-300 shrink-0" />
+              <span className="hidden xs:inline">Palette</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto py-2 sm:py-4 px-3 sm:px-4">
+        <div className="lg:grid lg:grid-cols-12 lg:gap-6 items-start">
+          {/* Left Column: Context, Question Workspace, Learning System */}
+          <div className="lg:col-span-8 xl:col-span-8 space-y-6">
+            {/* ── 2. QUESTION WORKSPACE ──────────────────────────────────────── */}
           <div
             className={`bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 sm:p-6 shadow-xs mb-6 transition-opacity duration-150 ${loading ? "opacity-60 pointer-events-none" : "opacity-100"}`}
           >
@@ -507,7 +568,7 @@ export default function PracticeWorkspace({
             {/* Question Text (language-aware) */}
             <div
               className={`text-base font-medium text-slate-900 dark:text-slate-100 leading-relaxed ${
-                pyqLabel ? "mb-2" : "mb-6"
+                pyqLabel ? "mb-2.5" : "mb-6"
               }`}
             >
               <MathRenderer
@@ -519,13 +580,13 @@ export default function PracticeWorkspace({
 
             {/* Previous-year paper source — exam name year stage date shift */}
             {pyqLabel && (
-              <div className="mb-5 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded-lg px-2.5 py-1 shadow-2xs">
-                  <Tag className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+              <div className="mb-5 flex flex-wrap items-center gap-1.5 text-[10px] sm:text-[11px] italic text-slate-400 dark:text-slate-500">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50/70 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-800/40 text-[10px] sm:text-[11px] font-medium italic shadow-2xs">
+                  <Tag className="w-3 h-3 text-purple-500/80 shrink-0" />
                   <span>{pyqLabel}</span>
                 </span>
-                <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wide">
-                  Asked in previous year paper
+                <span className="text-[10px] sm:text-[10.5px] italic text-slate-400 dark:text-slate-500">
+                  (Asked in previous year paper)
                 </span>
               </div>
             )}
@@ -621,7 +682,8 @@ export default function PracticeWorkspace({
                       selectedOption === null ||
                       selectedOption === undefined ||
                       skipping ||
-                      finishing
+                      finishing ||
+                      isChecking
                     }
                     className={`px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm transition ${
                       selectedOption !== null && selectedOption !== undefined
@@ -791,18 +853,25 @@ export default function PracticeWorkspace({
 
                 {activeExplTab === "visual" && (
                   <div className="py-4 text-center">
-                    <div
-                      className="inline-block p-4 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl"
-                      dangerouslySetInnerHTML={{
-                        __html: sanitizeHtml(
-                          explanations?.visual?.svgContent ||
-                            "<p>Visual diagram placeholder</p>",
-                        ),
-                      }}
-                    />
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                      Concept diagram
-                    </p>
+                    {explanations?.visual?.svgContent ? (
+                      <>
+                        <div
+                          className="inline-block p-4 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl"
+                          dangerouslySetInnerHTML={{
+                            __html: sanitizeHtml(
+                              explanations.visual.svgContent,
+                            ),
+                          }}
+                        />
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                          Concept diagram
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        No visual explanation available for this question yet.
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -1056,12 +1125,7 @@ export default function PracticeWorkspace({
                     src={user.avatar || user.avatarUrl}
                     alt={userName}
                     className="h-full w-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                      if (e.currentTarget.nextSibling) {
-                        e.currentTarget.nextSibling.style.display = "inline";
-                      }
-                    }}
+                    onError={handleAvatarError}
                   />
                 ) : null}
                 <span
@@ -1239,6 +1303,7 @@ export default function PracticeWorkspace({
         isOpen={vaultOpen}
         onClose={() => setVaultOpen(false)}
       />
+      </div>
     </div>
   );
 }

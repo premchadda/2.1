@@ -38,6 +38,9 @@ const PracticeQuestionsManager = lazy(
 const StudyMaterialsManager = lazy(
   () => import("./features/admin/study-materials/StudyMaterialsManager"),
 );
+const SubjectHierarchyManager = lazy(
+  () => import("./features/admin/study-materials/SubjectHierarchyManager"),
+);
 const ContentManagement = lazy(
   () => import("./features/admin/study-materials/ContentManagement"),
 );
@@ -121,9 +124,6 @@ const AdminSettings = lazy(
 const BackupsManager = lazy(
   () => import("./features/admin/system-settings/BackupsManager"),
 );
-const ComingSoonManager = lazy(
-  () => import("./features/admin/system-settings/ComingSoonManager"),
-);
 const NavigationManager = lazy(
   () => import("./features/admin/system-settings/NavigationManager"),
 );
@@ -203,6 +203,10 @@ function App() {
 
             <Route path="study-materials" element={<StudyMaterialsManager />} />
             <Route
+              path="subject-hierarchy"
+              element={<SubjectHierarchyManager />}
+            />
+            <Route
               path="subjects"
               element={<Navigate to="/admin/study-materials" replace />}
             />
@@ -215,14 +219,22 @@ function App() {
                 />
               }
             />
-            <Route path="deep-analytics" element={<DeepAnalytics />} />
             <Route path="email-templates" element={<EmailTemplatesManager />} />
             {/* Canonical: /admin/users?tab=roles — keep legacy path as redirect */}
             <Route
               path="roles-permissions"
               element={<Navigate to="/admin/users?tab=roles" replace />}
             />
-            <Route path="audit-trail" element={<AuditTrailManager />} />
+            <Route
+              path="audit-trail"
+              element={
+                <ProtectedRoute
+                  requireAnyPermission={["audit:view", "audit:read", "audit:*"]}
+                >
+                  <AuditTrailManager />
+                </ProtectedRoute>
+              }
+            />
             {/* Canonical hub: /admin/study-materials?tab=topics|curriculum */}
             <Route
               path="topics"
@@ -244,11 +256,35 @@ function App() {
 
             <Route path="users" element={<UsersPermissions />} />
             <Route path="sessions" element={<ActiveSessionsManager />} />
-            <Route path="live-monitor" element={<LiveTestMonitor />} />
-            <Route path="live-proctoring" element={<LiveProctoringConsole />} />
+            <Route
+              path="live-monitor"
+              element={
+                <ProtectedRoute
+                  requireAnyPermission={["tests:view", "tests:read", "tests:*"]}
+                >
+                  <LiveTestMonitor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="live-proctoring"
+              element={
+                <ProtectedRoute
+                  requireAnyPermission={["tests:view", "tests:read", "tests:*"]}
+                >
+                  <LiveProctoringConsole />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="live-proctoring/:liveTestId"
-              element={<LiveProctoringConsole />}
+              element={
+                <ProtectedRoute
+                  requireAnyPermission={["tests:view", "tests:read", "tests:*"]}
+                >
+                  <LiveProctoringConsole />
+                </ProtectedRoute>
+              }
             />
             <Route path="enrollments" element={<EnrollmentsManager />} />
             <Route path="results" element={<ResultsManager />} />
@@ -285,18 +321,92 @@ function App() {
             <Route path="deep-analytics" element={<DeepAnalytics />} />
             <Route path="content-management" element={<ContentManagement />} />
             <Route path="system-health" element={<SystemHealthMonitor />} />
-            <Route path="logs" element={<ServerLogsManager />} />
+            <Route
+              path="logs"
+              element={
+                <ProtectedRoute
+                  requireAnyPermission={[
+                    "settings:view",
+                    "settings:read",
+                    "settings:*",
+                    "system:view",
+                    "system:read",
+                    "system:*",
+                  ]}
+                >
+                  <ServerLogsManager />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="terminal"
               element={<Navigate to="/admin/logs" replace />}
             />
-            <Route path="backups" element={<BackupsManager />} />
+            <Route
+              path="backups"
+              element={
+                <ProtectedRoute
+                  requireAnyPermission={[
+                    "settings:view",
+                    "settings:read",
+                    "settings:*",
+                    "system:view",
+                    "system:read",
+                    "system:*",
+                  ]}
+                >
+                  <BackupsManager />
+                </ProtectedRoute>
+              }
+            />
             <Route path="activity-log" element={<UserActivityLog />} />
             <Route path="recycle-bin" element={<RecycleBin />} />
             <Route path="settings" element={<AdminSettings />} />
-            <Route path="payments" element={<PaymentsManager />} />
-            <Route path="moderation" element={<ModerationManager />} />
-            <Route path="two-factor" element={<TwoFactorManager />} />
+            <Route
+              path="payments"
+              element={
+                <ProtectedRoute
+                  requireAnyPermission={[
+                    "monetization:view",
+                    "monetization:read",
+                    "monetization:*",
+                  ]}
+                >
+                  <PaymentsManager />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="moderation"
+              element={
+                <ProtectedRoute
+                  requireAnyPermission={[
+                    "moderation:view",
+                    "moderation:read",
+                    "moderation:*",
+                  ]}
+                >
+                  <ModerationManager />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="two-factor"
+              element={
+                <ProtectedRoute
+                  requireAnyPermission={[
+                    "settings:view",
+                    "settings:read",
+                    "settings:*",
+                    "system:view",
+                    "system:read",
+                    "system:*",
+                  ]}
+                >
+                  <TwoFactorManager />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="*"
               element={

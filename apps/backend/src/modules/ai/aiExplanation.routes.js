@@ -50,6 +50,16 @@ router.post(
       });
       res.json({ success: true, data: result });
     } catch (error) {
+      // Cost-bomb guard surfaces its estimate so the caller can confirm.
+      if (error?.code === "BULK_CONFIRM_REQUIRED") {
+        return res.status(400).json({
+          success: false,
+          code: error.code,
+          message: sanitizeErrorMessage(error),
+          estimatedTokens: error.estimatedTokens,
+          estimatedCostUsd: error.estimatedCostUsd,
+        });
+      }
       res
         .status(400)
         .json({ success: false, message: sanitizeErrorMessage(error) });

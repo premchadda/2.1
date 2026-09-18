@@ -20,6 +20,7 @@ import {
   getNormalizedEnrolledSeries,
 } from "../../shared/lib/enrollment";
 import { getSeriesTestStats } from "../../shared/lib/testSeriesStats";
+import { handleAvatarError } from "../../shared/utils/avatarFallback.js";
 import RecentActivity from "./RecentActivity";
 import TopPerformers from "./TopPerformers";
 import {
@@ -296,21 +297,35 @@ function Dashboard() {
 
         setAnalytics(analyticsData);
 
-        // Store in client-side memory cache for instant future loads
-        setDashboardCache(currentUserId, {
-          allSeries,
-          allTests,
-          analyticsData,
-          attemptsData,
-          examsData,
-          userEnrolledSeries: fetchedEnrolled,
-          topPerformers: performersSorted,
-          liveTests: mappedLive,
-          freeQuizzes: mappedQuizzes,
-          dueRevisions: revisionsRes.value || [],
-        });
+        // Store in client-side memory cache for instant future loads.
+        // Only cache successful payloads (essential stage-1 data present) and
+        // never persist a null analyticsData — keep it out of the cache so a
+        // failed analytics fetch doesn't poison future loads. Write under
+        // activeUserId (the id captured for this fetch), not the render-scope
+        // currentUserId, so a mid-fetch account switch can't misattribute.
+        const essentialOk =
+          (Array.isArray(allSeries) && allSeries.length > 0) ||
+          (Array.isArray(allTests) && allTests.length > 0) ||
+          (Array.isArray(attemptsData) && attemptsData.length > 0) ||
+          (Array.isArray(examsData) && examsData.length > 0);
+        if (essentialOk && activeUserId != null) {
+          const cachePayload = {
+            allSeries,
+            allTests,
+            attemptsData,
+            examsData,
+            userEnrolledSeries: fetchedEnrolled,
+            topPerformers: performersSorted,
+            liveTests: mappedLive,
+            freeQuizzes: mappedQuizzes,
+            dueRevisions: revisionsRes.value || [],
+          };
+          // Drop null analyticsData instead of caching the failure.
+          if (analyticsData != null) cachePayload.analyticsData = analyticsData;
+          setDashboardCache(activeUserId, cachePayload);
+        }
       } catch (err) {
-        console.error("[Dashboard] Error fetching dashboard data:", err);
+        console.error("[Dashboard] Error fetching dashboard data:", err?.message ?? err);
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -973,12 +988,7 @@ function Dashboard() {
                     decoding="async"
                     src={user.avatar || user.avatarUrl || user.photoURL}
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                      if (e.currentTarget.nextSibling) {
-                        e.currentTarget.nextSibling.style.display = "flex";
-                      }
-                    }}
+                    onError={handleAvatarError}
                   />
                 ) : null}
                 <div

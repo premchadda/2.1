@@ -10,12 +10,30 @@ import {
 import { applyPercentageDiscount } from "../../shared/utils/money.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 import { isFeatureEnabled } from "../../services/SettingsService.js";
+import { PLAN_DURATION_DAYS } from "../../services/SubscriptionService.js";
 import {
   applyPaymentTax,
   normalizePaymentSettings,
 } from "../../shared/utils/payment-settings.js";
 
 const router = express.Router();
+
+// LOW mock prefix: single const for mock-order detection + creation.
+const MOCK_ORDER_PREFIX = "order_mock_";
+
+// MED canonical days: normalize hyphen/underscore + case, then look up the
+// shared PLAN_DURATION_DAYS map. Returns null for unknown plans (caller 400s).
+const resolvePlanDays = (planId) => {
+  if (!planId) return null;
+  const normalized = String(planId).trim().toLowerCase().replace(/-/g, "_");
+  // Legacy checkout slugs ("pro-yearly"/"pro-monthly") map to canonical keys.
+  const alias = {
+    pro_yearly: "pro_yearly",
+    pro_monthly: "pro_monthly",
+  };
+  const key = alias[normalized] || normalized;
+  return PLAN_DURATION_DAYS[key] ?? null;
+};
 
 // Helper to get payment settings
 const getPaymentSettings = async () => {
@@ -79,6 +97,21 @@ const ensureAdminPaymentsTable = async () => {
   adminPaymentsTableReady = true;
 };
 
+/**
+ * Record an admin-facing payment row (payments ledger mirror of transactions).
+ * @param {object} args
+ * @param {number} args.userId
+ * @param {number} args.amount
+ * @param {string} [args.currency]
+ * @param {string} args.gatewayPaymentId
+ * @param {string} [args.orderId]
+ * @param {string} [args.planId]
+ * @param {object} [args.metadata]
+ * @param {string} [args.gateway] - 'razorpay' default; pass 'mock' for mock rows.
+ * @param {object} [args.client] - REQUIRED for transactional callers: pass the
+ *   active txn client so the insert participates in the caller's transaction.
+ *   Falls back to pool only for legacy non-transactional callers.
+ */
 const recordAdminPayment = async ({
   userId,
   amount,
@@ -87,10 +120,44 @@ const recordAdminPayment = async ({
   orderId,
   planId,
   metadata = {},
+  gateway,
   client, // optional: reuse transaction client
 }) => {
   await ensureAdminPaymentsTable();
+  // LOW default-client trap: transactional callers must pass client; warn on
+  // pool fallback so cross-ledger atomicity regressions are visible in logs.
+  if (!client) {
+    console.warn(
+      "[payments] recordAdminPayment called without txn client — falling back to pool (non-atomic)",
+    );
+  }
   const conn = client || pool;
+  const gatewayValue = gateway || (metadata?.isMock ? "mock" : "razorpay");
+  // UNIQUE guard (no DDL here — migration 143 owns the unique constraint on
+  // payments.gateway_payment_id): prefer INSERT ... ON CONFLICT DO NOTHING
+  // where the constraint exists; fall back to the SELECT-then-INSERT probe
+  // on older schemas where the constraint is absent.
+  try {
+    await conn.query(
+      `INSERT INTO payments
+        (user_id, amount, currency, status, gateway, gateway_payment_id, metadata)
+       VALUES ($1, $2, $3, 'success', $6, $4, $5::jsonb)
+       ON CONFLICT (gateway_payment_id) DO NOTHING`,
+      [
+        userId,
+        amount,
+        currency || "INR",
+        gatewayPaymentId,
+        JSON.stringify({ orderId, planId, ...metadata }),
+        gatewayValue,
+      ],
+    );
+    return;
+  } catch (conflictErr) {
+    // 42P10 (no matching constraint) / 42703 etc. — constraint absent on
+    // this schema; fall through to the probe-based guard below.
+    if (conflictErr?.code && conflictErr.code !== "42P10") throw conflictErr;
+  }
   const existing = await conn.query(
     "SELECT id FROM payments WHERE gateway_payment_id = $1 LIMIT 1",
     [gatewayPaymentId],
@@ -100,13 +167,14 @@ const recordAdminPayment = async ({
   await conn.query(
     `INSERT INTO payments
       (user_id, amount, currency, status, gateway, gateway_payment_id, metadata)
-     VALUES ($1, $2, $3, 'success', 'razorpay', $4, $5::jsonb)`,
+     VALUES ($1, $2, $3, 'success', $6, $4, $5::jsonb)`,
     [
       userId,
       amount,
       currency || "INR",
       gatewayPaymentId,
       JSON.stringify({ orderId, planId, ...metadata }),
+      gatewayValue,
     ],
   );
 };
@@ -307,21 +375,33 @@ router.post("/create-order", protect, async (req, res) => {
       });
     }
 
-    // Server-side price validation: look up the plan and verify amount matches
-    let originalAmount = parsedAmount;
+    // Server-side price validation (MED fail-closed): plan row must exist;
+    // client amount is never trusted. No client-amount fallback.
+    let originalAmount;
     try {
       const plans = await dbHelpers.find("subscription_plans");
       const plan = plans.find(
         (p) => p.id === planId || p.slug === planId || p.plan_id === planId,
       );
-      if (plan) {
-        const expectedAmount = Number(plan.price || plan.amount || 0);
-        if (expectedAmount > 0) {
-          originalAmount = expectedAmount;
-        }
+      if (!plan) {
+        return res.status(400).json({
+          success: false,
+          message: "Unknown plan. Please select a valid plan.",
+        });
       }
+      const expectedAmount = Number(plan.price || plan.amount || 0);
+      if (!Number.isFinite(expectedAmount) || expectedAmount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid plan price. Please contact support.",
+        });
+      }
+      originalAmount = expectedAmount;
     } catch (e) {
-      // If plans table doesn't exist, continue with client amount (fallback)
+      return res.status(400).json({
+        success: false,
+        message: "Unable to validate plan price. Please try again.",
+      });
     }
 
     let finalAmount = originalAmount;
@@ -354,7 +434,7 @@ router.post("/create-order", protect, async (req, res) => {
 
     if (!razorpayKeyId || !razorpayKeySecret || isDemoMode) {
       if (process.env.NODE_ENV !== "production") {
-        const mockOrderId = `order_mock_${Date.now()}_${req.user.id}`;
+        const mockOrderId = `${MOCK_ORDER_PREFIX}${Date.now()}_${req.user.id}`;
         return res.json({
           success: true,
           data: {
@@ -436,7 +516,7 @@ router.post(
       const { razorpayKeySecret } = await getPaymentSettings();
       const isDemoMode = await isFeatureEnabled("demoMode").catch(() => false);
 
-      const isMockOrder = razorpay_order_id?.startsWith("order_mock_");
+      const isMockOrder = razorpay_order_id?.startsWith(MOCK_ORDER_PREFIX);
       let isSignatureValid = false;
       let verifiedOrderAmount = null;
 
@@ -462,34 +542,19 @@ router.post(
 
       if (isSignatureValid) {
         // Payment verified
+        //
+        // NOTE: the Razorpay order fetch below is network I/O and MUST stay
+        // outside the DB transaction. Only the business-logic writes that
+        // follow run inside the single advisory-locked transaction.
 
-        // Idempotency guard: if we have already recorded a transaction for this
-        // Razorpay order, the user has already been upgraded. Replay of the same
-        // verified signature (intentional or accidental) must NOT grant Pro a
-        // second time or re-increment coupon usage. Mirrors the guard on the
-        // webhook handler below.
-        const alreadyProcessed = await dbHelpers.findOne("transactions", {
-          orderId: razorpay_order_id,
-        });
-        if (alreadyProcessed) {
-          return res.json({
-            success: true,
-            message: "Payment already verified",
-            data: {
-              proExpiry:
-                alreadyProcessed.planId === "pro-yearly"
-                  ? undefined
-                  : undefined,
-            },
-          });
-        }
-
-        // SECURITY: Derive planId from the Razorpay order's notes — NOT from the
-        // client-supplied req.body.planId. The order was created by our backend in
-        // /create-order with `notes.planId` set to the server-validated value, so
-        // it is authoritative.
+        // SECURITY: Derive planId AND couponCode from the Razorpay order's
+        // notes — NOT from the client-supplied req.body. The order was created
+        // by our backend in /create-order with `notes.planId`/`notes.couponCode`
+        // set to server-validated values, so notes are authoritative.
         const { razorpayKeyId, razorpayKeySecret } = await getPaymentSettings();
         let authoritativePlanId = planId;
+        let authoritativeCouponCode = couponCode || "";
+        let orderOriginalAmount = null;
 
         if (!isMockOrder && razorpayKeyId && razorpayKeySecret) {
           const razorpay = new Razorpay({
@@ -501,6 +566,21 @@ router.post(
               await razorpay.orders.fetch(razorpay_order_id);
             verifiedOrderAmount = Number(razorpayOrder.amount || 0) / 100;
             authoritativePlanId = razorpayOrder.notes?.planId || planId;
+            // HIGH coupon binding: coupon comes from fetched order notes.
+            authoritativeCouponCode = razorpayOrder.notes?.couponCode || "";
+            orderOriginalAmount = razorpayOrder.notes?.originalAmount
+              ? Number(razorpayOrder.notes.originalAmount)
+              : null;
+            // Reject client/order coupon mismatch (binding).
+            const bodyCoupon = (couponCode || "").trim();
+            const orderCoupon = (authoritativeCouponCode || "").trim();
+            if (bodyCoupon !== orderCoupon) {
+              return res.status(400).json({
+                success: false,
+                message:
+                  "Coupon does not match the server order. Please restart checkout.",
+              });
+            }
             // Validate the captured amount against the exact server-created
             // order amount, including coupons and tax.
             const expectedAmountPaise = Number(razorpayOrder.amount || 0);
@@ -531,52 +611,17 @@ router.post(
           }
         }
 
-        // Update user status
-        const user = await dbHelpers.findById("users", req.user.id);
-        if (!user) {
-          return res
-            .status(404)
-            .json({ success: false, message: "User not found" });
-        }
-
-        // Calculate expiry based on the AUTHORITATIVE planId (from Razorpay order)
-        let expiryDays = 30;
-        if (authoritativePlanId === "pro-yearly") expiryDays = 365;
-
-        const proExpiry = new Date();
-        proExpiry.setDate(proExpiry.getDate() + expiryDays);
-
-        await dbHelpers.updateById("users", req.user.id, {
-          isProUser: true,
-          proExpiry: proExpiry.toISOString(),
-        });
-
-        // Record coupon usage if applied
-        if (couponCode) {
-          try {
-            const coupons = await dbHelpers.find("coupons", {
-              code: couponCode,
-              isActive: true,
-            });
-            const coupon = coupons[0];
-            if (coupon) {
-              const usedBy = Array.isArray(coupon.usedByUsers)
-                ? coupon.usedByUsers
-                : [];
-              if (!usedBy.includes(req.user.id)) {
-                usedBy.push(req.user.id);
-                await dbHelpers.updateById("coupons", coupon.id || coupon._id, {
-                  usedCount: Number(coupon.usedCount || 0) + 1,
-                  usedByUsers: usedBy,
-                });
-              }
-            }
-          } catch (couponErr) {
-            console.error(
-              "Error updating coupon usage in verify:",
-              couponErr.message,
-            );
-          }
+        // Calculate expiry based on the AUTHORITATIVE planId (from Razorpay order).
+        // Early renewal extends from the existing expiry (no lost days):
+        // expiry = max(now, existing) + plan days (JS max; SQL equivalent is
+        // GREATEST(NOW(), pro_expiry) + make_interval(days => $n)).
+        // MED canonical days: shared PLAN_DURATION_DAYS; unknown plan → 400.
+        const expiryDays = resolvePlanDays(authoritativePlanId);
+        if (!expiryDays) {
+          return res.status(400).json({
+            success: false,
+            message: "Unknown plan. Please contact support.",
+          });
         }
 
         // P1 FIX: don't trust client amount; fallback to server-expected price when Razorpay fetch unavailable (mock/dev only)
@@ -596,44 +641,207 @@ router.post(
         const transactionAmount =
           verifiedOrderAmount != null ? verifiedOrderAmount : fallbackAmount;
 
-        // Record the legacy transaction and the admin-facing payment record.
+        // Single advisory-locked transaction for ALL fulfillment writes.
+        // Concurrent verifies for the same Razorpay order serialize on the
+        // pg_advisory_xact_lock (mirrors the webhook guard) so double-submit
+        // / retry replay cannot double-grant Pro or double-count coupons.
+        // Idempotency: re-check transactions.order_id INSIDE the lock.
+        // UNIQUE guard (no DDL here — migration 143 owns unique constraints
+        // on transactions order/payment ids): the in-txn SELECT probe + the
+        // advisory lock together make replay safe on schemas with or without
+        // the constraint.
+        const verifyClient = await pool.connect();
+        let verifyUser = null;
+        let verifyProExpiry = null;
         try {
-          await dbHelpers.insertOne("transactions", {
-            userId: req.user.id,
-            orderId: razorpay_order_id,
-            paymentId: razorpay_payment_id,
-            amount: transactionAmount,
-            currency: "INR",
-            status: "completed",
-            planId: authoritativePlanId,
-            createdAt: new Date().toISOString(),
-          });
-        } catch (txnErr) {
-          console.error(
-            "Error recording transaction in verify:",
-            txnErr.message,
+          await verifyClient.query("BEGIN");
+          await verifyClient.query(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+            [String(razorpay_order_id || "")],
           );
-        }
-        try {
-          await recordAdminPayment({
-            userId: req.user.id,
-            amount: transactionAmount,
-            currency: "INR",
-            gatewayPaymentId: razorpay_payment_id,
-            orderId: razorpay_order_id,
-            planId: authoritativePlanId,
-            metadata: {
-              couponCode: couponCode || null,
-              source: isMockOrder ? "mock_verify" : "verify",
-              isMock: isMockOrder || false,
+
+          // HIGH cross-path: probe BOTH order_id AND payment_id inside the
+          // lock; EITHER hit = replay (verify↔webhook race safe).
+          const alreadyByOrder = await verifyClient.query(
+            `SELECT id, order_id, payment_id, amount, currency, status, plan_id FROM transactions WHERE order_id = $1 LIMIT 1`,
+            [razorpay_order_id],
+          );
+          const alreadyByPayment = razorpay_payment_id
+            ? await verifyClient.query(
+                `SELECT id, order_id, payment_id, amount, currency, status, plan_id FROM transactions WHERE payment_id = $1 LIMIT 1`,
+                [razorpay_payment_id],
+              )
+            : { rows: [] };
+          const existingReplay =
+            alreadyByOrder.rows[0] || alreadyByPayment.rows[0] || null;
+          if (existingReplay) {
+            // MED replay body: return existing txn fields + current proExpiry.
+            const replayUser = await dbHelpers.findById(
+              "users",
+              req.user.id,
+              null,
+              verifyClient,
+            );
+            await verifyClient.query("ROLLBACK");
+            const currentExpiry =
+              replayUser?.proExpiry || replayUser?.pro_expiry || null;
+            return res.json({
+              success: true,
+              message: "Payment already verified",
+              data: {
+                orderId: existingReplay.order_id || razorpay_order_id,
+                paymentId: existingReplay.payment_id || razorpay_payment_id,
+                amount: Number(existingReplay.amount) || transactionAmount,
+                currency: existingReplay.currency || "INR",
+                planId: existingReplay.plan_id || authoritativePlanId,
+                status: existingReplay.status,
+                transactionId: existingReplay.id,
+                proExpiry: currentExpiry,
+              },
+            });
+          }
+
+          // HIGH coupon binding (re-validate inside txn): re-run helper
+          // against the authoritative coupon; reject mismatch/invalid 400.
+          if (authoritativeCouponCode) {
+            const couponCheck = await validateCouponHelper(
+              authoritativeCouponCode,
+              Number(
+                orderOriginalAmount ?? verifiedOrderAmount ?? transactionAmount,
+              ),
+              req.user.id,
+              authoritativePlanId,
+            );
+            if (!couponCheck.valid) {
+              await verifyClient.query("ROLLBACK");
+              return res.status(400).json({
+                success: false,
+                message: couponCheck.message || "Invalid coupon for this order",
+              });
+            }
+          }
+
+          // Update user status
+          verifyUser = await dbHelpers.findById(
+            "users",
+            req.user.id,
+            null,
+            verifyClient,
+          );
+          if (!verifyUser) {
+            await verifyClient.query("ROLLBACK");
+            return res
+              .status(404)
+              .json({ success: false, message: "User not found" });
+          }
+
+          const existingExpiry = new Date(
+            verifyUser.proExpiry || verifyUser.pro_expiry || 0,
+          );
+          const expiryBase =
+            !Number.isNaN(existingExpiry.getTime()) &&
+            existingExpiry > new Date()
+              ? existingExpiry
+              : new Date();
+          verifyProExpiry = new Date(expiryBase);
+          verifyProExpiry.setDate(verifyProExpiry.getDate() + expiryDays);
+
+          await dbHelpers.updateById(
+            "users",
+            req.user.id,
+            {
+              isProUser: true,
+              proExpiry: verifyProExpiry.toISOString(),
             },
-          });
-        } catch (paymentErr) {
-          console.error(
-            "Error recording admin payment in verify:",
-            paymentErr.message,
+            verifyClient,
           );
+
+          // Record coupon usage if applied (authoritative coupon from order notes)
+          // Atomic coupon increment: single UPDATE (used_count = used_count + 1)
+          // avoids the lost-update race of read-modify-write under concurrency.
+          // Same atomic shape as the webhook handler below.
+          if (authoritativeCouponCode) {
+            try {
+              await verifyClient.query(
+                `UPDATE coupons
+                 SET used_count = COALESCE(used_count, 0) + 1,
+                     used_by_users = CASE
+                       WHEN used_by_users IS NULL THEN to_jsonb(ARRAY[$2::text])
+                       WHEN used_by_users::jsonb ? $2 THEN used_by_users
+                       ELSE used_by_users::jsonb || to_jsonb($2::text)
+                     END,
+                     updated_at = NOW()
+                 WHERE code = $1 AND is_active = true
+                   AND NOT (used_by_users::jsonb ? $2)`,
+                [authoritativeCouponCode, String(req.user.id)],
+              );
+            } catch (couponErr) {
+              console.error(
+                "Error updating coupon usage in verify:",
+                couponErr.message,
+              );
+            }
+          }
+
+          // Record the legacy transaction and the admin-facing payment record.
+          try {
+            await dbHelpers.insertOne(
+              "transactions",
+              {
+                userId: req.user.id,
+                orderId: razorpay_order_id,
+                paymentId: razorpay_payment_id,
+                amount: transactionAmount,
+                currency: "INR",
+                status: "completed",
+                planId: authoritativePlanId,
+                createdAt: new Date().toISOString(),
+              },
+              verifyClient,
+            );
+          } catch (txnErr) {
+            console.error(
+              "Error recording transaction in verify:",
+              txnErr.message,
+            );
+          }
+          try {
+            await recordAdminPayment({
+              userId: req.user.id,
+              amount: transactionAmount,
+              currency: "INR",
+              gatewayPaymentId: razorpay_payment_id,
+              orderId: razorpay_order_id,
+              planId: authoritativePlanId,
+              gateway: isMockOrder ? "mock" : "razorpay",
+              metadata: {
+                couponCode: authoritativeCouponCode || null,
+                source: isMockOrder ? "mock_verify" : "verify",
+                isMock: isMockOrder || false,
+              },
+              client: verifyClient,
+            });
+          } catch (paymentErr) {
+            console.error(
+              "Error recording admin payment in verify:",
+              paymentErr.message,
+            );
+          }
+
+          await verifyClient.query("COMMIT");
+        } catch (verifyTxnErr) {
+          try {
+            await verifyClient.query("ROLLBACK");
+          } catch {
+            // rollback best-effort; original error is what matters
+          }
+          throw verifyTxnErr;
+        } finally {
+          verifyClient.release();
         }
+
+        const user = verifyUser;
+        const proExpiry = verifyProExpiry;
 
         res.json({
           success: true,
@@ -756,21 +964,27 @@ router.post(
       signatureValid,
     }) => {
       try {
-        await pool.query(
-          `CREATE TABLE IF NOT EXISTS webhook_events (
-            id SERIAL PRIMARY KEY,
-            gateway VARCHAR(50) NOT NULL DEFAULT 'razorpay',
-            event VARCHAR(100) NOT NULL,
-            gateway_payment_id VARCHAR(255),
-            order_id VARCHAR(255),
-            status VARCHAR(50) NOT NULL DEFAULT 'received',
-            payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-            headers JSONB NOT NULL DEFAULT '{}'::jsonb,
-            signature_valid BOOLEAN NOT NULL DEFAULT true,
-            error TEXT,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-          )`,
-        );
+        // CREATE TABLE on the hot path contends under retry storms — run it
+        // once per process (a failure leaves the flag unset so the next
+        // request retries the DDL instead of skipping it forever).
+        if (!persistWebhookEvent.tableEnsured) {
+          await pool.query(
+            `CREATE TABLE IF NOT EXISTS webhook_events (
+              id SERIAL PRIMARY KEY,
+              gateway VARCHAR(50) NOT NULL DEFAULT 'razorpay',
+              event VARCHAR(100) NOT NULL,
+              gateway_payment_id VARCHAR(255),
+              order_id VARCHAR(255),
+              status VARCHAR(50) NOT NULL DEFAULT 'received',
+              payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+              headers JSONB NOT NULL DEFAULT '{}'::jsonb,
+              signature_valid BOOLEAN NOT NULL DEFAULT true,
+              error TEXT,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )`,
+          );
+          persistWebhookEvent.tableEnsured = true;
+        }
         await pool.query(
           `INSERT INTO webhook_events (gateway, event, gateway_payment_id, order_id, status, payload, headers, signature_valid, error)
            VALUES ('razorpay', $1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8)`,
@@ -857,7 +1071,7 @@ router.post(
         if (userId) {
           const gatewayPaymentId = paymentEntity.id;
 
-          await dbHelpers.withTransaction(async (client) => {
+          const receipt = await dbHelpers.withTransaction(async (client) => {
             // Idempotency guard: pg advisory lock keyed on the gateway payment
             // id serializes concurrent webhooks for the SAME payment (Razorpay
             // retries on delivery failure). A row lock cannot do this — there
@@ -875,12 +1089,28 @@ router.post(
               .readBigInt64BE(0);
             await client.query("SELECT pg_advisory_xact_lock($1)", [lockKey]);
 
-            const { rows } = await client.query(
+            // HIGH cross-path: probe BOTH payment_id AND order_id inside the
+            // lock; EITHER hit = replay (verify↔webhook race safe). Inserts
+            // below keep writing both columns.
+            const byPayment = await client.query(
               `SELECT id FROM transactions WHERE payment_id = $1 LIMIT 1`,
               [gatewayPaymentId],
             );
-            if (rows.length > 0) {
+            // UNIQUE guard (no DDL here — migration 143 owns unique
+            // constraints on transactions order/payment ids): the advisory
+            // lock above + these in-txn probes make replay safe with or
+            // without the constraint.
+            if (byPayment.rows.length > 0) {
               return; // Already processed — skip inside transaction
+            }
+            if (orderId) {
+              const byOrder = await client.query(
+                `SELECT id FROM transactions WHERE order_id = $1 LIMIT 1`,
+                [orderId],
+              );
+              if (byOrder.rows.length > 0) {
+                return; // Already processed via verify path — skip
+              }
             }
 
             // Update user status
@@ -892,10 +1122,27 @@ router.post(
             );
             if (!user) return;
 
-            let expiryDays = 30;
-            if (planId === "pro-yearly") expiryDays = 365;
+            // MED canonical days: shared PLAN_DURATION_DAYS; unknown → no grant.
+            const expiryDays = resolvePlanDays(planId);
+            if (!expiryDays) {
+              console.warn(
+                `[webhook] unknown planId ${planId} for payment ${gatewayPaymentId} — skipping Pro grant`,
+              );
+              return;
+            }
 
-            const proExpiry = new Date();
+            // Early renewal extends from the existing expiry (no lost days):
+            // expiry = max(now, existing) + plan days (JS max; SQL
+            // equivalent is GREATEST(NOW(), pro_expiry)).
+            const existingExpiry = new Date(
+              user.proExpiry || user.pro_expiry || 0,
+            );
+            const expiryBase =
+              !Number.isNaN(existingExpiry.getTime()) &&
+              existingExpiry > new Date()
+                ? existingExpiry
+                : new Date();
+            const proExpiry = new Date(expiryBase);
             proExpiry.setDate(proExpiry.getDate() + expiryDays);
 
             await dbHelpers.updateById(
@@ -908,38 +1155,23 @@ router.post(
               client,
             );
 
-            // Record coupon usage if applied
+            // Record coupon usage if applied — atomic single UPDATE (same as
+            // /verify): safe under verify+webhook races, no lost updates.
             if (couponCode) {
               try {
-                const coupons = await dbHelpers.find(
-                  "coupons",
-                  {
-                    code: couponCode,
-                    isActive: true,
-                  },
-                  null,
-                  null,
-                  null,
-                  client,
+                await client.query(
+                  `UPDATE coupons
+                   SET used_count = COALESCE(used_count, 0) + 1,
+                       used_by_users = CASE
+                         WHEN used_by_users IS NULL THEN to_jsonb(ARRAY[$2::text])
+                         WHEN used_by_users::jsonb ? $2 THEN used_by_users
+                         ELSE used_by_users::jsonb || to_jsonb($2::text)
+                       END,
+                       updated_at = NOW()
+                   WHERE code = $1 AND is_active = true
+                     AND NOT (used_by_users::jsonb ? $2)`,
+                  [couponCode, String(userId)],
                 );
-                const coupon = coupons[0];
-                if (coupon) {
-                  const usedBy = Array.isArray(coupon.usedByUsers)
-                    ? coupon.usedByUsers
-                    : [];
-                  if (!usedBy.includes(userId)) {
-                    usedBy.push(userId);
-                    await dbHelpers.updateById(
-                      "coupons",
-                      coupon.id || coupon._id,
-                      {
-                        usedCount: Number(coupon.usedCount || 0) + 1,
-                        usedByUsers: usedBy,
-                      },
-                      client,
-                    );
-                  }
-                }
               } catch (couponErr) {
                 console.error(
                   "Error updating coupon usage in webhook:",
@@ -975,39 +1207,45 @@ router.post(
               client,
             });
 
-            // P0 FIX: webhook receipt email (was missing)
-            try {
-              const userRec = user;
-              if (userRec?.email) {
-                const { default: emailService } =
-                  await import("../../services/EmailService.js");
-                let expiryForEmail = new Date();
-                expiryForEmail.setDate(
-                  expiryForEmail.getDate() +
-                    (planId === "pro-yearly" ? 365 : 30),
-                );
-                const html = emailService.getHtmlWrapper
-                  ? emailService.getHtmlWrapper(
-                      "Payment Confirmed — Trstprep Pro Pass",
-                      `<p>Hi ${userRec.name || userRec.email},</p><p>Your payment was confirmed via webhook and <strong>${planId || "Pro"}</strong> is active.</p><div style="background:#f9fafb;padding:16px;border-radius:8px;margin:16px 0;border:1px solid #e5e7eb;"><p><strong>Order:</strong> ${orderId}</p><p><strong>Payment:</strong> ${gatewayPaymentId}</p><p><strong>Amount:</strong> ₹${paymentEntity.amount / 100}</p></div><p>Keep this as your receipt.</p>`,
-                      {
-                        text: "Go to Dashboard",
-                        url: `${process.env.FRONTEND_URL || "https://trstprep.com"}/dashboard`,
-                      },
-                    )
-                  : `<p>Payment confirmed: ${orderId} / ${gatewayPaymentId} ₹${paymentEntity.amount / 100}</p>`;
-                await emailService
-                  .send(
-                    userRec.email,
-                    `Payment Confirmed — ₹${paymentEntity.amount / 100} — Trstprep`,
-                    html,
-                  )
-                  .catch(() => {});
-              }
-            } catch (_e) {
-              void _e;
-            }
+            // Return receipt context — the email is sent AFTER commit (below)
+            // so SMTP I/O never holds the advisory lock / transaction open.
+            return {
+              receiptEmail: user?.email || null,
+              receiptName: user?.name || user?.email || null,
+              receiptPlanId: planId,
+              receiptOrderId: orderId,
+              receiptPaymentId: gatewayPaymentId,
+              receiptAmount: paymentEntity.amount / 100,
+            };
           });
+
+          // Post-commit receipt email (best-effort): SMTP I/O must never hold
+          // the advisory lock / transaction open under a retry storm.
+          try {
+            if (receipt?.receiptEmail) {
+              const { default: emailService } =
+                await import("../../services/EmailService.js");
+              const html = emailService.getHtmlWrapper
+                ? emailService.getHtmlWrapper(
+                    "Payment Confirmed — Trstprep Pro Pass",
+                    `<p>Hi ${receipt.receiptName},</p><p>Your payment was confirmed via webhook and <strong>${receipt.receiptPlanId || "Pro"}</strong> is active.</p><div style="background:#f9fafb;padding:16px;border-radius:8px;margin:16px 0;border:1px solid #e5e7eb;"><p><strong>Order:</strong> ${receipt.receiptOrderId}</p><p><strong>Payment:</strong> ${receipt.receiptPaymentId}</p><p><strong>Amount:</strong> ₹${receipt.receiptAmount}</p></div><p>Keep this as your receipt.</p>`,
+                    {
+                      text: "Go to Dashboard",
+                      url: `${process.env.FRONTEND_URL || "https://trstprep.com"}/dashboard`,
+                    },
+                  )
+                : `<p>Payment confirmed: ${receipt.receiptOrderId} / ${receipt.receiptPaymentId} ₹${receipt.receiptAmount}</p>`;
+              await emailService
+                .send(
+                  receipt.receiptEmail,
+                  `Payment Confirmed — ₹${receipt.receiptAmount} — Trstprep`,
+                  html,
+                )
+                .catch(() => {});
+            }
+          } catch {
+            /* receipt mail is non-fatal */
+          }
         }
       } else if (event === "refund.created" || event === "refund.processed") {
         const refundEntity = req.body.payload?.refund?.entity || {};
@@ -1015,50 +1253,95 @@ router.post(
         const refundId = refundEntity.id;
 
         if (gatewayPaymentId) {
-          const existingTx = await dbHelpers.findOne("transactions", {
-            paymentId: gatewayPaymentId,
-          });
-          if (existingTx && existingTx.status === "refunded") {
-            return res.json({
-              success: true,
-              message: "Refund webhook already processed",
-            });
-          }
-
+          // HIGH webhook refund: payment-key advisory lock + in-txn re-probe
+          // + all 3 writes (transactions + users + payments) via txn client.
           await dbHelpers.withTransaction(async (client) => {
-            if (existingTx) {
-              await dbHelpers.updateById(
-                "transactions",
-                existingTx.id || existingTx._id,
-                {
-                  status: "refunded",
-                  refundId: refundId || null,
-                  updatedAt: new Date().toISOString(),
-                },
-                client,
-              );
+            await client.query(
+              "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+              [`refund:payment:${gatewayPaymentId}`],
+            );
+            // In-txn re-probe (no stale outside read).
+            const probe = await client.query(
+              `SELECT id, user_id, amount, status FROM transactions WHERE payment_id = $1 LIMIT 1`,
+              [gatewayPaymentId],
+            );
+            const txRow = probe.rows[0] || null;
+            if (!txRow) return;
+            if (txRow.status === "refunded") return;
 
-              if (existingTx.userId) {
-                await dbHelpers.updateById(
-                  "users",
-                  existingTx.userId,
-                  {
-                    isProUser: false,
-                    proExpiry: null,
-                  },
-                  client,
-                );
-              }
-              // P0 FIX: keep payments ledger in sync on webhook refund
-              try {
-                await pool.query(
-                  `UPDATE payments SET status='refunded', refunded_at=NOW() WHERE gateway_payment_id=$1 AND status != 'refunded'`,
-                  [gatewayPaymentId],
-                );
-              } catch (_e) {
-                void _e;
-              }
+            // HIGH partials: full (>=captured) revokes Pro; partial keeps Pro.
+            const capturedPaise = Math.round(Number(txRow.amount || 0) * 100);
+            const refundPaise = Number(refundEntity.amount || 0);
+            const isFull =
+              !refundPaise || capturedPaise <= 0
+                ? true
+                : refundPaise >= capturedPaise;
+            const refundAmountRupees =
+              refundPaise > 0 ? refundPaise / 100 : Number(txRow.amount) || 0;
+
+            // Resolve internal id for dbHelpers (accepts numeric id).
+            let fullTx = null;
+            try {
+              fullTx = await dbHelpers.findOne("transactions", {
+                paymentId: gatewayPaymentId,
+              });
+            } catch {
+              fullTx = null;
             }
+            const txId = fullTx?.id || fullTx?._id || txRow.id;
+            await dbHelpers.updateById(
+              "transactions",
+              txId,
+              {
+                status: isFull ? "refunded" : "partially_refunded",
+                refundId: refundId || null,
+                refundAmount: refundAmountRupees,
+                updatedAt: new Date().toISOString(),
+              },
+              client,
+            );
+
+            if (txRow.user_id) {
+              if (isFull) {
+                // MED webhook otherSuccess: mirror admin guard — only revoke
+                // when no other successful payment remains.
+                const otherSuccess = await client.query(
+                  `SELECT 1 FROM payments WHERE user_id=$1 AND status='success' LIMIT 1`,
+                  [txRow.user_id],
+                );
+                if (otherSuccess.rows.length === 0) {
+                  await dbHelpers.updateById(
+                    "users",
+                    txRow.user_id,
+                    {
+                      isProUser: false,
+                      proExpiry: null,
+                    },
+                    client,
+                  );
+                }
+              }
+              // Partial → keep Pro + note stored in payments metadata below.
+            }
+            // P0 FIX: keep payments ledger in sync on webhook refund (txn client).
+            await client.query(
+              `UPDATE payments SET status=$2, refunded_at=NOW(),
+                 metadata = COALESCE(metadata,'{}'::jsonb) || $3::jsonb
+               WHERE gateway_payment_id=$1 AND status != 'refunded'`,
+              [
+                gatewayPaymentId,
+                isFull ? "refunded" : "partially_refunded",
+                JSON.stringify({
+                  refund: {
+                    refundId: refundId || null,
+                    refundAmount: refundAmountRupees,
+                    isPartial: !isFull,
+                    source: "webhook",
+                    refundedAt: new Date().toISOString(),
+                  },
+                }),
+              ],
+            );
           });
         }
       }

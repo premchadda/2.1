@@ -31,7 +31,30 @@ export const invalidateResponseCache = async (namespace) => {
 // In-flight dedup: concurrent GET requests for the same key share a single
 // expensive handler execution instead of all running it at once (which used to
 // exhaust the connection pool and cause 504s on endpoints like /api/study).
+// NOTE (unbounded-Map acceptance): entries are keyed by request URL and always
+// removed via finish()/finishCold()/finishRefresh or the stale-timeout delete
+// below, so the map holds at most one entry per concurrently-computing URL.
+// No eviction is implemented by design — accepted: worst case is bounded by
+// concurrent distinct URLs, not by traffic volume.
 const inFlight = new Map();
+
+// Bound barrier waits so a hung handler never parks waiters forever: race the
+// barrier against a 12s timeout, and drop the stale barrier entry so later
+// requests recompute instead of queueing behind a dead promise.
+const awaitBarrier = async (barrier, ms = 12000) => {
+  if (!barrier?.promise) return;
+  let timer = null;
+  try {
+    await Promise.race([
+      barrier.promise,
+      new Promise((resolve) => {
+        timer = setTimeout(resolve, ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
 
 export const responseCache = (
   namespaceOrOptions,
@@ -63,7 +86,10 @@ export const responseCache = (
           ? `u:${req.user.id}`
           : "anon"
         : "global";
-      const key = `${prefix}:${userScope}:${requestPath}`;
+      // Key carries scope + path only — the namespace is applied once by
+      // cacheService.toNamespacedKey, so the prefix must NOT be repeated here
+      // (getCache(prefix, `${prefix}:…`) would double-count it).
+      const key = `${userScope}:${requestPath}`;
 
       try {
         const cached = await getCache(prefix, key);
@@ -78,7 +104,7 @@ export const responseCache = (
       const barrier = inFlight.get(key);
       if (barrier) {
         try {
-          await barrier.promise;
+          await awaitBarrier(barrier);
           const cached = await getCache(prefix, key).catch(() => null);
           if (cached !== null) {
             res.set("X-Cache", "HIT");
@@ -86,6 +112,13 @@ export const responseCache = (
           }
         } catch {
           // fall through to run handler
+        }
+        // Stale barrier (timed out with no cache) — delete it so this request
+        // becomes the new leader instead of queueing behind a dead promise.
+        // Only delete when the entry is still this exact barrier (the leader
+        // may have finished, or a newer barrier may already exist).
+        if (inFlight.get(key) === barrier) {
+          inFlight.delete(key);
         }
       }
 
@@ -97,20 +130,42 @@ export const responseCache = (
       };
       inFlight.set(key, myBarrier);
 
+      // Guarded so the 'close' fallback below can never double-release the
+      // barrier when res.json/res.send already ran. Streaming/sendFile
+      // responses fire neither wrapper, so 'close' is their only release.
+      let finished = false;
       const finish = () => {
+        if (finished) return;
+        finished = true;
         inFlight.delete(key);
         if (release) release();
       };
+      res.on("close", finish);
 
       const originalJson = res.json.bind(res);
+      const originalSend = res.send.bind(res);
       res.json = (body) => {
         res.json = originalJson;
-        finish();
+        res.send = originalSend;
+        // Release the barrier only after the cache write settles (mirrors the
+        // namespace branch below): releasing before setCache resolves lets a
+        // waiter read before the write lands and duplicate the computation.
         if (res.statusCode < 400 && body && body.success !== false) {
-          setCache(prefix, key, body, ttl).catch(() => {});
+          setCache(prefix, key, body, ttl)
+            .catch(() => {})
+            .finally(finish);
+        } else {
+          finish();
         }
         res.set("X-Cache", "MISS");
         return originalJson(body);
+      };
+      // Release the in-flight barrier on the res.send path too (non-JSON responses)
+      res.send = (body) => {
+        res.json = originalJson;
+        res.send = originalSend;
+        finish();
+        return originalSend(body);
       };
 
       return next();
@@ -132,11 +187,15 @@ export const responseCache = (
         ? `u:${req.user.id}`
         : "anon"
       : "global";
-    const key = `${namespace}:${userScope}:${req.originalUrl || req.url}`;
+    // Key carries scope + path only — the namespace is applied once by
+    // cacheService.toNamespacedKey (getCache(namespace, `${namespace}:…`)
+    // would double-count it).
+    const key = `${userScope}:${req.originalUrl || req.url}`;
 
     try {
       const cached = await getCache(namespace, key);
       if (cached !== null) {
+        res.set("X-Cache", "HIT");
         return res.json(cached);
       }
     } catch {
@@ -148,13 +207,20 @@ export const responseCache = (
     const barrier = inFlight.get(key);
     if (barrier) {
       try {
-        await barrier.promise;
+        await awaitBarrier(barrier);
         const cached = await getCache(namespace, key).catch(() => null);
         if (cached !== null) {
+          res.set("X-Cache", "HIT");
           return res.json(cached);
         }
       } catch {
         // fall through to run the handler ourselves
+      }
+      // Stale barrier (timed out with no cache) — delete it so this request
+      // becomes the new leader instead of queueing behind a dead promise.
+      // Only delete when the entry is still this exact barrier.
+      if (inFlight.get(key) === barrier) {
+        inFlight.delete(key);
       }
     }
 
@@ -166,15 +232,24 @@ export const responseCache = (
     };
     inFlight.set(key, myBarrier);
 
+    // Guarded so the 'close' fallback below can never double-release the
+    // barrier when res.json/res.send already ran. Streaming/sendFile
+    // responses fire neither wrapper, so 'close' is their only release.
+    let finished = false;
     const finish = () => {
+      if (finished) return;
+      finished = true;
       inFlight.delete(key);
       if (release) release();
     };
+    res.on("close", finish);
 
     const originalJson = res.json.bind(res);
+    const originalSend = res.send.bind(res);
     res.json = (body) => {
       // Restore the original so it is only wrapped once.
       res.json = originalJson;
+      res.send = originalSend;
       if (res.statusCode < 400 && body && body.success !== false) {
         setCache(namespace, key, body, ttlSeconds)
           .catch(() => {})
@@ -182,7 +257,15 @@ export const responseCache = (
       } else {
         finish();
       }
+      res.set("X-Cache", "MISS");
       return originalJson(body);
+    };
+    // Release the in-flight barrier on the res.send path too (non-JSON responses)
+    res.send = (body) => {
+      res.json = originalJson;
+      res.send = originalSend;
+      finish();
+      return originalSend(body);
     };
 
     next();
@@ -210,7 +293,10 @@ export const swrCache = (
         ? `u:${req.user.id}`
         : "anon"
       : "global";
-    const key = `swr:${namespace}:${userScope}:${req.originalUrl || req.url}`;
+    // `swr:` marker kept so SWR envelopes never collide with plain bodies
+    // under the same namespace; the namespace itself is applied once by
+    // cacheService.toNamespacedKey.
+    const key = `swr:${userScope}:${req.originalUrl || req.url}`;
 
     const envelope = await getCache(namespace, key).catch(() => null);
     const now = Date.now();
@@ -230,20 +316,45 @@ export const swrCache = (
 
       if (!swrInFlight.has(key)) {
         swrInFlight.add(key);
-        // Replace res.json so the downstream handler's response is captured
-        // for the cache refresh but NOT written to the already-ended response.
+        // Replace res.json/res.send so the downstream handler's response is
+        // captured for the cache refresh but NOT written to the already-ended
+        // response.
+        const finishRefresh = () => {
+          swrInFlight.delete(key);
+        };
         res.json = (body) => {
           res.json = () => {};
+          res.send = () => res;
           if (res.statusCode < 400 && body && body.success !== false) {
             setCache(namespace, key, { cachedAt: Date.now(), body }, staleTtl)
               .catch(() => {})
-              .finally(() => swrInFlight.delete(key));
+              .finally(finishRefresh);
           } else {
-            swrInFlight.delete(key);
+            finishRefresh();
           }
           return res;
         };
-        return next();
+        res.send = (body) => {
+          res.json = () => {};
+          res.send = () => res;
+          finishRefresh();
+          return res;
+        };
+        // Fallback release for the stale-refresh run: if downstream throws
+        // synchronously or never calls res.json/res.send (e.g. a sendFile /
+        // streaming path), the swrInFlight key must not leak. Set.delete is
+        // idempotent so this can never double-release a normal refresh.
+        // NOTE: try/finally around next() would release the key immediately
+        // (before the async downstream completes) and defeat in-flight
+        // tracking — so only sync throws are caught here; async completion
+        // releases via the wrappers above, hangs via 'close' below.
+        res.on("close", finishRefresh);
+        try {
+          return next();
+        } catch (err) {
+          finishRefresh();
+          throw err;
+        }
       }
 
       // A refresh is already in flight for this key; the stale copy was served.
@@ -253,22 +364,56 @@ export const swrCache = (
     // Cold cache — run the handler and capture a fresh envelope.
     if (swrInFlight.has(key)) {
       // Another request is computing this exact entry right now; wait briefly
-      // for it rather than running a duplicate expensive query.
+      // (bounded) for it rather than running a duplicate expensive query.
       res.set("X-Cache", "WAIT");
+      let timer = null;
+      try {
+        await Promise.race([
+          (async () => {
+            while (swrInFlight.has(key)) {
+              await new Promise((r) => setTimeout(r, 50));
+            }
+          })(),
+          new Promise((resolve) => {
+            timer = setTimeout(resolve, 2000);
+          }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+      const raced = await getCache(namespace, key).catch(() => null);
+      if (raced && typeof raced.cachedAt === "number") {
+        res.set("X-Cache", "HIT");
+        return res.json(raced.body);
+      }
     }
 
+    swrInFlight.add(key);
     const originalJson = res.json.bind(res);
+    const originalSend = res.send.bind(res);
+    const finishCold = () => {
+      swrInFlight.delete(key);
+    };
     res.json = (body) => {
       res.json = originalJson;
+      res.send = originalSend;
       if (res.statusCode < 400 && body && body.success !== false) {
         setCache(
           namespace,
           key,
           { cachedAt: Date.now(), body },
           staleTtl,
-        ).catch(() => {});
+        ).catch(() => {}).finally(finishCold);
+      } else {
+        finishCold();
       }
       return originalJson(body);
+    };
+    res.send = (body) => {
+      res.json = originalJson;
+      res.send = originalSend;
+      finishCold();
+      return originalSend(body);
     };
     next();
   };

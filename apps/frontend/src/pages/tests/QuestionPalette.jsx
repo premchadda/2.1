@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo, memo } from "react";
 import { X, Filter } from "lucide-react";
+import { handleAvatarError } from "../../shared/utils/avatarFallback.js";
 
 function QuestionPalette({
   showPalette,
@@ -153,12 +154,7 @@ function QuestionPalette({
                     src={user.avatar || user.avatarUrl}
                     alt={userName}
                     className="h-full w-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                      if (e.currentTarget.nextSibling) {
-                        e.currentTarget.nextSibling.style.display = "inline";
-                      }
-                    }}
+                    onError={handleAvatarError}
                   />
                 ) : null}
                 <span

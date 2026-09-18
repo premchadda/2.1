@@ -50,10 +50,18 @@ router.post("/submit", protect, aiRateLimiter, async (req, res) => {
         message: "topicId and correct are required",
       });
     }
+    // NaN guard mirrors the GET /:topicId validation (19).
+    const parsedTopicId = parseInt(topicId, 10);
+    if (topicId === "undefined" || isNaN(parsedTopicId)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid topicId is required",
+      });
+    }
 
     const data = await adaptiveDifficultyService.updatePerformance(
       req.user.id,
-      parseInt(topicId),
+      parsedTopicId,
       Boolean(correct),
       parseInt(timeSpent) || 0,
     );
@@ -78,6 +86,13 @@ router.post("/batch", protect, aiRateLimiter, async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "topicIds array is required",
+      });
+    }
+    // Batch array cap (19): fail closed instead of fanning out unbounded reads.
+    if (topicIds.length > 50) {
+      return res.status(400).json({
+        success: false,
+        message: "topicIds array is capped at 50 entries",
       });
     }
     const data = await adaptiveDifficultyService.getDifficulties(

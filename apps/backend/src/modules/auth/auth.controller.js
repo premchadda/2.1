@@ -15,12 +15,15 @@ import {
   ADMIN_IDLE_TIMEOUT_MS,
   SESSION_ABSOLUTE_TIMEOUT_MS,
   isSessionExpired,
+  invalidateSessionCache,
+  invalidateUserCache,
 } from "../../middleware/auth.middleware.js";
 import {
   logAuditEvent,
   AUDIT_ACTIONS,
 } from "../../middleware/audit.middleware.js";
-import { recordLoginAttempt } from "../../middleware/lockout.middleware.js";
+import { recordLoginAttempt, clearLoginAttempts } from "../../middleware/lockout.middleware.js";
+import { invalidateResponseCache } from "../../middleware/responseCache.middleware.js";
 import { messageBroker } from "../../infrastructure/events/messageBroker.js";
 import { getIO } from "../../infrastructure/websocket/websocketManager.js";
 import {
@@ -38,6 +41,7 @@ import {
   generateCsrfToken,
   storeCsrfToken,
   setCsrfCookie,
+  deleteCsrfToken,
 } from "../../middleware/csrf.middleware.js";
 import { isTransientDbError } from "../../shared/utils/db-errors.js";
 import { sendVerificationEmail } from "../../infrastructure/email/emailService.js";
@@ -74,7 +78,8 @@ if (!googleClientId) {
 
 const resolveUserPermissions = async (user) => {
   if (!user) return [];
-  if (user.role === "super_admin") return ["*"];
+  // Single-admin model: only the admin role resolves permissions (explicit
+  // RBAC rows, else the default admin tier). No wildcard role bypass.
   if (user.role === "admin" || user.isAdmin || user.is_admin) {
     try {
       const { rows: permRows } = await dbHelpers.pool.query(
@@ -267,6 +272,10 @@ export const authController = {
           twoFaRow.rows[0].enabled === true
         ) {
           const rememberMe = Boolean(req.body.rememberMe);
+          // L4: dedicated JWT_2FA_SECRET is preferred for the 2FA temp token
+          // (isolates it from session-token verifiers); the JWT_SECRET
+          // fallback is kept intentionally for envs without the dedicated
+          // secret — no behavior change.
           const tempToken = jwt.sign(
             {
               userId: userId2fa,
@@ -304,10 +313,10 @@ export const authController = {
       const userId = user._id || user.id;
 
       // SESSION-SEC: Determine session limit based on role/pro status
-      // Admins (admin/super_admin) are unlimited by default; free=1, pro=3.
+      // Admins are unlimited by default; free=1, pro=3.
       // Explicit users.session_limit overrides all (null/undefined = use default).
       let sessionLimit = 1; // Default for free users
-      if (user.role === ROLES.ADMIN || user.role === ROLES.SUPER_ADMIN) {
+      if (user.role === ROLES.ADMIN) {
         sessionLimit = Infinity; // Admin unlimited
         // Explicit override still respected if admin has session_limit set
         if (user.session_limit !== null && user.session_limit !== undefined) {
@@ -459,12 +468,7 @@ export const authController = {
 
       // Remove password from response
       const userWithoutPassword = sanitizeUser(user);
-      if (
-        user.role === "admin" ||
-        user.role === "super_admin" ||
-        user.is_admin ||
-        user.isAdmin
-      ) {
+      if (user.role === "admin" || user.is_admin || user.isAdmin) {
         userWithoutPassword.permissions = await resolveUserPermissions(user);
       }
 
@@ -810,9 +814,9 @@ export const authController = {
       res.locals.loginAttemptRecorded = true;
       const userId = user._id || user.id;
 
-      // SESSION-SEC: Determine session limit (admin unlimited)
+      // SESSION-SEC: Determine session limit (single admin tier unlimited)
       let googleSessionLimit = 1;
-      if (user.role === ROLES.ADMIN || user.role === ROLES.SUPER_ADMIN) {
+      if (user.role === ROLES.ADMIN) {
         googleSessionLimit = Infinity;
         if (user.session_limit !== null && user.session_limit !== undefined) {
           googleSessionLimit = user.session_limit;
@@ -925,12 +929,7 @@ export const authController = {
       });
 
       const userWithoutPassword = sanitizeUser(user);
-      if (
-        user.role === "admin" ||
-        user.role === "super_admin" ||
-        user.is_admin ||
-        user.isAdmin
-      ) {
+      if (user.role === "admin" || user.is_admin || user.isAdmin) {
         userWithoutPassword.permissions = await resolveUserPermissions(user);
       }
 
@@ -961,11 +960,10 @@ export const authController = {
       const sessionId = req.user?.sessionId;
       if (sessionId) {
         try {
-          await invalidateSession(sessionId, {
-            id: req.user.id,
-            email: req.user.email,
-            name: req.user.name,
-          });
+          // L1: revokedBy must be a string sessionId — invalidateSession()
+          // emits it in the `session:revoked` WS payload, so passing the
+          // user object here would serialize unpredictably for consumers.
+          await invalidateSession(sessionId, sessionId);
         } catch (sessionErr) {
           // Non-fatal — still complete the logout
           console.warn(
@@ -973,6 +971,12 @@ export const authController = {
             sessionErr.message,
           );
         }
+        // H2 FIX: close the L1 cache window — evict the session from the
+        // in-memory + Redis session cache so a revoked session cannot keep
+        // authenticating until TTL expiry. Best-effort (never blocks logout).
+        try {
+          await invalidateSessionCache(sessionId);
+        } catch {}
       }
       // Per-device revocation: invalidateSession() above already deactivated
       // this device's session row, and verifyRefreshTokenForSession() rejects
@@ -986,6 +990,12 @@ export const authController = {
           "UPDATE users SET refresh_token_version = refresh_token_version + 1 WHERE id = $1",
           [req.user.id],
         );
+        // H2 FIX: the version bump above makes the cached user row stale —
+        // evict it so the next request re-reads the new version (else the
+        // old cached version keeps validating revoked refresh tokens).
+        try {
+          await invalidateUserCache(req.user.id);
+        } catch {}
       }
       // Evict the SWR-cached /me body for this user so a logged-out browser
       // never receives a stale authenticated payload (defense in depth —
@@ -998,6 +1008,13 @@ export const authController = {
         userId: req.user?.id || null,
         sessionId,
       });
+      // M5 FIX: destroy the CSRF token bound to this access token so a
+      // logged-out token's CSRF cannot be replayed. Best-effort.
+      if (req.authToken) {
+        try {
+          await deleteCsrfToken(req.authToken);
+        } catch {}
+      }
       clearAuthCookies(res);
       res.status(200).json({
         success: true,
@@ -1157,7 +1174,7 @@ export const authController = {
           ).SESSION_IDLE_REMEMBER_ME_TIMEOUT_MS;
         } else {
           envIdleThreshold =
-            decoded.role === ROLES.ADMIN || decoded.role === ROLES.SUPER_ADMIN
+            decoded.role === ROLES.ADMIN
               ? ADMIN_IDLE_TIMEOUT_MS
               : SESSION_IDLE_TIMEOUT_MS;
         }
@@ -1301,8 +1318,13 @@ export const authController = {
 
       // Generate reset token — use dedicated JWT_RESET_SECRET to isolate from
       // session tokens. Falls back to JWT_SECRET for backward compat.
+      // jti enables atomic single-use enforcement in resetPassword.
       const resetToken = jwt.sign(
-        { id: user._id || user.id, type: "password-reset" },
+        {
+          id: user._id || user.id,
+          type: "password-reset",
+          jti: crypto.randomUUID(),
+        },
         process.env.JWT_RESET_SECRET || process.env.JWT_SECRET,
         { expiresIn: "1h" },
       );
@@ -1392,21 +1414,88 @@ export const authController = {
         });
       }
 
-      // Check if jti is used
+      // Single-use enforcement (fail-closed, atomic): claim the jti so
+      // concurrent replays cannot both succeed. Tokens without a jti predate
+      // single-use issuance and are rejected. Redis is tried first (SET NX EX);
+      // when Redis is unavailable or errors, a DB-backed fallback table
+      // (password_reset_used_tokens) is authoritative so password recovery does
+      // not hard-depend on Redis. Only if BOTH stores fail do we 503.
+      if (!decoded.jti) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid reset token",
+        });
+      }
+      const claimResetJtiDb = async (jti) => {
+        await dbHelpers.pool.query(
+          `CREATE TABLE IF NOT EXISTS password_reset_used_tokens (
+             jti TEXT PRIMARY KEY,
+             used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+           )`,
+        );
+        const inserted = await dbHelpers.pool.query(
+          `INSERT INTO password_reset_used_tokens (jti) VALUES ($1)
+           ON CONFLICT (jti) DO NOTHING RETURNING jti`,
+          [String(jti)],
+        );
+        return inserted.rows.length > 0;
+      };
       let redis = null;
-      if (decoded.jti) {
+      try {
         const { getRedisClient } =
           await import("../../infrastructure/cache/redisClient.js");
         redis = getRedisClient();
-        if (redis && redis.status === "ready") {
-          const used = await redis.get(`used_jti:${decoded.jti}`);
-          if (used) {
-            return res.status(400).json({
+      } catch {
+        redis = null;
+      }
+      let claimed = null;
+      let redisErrored = false;
+      if (redis && redis.status === "ready") {
+        try {
+          claimed = await redis.set(
+            `used_jti:${decoded.jti}`,
+            "1",
+            "EX",
+            3600,
+            "NX",
+          );
+        } catch {
+          redisErrored = true;
+          claimed = null;
+        }
+      } else {
+        redisErrored = true;
+      }
+      if (claimed !== "OK") {
+        if (claimed === null && redisErrored) {
+          // Redis unavailable — fall back to DB-backed single-use claim.
+          try {
+            const dbClaimed = await claimResetJtiDb(decoded.jti);
+            if (!dbClaimed) {
+              return res.status(400).json({
+                success: false,
+                message: "Reset token has already been used",
+              });
+            }
+          } catch {
+            return res.status(503).json({
               success: false,
-              message: "Reset token has already been used",
+              message:
+                "Password reset is temporarily unavailable. Please try again later.",
+              code: "RESET_UNAVAILABLE",
             });
           }
+        } else {
+          // Redis authoritatively reports the jti already used.
+          return res.status(400).json({
+            success: false,
+            message: "Reset token has already been used",
+          });
         }
+      } else {
+        // Redis claim succeeded — best-effort mirror into DB so a later
+        // Redis outage cannot resurrect this jti via the DB fallback path.
+        claimResetJtiDb(decoded.jti).catch(() => {});
       }
 
       // Find user — JWT expiry is the single source of truth for token validity
@@ -1428,6 +1517,54 @@ export const authController = {
         updatedAt: new Date().toISOString(),
       });
 
+      // Revoke all other sessions on password reset: bump refresh_token_version
+      // (invalidates outstanding refresh tokens) and deactivate user_sessions.
+      // Uses dbHelpers.pool (bare `pool` is not in scope here — a previous
+      // ReferenceError was swallowed by the empty catch and silently skipped
+      // revocation).
+      try {
+        await dbHelpers.pool.query(
+          "UPDATE users SET refresh_token_version = COALESCE(refresh_token_version, 0) + 1 WHERE id = $1",
+          [String(user._id || user.id)],
+        );
+      } catch (revokeErr) {
+        console.warn(
+          "[Auth] Password-reset version bump failed:",
+          revokeErr.message,
+        );
+      }
+      try {
+        await dbHelpers.pool.query(
+          "UPDATE user_sessions SET is_active = false WHERE user_id = $1",
+          [String(user._id || user.id)],
+        );
+      } catch (revokeErr) {
+        console.warn(
+          "[Auth] Password-reset session revocation failed:",
+          revokeErr.message,
+        );
+      }
+      // H2 FIX: close the L1 cache window — evict every session of this user
+      // from the session cache (DB rows above are dead but cached copies
+      // would stay "active" until TTL) and evict the cached user row whose
+      // refresh_token_version was just bumped. Best-effort.
+      try {
+        const sessRows = await dbHelpers.pool.query(
+          "SELECT session_id FROM user_sessions WHERE user_id = $1",
+          [String(user._id || user.id)],
+        );
+        for (const r of sessRows.rows || []) {
+          if (r?.session_id) {
+            try {
+              await invalidateSessionCache(r.session_id);
+            } catch {}
+          }
+        }
+      } catch {}
+      try {
+        await invalidateUserCache(user._id || user.id);
+      } catch {}
+
       try {
         await messageBroker.publish("user.password_changed", {
           email: user.email,
@@ -1439,9 +1576,19 @@ export const authController = {
         );
       }
 
-      if (redis && redis.status === "ready" && decoded.jti) {
-        // Token is valid for 1 hour, so we only need to keep the jti in redis for 1 hour
-        await redis.set(`used_jti:${decoded.jti}`, "1", "EX", 3600);
+      // jti was claimed atomically (SET NX EX) before the password update,
+      // so no post-update marking is needed — the token is already single-use.
+
+      // M5 FIX: destroy any CSRF token bound to a presented access token so
+      // post-reset requests cannot replay it. Best-effort (reset is usually
+      // unauthenticated, so there is often no token — guarded).
+      {
+        const maybeToken = req.authToken || req.cookies?.token;
+        if (maybeToken) {
+          try {
+            await deleteCsrfToken(maybeToken);
+          } catch {}
+        }
       }
 
       // Clear any existing auth cookies for security
@@ -1523,6 +1670,69 @@ export const authController = {
         updatedAt: new Date().toISOString(),
       });
 
+      // Revoke other sessions on password change: bump refresh_token_version and
+      // deactivate all user_sessions except the current one (forces re-login elsewhere).
+      // NOTE (M1/M2 token versioning, accepted limitation): outstanding ACCESS
+      // JWTs are stateless and carry no version claim, so they cannot be
+      // revoked at the moment of this bump — they remain valid until expiry.
+      // Exposure is bounded: every other session row is deactivated above and
+      // every outstanding REFRESH token dies on its next use (version mismatch
+      // → 401), so rotation/replay is impossible after the access-token TTL.
+      const changeUserIdStr = String(user._id || user.id);
+      const changeSessionId = req.user?.sessionId
+        ? String(req.user.sessionId)
+        : null;
+      let otherSessionIds = [];
+      try {
+        const { pool: revokePool } =
+          await import("../../infrastructure/database/postgres-helpers.js");
+        // H2 FIX: capture the other active session ids BEFORE deactivation so
+        // their L1-cached copies can be evicted below (the UPDATE alone leaves
+        // cached "active" copies alive until TTL — the L1 window).
+        if (changeSessionId) {
+          try {
+            const others = await revokePool.query(
+              "SELECT session_id FROM user_sessions WHERE user_id = $1 AND is_active = true AND session_id != $2",
+              [changeUserIdStr, changeSessionId],
+            );
+            otherSessionIds = (others.rows || [])
+              .map((r) => r?.session_id)
+              .filter(Boolean);
+          } catch {}
+        }
+        await revokePool
+          .query(
+            "UPDATE users SET refresh_token_version = COALESCE(refresh_token_version, 0) + 1 WHERE id = $1",
+            [changeUserIdStr],
+          )
+          .catch(() => {});
+        if (changeSessionId) {
+          await revokePool
+            .query(
+              "UPDATE user_sessions SET is_active = false WHERE user_id = $1 AND session_id != $2",
+              [changeUserIdStr, changeSessionId],
+            )
+            .catch(() => {});
+        } else {
+          await revokePool
+            .query(
+              "UPDATE user_sessions SET is_active = false WHERE user_id = $1",
+              [changeUserIdStr],
+            )
+            .catch(() => {});
+        }
+      } catch {}
+      // H2 FIX: evict revoked sessions + the stale cached user row (its
+      // refresh_token_version just changed). Best-effort.
+      for (const sid of otherSessionIds) {
+        try {
+          await invalidateSessionCache(sid);
+        } catch {}
+      }
+      try {
+        await invalidateUserCache(user._id || user.id);
+      } catch {}
+
       try {
         await messageBroker.publish("user.password_changed", {
           email: user.email,
@@ -1541,6 +1751,76 @@ export const authController = {
         sessionId: req.user?.sessionId,
       });
 
+      // M1/M2 FIX: the version bump above kills the CURRENT session's refresh
+      // token too (it was signed with the old version). Instead of leaving
+      // this session dead ("sign in again"), RE-ISSUE its refresh token with
+      // the new version so the password-changer stays signed in while every
+      // OTHER device is forced to re-login. Legacy tokens with no sessionId
+      // keep the old kill-all + clear-cookies behavior (no session to rebind).
+      if (changeSessionId) {
+        const verRow = await dbHelpers.pool
+          .query("SELECT refresh_token_version FROM users WHERE id = $1", [
+            changeUserIdStr,
+          ])
+          .catch(() => null);
+        const newVersion = verRow?.rows?.[0]?.refresh_token_version ?? 0;
+        const newAccessToken = generateToken(user._id || user.id, user.role, {
+          claims: { sessionId: changeSessionId, rememberMe: false },
+        });
+        const newRefreshToken = generateToken(user._id || user.id, user.role, {
+          secret: getRefreshSecret(),
+          expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "30d",
+          claims: {
+            refreshTokenVersion: newVersion,
+            rememberMe: false,
+            sessionId: changeSessionId,
+          },
+        });
+        try {
+          await rotateSessionRefreshHash(changeSessionId, newRefreshToken);
+        } catch (rotErr) {
+          console.warn(
+            "[Auth] Change-password refresh re-issue failed:",
+            rotErr.message,
+          );
+        }
+        setAuthCookies(res, {
+          token: newAccessToken,
+          refreshToken: newRefreshToken,
+          rememberMe: false,
+        });
+        // M5 FIX: drop the CSRF bound to the old access token, bind a fresh
+        // one to the re-issued token. Best-effort.
+        if (req.authToken) {
+          try {
+            await deleteCsrfToken(req.authToken);
+          } catch {}
+        }
+        const newCsrfToken = generateCsrfToken();
+        try {
+          await storeCsrfToken(newAccessToken, newCsrfToken);
+        } catch {}
+        setCsrfCookie(res, newCsrfToken);
+        return res.status(200).json({
+          success: true,
+          message:
+            "Password updated successfully. Other devices have been signed out.",
+          data: {
+            token: newAccessToken,
+            refreshToken: newRefreshToken,
+            csrfToken: newCsrfToken,
+            sessionId: changeSessionId,
+          },
+        });
+      }
+
+      // M5 FIX (legacy no-session path): destroy any CSRF bound to a
+      // presented token before clearing cookies. Best-effort.
+      if (req.authToken) {
+        try {
+          await deleteCsrfToken(req.authToken);
+        } catch {}
+      }
       clearAuthCookies(res);
 
       res.status(200).json({
@@ -1564,12 +1844,16 @@ export const authController = {
         });
       }
 
-      // Verify token
+      // Verify token — same isolated secret as the signer (resendVerification).
       let decoded;
       try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET, {
-          algorithms: ["HS256"],
-        });
+        decoded = jwt.verify(
+          token,
+          process.env.JWT_RESET_SECRET || process.env.JWT_SECRET,
+          {
+            algorithms: ["HS256"],
+          },
+        );
       } catch (err) {
         return res.status(400).json({
           success: false,
@@ -1581,6 +1865,58 @@ export const authController = {
         return res.status(400).json({
           success: false,
           message: "Invalid token type",
+        });
+      }
+
+      // Single-use enforcement (fail-closed, atomic), mirroring resetPassword.
+      // Verification tokens are valid for 24h, matching the signer TTL below.
+      if (!decoded.jti) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid verification token",
+        });
+      }
+      let verifyRedis = null;
+      try {
+        const { getRedisClient } =
+          await import("../../infrastructure/cache/redisClient.js");
+        verifyRedis = getRedisClient();
+      } catch {
+        verifyRedis = null;
+      }
+      // L9: verifyEmail is Redis-only by design (atomic SET NX EX single-use
+      // claim; no DB fallback table is wired here, unlike resetPassword) —
+      // fail closed with 503 + machine-readable VERIFY_UNAVAILABLE so clients
+      // can retry; no behavior change.
+      if (!verifyRedis || verifyRedis.status !== "ready") {
+        return res.status(503).json({
+          success: false,
+          message:
+            "Email verification is temporarily unavailable. Please try again later.",
+          code: "VERIFY_UNAVAILABLE",
+        });
+      }
+      let verifyClaimed = null;
+      try {
+        verifyClaimed = await verifyRedis.set(
+          `used_jti:${decoded.jti}`,
+          "1",
+          "EX",
+          86400,
+          "NX",
+        );
+      } catch {
+        return res.status(503).json({
+          success: false,
+          message:
+            "Email verification is temporarily unavailable. Please try again later.",
+          code: "VERIFY_UNAVAILABLE",
+        });
+      }
+      if (verifyClaimed !== "OK") {
+        return res.status(400).json({
+          success: false,
+          message: "Verification token has already been used",
         });
       }
 
@@ -1648,8 +1984,13 @@ export const authController = {
       }
 
       // Generate a fresh email-verification token (isolated secret, like forgotPassword)
+      // jti enables atomic single-use enforcement in verifyEmail.
       const verificationToken = jwt.sign(
-        { id: user._id || user.id, type: "email-verification" },
+        {
+          id: user._id || user.id,
+          type: "email-verification",
+          jti: crypto.randomUUID(),
+        },
         process.env.JWT_RESET_SECRET || process.env.JWT_SECRET,
         { expiresIn: "24h" },
       );
@@ -1693,8 +2034,10 @@ export const authController = {
         success: true,
         data: {
           enabled: row ? Boolean(row.enabled) : false,
+          // L3: consumed backup codes are nulled in place (see login2FA) —
+          // count only non-null codes so the client sees remaining codes.
           backupCodesCount: Array.isArray(row?.backup_codes)
-            ? row.backup_codes.length
+            ? row.backup_codes.filter((c) => c != null).length
             : 0,
           globalEnabled: Boolean(securitySettings.twoFactorAuth),
         },
@@ -1718,6 +2061,34 @@ export const authController = {
           code: "TWOFA_GLOBALLY_DISABLED",
         });
       }
+      // Require current-password confirmation before issuing a new TOTP secret.
+      const { currentPassword } = req.body || {};
+      if (!currentPassword) {
+        return res.status(401).json({
+          success: false,
+          message: "Current password is required to enroll 2FA",
+        });
+      }
+      try {
+        const { pool: pwPool } =
+          await import("../../infrastructure/database/postgres-helpers.js");
+        const pwRow = await pwPool.query(
+          "SELECT password FROM users WHERE id = $1",
+          [String(req.user.id)],
+        );
+        const hash = pwRow.rows[0]?.password;
+        if (!hash || !(await bcrypt.compare(String(currentPassword), hash))) {
+          return res.status(401).json({
+            success: false,
+            message: "Current password is incorrect",
+          });
+        }
+      } catch {
+        return res.status(503).json({
+          success: false,
+          message: "Unable to verify password. Please try again.",
+        });
+      }
       const secret = twoFactorService.generateSecret();
       const otpauthUri = twoFactorService.buildOtpauthUri(
         secret,
@@ -1733,6 +2104,12 @@ export const authController = {
                enrolled_at = NOW()`,
         [String(req.user.id), secret],
       );
+      auditAuth(req, {
+        action: "2fa_enroll",
+        detail: { sessionId: req.user?.sessionId },
+        userId: req.user.id,
+        sessionId: req.user?.sessionId,
+      });
       res.status(200).json({
         success: true,
         data: { secret, otpauthUri },
@@ -1742,14 +2119,42 @@ export const authController = {
     }
   },
 
-  // POST /api/auth/2fa/verify — verify a TOTP code and enable 2FA
+  // POST /api/auth/2fa/verify — verify a TOTP code and enable 2FA.
+  // Requires the current password ALONGSIDE the TOTP code so a hijacked
+  // session alone cannot enroll a second factor.
   verifyTwoFactor: async (req, res, next) => {
     try {
-      const { token } = req.body;
+      const { token, currentPassword } = req.body;
       if (!token) {
         return res
           .status(400)
           .json({ success: false, message: "Verification code is required" });
+      }
+      if (!currentPassword) {
+        return res.status(401).json({
+          success: false,
+          message: "Current password is required to enable 2FA",
+        });
+      }
+      try {
+        const { pool: pwPool } =
+          await import("../../infrastructure/database/postgres-helpers.js");
+        const pwRow = await pwPool.query(
+          "SELECT password FROM users WHERE id = $1",
+          [String(req.user.id)],
+        );
+        const hash = pwRow.rows[0]?.password;
+        if (!hash || !(await bcrypt.compare(String(currentPassword), hash))) {
+          return res.status(401).json({
+            success: false,
+            message: "Current password is incorrect",
+          });
+        }
+      } catch {
+        return res.status(503).json({
+          success: false,
+          message: "Unable to verify password. Please try again.",
+        });
       }
       const result = await dbHelpers.pool.query(
         "SELECT secret FROM two_factor_secrets WHERE user_id = $1",
@@ -1764,14 +2169,16 @@ export const authController = {
       const isValid = twoFactorService.verifyTOTP(token, row.secret);
       if (!isValid) {
         const ipAddress = getClientIp(req);
-        if (req.user?.email) {
-          await recordLoginAttempt(
-            req.user.email,
-            ipAddress,
-            false,
-            req.headers["user-agent"],
-          );
-        }
+        // L2/L6: never skip lockout counting when email is missing — mirror
+        // the login2FA fallback key shape so the bucket stays keyed per user.
+        const failEmail =
+          req.user?.email || `2fa-user-${String(req.user?.id)}@unknown.local`;
+        await recordLoginAttempt(
+          failEmail,
+          ipAddress,
+          false,
+          req.headers["user-agent"],
+        );
         return res
           .status(401)
           .json({ success: false, message: "Invalid verification code" });
@@ -1802,7 +2209,7 @@ export const authController = {
   regenerateTwoFactorBackupCodes: async (req, res, next) => {
     try {
       const result = await dbHelpers.pool.query(
-        "SELECT enabled FROM two_factor_secrets WHERE user_id = $1",
+        "SELECT enabled, secret FROM two_factor_secrets WHERE user_id = $1",
         [String(req.user.id)],
       );
       const row = result.rows[0];
@@ -1812,12 +2219,47 @@ export const authController = {
           message: "Two-factor authentication is not enabled",
         });
       }
+      // Require current-password OR TOTP confirmation before rotating codes.
+      const { currentPassword, token: confirmTotp } = req.body || {};
+      let confirmed = false;
+      if (currentPassword) {
+        try {
+          const pwRow = await dbHelpers.pool.query(
+            "SELECT password FROM users WHERE id = $1",
+            [String(req.user.id)],
+          );
+          const hash = pwRow.rows[0]?.password;
+          if (hash && (await bcrypt.compare(String(currentPassword), hash)))
+            confirmed = true;
+        } catch {}
+      }
+      if (!confirmed && confirmTotp && row.secret) {
+        try {
+          confirmed = twoFactorService.verifyTOTP(
+            String(confirmTotp),
+            row.secret,
+          );
+        } catch {}
+      }
+      if (!confirmed) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Current password or valid TOTP code is required to regenerate backup codes",
+        });
+      }
       const backupCodes = twoFactorService.generateBackupCodes();
       const hashed = await twoFactorService.hashBackupCodes(backupCodes);
       await dbHelpers.pool.query(
         "UPDATE two_factor_secrets SET backup_codes = $1 WHERE user_id = $2",
         [JSON.stringify(hashed), String(req.user.id)],
       );
+      auditAuth(req, {
+        action: "2fa_backup_codes_regenerated",
+        detail: { sessionId: req.user?.sessionId },
+        userId: req.user.id,
+        sessionId: req.user?.sessionId,
+      });
       res.status(200).json({
         success: true,
         message: "Backup codes regenerated",
@@ -1831,10 +2273,51 @@ export const authController = {
   // POST /api/auth/2fa/disable — turn off 2FA for the user
   disableTwoFactor: async (req, res, next) => {
     try {
+      const existing = await dbHelpers.pool.query(
+        "SELECT secret, enabled FROM two_factor_secrets WHERE user_id = $1",
+        [String(req.user.id)],
+      );
+      const existingRow = existing.rows[0];
+      if (existingRow?.enabled) {
+        const { currentPassword, token: confirmTotp } = req.body || {};
+        let confirmed = false;
+        if (currentPassword) {
+          try {
+            const pwRow = await dbHelpers.pool.query(
+              "SELECT password FROM users WHERE id = $1",
+              [String(req.user.id)],
+            );
+            const hash = pwRow.rows[0]?.password;
+            if (hash && (await bcrypt.compare(String(currentPassword), hash)))
+              confirmed = true;
+          } catch {}
+        }
+        if (!confirmed && confirmTotp && existingRow.secret) {
+          try {
+            confirmed = twoFactorService.verifyTOTP(
+              String(confirmTotp),
+              existingRow.secret,
+            );
+          } catch {}
+        }
+        if (!confirmed) {
+          return res.status(401).json({
+            success: false,
+            message:
+              "Current password or valid TOTP code is required to disable 2FA",
+          });
+        }
+      }
       await dbHelpers.pool.query(
         "DELETE FROM two_factor_secrets WHERE user_id = $1",
         [String(req.user.id)],
       );
+      auditAuth(req, {
+        action: "2fa_disabled",
+        detail: { sessionId: req.user?.sessionId },
+        userId: req.user.id,
+        sessionId: req.user?.sessionId,
+      });
       res.status(200).json({
         success: true,
         message: "Two-factor authentication disabled",
@@ -1925,7 +2408,14 @@ export const authController = {
       }
 
       if (!verified) {
-        await recordLoginAttempt(null, ipAddress, false, userAgent);
+        // Use the temp-token user id for lockout counting (never null email —
+        // recordLoginAttempt(null) throws on toLowerCase and skips lockout).
+        try {
+          const failUser = await dbHelpers.findById("users", userId);
+          const failEmail =
+            failUser?.email || `2fa-user-${String(userId)}@unknown.local`;
+          await recordLoginAttempt(failEmail, ipAddress, false, userAgent);
+        } catch {}
         return res
           .status(401)
           .json({ success: false, message: "Invalid verification code" });
@@ -1940,9 +2430,9 @@ export const authController = {
       }
 
       // SESSION-SEC: Session limit enforcement (same as standard login)
-      // Admins unlimited by default; free=1, pro=3. Explicit session_limit overrides.
+      // Single admin tier unlimited by default; free=1, pro=3. Explicit session_limit overrides.
       let sessionLimit = 1;
-      if (user.role === ROLES.ADMIN || user.role === ROLES.SUPER_ADMIN) {
+      if (user.role === ROLES.ADMIN) {
         sessionLimit = Infinity;
         if (user.session_limit !== null && user.session_limit !== undefined) {
           sessionLimit = user.session_limit;
@@ -2054,6 +2544,11 @@ export const authController = {
       setCsrfCookie(res, csrfToken);
 
       const userWithoutPassword = sanitizeUser(user);
+
+      // Clear lockout attempts on 2FA success (mirrors standard login).
+      try {
+        if (user?.email) await clearLoginAttempts(user.email);
+      } catch {}
 
       res.status(200).json({
         success: true,

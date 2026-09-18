@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 RUN npm install -g pnpm
@@ -6,7 +6,7 @@ RUN npm install -g pnpm
 COPY package*.json pnpm-lock.yaml* ./
 RUN if [ -f pnpm-lock.yaml ]; then pnpm install --prod --frozen-lockfile; else npm ci --omit=dev; fi
 
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
 
 RUN addgroup -g 1001 appuser && \

@@ -46,7 +46,7 @@ const LiveTestInterface = () => {
         setLiveRank(null);
         return;
       }
-      console.error("Error fetching rank:", error);
+      console.error("Error fetching rank:", error?.message ?? error);
     }
   }, [liveTestId]);
 
@@ -83,7 +83,7 @@ const LiveTestInterface = () => {
         state: { result: response.data?.data },
       });
     } catch (error) {
-      console.error("Error submitting test:", error);
+      console.error("Error submitting test:", error?.message ?? error);
       toast.error("Error submitting test");
       window._liveTestSubmitting = false;
     }
@@ -117,7 +117,7 @@ const LiveTestInterface = () => {
         }
       } catch (error) {
         if (api.isCancel(error)) return;
-        console.error("Error fetching test:", error);
+        console.error("Error fetching test:", error?.message ?? error);
       } finally {
         setLoading(false);
       }
@@ -337,7 +337,7 @@ const LiveTestInterface = () => {
         answer: value,
       });
     } catch (error) {
-      console.error("Error saving answer:", error);
+      console.error("Error saving answer:", error?.message ?? error);
     }
   };
 

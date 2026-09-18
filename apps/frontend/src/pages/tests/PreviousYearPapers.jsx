@@ -272,7 +272,7 @@ export default function PreviousYearPapers() {
                     <a
                       href={paper.pdfUrl || "#"}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                       className="flex items-center justify-center gap-2 w-full py-4 bg-gray-900 text-white rounded-2xl font-black text-xs hover:bg-black transition-all shadow-lg shadow-gray-200"
                     >
                       <Download className="w-4 h-4" />

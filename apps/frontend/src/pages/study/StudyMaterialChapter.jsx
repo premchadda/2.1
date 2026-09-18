@@ -37,6 +37,7 @@ import {
   getStudyMaterialById,
   getTestSeries,
 } from "../../shared/lib/dataService";
+import { handleAvatarError } from "../../shared/utils/avatarFallback.js";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
 import PDFViewer from "../../shared/components/common/PDFViewer";
 import VideoPlayer from "../../shared/components/common/VideoPlayer";
@@ -257,7 +258,7 @@ export default function StudyMaterialChapter() {
         setSubject(subjectData);
       } catch (err) {
         if (err.name !== "AbortError") {
-          console.error("Failed to fetch subject content:", err);
+          console.error("Failed to fetch subject content:", err?.message ?? err);
           setError("Failed to load subject content");
         }
       } finally {
@@ -288,7 +289,7 @@ export default function StudyMaterialChapter() {
         setDiscussions(res.data?.data || []);
       } catch (err) {
         if (err.name !== "AbortError")
-          console.error("Failed to fetch discussions:", err);
+          console.error("Failed to fetch discussions:", err?.message ?? err);
       }
     };
 
@@ -330,7 +331,7 @@ export default function StudyMaterialChapter() {
         setAnalytics(res.data?.data || res.data || null);
       } catch (err) {
         if (err.name !== "AbortError")
-          console.error("Failed to fetch analytics:", err);
+          console.error("Failed to fetch analytics:", err?.message ?? err);
       }
     };
     fetchAnalytics();
@@ -512,7 +513,7 @@ export default function StudyMaterialChapter() {
         setNewDiscussion("");
       }
     } catch (err) {
-      console.error("Failed to post discussion:", err);
+      console.error("Failed to post discussion:", err?.message ?? err);
     } finally {
       setIsSubmitting(false);
     }
@@ -532,7 +533,7 @@ export default function StudyMaterialChapter() {
         discussions.filter((d) => (d.id || d._id) !== discussionId),
       );
     } catch (err) {
-      console.error("Failed to delete discussion:", err);
+      console.error("Failed to delete discussion:", err?.message ?? err);
     }
   };
 
@@ -552,7 +553,7 @@ export default function StudyMaterialChapter() {
         setEditContent("");
       }
     } catch (err) {
-      console.error("Failed to update discussion:", err);
+      console.error("Failed to update discussion:", err?.message ?? err);
     }
   };
 
@@ -582,7 +583,7 @@ export default function StudyMaterialChapter() {
         title: chapter?.title || chapter?.name || "",
       });
     } catch (err) {
-      console.error("Failed to bookmark:", err);
+      console.error("Failed to bookmark:", err?.message ?? err);
       setIsBookmarked((prev) => !prev);
     }
   };
@@ -606,7 +607,7 @@ export default function StudyMaterialChapter() {
       setShareSuccess(true);
       setTimeout(() => setShareSuccess(false), 2000);
     } catch (err) {
-      console.error("Failed to copy chapter link:", err);
+      console.error("Failed to copy chapter link:", err?.message ?? err);
       toast.error(
         "Failed to copy link. Please copy the URL from the address bar.",
       );
@@ -1914,6 +1915,7 @@ export default function StudyMaterialChapter() {
                       decoding="async"
                       src="https://ui-avatars.com/api/?name=You&background=4F46E5&color=fff"
                       alt="User"
+                      onError={handleAvatarError}
                     />
                   </div>
                   <div className="flex-1 relative">
@@ -1949,6 +1951,7 @@ export default function StudyMaterialChapter() {
                             decoding="async"
                             src={`https://ui-avatars.com/api/?name=${encodeURIComponent(item.userName || item.user?.name || "User")}&background=random`}
                             alt={item.userName || "User"}
+                            onError={handleAvatarError}
                           />
                         </div>
                         <div className="flex-1">
@@ -2331,6 +2334,7 @@ export default function StudyMaterialChapter() {
                     src={`https://ui-avatars.com/api/?name=${subject.instructor_name || "Instructor"}&background=4f46e5&color=fff`}
                     alt="Instructor"
                     className="w-full h-full rounded-xl object-cover"
+                    onError={handleAvatarError}
                   />
                 </div>
                 <div className="min-w-0">

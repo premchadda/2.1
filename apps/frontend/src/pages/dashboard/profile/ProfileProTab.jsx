@@ -455,7 +455,9 @@ function ProfileProTab({ proPass, user }) {
         </div>
         <div className="divide-y divide-gray-100 dark:divide-gray-700">
           <button
-            onClick={() => window.open("https://help.trstprep.com", "_blank")}
+            onClick={() =>
+              window.open("https://help.trstprep.com", "_blank", "noopener")
+            }
             className="flex items-center gap-3 w-full px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
           >
             <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
@@ -470,7 +472,7 @@ function ProfileProTab({ proPass, user }) {
             <ChevronRight className="w-4 h-4 text-gray-400" />
           </button>
           <button
-            onClick={() => window.open("/privacy", "_blank")}
+            onClick={() => window.open("/privacy", "_blank", "noopener")}
             className="flex items-center gap-3 w-full px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
           >
             <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
@@ -485,7 +487,7 @@ function ProfileProTab({ proPass, user }) {
             <ChevronRight className="w-4 h-4 text-gray-400" />
           </button>
           <button
-            onClick={() => window.open("/terms", "_blank")}
+            onClick={() => window.open("/terms", "_blank", "noopener")}
             className="flex items-center gap-3 w-full px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
           >
             <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">

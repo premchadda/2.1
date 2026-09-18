@@ -73,7 +73,7 @@ export function useUndoRedo(maxHistory = 50) {
     }
 
     // M44: execute side effect OUTSIDE the state updater (updater must be pure)
-    entry.undoAction();
+    await entry.undoAction();
 
     setIndex(prev => prev - 1);
     isExecutingRef.current = false;

@@ -14,15 +14,15 @@ class AICache {
     this.prefix = 'ai:cache:'
   }
 
-  generateKey(messages, model) {
-    const content = JSON.stringify({ messages, model })
+  generateKey(messages, model, templateVersion = '') {
+    const content = JSON.stringify({ messages, model, templateVersion: templateVersion || '' })
     return this.prefix + crypto.createHash('sha256').update(content).digest('hex')
   }
 
-  async get(messages, model) {
+  async get(messages, model, ...rest) {
     if (!this.redis) return null
     try {
-      const key = this.generateKey(messages, model)
+      const key = this.generateKey(messages, model, ...rest)
       const cached = await this.redis.get(key)
       return cached ? JSON.parse(cached) : null
     } catch {
@@ -30,10 +30,10 @@ class AICache {
     }
   }
 
-  async set(messages, model, response) {
+  async set(messages, model, response, ...rest) {
     if (!this.redis) return
     try {
-      const key = this.generateKey(messages, model)
+      const key = this.generateKey(messages, model, ...rest)
       await this.redis.setex(key, this.ttl, JSON.stringify(response))
     } catch {
       // Silently fail — cache miss is acceptable

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   Calendar,
@@ -11,13 +11,18 @@ import {
   BookOpen,
   AlertTriangle,
 } from "lucide-react";
-import api from "../../shared/lib/dataService";
+// NOTE: dataService default-exports the shared axios instance (apiClient).
+// Import it by its canonical name so call sites read as apiClient.get(...).
+import apiClient from "../../shared/lib/dataService";
 
 export default function ExamYear() {
   const { examId, year } = useParams();
   const [examData, setExamData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Stored AbortController for the in-flight fetch — aborted on unmount and
+  // before starting a new fetch (retry / param change).
+  const controllerRef = useRef(null);
 
   const yearNum = parseInt(year, 10);
 
@@ -27,7 +32,9 @@ export default function ExamYear() {
       setError("Invalid year parameter");
       return;
     }
+    controllerRef.current?.abort();
     const controller = new AbortController();
+    controllerRef.current = controller;
     fetchExamYearData(controller.signal);
     return () => controller.abort();
   }, [examId, year, yearNum]);
@@ -36,7 +43,7 @@ export default function ExamYear() {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.get(
+      const response = await apiClient.get(
         `/api/exams/${encodeURIComponent(examId)}/year?year=${year}`,
         { signal },
       );
@@ -101,8 +108,11 @@ export default function ExamYear() {
               </Link>
               <button
                 onClick={() => {
-                  setLoading(true);
-                  fetchExamYearData(new AbortController().signal);
+                  // fetchExamData owns setLoading — don't set it here too.
+                  controllerRef.current?.abort();
+                  const controller = new AbortController();
+                  controllerRef.current = controller;
+                  fetchExamYearData(controller.signal);
                 }}
                 className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 transition"
               >

@@ -6,12 +6,12 @@
   "type": "module",
   "scripts": {
     "start": "node --no-deprecation --dns-result-order=ipv4first src/app-port5001.js",
-    "dev": "node --no-deprecation --dns-result-order=ipv4first --watch --watch-path src/api --watch-path src/modules --watch-path src/infrastructure --watch-path src/services --watch-path src/config --watch-path src/middleware --watch-path src/utils --watch-path src/app-port5001.js src/app-port5001.js",
+    "dev": "node --no-deprecation --dns-result-order=ipv4first --watch --watch-path src/api --watch-path src/modules --watch-path src/infrastructure --watch-path src/services --watch-path src/shared --watch-path src/constants --watch-path src/middleware --watch-path src/utils --watch-path src/app-port5001.js src/app-port5001.js",
     "worker": "node src/worker/index.js",
     "worker:dev": "node --watch src/worker/index.js",
     "seed": "node src/data/seeds/SeedService.js",
     "build": "echo \"No build step required for Node.js backend\"",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --passWithNoTests",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "lint": "eslint src/**/*.js",
@@ -66,6 +66,6 @@
     "qs": "6.15.3"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   }
 }

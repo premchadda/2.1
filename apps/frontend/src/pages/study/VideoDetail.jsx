@@ -89,9 +89,9 @@ function VideoMetaInfo({ video }) {
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-slate-400">
-      {metaItems.map((item, i) => (
+      {metaItems.map((item) => (
         <span
-          key={i}
+          key={item.label}
           className="inline-flex items-center gap-1 rounded-lg bg-gray-100 dark:bg-slate-800/80 border border-gray-200/60 dark:border-slate-700/60 px-2 py-0.5 font-medium tabular-nums shadow-2xs"
         >
           <item.icon className="w-3 h-3 text-gray-400 dark:text-slate-500" />
@@ -283,7 +283,12 @@ function PlaylistSidebar({
                       String(video.id) === String(currentVideoId);
                     return (
                       <button
-                        key={video.publicId || video._id || idx}
+                        key={
+                          video.publicId ||
+                          video._id ||
+                          video.id ||
+                          video.slug
+                        }
                         onClick={() => onVideoSelect(video)}
                         aria-current={isActive ? "true" : undefined}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-brand-start/50 focus-visible:ring-inset ${
@@ -471,6 +476,7 @@ export default function VideoDetail() {
   });
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef(null);
+  const notesSavedTimerRef = useRef(null);
   const [playerMode, setPlayerMode] = useState("auto");
   const [sourceMenuOpen, setSourceMenuOpen] = useState(false);
   const sourceMenuRef = useRef(null);
@@ -485,6 +491,7 @@ export default function VideoDetail() {
   useEffect(() => {
     return () => {
       if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      if (notesSavedTimerRef.current) clearTimeout(notesSavedTimerRef.current);
     };
   }, []);
 
@@ -512,7 +519,12 @@ export default function VideoDetail() {
     if (v) {
       localStorage.setItem(`video:notes:${v}`, notes);
       setNotesSaved(true);
-      setTimeout(() => setNotesSaved(false), 2000);
+      if (notesSavedTimerRef.current)
+        clearTimeout(notesSavedTimerRef.current);
+      notesSavedTimerRef.current = setTimeout(
+        () => setNotesSaved(false),
+        2000,
+      );
     }
   };
 

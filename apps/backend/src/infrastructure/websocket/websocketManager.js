@@ -318,22 +318,126 @@ export const initWebSocket = async (server) => {
         });
       }
 
-      socket.join(roomName);
+      // Slug support: non-numeric testIds are SEO slugs — resolve to the live
+      // test id first (deny when unresolvable instead of joining a slug room
+      // no publisher ever emits to).
+      let numericId = Number(testId);
+      let roomTestId = testId;
+      if (!Number.isInteger(numericId) || numericId <= 0) {
+        try {
+          const { pool: slugPool } = await import("../database/postgres-helpers.js");
+          const slug = String(testId).trim();
+          let resolved = null;
+          try {
+            const lt = await slugPool.query(
+              `SELECT id FROM live_tests WHERE slug = $1 OR code = $1 LIMIT 1`,
+              [slug],
+            );
+            if (lt.rows[0]?.id) resolved = Number(lt.rows[0].id);
+          } catch {
+            /* column may not exist — fall through to tests lookup */
+          }
+          if (resolved == null) {
+            try {
+              const t = await slugPool.query(
+                `SELECT id FROM tests WHERE slug = $1 LIMIT 1`,
+                [slug],
+              );
+              if (t.rows[0]?.id) resolved = Number(t.rows[0].id);
+            } catch {
+              /* tests.slug may not exist */
+            }
+          }
+          if (resolved == null || !Number.isInteger(resolved) || resolved <= 0) {
+            return acknowledge?.({
+              success: false,
+              // Distinct from "Not registered": the slug itself is invalid.
+              message: "Invalid test",
+            });
+          }
+          numericId = resolved;
+          roomTestId = resolved;
+        } catch {
+          return acknowledge?.({
+            success: false,
+            message: "Not registered for this live test",
+          });
+        }
+      }
+      // Verify registration/enrollment before joining (fail-closed: deny on
+      // lookup failure, except the live_test_registrations absence
+      // fall-through above where the optional table provably does not exist).
+      try {
+        const { pool } = await import("../database/postgres-helpers.js");
+        let allowed = false;
+        if (Number.isInteger(numericId) && numericId > 0) {
+          try {
+            const reg = await pool.query(
+              `SELECT 1 FROM live_test_registrations WHERE live_test_id = $1 AND user_id = $2 LIMIT 1`,
+              [numericId, socket.userId],
+            );
+            if (reg.rows.length > 0) allowed = true;
+          } catch {
+            /* optional table may not exist — fall through to capacity check */
+          }
+          if (!allowed) {
+            try {
+              const lt = await pool.query(
+                `SELECT max_participants, (SELECT COUNT(*)::int FROM live_test_registrations WHERE live_test_id = $1) AS registered FROM live_tests WHERE id = $1 LIMIT 1`,
+                [numericId],
+              );
+              const row = lt.rows[0];
+              if (row && (row.max_participants == null || row.registered < row.max_participants)) allowed = true;
+            } catch {
+              // Fail-closed: an unreadable capacity row must not grant entry.
+              // (The only allow-open path is the live_test_registrations
+              // absence fall-through above, where the optional table provably
+              // does not exist yet.)
+              allowed = false;
+            }
+          }
+        } else {
+          allowed = true;
+        }
+        if (!allowed) {
+          return acknowledge?.({
+            success: false,
+            message: "Not registered for this live test",
+          });
+        }
+      } catch {
+        // Fail-closed: verification errors deny entry (acknowledge Not
+        // registered) rather than silently admitting an unverified socket.
+        return acknowledge?.({
+          success: false,
+          message: "Not registered for this live test",
+        });
+      }
+
+      const resolvedRoom = normalizeTestRoom(roomTestId) || roomName;
+      socket.join(resolvedRoom);
 
       // Emit participant count update
       const participantCount =
-        io.sockets.adapter.rooms.get(roomName)?.size || 0;
-      io.to(roomName).emit("live-test:participant_count", {
-        testId,
+        io.sockets.adapter.rooms.get(resolvedRoom)?.size || 0;
+      io.to(resolvedRoom).emit("live-test:participant_count", {
+        testId: roomTestId,
         count: participantCount,
         isLive: true,
       });
 
-      acknowledge?.({ success: true, room: roomName, participantCount });
+      acknowledge?.({ success: true, room: resolvedRoom, participantCount });
     });
 
     // Leave live test room
-    socket.on("live-tests:leave", (data = {}, acknowledge) => {
+    socket.on("live-tests:leave", async (data = {}, acknowledge) => {
+      if (!socket.isAuthenticated) {
+        return acknowledge?.({
+          success: false,
+          message: "Authentication required",
+        });
+      }
+
       const { testId } = data;
       const roomName = normalizeTestRoom(testId);
       if (!roomName) {
@@ -343,21 +447,68 @@ export const initWebSocket = async (server) => {
         });
       }
 
-      socket.leave(roomName);
+      // Resolve slug→numeric exactly like join, so leave targets the numeric
+      // room actually joined (otherwise a slug leave would miss the room).
+      let roomTestId = testId;
+      const asNumber = Number(testId);
+      if (!Number.isInteger(asNumber) || asNumber <= 0) {
+        try {
+          const { pool: leavePool } = await import("../database/postgres-helpers.js");
+          const slug = String(testId).trim();
+          let resolved = null;
+          try {
+            const lt = await leavePool.query(
+              `SELECT id FROM live_tests WHERE slug = $1 OR code = $1 LIMIT 1`,
+              [slug],
+            );
+            if (lt.rows[0]?.id) resolved = Number(lt.rows[0].id);
+          } catch {
+            /* column may not exist — fall through to tests lookup */
+          }
+          if (resolved == null) {
+            try {
+              const t = await leavePool.query(
+                `SELECT id FROM tests WHERE slug = $1 LIMIT 1`,
+                [slug],
+              );
+              if (t.rows[0]?.id) resolved = Number(t.rows[0].id);
+            } catch {
+              /* tests.slug may not exist */
+            }
+          }
+          if (resolved == null || !Number.isInteger(resolved) || resolved <= 0) {
+            return acknowledge?.({
+              success: false,
+              message: "Invalid test",
+            });
+          }
+          roomTestId = resolved;
+        } catch {
+          return acknowledge?.({
+            success: false,
+            message: "Invalid test",
+          });
+        }
+      }
+
+      const resolvedRoom = normalizeTestRoom(roomTestId) || roomName;
+      socket.leave(resolvedRoom);
 
       // Emit participant count update
       const participantCount =
-        io.sockets.adapter.rooms.get(roomName)?.size || 0;
-      io.to(roomName).emit("live-test:participant_count", {
-        testId,
+        io.sockets.adapter.rooms.get(resolvedRoom)?.size || 0;
+      io.to(resolvedRoom).emit("live-test:participant_count", {
+        testId: roomTestId,
         count: participantCount,
         isLive: participantCount > 0,
       });
 
-      acknowledge?.({ success: true, room: roomName, participantCount });
+      acknowledge?.({ success: true, room: resolvedRoom, participantCount });
     });
 
-    // Subscribe to notifications - requires authentication
+    // Subscribe to notifications - requires authentication.
+    // Scoped to the caller's own user:{id} room only (auto-joined on connect);
+    // the legacy global "notifications" room join is dropped to prevent cross-user fan-out.
     socket.on("notifications:subscribe", (acknowledge) => {
       if (!socket.isAuthenticated) {
         return acknowledge?.({
@@ -366,12 +517,10 @@ export const initWebSocket = async (server) => {
         });
       }
 
-      socket.join("notifications");
-      acknowledge?.({ success: true });
+      acknowledge?.({ success: true, room: `user:${socket.userId}` });
     });
 
     socket.on("notifications:unsubscribe", (acknowledge) => {
-      socket.leave("notifications");
       acknowledge?.({ success: true });
     });
 
@@ -461,11 +610,24 @@ export const initWebSocket = async (server) => {
   return io;
 };
 
+const WS_BRIDGE_EVENTS = [
+  "test:result_ready",
+  "leaderboard:updated",
+  "notification:new",
+  "series:updated",
+  "test_submitted",
+];
+
+// Unsubscribe fns for the cross-instance broker bridge (cleared on shutdown).
+const wsBridgeUnsubs = [];
+// eventBus handlers registered by setupEventBusListeners (cleared on shutdown).
+const wsBusHandlers = [];
+
 const setupEventBusListeners = () => {
   if (!io) return;
 
   // Test result ready - notify specific user
-  eventBus.on("test:result_ready", (data) => {
+  const onResultReady = (data) => {
     try {
       const resultData = data?.payload || data;
       const userId = resultData?.userId;
@@ -499,10 +661,11 @@ const setupEventBusListeners = () => {
         error.message,
       );
     }
-  });
+  };
+  eventBus.on("test:result_ready", onResultReady);
 
   // Leaderboard updated - notify test room
-  eventBus.on("leaderboard:updated", (data) => {
+  const onLeaderboard = (data) => {
     try {
       const leaderboardData = data?.payload || data;
       const testId = leaderboardData?.testId;
@@ -512,7 +675,11 @@ const setupEventBusListeners = () => {
         return;
       }
 
-      io.to(`test:${testId}`).emit("leaderboard:updated", {
+      // Normalize the room the same way join does (numeric ids and slugs
+      // converge on one `test:<id>` room) so publishers never emit to a room
+      // no socket joined.
+      const leaderboardRoom = normalizeTestRoom(testId) || `test:${testId}`;
+      io.to(leaderboardRoom).emit("leaderboard:updated", {
         testId,
         type: leaderboardData.type || "leaderboard",
         entries: leaderboardData.entries || [],
@@ -524,10 +691,11 @@ const setupEventBusListeners = () => {
         error.message,
       );
     }
-  });
+  };
+  eventBus.on("leaderboard:updated", onLeaderboard);
 
   // New notification - send to user
-  eventBus.on("notification:new", (data) => {
+  const onNotification = (data) => {
     try {
       const notificationData = data?.payload || data;
       const userId = notificationData?.userId;
@@ -544,10 +712,11 @@ const setupEventBusListeners = () => {
         error.message,
       );
     }
-  });
+  };
+  eventBus.on("notification:new", onNotification);
 
   // Series updated - broadcast to all
-  eventBus.on("series:updated", (data) => {
+  const onSeries = (data) => {
     try {
       io.emit("series:updated", {
         ...(data?.payload || data),
@@ -556,10 +725,11 @@ const setupEventBusListeners = () => {
     } catch (error) {
       logger.error("[WebSocket] Error handling series:updated:", error.message);
     }
-  });
+  };
+  eventBus.on("series:updated", onSeries);
 
   // Test submitted - update leaderboard for live tests
-  eventBus.on("test_submitted", (data) => {
+  const onSubmitted = (data) => {
     try {
       const submissionData = data?.payload || data;
       const testId = submissionData.testId;
@@ -573,7 +743,10 @@ const setupEventBusListeners = () => {
       // subscribed to both test:{id} and admin:live-tests does not get
       // duplicate leaderboard events for regular submissions.
       if (submissionData.source === "live-tests") {
-        io.to(`test:${testId}`).emit("leaderboard:updated", {
+        // Normalized room (see join/leave): publishers must emit to the same
+        // `test:<id>` room sockets actually joined.
+        const liveRoom = normalizeTestRoom(testId) || `test:${testId}`;
+        io.to(liveRoom).emit("leaderboard:updated", {
           testId,
           type: "live-test",
           updatedAt: new Date().toISOString(),
@@ -588,7 +761,8 @@ const setupEventBusListeners = () => {
         });
       }
 
-      io.to(`test:${testId}`).emit("live-test:attempt_submitted", {
+      const submittedRoom = normalizeTestRoom(testId) || `test:${testId}`;
+      io.to(submittedRoom).emit("live-test:attempt_submitted", {
         testId,
         submittedAt: new Date().toISOString(),
       });
@@ -605,17 +779,65 @@ const setupEventBusListeners = () => {
     } catch (error) {
       logger.error("[WebSocket] Error handling test_submitted:", error.message);
     }
-  });
+  };
+  eventBus.on("test_submitted", onSubmitted);
+  // Track for shutdown removal (prevents listener leaks across re-init).
+  wsBusHandlers.push(
+    ["test:result_ready", onResultReady],
+    ["leaderboard:updated", onLeaderboard],
+    ["notification:new", onNotification],
+    ["series:updated", onSeries],
+    ["test_submitted", onSubmitted],
+  );
 
   logger.info("[WebSocket] Event bus listeners configured");
+
+  // Cross-instance bridge: events emitted on a sibling replica arrive via
+  // Redis pub/sub (messageBroker.publishRemote). Re-emit them on the local
+  // bus so the handlers above run here too. The broker skips the publisher's
+  // own loopback via publisherId, and the publishing node already emitted
+  // locally — so no event is ever delivered twice.
+  import("../events/messageBroker.js")
+    .then(({ messageBroker }) => {
+      for (const evt of WS_BRIDGE_EVENTS) {
+        try {
+          const maybeUnsub = messageBroker.subscribe(evt, (payload) => {
+            eventBus.emit(evt, { payload });
+          });
+          if (typeof maybeUnsub === "function") wsBridgeUnsubs.push(maybeUnsub);
+        } catch {
+          /* broker subscribe failed for this event */
+        }
+      }
+    })
+    .catch(() => {
+      /* broker unavailable — local-only realtime mode */
+    });
 };
 
 /**
+ * Whether the Socket.IO server is up. Prefer this over getIO() for
+ * health checks — getIO() returns a silent no-op when down (compat), which
+ * hides outages from callers that assume delivery.
+ */
+export const isWebSocketReady = () => Boolean(io);
+
+let wsDownWarned = false;
+
+/**
  * Get the Socket.IO instance
- * Returns a no-op emitter if not initialized (for testing)
+ * Returns a no-op emitter if not initialized (for testing).
+ * NOTE: the no-op hides outages — new code should check isWebSocketReady()
+ * or use broadcastToRoom()/notifyUser() (boolean result + warn on drop).
  */
 export const getIO = () => {
   if (!io) {
+    if (!wsDownWarned) {
+      wsDownWarned = true;
+      logger.warn(
+        "[WebSocket] getIO() called before init — emits are being dropped",
+      );
+    }
     return {
       emit: () => {},
       to: () => ({ emit: () => {} }),
@@ -629,39 +851,57 @@ export const getIO = () => {
 };
 
 /**
- * Broadcast to room with error handling
+ * Broadcast to room with error handling.
+ * @returns {boolean} true when emitted, false when dropped (WS down).
  */
 export const broadcastToRoom = (room, event, data) => {
   try {
+    if (!io) {
+      logger.warn(
+        `[WebSocket] broadcast to room ${room} dropped — server not initialized`,
+      );
+      return false;
+    }
     const ioInstance = getIO();
     ioInstance.to(room).emit(event, {
       ...data,
       timestamp: new Date().toISOString(),
     });
+    return true;
   } catch (error) {
     logger.error(
       `[WebSocket] Error broadcasting to room ${room}:`,
       error.message,
     );
+    return false;
   }
 };
 
 /**
- * Notify user with error handling
+ * Notify user with error handling.
+ * @returns {boolean} true when emitted, false when dropped (WS down).
  */
 export const notifyUser = (userId, event, data) => {
   try {
     if (!userId) {
       logger.warn("[WebSocket] notifyUser called without userId");
-      return;
+      return false;
+    }
+    if (!io) {
+      logger.warn(
+        `[WebSocket] notify user ${userId} dropped — server not initialized`,
+      );
+      return false;
     }
     const ioInstance = getIO();
     ioInstance.to(`user:${userId}`).emit(event, {
       ...data,
       timestamp: new Date().toISOString(),
     });
+    return true;
   } catch (error) {
     logger.error(`[WebSocket] Error notifying user ${userId}:`, error.message);
+    return false;
   }
 };
 
@@ -670,6 +910,38 @@ export const notifyUser = (userId, event, data) => {
  */
 export const closeWebSocket = async () => {
   try {
+    // Remove eventBus listeners first so no new emits fire during teardown.
+    for (const [evt, handler] of wsBusHandlers.splice(0)) {
+      try {
+        eventBus.off?.(evt, handler);
+      } catch {
+        try {
+          eventBus.removeListener?.(evt, handler);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    // Unsubscribe the cross-instance broker bridge before quitting Redis.
+    for (const unsub of wsBridgeUnsubs.splice(0)) {
+      try {
+        await unsub?.();
+      } catch {
+        /* ignore */
+      }
+    }
+    try {
+      const { messageBroker } = await import("../events/messageBroker.js");
+      for (const evt of WS_BRIDGE_EVENTS) {
+        try {
+          await messageBroker.unsubscribe?.(evt);
+        } catch {
+          /* broker may not support per-event unsubscribe */
+        }
+      }
+    } catch {
+      /* broker unavailable */
+    }
     if (redisPubClient) {
       await redisPubClient.quit().catch(() => {});
       redisPubClient = null;
@@ -679,9 +951,18 @@ export const closeWebSocket = async () => {
       redisSubClient = null;
     }
     if (io) {
-      io.close();
+      const closing = io;
       io = null;
+      await new Promise((resolve) => {
+        try {
+          closing.close(() => resolve());
+        } catch {
+          resolve();
+        }
+        setTimeout(resolve, 5000);
+      });
     }
+    socketEventCounts.clear();
   } catch (err) {
     logger.warn("[WebSocket] Cleanup error:", err.message);
   }

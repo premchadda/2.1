@@ -1,4 +1,7 @@
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
+// TARGET_URL is the canonical override (compose exposes the backend on
+// :5001); BASE_URL kept as a legacy alias. Default is the backend port,
+// not the frontend dev server.
+const BASE_URL = __ENV.TARGET_URL || __ENV.BASE_URL || 'http://localhost:5001';
 
 export const config = {
   baseUrl: BASE_URL,

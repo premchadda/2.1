@@ -145,13 +145,13 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/realtime/
 **Auth:** protect, admin
 Paginated users (SQL `WHERE`/`ILIKE`/`ORDER BY`/`LIMIT`/`OFFSET`).
 
-| Param                     | Default          | Description                    |
-| ------------------------- | ---------------- | ------------------------------ |
-| `page` / `limit`          | 1 / 20 (max 100) | Pagination                     |
-| `search`                  | —                | ILIKE on name, email, phone    |
-| `role`                    | —                | `user`, `admin`, `super_admin` |
-| `status`                  | —                | `active`, `inactive`           |
-| `pro` / `includeInactive` | false / false    | Flags                          |
+| Param                     | Default          | Description                 |
+| ------------------------- | ---------------- | --------------------------- |
+| `page` / `limit`          | 1 / 20 (max 100) | Pagination                  |
+| `search`                  | —                | ILIKE on name, email, phone |
+| `role`                    | —                | `user`, `admin`             |
+| `status`                  | —                | `active`, `inactive`        |
+| `pro` / `includeInactive` | false / false    | Flags                       |
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" "http://localhost:3000/api/admin/users?page=1&limit=20&search=john&role=user"

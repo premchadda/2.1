@@ -18,10 +18,7 @@ import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 
 export default function BackupsManager() {
   const { user } = useAuth();
-  const isSuper =
-    user?.role === "super_admin" ||
-    user?.isSuperAdmin === true ||
-    (user?.permissions || []).includes("*");
+  const isSuper = (user?.permissions || []).includes("*");
   const [backups, setBackups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
@@ -137,7 +134,7 @@ export default function BackupsManager() {
     } catch (error) {
       console.error("Failed to download backup:", error);
       if (isForbidden(error)) {
-        toast.error("Super-admin privilege required to download backups");
+        toast.error("Admin privilege required to download backups");
       } else {
         toast.error("Failed to download backup. File may not be available.");
       }
@@ -165,7 +162,7 @@ export default function BackupsManager() {
     } catch (error) {
       console.error("Failed to delete backup:", error);
       if (isForbidden(error)) {
-        toast.error("Super-admin privilege required to delete backups");
+        toast.error("Admin privilege required to delete backups");
       } else {
         toast.error("Failed to delete backup");
       }
@@ -189,7 +186,7 @@ export default function BackupsManager() {
     } catch (error) {
       console.error("Failed to restore backup:", error);
       if (isForbidden(error)) {
-        toast.error("Super-admin privilege required to restore backups");
+        toast.error("Admin privilege required to restore backups");
       } else {
         const msg =
           error.response?.data?.message ||
@@ -434,7 +431,7 @@ export default function BackupsManager() {
                           <button
                             disabled
                             className="p-2 text-gray-300 dark:text-gray-600 rounded-lg opacity-50 cursor-not-allowed"
-                            title="Restore requires super-admin privilege"
+                            title="Restore requires admin privilege"
                           >
                             <RotateCcw className="w-4 h-4" />
                           </button>
@@ -459,7 +456,7 @@ export default function BackupsManager() {
                           <button
                             disabled
                             className="p-2 text-gray-300 dark:text-gray-600 rounded-lg opacity-50 cursor-not-allowed"
-                            title="Download requires super-admin privilege"
+                            title="Download requires admin privilege"
                           >
                             <Download className="w-4 h-4" />
                           </button>
@@ -478,7 +475,7 @@ export default function BackupsManager() {
                           <button
                             disabled
                             className="p-2 text-gray-300 dark:text-gray-600 rounded-lg opacity-50 cursor-not-allowed"
-                            title="Delete requires super-admin privilege"
+                            title="Delete requires admin privilege"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

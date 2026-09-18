@@ -3,25 +3,11 @@ import {
   initWebSocket,
   getSocket,
   disconnectWebSocket,
+  resolveSocketUrl,
 } from "../lib/websocket.js";
-import { API_BASE_URL } from "../lib/apiBase.js";
 
-const SOCKET_URL = (() => {
-  if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
-  if (import.meta.env.VITE_BACKEND_URL) return import.meta.env.VITE_BACKEND_URL;
-  // VITE_API_URL doubles as the socket host when no dedicated socket URL is
-  // set (same origin serves both HTTP and WS in production).
-  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-  if (API_BASE_URL) return API_BASE_URL;
-  if (typeof window !== "undefined") {
-    // In production fall back to the page origin — never localhost, which
-    // would point at the user's own machine on a deployed site.
-    if (import.meta.env.PROD) return window.location.origin;
-    return `${window.location.protocol}//${window.location.hostname}${window.location.port ? `:${window.location.port}` : ""}`;
-  }
-  // localhost is a DEV-only last resort (SSR/test with no window).
-  return "http://localhost:5001";
-})();
+// Single canonical resolver (see shared/lib/websocket.js) — evaluated once.
+const SOCKET_URL = resolveSocketUrl();
 
 // Reference-counted consumer tracking for unified socket instance
 let consumerCount = 0;
@@ -32,7 +18,10 @@ let consumerCount = 0;
 // the listener and the subscription would never activate.
 const pendingListeners = [];
 
-export const useWebSocket = (enabled = true) => {
+// Default resolver value is frozen at module load; callers that need a
+// different host (tests, multi-backend, local overrides) pass `url` to opt
+// out of the frozen SOCKET_URL without mutating module state.
+export const useWebSocket = (enabled = true, url = null) => {
   const [isConnected, setIsConnected] = useState(() =>
     Boolean(getSocket()?.connected),
   );
@@ -45,9 +34,10 @@ export const useWebSocket = (enabled = true) => {
 
     consumerCount++;
 
+    const socketUrl = url || SOCKET_URL;
     let socket = getSocket();
     if (!socket) {
-      socket = initWebSocket({ url: SOCKET_URL });
+      socket = initWebSocket({ url: socketUrl });
       // Flush any listeners queued by on() calls that ran before this init.
       // If init failed (null socket), drop the queue — those subscriptions
       // can never activate, and keeping them would replay stale callbacks
@@ -105,7 +95,7 @@ export const useWebSocket = (enabled = true) => {
       }
       setIsConnected(false);
     };
-  }, [enabled]);
+  }, [enabled, url]);
 
   const emit = useCallback((event, data) => {
     getSocket()?.emit(event, data);

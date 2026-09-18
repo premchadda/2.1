@@ -7,6 +7,8 @@
  * upon connection restoration.
  */
 
+import { getCsrfToken } from "@trstprep/shared-config";
+
 const DB_NAME = "trstprep_attempt_vault";
 const DB_VERSION = 1;
 
@@ -481,18 +483,21 @@ export class IndexedDBAttemptVault {
       if (typeof apiDispatcher === "function") {
         result = await apiDispatcher(attemptId, payload);
       } else {
-        const token =
-          typeof localStorage !== "undefined"
-            ? localStorage.getItem("trstprep_auth_token")
-            : null;
+        let csrfToken = null;
+        try {
+          csrfToken = getCsrfToken();
+        } catch {
+          csrfToken = null;
+        }
         const res = await fetch(
           `/api/attempt/${encodeURIComponent(attemptId)}/sync-replay`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
             },
+            credentials: "include",
             body: JSON.stringify(payload),
           },
         );

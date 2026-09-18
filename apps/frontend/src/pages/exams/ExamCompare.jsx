@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -11,7 +11,9 @@ import {
   Check,
   AlertCircle,
 } from "lucide-react";
-import api from "../../shared/lib/dataService";
+// NOTE: dataService default-exports the shared axios instance (apiClient).
+// Import it by its canonical name so call sites read as apiClient.get(...).
+import apiClient from "../../shared/lib/dataService";
 
 export default function ExamCompare() {
   const { examId } = useParams();
@@ -19,9 +21,15 @@ export default function ExamCompare() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState(null);
   const [selectedYears, _setSelectedYears] = useState(["2026", "2025"]);
+  // Stored AbortController for the in-flight fetch — aborted on unmount and
+  // before starting a new fetch (retry / examId change) to avoid leaks and
+  // late responses overwriting newer state.
+  const controllerRef = useRef(null);
 
   useEffect(() => {
+    controllerRef.current?.abort();
     const controller = new AbortController();
+    controllerRef.current = controller;
     fetchExamData(controller.signal);
     return () => controller.abort();
   }, [examId]);
@@ -30,7 +38,7 @@ export default function ExamCompare() {
     try {
       setLoading(true);
       setErrorMessage(null);
-      const response = await api.get(
+      const response = await apiClient.get(
         `/api/exams/${examId}/compare?years=${selectedYears.join(",")}`,
         { signal },
       );
@@ -58,9 +66,12 @@ export default function ExamCompare() {
   };
 
   const getRetry = () => {
+    // Abort any in-flight fetch before retrying; fetchExamData owns the
+    // loading flag (no double setLoading here — it sets/clears it itself).
+    controllerRef.current?.abort();
     const controller = new AbortController();
-    setLoading(true);
-    fetchExamData(controller.signal).finally(() => setLoading(false));
+    controllerRef.current = controller;
+    fetchExamData(controller.signal);
   };
 
   const comparisonFields = [
@@ -89,10 +100,16 @@ export default function ExamCompare() {
     return value;
   };
 
+  // Numeric deltas only: date strings (or formatted "1,234" values) must not
+  // fall through parseInt into a bogus decrease arrow.
   const getChangeIndicator = (current, previous) => {
     if (!current || !previous) return null;
     if (current === previous) return null;
-    const isIncrease = parseInt(current) > parseInt(previous);
+    const cur = Number(String(current).replace(/,/g, ""));
+    const prev = Number(String(previous).replace(/,/g, ""));
+    if (!Number.isFinite(cur) || !Number.isFinite(prev)) return null;
+    if (cur === prev) return null;
+    const isIncrease = cur > prev;
     return {
       type: isIncrease ? "increase" : "decrease",
       text: isIncrease ? "↑" : "↓",

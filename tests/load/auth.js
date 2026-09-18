@@ -7,6 +7,7 @@ const BASE_URL = config.baseUrl;
 
 const loginSuccessRate = new Rate('login_success_rate');
 const registerSuccessRate = new Rate('register_success_rate');
+const refreshSuccessRate = new Rate('refresh_success_rate');
 const loginDuration = new Trend('login_duration', true);
 const registerDuration = new Trend('register_duration', true);
 
@@ -16,6 +17,10 @@ export const options = {
     ...config.thresholds,
     login_success_rate: ['rate>0.99'],
     register_success_rate: ['rate>0.99'],
+    // Refresh runs against a cookie-settled contract (refresh may legitimately
+    // 401 when the jar/cookie shape differs); keep the floor lenient so the
+    // signal is recorded without failing the suite.
+    refresh_success_rate: ['rate>0.5'],
     login_duration: ['p(95)<500'],
     register_duration: ['p(95)<800'],
   },
@@ -26,6 +31,18 @@ const TEST_USER = {
   password: 'LoadTest123!',
   name: 'Load Test User',
 };
+
+// Backend auth envelope is { success, data: { token, ... } } (JWT also set as
+// an httpOnly cookie). Accept data.token with a legacy body.token fallback so
+// the checks track the real contract — see tests/load/README.md "Token shape".
+function bodyToken(r) {
+  try {
+    const body = JSON.parse(r.body);
+    return (body && body.data && body.data.token) || (body && body.token);
+  } catch (e) {
+    return undefined;
+  }
+}
 
 function register() {
   const payload = JSON.stringify({
@@ -41,14 +58,7 @@ function register() {
 
   const success = check(res, {
     'register - status is 201': (r) => r.status === 201,
-    'register - has token': (r) => {
-      try {
-        const body = JSON.parse(r.body);
-        return body.token !== undefined;
-      } catch (e) {
-        return false;
-      }
-    },
+    'register - has token': (r) => bodyToken(r) !== undefined,
   });
 
   registerSuccessRate.add(success);
@@ -69,14 +79,7 @@ function login(email, password) {
 
   const success = check(res, {
     'login - status is 200': (r) => r.status === 200,
-    'login - has token': (r) => {
-      try {
-        const body = JSON.parse(r.body);
-        return body.token !== undefined;
-      } catch (e) {
-        return false;
-      }
-    },
+    'login - has token': (r) => bodyToken(r) !== undefined,
   });
 
   loginSuccessRate.add(success);
@@ -93,9 +96,11 @@ function refreshToken(token) {
     tags: { name: 'RefreshToken' },
   });
 
-  check(res, {
+  const refreshOk = check(res, {
     'refresh - status is 200': (r) => r.status === 200,
   });
+
+  refreshSuccessRate.add(refreshOk);
 
   return res;
 }
@@ -110,13 +115,9 @@ export default function () {
   } else {
     const loginRes = login();
     if (loginRes.status === 200) {
-      try {
-        const body = JSON.parse(loginRes.body);
-        if (body.token) {
-          refreshToken(body.token);
-        }
-      } catch (e) {
-        // ignore parse errors
+      const token = bodyToken(loginRes);
+      if (token) {
+        refreshToken(token);
       }
     }
   }

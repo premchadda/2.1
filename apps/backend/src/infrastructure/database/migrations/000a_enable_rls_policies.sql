@@ -21,6 +21,7 @@
 --             current_user_id()). Runs SECOND among
 --             000-* files since 'enable' > 'baseline'
 --             lexicographically.
+-- history normalized: second tier removed (single-admin model).
 -- =====================================================
 
 BEGIN;
@@ -69,7 +70,8 @@ BEGIN
   );
 END $$;
 
--- Admin / super_admin can read & write all users
+-- Admins can read & write all users
+-- history normalized: second tier removed
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users')
@@ -85,7 +87,7 @@ BEGIN
             SELECT 1 FROM user_roles ur
               JOIN roles r ON ur.role_id = r.id
              WHERE ur.user_id = current_user_id()
-               AND r.name IN (''admin'', ''super_admin'')
+               AND r.name IN (''admin'')
           )
           OR current_user_id() IS NULL
         )
@@ -94,7 +96,7 @@ BEGIN
             SELECT 1 FROM user_roles ur
               JOIN roles r ON ur.role_id = r.id
              WHERE ur.user_id = current_user_id()
-               AND r.name IN (''admin'', ''super_admin'')
+               AND r.name IN (''admin'')
           )
           OR current_user_id() IS NULL
         );';
@@ -169,7 +171,7 @@ BEGIN
             SELECT 1 FROM user_roles ur
               JOIN roles r ON ur.role_id = r.id
              WHERE ur.user_id = current_user_id()
-               AND r.name IN ('admin', 'super_admin')
+               AND r.name IN ('admin')
           )
           OR current_user_id() IS NULL
         );

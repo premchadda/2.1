@@ -121,7 +121,7 @@ flowchart TB
 ```mermaid
 flowchart LR
   Req[Request] --> NF[normalizeFields] --> RO[restrictAdminOrigin] --> AK[validateAdminApiKey]
-  --> P[protect JWT] --> AD[admin incl. superAdmin] --> CS[validateCsrfToken]
+  --> P[protect JWT] --> AD[admin incl. secondTier] --> CS[validateCsrfToken]
   --> LP[loadAdminPermissions] --> RP[requireAdminPermission] --> AU[auditMiddleware] --> H[Handler]
 ```
 
@@ -129,7 +129,7 @@ flowchart LR
   `normalizeFields → restrictAdminOrigin → validateAdminApiKey → protect → admin →
 validateCsrfToken → loadAdminPermissions → requireAdminPermission → auditMiddleware`.
   Do not bypass or reorder.
-- Roles include **`superAdmin`** (above `admin`); RBAC permission matrix enforced by
+- Roles include **`secondTier`** (above `admin`); RBAC permission matrix enforced by
   `loadAdminPermissions`/`requireAdminPermission`.
 - Public-but-personalized endpoints use `optionalAuth`
   (`apps/backend/src/middleware/auth.middleware.js`): leaderboards

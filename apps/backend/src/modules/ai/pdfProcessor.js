@@ -6,6 +6,7 @@ import path from 'path'
 import os from 'os'
 import crypto from 'crypto'
 import { fileURLToPath } from 'url'
+import logger from '../../infrastructure/logger/logger.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -20,6 +21,11 @@ export const pdfProcessor = {
   async processFile(documentName, buffer) {
     let text = ''
     try {
+      // 20MB input cap — oversized uploads fail fast before temp-file + spawn
+      const MAX_PDF_BYTES = 20 * 1024 * 1024
+      if (buffer.length > MAX_PDF_BYTES) {
+        throw new Error('Document exceeds 20MB size limit')
+      }
       // Basic text file / PDF format check
       const isPdf = buffer.slice(0, 4).toString() === '%PDF'
 
@@ -29,15 +35,24 @@ export const pdfProcessor = {
         const tempPdfPath = path.join(os.tmpdir(), `${tempId}.pdf`)
         await fs.writeFile(tempPdfPath, buffer)
 
-        try {
+        const runExtract = async (pythonBin) => {
           const scriptPath = path.join(__dirname, 'extract_pdf.py')
-          const { stdout } = await execFileAsync('python', [scriptPath, tempPdfPath], {
-            maxBuffer: 50 * 1024 * 1024 // 50MB max output buffer
+          return execFileAsync(pythonBin, [scriptPath, tempPdfPath], {
+            maxBuffer: 20 * 1024 * 1024, // 20MB max output buffer
+            timeout: 60000,
           })
+        }
+        try {
+          let stdout
+          try {
+            ;({ stdout } = await runExtract('python3'))
+          } catch {
+            ;({ stdout } = await runExtract('python'))
+          }
           text = stdout
         } finally {
           // Cleanup
-          await fs.unlink(tempPdfPath).catch(err => console.error('[PDF Processor] Failed to clean up temp pdf', err))
+          await fs.unlink(tempPdfPath).catch(err => logger.error({ err }, '[PDF Processor] Failed to clean up temp pdf'))
         }
       } else {
         // Standard Text / UTF-8
@@ -50,7 +65,7 @@ export const pdfProcessor = {
 
       return await ragService.addDocument(documentName, text)
     } catch (error) {
-      console.error('[PDF Processor] Document processing failed:', error)
+      logger.error({ err: error, document: documentName }, '[PDF Processor] Document processing failed')
       throw error
     }
   }

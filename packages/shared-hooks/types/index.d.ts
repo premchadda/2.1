@@ -5,7 +5,7 @@ import { Socket } from "socket.io-client";
 
 interface UndoRedoEntry {
   doAction: () => Promise<any> | any;
-  undoAction: () => void;
+  undoAction: () => void | Promise<void>;
   label: string;
   timestamp: number;
 }
@@ -13,7 +13,7 @@ interface UndoRedoEntry {
 interface UndoRedoResult {
   execute: <T = any>(
     doAction: () => T | Promise<T>,
-    undoAction: () => void,
+    undoAction: () => void | Promise<void>,
     label?: string,
   ) => Promise<T>;
   undo: () => Promise<{ result: any; label: string } | null>;
@@ -140,6 +140,7 @@ export function useStages(options?: StagesOptions): StagesResult;
 type UrgencyLevel = "active" | "critical" | "warning" | "notice" | "expired";
 
 interface ProPassResult {
+  initialized: boolean;
   isProUser: boolean;
   isActive: boolean;
   isExpired: boolean;
@@ -307,7 +308,7 @@ interface GenericCRUDConfig {
   getErrorMessage?: (action: string, itemName: string) => string;
   useAdminAPI?: boolean;
   confirmFn?: (message: string) => boolean;
-  notifyFn?: (type: "success" | "error", message: string) => Promise<void>;
+  notifyFn?: (type: "success" | "error", message: string) => void | Promise<void>;
 }
 
 interface GenericCRUDResult {
@@ -341,14 +342,121 @@ export function useDraggableScroll(): RefObject<HTMLElement>;
 
 // ─── useWebSocket ───────────────────────────────────────────────────────────
 
+interface WebSocketOptions {
+  enabled?: boolean;
+  token?: string | null;
+  url?: string | null;
+  socketUrl?: string | null;
+}
+
 interface WebSocketResult {
   isConnected: boolean;
   emit: (event: string, data?: any) => void;
   on: (event: string, callback: (...args: any[]) => void) => () => void;
+  socket: Socket | null;
   socketRef: React.MutableRefObject<Socket | null>;
 }
 
-export function useWebSocket(): WebSocketResult;
+export function useWebSocket(
+  options?: WebSocketOptions | boolean,
+): WebSocketResult;
+
+// ─── useSearch ──────────────────────────────────────────────────────────────
+
+interface SearchOptions {
+  debounceDelay?: number;
+  threshold?: number;
+  maxResults?: number;
+  initialQuery?: string;
+}
+
+interface SearchResult<T = any> {
+  query: string;
+  setQuery: React.Dispatch<React.SetStateAction<string>>;
+  debouncedQuery: string;
+  results: T[];
+  clear: () => void;
+  isSearching: boolean;
+  resultsCount: number;
+  totalCount: number;
+}
+
+export function useSearch<T = any>(
+  items?: T[],
+  getFields?: (item: T) => string[],
+  options?: SearchOptions,
+): SearchResult<T>;
+
+// ─── usePwaInstall ──────────────────────────────────────────────────────────
+
+interface PwaPlatform {
+  isIOS: boolean;
+  isSafari: boolean;
+  isMacSafari: boolean;
+  isAndroid: boolean;
+  isChromium: boolean;
+  isFirefox: boolean;
+}
+
+interface PwaInstallResult {
+  isInstallable: boolean;
+  isStandalone: boolean;
+  isDismissed: boolean;
+  platform: PwaPlatform;
+  hasNativePrompt: boolean;
+  showIosGuide: boolean;
+  setShowIosGuide: React.Dispatch<React.SetStateAction<boolean>>;
+  showMacGuide: boolean;
+  setShowMacGuide: React.Dispatch<React.SetStateAction<boolean>>;
+  installApp: () => Promise<string>;
+  dismissPrompt: (days?: number) => void;
+  resetDismissed: () => void;
+}
+
+export function usePwaInstall(): PwaInstallResult;
+
+// ─── useDebounce ────────────────────────────────────────────────────────────
+
+interface DebounceOptions {
+  maxWait?: number | null;
+}
+
+export function useDebounce<T = any>(
+  value: T,
+  delay?: number | DebounceOptions,
+  options?: DebounceOptions | number,
+): T;
+export function useDebouncedCallback<A extends any[]>(
+  callback: (...args: A) => void,
+  delay?: number | DebounceOptions,
+  options?: DebounceOptions | number,
+): (...args: A) => void;
+
+// ─── searchUtils ────────────────────────────────────────────────────────────
+
+export function normalizeSearchText(text: any): string;
+export function calculateFuzzyScore(query: string, target: string): number;
+export function filterAndRank<T = any>(
+  items: T[],
+  query: string,
+  getFields: (item: T) => string[],
+  options?: { threshold?: number; maxResults?: number },
+): T[];
+
+// ─── apiClientConfig ────────────────────────────────────────────────────────
+
+export function setSharedApiClient(apiClient: any): void;
+export function getSharedApiClient(): any;
+export function request<T = any>(
+  method: string,
+  url: string,
+  data?: any,
+  options?: Record<string, any>,
+): Promise<T>;
+
+// ─── ThemeContext (re-export; canonical types live in ./ThemeContext) ───────
+
+export { ThemeProvider, useTheme } from "./ThemeContext";
 
 // ─── EmptyState ─────────────────────────────────────────────────────────────
 

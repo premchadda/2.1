@@ -18,6 +18,7 @@ import {
 import MathRenderer from "../../../shared/components/MathRenderer";
 import sanitizeHtml from "../../../shared/lib/sanitizeHtml";
 import { getSubjectEmoji } from "../../../shared/config";
+import { bookmarksAPI } from "../../../shared/lib/dataService";
 import { toast } from "react-hot-toast";
 import { useConfirm } from "../../../shared/components/common/ConfirmModal";
 
@@ -40,7 +41,41 @@ export default function QuestionDetailModal({
   const [noteSaved, setNoteSaved] = useState(false);
   const { confirm, ConfirmDialog } = useConfirm();
 
-  const item = bookmark?.item || {};
+  const bookmarkId = bookmark?._id || bookmark?.id;
+  const hasInlineItem = bookmark?.item != null;
+  // Lazy detail: list paint is lightweight (includeDetails=false), so when
+  // the modal opens on a bookmark without an embedded item, fetch one
+  // details-enriched page (server-cached 30s) and find this bookmark by id.
+  const [detailItem, setDetailItem] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  useEffect(() => {
+    if (!bookmark || hasInlineItem) {
+      setDetailItem(null);
+      setDetailLoading(false);
+      return undefined;
+    }
+    const controller = new AbortController();
+    setDetailLoading(true);
+    bookmarksAPI
+      .getAll(1, 20, { includeDetails: true, signal: controller.signal })
+      .then((res) => {
+        const list = res?.data || res || [];
+        const found = (Array.isArray(list) ? list : []).find(
+          (b) => String(b._id || b.id) === String(bookmarkId),
+        );
+        if (found?.item) setDetailItem(found.item);
+      })
+      .catch(() => {
+        // Keep the fallback title card — details are best-effort.
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setDetailLoading(false);
+      });
+    return () => controller.abort();
+  }, [bookmark, hasInlineItem, bookmarkId]);
+
+  const item = detailItem || bookmark?.item || {};
 
   // Prevent background body scrolling when modal is open
   useEffect(() => {
@@ -282,7 +317,14 @@ export default function QuestionDetailModal({
 
         {/* Modal Scrollable Body */}
         <div className="p-3 sm:p-4 overflow-y-auto space-y-2.5 sm:space-y-3 text-xs sm:text-sm flex-1">
-          {/* Question Statement Box */}
+          {/* Question Statement Box (skeleton while lazy detail loads) */}
+          {detailLoading && !hasInlineItem ? (
+            <div className="bg-gray-50 dark:bg-gray-950/60 p-3 sm:p-3.5 rounded-xl border border-gray-200/80 dark:border-gray-800/80 space-y-2 animate-pulse">
+              <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
+              <div className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded" />
+              <div className="h-4 w-5/6 bg-gray-200 dark:bg-gray-700 rounded" />
+            </div>
+          ) : (
           <div className="bg-gray-50 dark:bg-gray-950/60 p-3 sm:p-3.5 rounded-xl border border-gray-200/80 dark:border-gray-800/80 space-y-1.5">
             <div className="text-[9px] sm:text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1">
               <HelpCircle className="w-3 h-3" />
@@ -292,6 +334,7 @@ export default function QuestionDetailModal({
               <MathRenderer text={sanitizeHtml(questionText)} />
             </div>
           </div>
+          )}
 
           {/* Active Recall Notice */}
           {optionsList.length > 0 && !selectedOption && (

@@ -30,15 +30,22 @@ function checkHealth() {
   })
 }
 
+let backendExited = false
+let backendExitCode = null
+
 async function waitForBackendReady() {
   console.log(`[dev:seq] ⏳ Step 1/3: Waiting for backend to initialize at ${HEALTH_URL}...`)
   let attempts = 0
-  while (true) {
+  const maxAttempts = 60
+  while (attempts < maxAttempts) {
+    if (backendExited) {
+      throw new Error(`trstprep-backend exited prematurely with code ${backendExitCode}. Aborting startup.`)
+    }
     attempts++
     const ready = await checkHealth()
     if (ready) {
       console.log(`\n[dev:seq] ✅ Backend is up and healthy!\n`)
-      break
+      return
     }
     if (attempts % 5 === 0) {
       process.stdout.write(`\n[dev:seq] Backend initializing... (${attempts}s)`)
@@ -47,6 +54,7 @@ async function waitForBackendReady() {
     }
     await new Promise((r) => setTimeout(r, 1000))
   }
+  throw new Error(`Timed out after ${maxAttempts}s waiting for backend at ${HEALTH_URL}`)
 }
 
 const processes = []
@@ -62,6 +70,10 @@ function spawnProcess(name, command, args) {
   child.on('exit', (code) => {
     if (code !== null && code !== 0) {
       console.log(`[dev:seq] ${name} exited with code ${code}`)
+    }
+    if (name === 'trstprep-backend') {
+      backendExited = true
+      backendExitCode = code
     }
   })
   return child

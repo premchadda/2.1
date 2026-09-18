@@ -4,7 +4,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../../shared/providers/AuthContext";
 import { AnimatedHero } from "../../shared/components";
-import { useProPass, getUrgencyColors } from "../../shared/hooks/useProPass";
+import { useProPass, getUrgencyColors } from "@trstprep/shared-hooks";
 import {
   Crown,
   Check,
@@ -38,9 +38,9 @@ import {
   Flame,
   Tag,
 } from "lucide-react";
-import api from "../../shared/lib/api";
 import { useConfirm } from "../../shared/components/common/ConfirmModal";
 import { apiClient, getPublicStats } from "../../shared/lib/dataService";
+import { clearDashboardCache } from "../../shared/lib/dashboardCache";
 import { toast } from "react-hot-toast";
 import { usePublicSettings } from "../../shared/hooks/usePublicSettings";
 
@@ -83,6 +83,8 @@ function Pass() {
 
   useEffect(() => {
     const controller = new AbortController();
+    // Per-tick poll controllers — aborted together on unmount.
+    const pollControllers = new Set();
     const fetchPlatformStats = async () => {
       try {
         const stats = await getPublicStats();
@@ -95,18 +97,24 @@ function Pass() {
         }
       } catch (err) {
         if (controller.signal.aborted) return;
-        console.error("Failed to fetch platform stats:", err);
+        console.error("Failed to fetch platform stats:", err?.message);
       }
     };
     fetchPlatformStats();
     fetchPlans(false, controller.signal);
 
     const interval = setInterval(() => {
-      fetchPlans(true);
+      const tickController = new AbortController();
+      pollControllers.add(tickController);
+      fetchPlans(true, tickController.signal).finally(() => {
+        pollControllers.delete(tickController);
+      });
     }, 10000);
 
     return () => {
       controller.abort();
+      pollControllers.forEach((c) => c.abort());
+      pollControllers.clear();
       clearInterval(interval);
     };
   }, []);
@@ -148,7 +156,7 @@ function Pass() {
     } catch (error) {
       if (signal?.aborted) return;
       if (!isBackground)
-        console.error("Failed to fetch subscription plans:", error);
+        console.error("Failed to fetch subscription plans:", error?.message);
       setPlans([]);
     } finally {
       setLoading(false);
@@ -177,7 +185,7 @@ function Pass() {
     }
     try {
       setCouponLoading(true);
-      const res = await api.post("/api/payments/apply-coupon", {
+      const res = await apiClient.post("/api/payments/apply-coupon", {
         couponCode: couponInput.trim().toUpperCase(),
         amount: currentPlan.price,
         planId: currentPlan.id,
@@ -235,7 +243,7 @@ function Pass() {
       setVerifying(true);
       setPurchaseLoading(currentPlan.id);
       // 1. Create order
-      const orderRes = await api.post("/api/payments/create-order", {
+      const orderRes = await apiClient.post("/api/payments/create-order", {
         planId: currentPlan.id,
         amount: currentPlan.price,
         couponCode: appliedCoupon?.code,
@@ -246,11 +254,11 @@ function Pass() {
       }
 
       const orderData = orderRes.data.data;
-      const { orderId, keyId, isMock, amount, currency } = orderData;
+      const { orderId, keyId, amount, currency } = orderData;
 
       // Helper to submit verification payload
       const verifyPaymentPayload = async (payload) => {
-        const verifyRes = await api.post("/api/payments/verify", {
+          const verifyRes = await apiClient.post("/api/payments/verify", {
           ...payload,
           planId: currentPlan.id,
           couponCode: appliedCoupon?.code,
@@ -260,6 +268,9 @@ function Pass() {
           toast.success(
             `🎉 Welcome to Pro Pass! ${currentPlan.name} is now active.`,
           );
+          // Purchase path: dashboard entitlements are now stale — invalidate
+          // the in-memory dashboard cache before reloading.
+          clearDashboardCache();
           setPlanModalOpen(false);
           setTimeout(() => {
             window.location.reload();
@@ -272,18 +283,13 @@ function Pass() {
         }
       };
 
-      // If mock order / development sandbox fallback
-      if (
-        isMock ||
-        !keyId ||
-        keyId.includes("mock") ||
-        keyId.includes("sandbox")
-      ) {
-        await verifyPaymentPayload({
-          razorpay_order_id: orderId,
-          razorpay_payment_id: `pay_mock_${Date.now()}_${user?.id || 1}`,
-          razorpay_signature: `sig_sandbox_${Date.now()}`,
-        });
+      // Payment gateway not configured — fail loudly instead of fabricating
+      // a mock payment verification payload.
+      if (!keyId || keyId.includes("mock") || keyId.includes("sandbox")) {
+        toast.error(
+          "Payment gateway is not configured. Please try again later or contact support.",
+        );
+        setVerifying(false);
         setPurchaseLoading(null);
         return;
       }
@@ -321,7 +327,7 @@ function Pass() {
               razorpay_signature: response.razorpay_signature,
             });
           } catch (err) {
-            console.error("Verification error:", err);
+            console.error("Verification error:", err?.message);
             toast.error(
               err.response?.data?.message ||
                 err.message ||
@@ -351,7 +357,7 @@ function Pass() {
       });
       rzp.open();
     } catch (err) {
-      console.error("Upgrade verification error:", err);
+      console.error("Upgrade verification error:", err?.message);
       const msg = err.response?.data?.message || err.message || "";
       if (
         err.response?.status === 503 ||

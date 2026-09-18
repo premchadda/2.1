@@ -88,6 +88,34 @@ class MessageBroker {
   }
 
   /**
+   * Remove a subscriber.
+   *
+   * @param {string} eventName
+   * @param {Function} [handler] - specific handler to remove; when omitted,
+   *   all handlers for the event are removed.
+   * @returns {boolean} true when something was removed
+   */
+  unsubscribe(eventName, handler) {
+    if (!eventName) return false;
+    if (handler) {
+      const list = this.subscribers.get(eventName) || [];
+      const index = list.indexOf(handler);
+      if (index > -1) {
+        list.splice(index, 1);
+      }
+      return index > -1;
+    }
+    return this.subscribers.delete(eventName);
+  }
+
+  /**
+   * Remove all subscribers for all events.
+   */
+  unsubscribeAll() {
+    this.subscribers.clear();
+  }
+
+  /**
    * Publish an event to all subscribers (cross-process)
    *
    * @param {string} eventName
@@ -126,7 +154,7 @@ class MessageBroker {
    * @param {string} eventName
    * @param {Object} payload
    */
-  async enqueue(eventName, payload = {}) {
+  async enqueue(eventName, payload = {}, opts = {}) {
     if (!isQueueEnabled()) {
       // Fallback to pub/sub immediately if queue is disabled
       return this.publish(eventName, payload);
@@ -139,9 +167,15 @@ class MessageBroker {
     };
 
     try {
+      // Idempotent jobId with random suffix (mirrors eventBus) so concurrent
+      // enqueues of the same event never collide; caller may pass a stable
+      // opts.jobId for replay/dedup.
+      const jobId = opts?.jobId
+        ? String(opts.jobId)
+        : `event-${eventName}-${payload.userId || "system"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       await addJob(QUEUE_NAMES.EVENTS || "events", eventName, envelope, {
         // BullMQ custom job IDs cannot contain ":" - use "-" separators
-        jobId: `event-${eventName}-${payload.userId || "system"}-${Date.now()}`,
+        jobId,
       });
     } catch (err) {
       logger.error(
@@ -149,6 +183,40 @@ class MessageBroker {
         err.message,
       );
       await this.publish(eventName, payload);
+    }
+  }
+
+  /**
+   * Publish an event to OTHER instances only (no local trigger).
+   *
+   * Used for the WebSocket fan-out bridge: the publishing instance already
+   * delivered locally via the in-process eventBus, so a local trigger here
+   * would double-deliver. Siblings receive via handleInboundMessage (which
+   * skips our own loopback via publisherId) and re-emit on their local bus.
+   *
+   * @param {string} eventName
+   * @param {Object} payload
+   * @returns {Promise<boolean>} true when handed to Redis
+   */
+  async publishRemote(eventName, payload = {}) {
+    if (!this.initialized || !this.publisherClient) return false;
+    try {
+      await this.publisherClient.publish(
+        this.channel,
+        JSON.stringify({
+          name: eventName,
+          payload,
+          publishedAt: new Date().toISOString(),
+          publisherId: this.instanceId,
+        }),
+      );
+      return true;
+    } catch (err) {
+      logger.error(
+        `[MessageBroker] Failed to publish remote event "${eventName}":`,
+        err.message,
+      );
+      return false;
     }
   }
 

@@ -4,13 +4,14 @@
   "description": "Load testing suite for Trstprep V2.1 using k6",
   "private": true,
   "scripts": {
+    "test:smoke": "k6 run smoke.js",
     "test:auth": "k6 run auth.js",
     "test:api": "k6 run api.js",
     "test:realtime": "k6 run realtime.js",
-    "test:all": "k6 run --tag test=all api.js auth.js realtime.js"
+    "test:all": "for f in api auth realtime; do k6 run $f.js || exit 1; done"
   },
   "devDependencies": {},
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   }
 }

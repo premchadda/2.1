@@ -116,9 +116,20 @@ export const checkIsLiveExpired = (test) => {
   if (!test) return false;
   if (test.status === "expired") return true;
   const endDate = getTestEndDate(test);
-  if (!endDate) return false;
-  const d = new Date(endDate);
-  return !isNaN(d.getTime()) && d < new Date();
+  if (endDate) {
+    const d = new Date(endDate);
+    if (!isNaN(d.getTime())) return d < new Date();
+  }
+  // Live/quiz items often carry only a start date (no explicit end field).
+  // The card display already synthesizes end = start + duration ("Till: …"),
+  // so expiry must use the same effective end — otherwise a long-past live
+  // quiz renders "Till: <past>" yet stays joinable/recommended forever.
+  // Scoped to live/quiz items only: regular mock tests must never expire.
+  if (checkIsLive(test) || checkIsQuiz(test)) {
+    const eff = getEffectiveTestEndDate(test);
+    if (eff) return eff < new Date();
+  }
+  return false;
 };
 
 export const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;

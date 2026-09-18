@@ -19,6 +19,15 @@ const SENSITIVE_PATTERNS = [
   /authorization["':\s=]+([^"'\s&,]+)/gi,
   /cookie["':\s=]+([^"'\s&,]+)/gi,
   /api[_-]?key["':\s=]+([^"'\s&,]+)/gi,
+  // PII classes: phone numbers, emails, OTPs, national IDs — full redaction,
+  // never partial (first/last chars of a phone/email still identify a person).
+  /otp["':\s=]+([^"'\s&,]+)/gi,
+  /(?:phone|mobile)["':\s=]+([^"'\s&,]+)/gi,
+  /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,
+  /aadhaar?["':\s=]+([^"'\s&,]+)/gi,
+  /\b\d{4}\s?\d{4}\s?\d{4}\b/g,
+  // Mirror SENSITIVE_KEYS object-key set for string-log redaction (same semantics).
+  /(pan|full[_-]?name|avatar(?:[_-]?url)?|razorpay(?:[_-]?key(?:[_-]?id|[_-]?secret)?)?|pgcrypto(?:[_-]?key)?|db[_-]?encryption[_-]?key|encryption[_-]?key)["':\s=]+([^"'\s&,]+)/gi,
 ];
 
 function redactString(str) {
@@ -26,12 +35,55 @@ function redactString(str) {
   let sanitized = str;
   for (const pattern of SENSITIVE_PATTERNS) {
     sanitized = sanitized.replace(pattern, (match, p1) => {
-      if (!p1 || p1.length <= 4) return match.replace(p1, "••••");
-      return match.replace(p1, `${p1.slice(0, 2)}••••${p1.slice(-2)}`);
+      // Bare PII matches (email / 12-digit groups) carry no key prefix —
+      // replace the whole match.
+      if (p1 === undefined) return "[REDACTED]";
+      return match.replace(p1, "[REDACTED]");
     });
   }
   return sanitized;
 }
+
+// Object keys whose values are PII/secrets and must be fully redacted.
+const SENSITIVE_KEYS = new Set([
+  "password",
+  "secret",
+  "token",
+  "authorization",
+  "cookie",
+  "apikey",
+  "api_key",
+  "otp",
+  "totp",
+  "phone",
+  "mobile",
+  "phone_number",
+  "phonenumber",
+  "email",
+  "user_email",
+  "useremail",
+  "full_name",
+  "fullname",
+  "fullName",
+  "avatar",
+  "avatar_url",
+  "avatarurl",
+  "avatarUrl",
+  "aadhaar",
+  "aadhar",
+  "pan",
+  "pancard",
+  "pan_card",
+  "pancardnumber",
+  "razorpay",
+  "razorpaykeyid",
+  "razorpaykeysecret",
+  "pgcrypto",
+  "pgcryptokey",
+  "encryption_key",
+  "encryptionkey",
+  "dbencryptionkey",
+]);
 
 function sanitizeLogPayload(item) {
   if (!item) return item;
@@ -41,16 +93,9 @@ function sanitizeLogPayload(item) {
   if (typeof item === "object") {
     const out = {};
     for (const [k, v] of Object.entries(item)) {
-      const lower = k.toLowerCase();
-      if (
-        lower.includes("password") ||
-        lower.includes("secret") ||
-        lower.includes("token") ||
-        lower.includes("authorization") ||
-        lower.includes("cookie") ||
-        lower.includes("apikey")
-      ) {
-        out[k] = "••••••••";
+      const lower = k.toLowerCase().replace(/[_-]/g, "");
+      if (SENSITIVE_KEYS.has(lower)) {
+        out[k] = "[REDACTED]";
       } else {
         out[k] = sanitizeLogPayload(v);
       }

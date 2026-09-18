@@ -1,11 +1,12 @@
 import express from "express";
 import { protect, admin } from "../../middleware/auth.middleware.js";
+import { aiRateLimiter } from "../../middleware/aiRateLimiter.js";
 import questionSearchService from "./questionSearch.service.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
 
-router.get("/search", async (req, res) => {
+router.get("/search", protect, aiRateLimiter, async (req, res) => {
   try {
     const {
       q,
@@ -37,7 +38,7 @@ router.get("/search", async (req, res) => {
   }
 });
 
-router.post("/search/embedding", async (req, res) => {
+router.post("/search/embedding", protect, aiRateLimiter, async (req, res) => {
   try {
     const {
       embedding,
@@ -69,7 +70,7 @@ router.post("/search/embedding", async (req, res) => {
   }
 });
 
-router.post("/search/keywords", async (req, res) => {
+router.post("/search/keywords", protect, aiRateLimiter, async (req, res) => {
   try {
     const { keywords, difficulty, topicId, limit = 20 } = req.body;
     if (!keywords || !Array.isArray(keywords)) {
@@ -90,7 +91,7 @@ router.post("/search/keywords", async (req, res) => {
   }
 });
 
-router.get("/stats", protect, admin, async (req, res) => {
+router.get("/stats", protect, admin, aiRateLimiter, async (req, res) => {
   try {
     const stats = await questionSearchService.getIndexStats();
     const unindexed = await questionSearchService.getUnindexedCount();
@@ -102,7 +103,7 @@ router.get("/stats", protect, admin, async (req, res) => {
   }
 });
 
-router.post("/index/:questionId", protect, admin, async (req, res, next) => {
+router.post("/index/:questionId", protect, admin, aiRateLimiter, async (req, res, next) => {
   // Registered before POST /index/bulk: forward the literal so the bulk
   // endpoint is not parsed as a question id (it was unreachable).
   if (req.params.questionId === "bulk") return next();
@@ -118,11 +119,17 @@ router.post("/index/:questionId", protect, admin, async (req, res, next) => {
   }
 });
 
-router.post("/index/bulk", protect, admin, async (req, res) => {
+router.post("/index/bulk", protect, admin, aiRateLimiter, async (req, res) => {
   try {
-    const limit = parseInt(req.body.limit) || 50;
-    const indexed = await questionSearchService.bulkIndex(limit);
-    res.json({ success: true, data: { indexed } });
+    // Cursor passthrough (15): afterId/maxPages forwarded to the service
+    // (bulkIndex caps at 50 ids per call); truncated flag (18) when sliced.
+    const requested = parseInt(req.body.limit) || 50;
+    const limit = Math.min(requested, 50);
+    const truncated = requested > 50;
+    const afterId = req.body.afterId ?? req.body.afterCursor ?? null;
+    const maxPages = parseInt(req.body.maxPages) || 1;
+    const indexed = await questionSearchService.bulkIndex(limit, afterId, maxPages);
+    res.json({ success: true, data: { indexed, truncated } });
   } catch (error) {
     res
       .status(400)
@@ -130,7 +137,7 @@ router.post("/index/bulk", protect, admin, async (req, res) => {
   }
 });
 
-router.delete("/index/:questionId", protect, admin, async (req, res) => {
+router.delete("/index/:questionId", protect, admin, aiRateLimiter, async (req, res) => {
   try {
     await questionSearchService.removeFromIndex(req.params.questionId);
     res.json({ success: true, message: "Removed from search index" });
@@ -141,7 +148,7 @@ router.delete("/index/:questionId", protect, admin, async (req, res) => {
   }
 });
 
-router.get("/:id", async (req, res) => {
+router.get("/:id", protect, aiRateLimiter, async (req, res) => {
   try {
     const entry = await questionSearchService.getById(req.params.id);
     if (!entry) {

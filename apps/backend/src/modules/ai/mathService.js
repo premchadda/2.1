@@ -18,8 +18,14 @@ const mathService = {
       (match, displayEq, parenEq, inlineEq) => {
         const eq = displayEq || parenEq || inlineEq;
         if (!eq) return match;
+        // Skip pure-currency/arithmetic fragments ("$5 and $10", "$100") —
+        // no letters/backslash/operators that need TeX, so leave as-is
+        // instead of burning a KaTeX parse that fails anyway.
+        if (!displayEq && !parenEq && /^[\d\s.,₹$+\-*/()]+$/.test(eq)) return match;
         try {
-          return katex.renderToString(eq.trim(), { 
+          // No `trust` option: KaTeX escapes HTML by default, so output is
+          // safe to inject (no stored-XSS vector through this path).
+          return katex.renderToString(eq.trim(), {
             displayMode: !!displayEq || match.startsWith('$$'),
             throwOnError,
             output: 'html'

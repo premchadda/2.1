@@ -21,6 +21,10 @@ export const SEGMENT_TO_RESOURCE = {
   questions: "tests",
   quizzes: "tests",
   sections: "tests",
+  // COARSE-INTENT: exam taxonomy segments (stages, exam-categories,
+  // exam-info, categories, tag-configs) deliberately stay under the "tests"
+  // resource. They are assessment taxonomy, not standalone products, so
+  // tests:view/read grants them. Split only if taxonomy gets its own team.
   stages: "tests",
   "exam-categories": "tests",
   "exam-info": "tests",
@@ -51,14 +55,38 @@ export const SEGMENT_TO_RESOURCE = {
   results: "audit",
   "deep-analytics": "analytics",
   leaderboards: "analytics",
+  // Study / content hub segments (StudyMaterialsManager tabs + redirects)
+  content: "content",
+  "study-materials": "content",
+  subjects: "content",
+  "subject-relations": "content",
+  "subject-hierarchy": "content",
+  topics: "content",
+  curriculum: "content",
+  "content-management": "content",
+  "current-affairs": "content",
+  // Practice + live assessment segments.
+  // Least-privilege split: live operations get dedicated resources ("live",
+  // "proctoring") instead of inheriting broad "tests" access. Route guards
+  // in App.jsx additionally require "tests:admin" for these paths, so a
+  // tests:view-only user can manage questions but cannot proctor live rooms.
+  "practice-questions": "tests",
+  "live-monitor": "live",
+  live: "live",
+  "live-tests": "live",
+  "live-proctoring": "proctoring",
 };
 
 export function getResourceFromSegment(segment = "content") {
   const seg = String(segment).trim().toLowerCase();
-  return SEGMENT_TO_RESOURCE[seg] || "content";
+  return SEGMENT_TO_RESOURCE[seg] ?? null;
 }
 
 export function getResourceFromPath(pathname = "/") {
+  // PREFIX ASSERT: admin routes are always /admin/<segment>/... so the
+  // resource segment is index [1] after filtering empty parts. Non-admin
+  // paths (e.g. /login) fall back to "content" and are handled by auth
+  // guards, not resource checks.
   const segment = String(pathname).split("/").filter(Boolean)[1] || "content";
   return getResourceFromSegment(segment);
 }

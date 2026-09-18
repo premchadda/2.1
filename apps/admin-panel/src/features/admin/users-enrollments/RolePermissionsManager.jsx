@@ -49,11 +49,8 @@ export default function RolePermissionsManager({
 
   const userPerms = user?.permissions || [];
   const isSuperPerms = userPerms.includes("*");
-  const isAdminRole = user?.role === "admin" || user?.role === "super_admin";
-  const canManage =
-    isSuperPerms ||
-    user?.role === "super_admin" ||
-    userPerms.includes("roles:write");
+  const isAdminRole = user?.role === "admin" || user?.isAdmin === true;
+  const canManage = isSuperPerms || userPerms.includes("roles:write");
 
   const fetchData = useCallback(async (signal) => {
     try {
@@ -104,7 +101,7 @@ export default function RolePermissionsManager({
 
   const handleCreate = () => {
     if (!canManage) {
-      toast.error("Only super admins (roles:write) can manage roles");
+      toast.error("Only admins with roles:write can manage roles");
       return;
     }
     setEditingId("new");
@@ -119,7 +116,7 @@ export default function RolePermissionsManager({
 
   const handleEdit = (role) => {
     if (!canManage) {
-      toast.error("Only super admins (roles:write) can manage roles");
+      toast.error("Only admins with roles:write can manage roles");
       return;
     }
     const roleId = role.id || role._id;
@@ -180,7 +177,7 @@ export default function RolePermissionsManager({
         return;
       }
       if (!canManage) {
-        toast.error("Only super admins (roles:write) can manage roles");
+        toast.error("Only admins with roles:write can manage roles");
         return;
       }
       const payload = {
@@ -329,7 +326,7 @@ export default function RolePermissionsManager({
 
   const handleDelete = async (id) => {
     if (!canManage) {
-      toast.error("Only super admins (roles:write) can manage roles");
+      toast.error("Only admins with roles:write can manage roles");
       return;
     }
     const confirmed = await confirmOnce({

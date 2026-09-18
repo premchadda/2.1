@@ -1,11 +1,7 @@
 import express from "express";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
-import {
-  protect,
-  admin,
-  superAdmin,
-} from "../../middleware/auth.middleware.js";
+import { protect, admin } from "../../middleware/auth.middleware.js";
 import logger from "../../infrastructure/logger/logger.js";
 
 const router = express.Router();

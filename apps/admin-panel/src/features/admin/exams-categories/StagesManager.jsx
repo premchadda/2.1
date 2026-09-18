@@ -735,30 +735,9 @@ export default function StagesManager() {
     [allStages, activeExamId, fetchStages],
   );
 
-  // Toggle category in form (S-02 fix)
-  const toggleCategory = useCallback((catId) => {
-    setFormData((prev) => {
-      const current = Array.isArray(prev.categoryIds) ? prev.categoryIds : [];
-      const exists = current.some((id) => String(id) === String(catId));
-      return {
-        ...prev,
-        categoryIds: exists
-          ? current.filter((id) => String(id) !== String(catId))
-          : [...current, catId],
-      };
-    });
-  }, []);
-
+  // NOTE: stage categoryIds are managed server-side pending a multi-select UI.
   const isExamSelected = (examId) => {
     return idsMatch(formData.examIds, examId);
-  };
-
-  // Category toggle handler for form
-  const isCategorySelected = (catId) => {
-    const current = Array.isArray(formData.categoryIds)
-      ? formData.categoryIds
-      : [];
-    return current.some((id) => String(id) === String(catId));
   };
 
   const toggleExam = (examId) => {

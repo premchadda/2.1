@@ -16,16 +16,17 @@ import {
 } from "../../services/import/enhancedImporter.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 import logger from "../../infrastructure/logger/logger.js";
+import { emitBroadcastEvent } from "../../infrastructure/events/eventBus.js";
 
 import { protect, admin } from "../../middleware/auth.middleware.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
-import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
+import { reviewSubmissionLimiter } from "../../middleware/reviewLimiter.js";
 import { moderationService } from "../../services/core/moderationService.js";
 import { predictQuestionDifficulty } from "../../modules/questions/questionDifficulty.service.js";
 import questionBuilderService from "../../modules/questions/questionBuilder.service.js";
+import questionControllerRouter from "../../modules/questions/question.controller.js";
 
 const router = express.Router();
-const reviewSubmissionLimiter = createRateLimiter("moderate");
 router.use(protect);
 router.use(admin);
 
@@ -1009,6 +1010,15 @@ router.post("/questions", async (req, res) => {
       );
       await syncTestStats(testId);
     }
+    try {
+      emitBroadcastEvent("content:updated", {
+        type: "question",
+        action: "created",
+        questionId: newQuestion.id ?? newQuestion._id,
+      });
+    } catch {
+      /* broadcast non-critical */
+    }
     res.status(201).json({ success: true, data: newQuestion });
   } catch (error) {
     logger.error("[Questions] Error creating question:", error.message);
@@ -1203,6 +1213,15 @@ router.put("/questions/:id", async (req, res) => {
       );
       await syncTestStats(testId);
     }
+    try {
+      emitBroadcastEvent("content:updated", {
+        type: "question",
+        action: "updated",
+        questionId: updated.id ?? updated._id ?? req.params.id,
+      });
+    } catch {
+      /* broadcast non-critical */
+    }
     res.json({ success: true, data: updated });
   } catch (error) {
     res
@@ -1237,6 +1256,14 @@ router.delete("/questions/:id", async (req, res) => {
         );
       }
       await syncTestStats(testId);
+    }
+    try {
+      emitBroadcastEvent("content:updated", {
+        type: "question",
+        action: "deleted",
+      });
+    } catch {
+      /* broadcast non-critical */
     }
     res.json({ success: true, message: "Question moved to trash" });
   } catch (error) {
@@ -1530,6 +1557,15 @@ router.post(
         logger.error("Import log error:", logErr.message);
       }
 
+      try {
+        emitBroadcastEvent("content:updated", {
+          type: "question",
+          action: "created",
+          count: allInserted.length,
+        });
+      } catch {
+        /* broadcast non-critical */
+      }
       res.status(201).json({
         success: true,
         data: allInserted,
@@ -1544,5 +1580,11 @@ router.post(
     }
   },
 );
+
+// Wire previously-unmounted modules/questions/question.controller.js as a sub-router.
+// The controller carries its own restrictAdminOrigin -> validateAdminApiKey ->
+// protect -> admin -> auditMiddleware chain; this parent router already enforces
+// protect -> admin upstream (protect fast-paths via req.authVerified).
+router.use("/managed", questionControllerRouter);
 
 export default router;

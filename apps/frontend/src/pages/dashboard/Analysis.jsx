@@ -57,7 +57,7 @@ function Analysis() {
       try {
         await getTestSeries();
       } catch (error) {
-        console.error("Failed to fetch series:", error);
+        console.error("Failed to fetch series:", error?.message ?? error);
       } finally {
         setLoading(false);
       }
@@ -88,7 +88,7 @@ function Analysis() {
           setAnalytics(null);
         }
       } catch (error) {
-        console.error("Failed to fetch analytics:", error);
+        console.error("Failed to fetch analytics:", error?.message ?? error);
         setAnalytics(null);
       }
     };
@@ -548,8 +548,7 @@ function Analysis() {
     checkFeatureAccess("performance_analytics", user?.passType || "free") ||
     user?.isProUser === true ||
     user?.hasProPass === true ||
-    user?.role === "admin" ||
-    user?.role === "superadmin";
+    user?.role === "admin";
 
   // Loading state
   if (loading) {

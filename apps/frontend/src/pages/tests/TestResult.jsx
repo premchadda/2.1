@@ -25,7 +25,6 @@ import {
   BookOpen,
   Timer,
   Clock,
-  Zap,
   TrendingUp,
   Award,
   Layers,
@@ -77,7 +76,6 @@ function TestResult() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showMobileActions, setShowMobileActions] = useState(false);
   const [showReattemptModal, setShowReattemptModal] = useState(false);
-  const [showAttemptBreakdown, setShowAttemptBreakdown] = useState(false);
   const mainScrollRef = useRef(null);
   const sectionRefs = useRef({});
   const confettiShownRef = useRef(new Set());
@@ -184,6 +182,41 @@ function TestResult() {
       }
     };
   }, [result?.score, result?.totalQuestions, attemptIdFromState, testId]);
+
+  // Canonical option normalization + comparison. Defined above the data-fetch
+  // effect and the loading/error early returns: fetchResult's async
+  // continuation (missing-score recompute) closes over this render's bindings,
+  // so these must be initialized on every render, including the first one
+  // that returns early while loading.
+  const normalizeResultOption = (value) => {
+    if (value === undefined || value === null || value === "") return null;
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    const normalized = String(value).trim();
+    if (/^[A-Za-z]$/.test(normalized)) {
+      return normalized.toUpperCase().charCodeAt(0) - 65;
+    }
+    return /^-?\d+(\.\d+)?$/.test(normalized) ? Number(normalized) : null;
+  };
+
+  const answersMatch = (userAns, correctAns) => {
+    if (Array.isArray(userAns) || Array.isArray(correctAns)) {
+      const selected = (Array.isArray(userAns) ? userAns : [userAns])
+        .map(normalizeResultOption)
+        .filter((value) => value !== null)
+        .sort((a, b) => a - b);
+      const correct = (Array.isArray(correctAns) ? correctAns : [correctAns])
+        .map(normalizeResultOption)
+        .filter((value) => value !== null)
+        .sort((a, b) => a - b);
+      return (
+        selected.length === correct.length &&
+        selected.every((value, index) => value === correct[index])
+      );
+    }
+    const selected = normalizeResultOption(userAns);
+    const correct = normalizeResultOption(correctAns);
+    return selected !== null && correct !== null && selected === correct;
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -294,7 +327,10 @@ function TestResult() {
               originalIndex: idx + 1,
             }));
 
-            // Recalculate score from evaluated questions to handle any historical 0-clamped backend data
+            // Recompute the score from evaluated questions when the backend
+            // score is missing OR clamped to 0. A backend 0 is treated the
+            // same as missing ONLY when answers exist to recompute from
+            // (hasEvaluatedQuestions); otherwise a genuine 0 is trusted.
             let computedScore = 0;
             let hasEvaluatedQuestions = false;
             resultData.questions.forEach((q) => {
@@ -303,11 +339,20 @@ function TestResult() {
                 uAns !== undefined &&
                 uAns !== null &&
                 uAns !== "" &&
-                uAns !== -1
+                uAns !== -1 &&
+                !(Array.isArray(uAns) && uAns.length === 0)
               ) {
                 hasEvaluatedQuestions = true;
-                const isCorr =
-                  Number(uAns) === Number(q.correctAnswer ?? q.correct);
+                const correctAns =
+                  q.correctOption ??
+                  q.correct_option ??
+                  q.correct_option_id ??
+                  q.correctOptionId ??
+                  q.correctAnswer ??
+                  q.correct_answer ??
+                  q.correct ??
+                  q.answer;
+                const isCorr = answersMatch(uAns, correctAns);
                 if (isCorr) {
                   computedScore += Number(q.marks || 2);
                 } else {
@@ -321,7 +366,8 @@ function TestResult() {
               hasEvaluatedQuestions &&
               (resultData.score === undefined ||
                 resultData.score === null ||
-                Number.isNaN(Number(resultData.score)))
+                Number.isNaN(Number(resultData.score)) ||
+                Number(resultData.score) === 0)
             ) {
               resultData.score = Number(computedScore.toFixed(2));
             }
@@ -488,36 +534,6 @@ function TestResult() {
     );
   };
 
-  const normalizeResultOption = (value) => {
-    if (value === undefined || value === null || value === "") return null;
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    const normalized = String(value).trim();
-    if (/^[A-Za-z]$/.test(normalized)) {
-      return normalized.toUpperCase().charCodeAt(0) - 65;
-    }
-    return /^-?\d+(\.\d+)?$/.test(normalized) ? Number(normalized) : null;
-  };
-
-  const answersMatch = (userAns, correctAns) => {
-    if (Array.isArray(userAns) || Array.isArray(correctAns)) {
-      const selected = (Array.isArray(userAns) ? userAns : [userAns])
-        .map(normalizeResultOption)
-        .filter((value) => value !== null)
-        .sort((a, b) => a - b);
-      const correct = (Array.isArray(correctAns) ? correctAns : [correctAns])
-        .map(normalizeResultOption)
-        .filter((value) => value !== null)
-        .sort((a, b) => a - b);
-      return (
-        selected.length === correct.length &&
-        selected.every((value, index) => value === correct[index])
-      );
-    }
-    const selected = normalizeResultOption(userAns);
-    const correct = normalizeResultOption(correctAns);
-    return selected !== null && correct !== null && selected === correct;
-  };
-
   const isCorrectQuestion = (q) => {
     if (isSkippedQuestion(q)) return false;
     const userAns =
@@ -649,35 +665,6 @@ function TestResult() {
     return breakdown;
   };
 
-  const getDifficultyBreakdown = () => {
-    if (!result.questions)
-      return {
-        Easy: { correct: 0, total: 0 },
-        Medium: { correct: 0, total: 0 },
-        Hard: { correct: 0, total: 0 },
-      };
-    const breakdown = {
-      Easy: { correct: 0, total: 0 },
-      Medium: { correct: 0, total: 0 },
-      Hard: { correct: 0, total: 0 },
-    };
-    result.questions.forEach((q) => {
-      const raw = String(q.difficulty || "medium")
-        .trim()
-        .toLowerCase();
-      const difficulty =
-        raw === "easy"
-          ? "Easy"
-          : raw === "hard" || raw === "very_hard"
-            ? "Hard"
-            : "Medium";
-      if (breakdown[difficulty]) {
-        breakdown[difficulty].total++;
-        if (isCorrectQuestion(q)) breakdown[difficulty].correct++;
-      }
-    });
-    return breakdown;
-  };
 
   const getFilteredQuestions = () => {
     if (!result.questions) return [];
@@ -721,30 +708,12 @@ function TestResult() {
 
   const questions = result.questions || [];
   const subjectBreakdown = getSubjectBreakdown();
-  const difficultyBreakdown = getDifficultyBreakdown();
   const subjectBarClasses = [
     "bg-blue-500",
     "bg-purple-500",
     "bg-green-500",
     "bg-orange-500",
   ];
-  const difficultyStyles = {
-    Easy: {
-      dot: "bg-green-500",
-      text: "text-green-600 dark:text-green-400",
-      bg: "bg-green-50 dark:bg-green-900/20",
-    },
-    Medium: {
-      dot: "bg-yellow-500",
-      text: "text-yellow-600 dark:text-yellow-400",
-      bg: "bg-yellow-50 dark:bg-yellow-900/20",
-    },
-    Hard: {
-      dot: "bg-red-500",
-      text: "text-red-600 dark:text-red-400",
-      bg: "bg-red-50 dark:bg-red-900/20",
-    },
-  };
 
   const markedCount = questions.filter((q) => q.isMarked || q.is_marked).length;
   const calculatedCorrect = questions.filter((q) =>
@@ -943,7 +912,6 @@ function TestResult() {
     { id: "score", label: "Score", icon: Target },
     { id: "cutoff", label: "Cutoff Matrix", icon: Award },
     { id: "subjects", label: "Subjects", icon: Layers },
-    { id: "difficulty", label: "Difficulty", icon: Zap },
     { id: "time", label: "Time", icon: Timer },
     { id: "solutions", label: "Solutions", icon: BookOpen },
     { id: "leaderboard", label: "Leaderboard", icon: Trophy },
@@ -1325,87 +1293,6 @@ function TestResult() {
                   <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase">
                     SCORE
                   </span>
-                </div>
-
-                {/* Attempt summary strip: attempt rate, marked-for-review, subject bars (display-only) */}
-                <div className="relative z-10 bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl border border-indigo-100 dark:border-slate-700/70 shadow-2xs mt-2.5 sm:mt-4 overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setShowAttemptBreakdown((v) => !v)}
-                    aria-expanded={showAttemptBreakdown}
-                    className="w-full flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 text-left cursor-pointer"
-                    title={
-                      showAttemptBreakdown
-                        ? "Hide attempt breakdown"
-                        : "Show attempt breakdown"
-                    }
-                  >
-                    <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] sm:text-xs font-bold text-slate-600 dark:text-slate-300">
-                      <span>
-                        Attempt rate:{" "}
-                        <span className="text-indigo-600 dark:text-indigo-400">
-                          {attemptRate.toFixed(1)}%
-                        </span>
-                      </span>
-                      <span className="flex items-center gap-1">
-                        Marked:{" "}
-                        <span className="text-purple-600 dark:text-purple-300">
-                          {markedCount}
-                        </span>
-                        <HelpCircle
-                          className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500"
-                          aria-hidden="true"
-                        />
-                      </span>
-                      <span className="text-slate-400 dark:text-slate-500 font-semibold">
-                        {correctCount + wrongCount}/{totalQuestions} attempted
-                      </span>
-                    </span>
-                    {showAttemptBreakdown ? (
-                      <ChevronUp
-                        className="w-4 h-4 text-slate-400 shrink-0"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <ChevronDown
-                        className="w-4 h-4 text-slate-400 shrink-0"
-                        aria-hidden="true"
-                      />
-                    )}
-                  </button>
-                  {showAttemptBreakdown && (
-                    <div className="px-3 sm:px-4 pb-3 space-y-2 border-t border-indigo-100 dark:border-slate-700/70 pt-2.5">
-                      {subjectAccuracies.map((s, idx) => {
-                        const attempted = s.correct + s.wrong;
-                        const pct =
-                          s.total > 0
-                            ? Math.round((attempted / s.total) * 100)
-                            : 0;
-                        return (
-                          <div
-                            key={s.subject}
-                            className="flex items-center gap-2"
-                          >
-                            <span
-                              className="w-28 truncate text-[11px] font-bold text-slate-600 dark:text-slate-300"
-                              title={s.subject}
-                            >
-                              {s.subject}
-                            </span>
-                            <div className="flex-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${subjectBarClasses[idx % subjectBarClasses.length]}`}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 tabular-nums w-9 text-right">
-                              {pct}%
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -1803,89 +1690,6 @@ function TestResult() {
                 strongestSubject={strongestSubject}
                 weakestSubject={weakestSubject}
               />
-
-              {/* ── Section 4: Difficulty ── */}
-              <section
-                ref={(el) => (sectionRefs.current["difficulty"] = el)}
-                data-section-id="difficulty"
-                className="scroll-mt-4 space-y-4"
-              >
-                <div className="flex items-center gap-3 pt-2">
-                  <div className="flex-1 border-t-2 border-dashed border-amber-200 dark:border-amber-800" />
-                  <span className="px-3.5 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs">
-                    <Zap className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />{" "}
-                    Difficulty Analysis
-                  </span>
-                  <div className="flex-1 border-t-2 border-dashed border-amber-200 dark:border-amber-800" />
-                </div>
-                {/* Scrollable single row on mobile, 3-column grid on desktop */}
-                <div className="flex sm:grid sm:grid-cols-3 gap-2.5 sm:gap-4 overflow-x-auto no-scrollbar pb-1">
-                  {["Easy", "Medium", "Hard"].map((difficulty) => {
-                    const data = difficultyBreakdown[difficulty];
-                    const style = difficultyStyles[difficulty];
-                    const pct =
-                      data.total > 0
-                        ? Math.round((data.correct / data.total) * 100)
-                        : 0;
-                    const wrongD = data.total - data.correct;
-                    return (
-                      <div
-                        key={difficulty}
-                        className="min-w-[200px] sm:min-w-0 flex-1 shrink-0 bg-white dark:bg-gray-800 rounded-2xl p-3 sm:p-5 shadow-xs border border-gray-200 dark:border-gray-700 relative overflow-hidden flex flex-col justify-between"
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-3 sm:mb-4">
-                            <div className="flex items-center gap-2">
-                              <div
-                                className={`w-3 h-3 ${style.dot} rounded-full shadow-xs`}
-                              />
-                              <span className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-white">
-                                {difficulty}
-                              </span>
-                            </div>
-                            <span
-                              className={`text-lg sm:text-xl font-black ${style.text}`}
-                            >
-                              {pct}%
-                            </span>
-                          </div>
-
-                          {/* Dual Mini Bar Chart */}
-                          <div className="flex gap-2 h-14 sm:h-16 items-end mb-3 bg-gray-50 dark:bg-gray-900 p-2 rounded-xl">
-                            <div className="flex-1 flex flex-col items-center gap-1">
-                              <div
-                                className="w-full bg-emerald-500 rounded-t-md"
-                                style={{
-                                  height: `${data.total > 0 ? (data.correct / data.total) * 100 : 0}%`,
-                                  minHeight: data.correct > 0 ? "4px" : "0",
-                                }}
-                              />
-                              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                                {data.correct} Correct
-                              </span>
-                            </div>
-                            <div className="flex-1 flex flex-col items-center gap-1">
-                              <div
-                                className="w-full bg-rose-500 rounded-t-md"
-                                style={{
-                                  height: `${data.total > 0 ? (wrongD / data.total) * 100 : 0}%`,
-                                  minHeight: wrongD > 0 ? "4px" : "0",
-                                }}
-                              />
-                              <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300">
-                                {wrongD} Wrong
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold text-center">
-                          {data.total} total questions
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
 
               {/* ── Section 5: Time Analysis ── */}
               <section

@@ -140,6 +140,12 @@ export const isSeriesEnrolled = (
 
   if (enrolledIds.size === 0) return false;
 
+  // Normalize object extras (objects → id/slug) so direct canonical callers
+  // match the frontend wrapper, which pre-normalizes before delegating.
+  // Idempotent: scalar/null extras pass through unchanged.
+  const normalizedExtras = (extraIdentifiers || []).map((extra) =>
+    normalizeEnrollmentEntry(extra),
+  );
   const candidateIds = [
     series._id,
     series.id,
@@ -149,7 +155,7 @@ export const isSeriesEnrolled = (
     series.slug,
     series.series_id,
     series.seriesId,
-    ...extraIdentifiers,
+    ...normalizedExtras,
   ];
 
   return candidateIds

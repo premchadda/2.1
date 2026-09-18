@@ -57,14 +57,24 @@ export function useAdaptiveDifficulty(topicId) {
   })
 
   const submitPerformance = useCallback(
-    (correct, timeSpent = 0) =>
-      submitMutation.mutateAsync({ correct, timeSpent }),
-    [submitMutation]
+    (correct, timeSpent = 0) => {
+      // Guard: topicId null (questions not loaded yet) — never hit
+      // /api/adaptive-difficulty/undefined.
+      if (topicId == null) return Promise.resolve(null);
+      return submitMutation.mutateAsync({ correct, timeSpent });
+    },
+    // eslint-disable-next-line -- submitMutation identity is stable per topicId; topicId drives the guard
+    [submitMutation, topicId]
   )
 
   const resetDifficulty = useCallback(
-    () => resetMutation.mutateAsync(),
-    [resetMutation]
+    () => {
+      // Guard: nothing to reset when no topic is selected.
+      if (topicId == null) return Promise.resolve(null);
+      return resetMutation.mutateAsync();
+    },
+    // eslint-disable-next-line -- resetMutation identity is stable per topicId; topicId drives the guard
+    [resetMutation, topicId]
   )
 
   return {

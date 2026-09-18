@@ -196,6 +196,7 @@ describe("SubscriptionService & EntitlementService", () => {
     it("executes atomic transaction inserting subscription and updating user pro status", async () => {
       mockClientQuery
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ pro_expiry: null }] }) // SELECT pro_expiry
         .mockResolvedValueOnce({
           rows: [
             {
@@ -222,14 +223,37 @@ describe("SubscriptionService & EntitlementService", () => {
 
       expect(sub.id).toBe(999);
       expect(mockClientQuery).toHaveBeenCalledWith("BEGIN");
-      expect(mockClientQuery).toHaveBeenCalledWith(
-        expect.stringContaining("INSERT INTO subscriptions"),
-        expect.any(Array),
+      // INSERT now has 7 params — check it contains userId + planType and a server-calculated expiry (not strict order)
+      const insertCall = mockClientQuery.mock.calls.find(
+        ([sql]) =>
+          typeof sql === "string" && sql.includes("INSERT INTO subscriptions"),
       );
+      expect(insertCall).toBeDefined();
+      expect(insertCall[1]).toEqual(
+        expect.arrayContaining([1, "pro_pass_monthly"]),
+      );
+      // expiry is a Date somewhere in the params — should be ~30 days out
+      const insertExpiry = insertCall[1].find((v) => v instanceof Date);
+      expect(insertExpiry).toBeDefined();
+      expect(insertExpiry.getTime()).toBeGreaterThan(
+        Date.now() + 29 * 86400000,
+      );
+      expect(insertCall[1]).toEqual(expect.arrayContaining(["tx_123", 299]));
       expect(mockClientQuery).toHaveBeenCalledWith(
         expect.stringContaining("UPDATE users SET is_pro_user = true"),
-        [expiry, "pro_pass_monthly", 1],
+        [expect.any(Date), "pro_pass_monthly", 1],
       );
+      // Server-calculated expiry (audit H-payments): must be ~30 days out
+      const updateCall = mockClientQuery.mock.calls.find(
+        ([sql]) =>
+          typeof sql === "string" &&
+          sql.includes("UPDATE users SET is_pro_user = true"),
+      );
+      const serverExpiry = new Date(updateCall[1][0]);
+      expect(serverExpiry.getTime()).toBeGreaterThan(
+        Date.now() + 29 * 86400000,
+      );
+      expect(serverExpiry.getTime()).toBeLessThan(Date.now() + 31 * 86400000);
       expect(mockClientQuery).toHaveBeenCalledWith("COMMIT");
       expect(mockClientRelease).toHaveBeenCalled();
     });

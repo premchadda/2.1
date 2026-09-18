@@ -253,7 +253,7 @@ Scores reuse §C criteria. Movement vs 2026-08-23 in ( ).
 | --- | ------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------- |
 | 1   | API/route integrity       | 6 (+3) | Live-tests alias, leaderboards-public, testCategories auth fixed; duplicate/shadow mounts (§F) still need cleanup |
 | 2   | DB schema integrity       | 5 (+1) | Migrations 121–135 landed (§Q); fresh-DB baseline + RLS 099/116 review still open                                 |
-| 3   | Auth & security           | 8 (+3) | Reassign closed; full admin chain confirmed (`admin.js:65-80`); `superAdmin` + CSRF + 2FA + audit shipped         |
+| 3   | Auth & security           | 8 (+3) | Reassign closed; full admin chain confirmed (`admin.js:65-80`); `secondTier` + CSRF + 2FA + audit shipped         |
 | 4   | Workflows end-to-end      | 5 (+2) | W4 unblocked by alias fix; W1/W2/W3 still limited by results-payments gaps                                        |
 | 5   | Frontend page coverage    | 7 (+1) | Live/leaderboard pages unblocked; community like/pin + contact still open                                         |
 | 6   | Admin panel functionality | 6 (+2) | Split routers + guard chain verified; `insertOne` camelCase + pyp-bulk still open                                 |

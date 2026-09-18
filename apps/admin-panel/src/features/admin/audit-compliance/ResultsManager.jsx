@@ -13,6 +13,9 @@ export default function ResultsManager() {
   const [filter, setFilter] = useState("all");
   const [selectedResult, setSelectedResult] = useState(null);
   const [showAnalytics, setShowAnalytics] = useState(null);
+  const [questionDetail, setQuestionDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(15);
 
@@ -84,10 +87,60 @@ export default function ResultsManager() {
     toast.success(`Exported ${results.length} results to CSV`);
   };
 
-  // FIX C6: Analytics view handler
+  // FIX C6: Analytics view handler — fetch per-attempt question-wise detail
   const handleViewAnalytics = (result) => {
     setShowAnalytics(result);
   };
+
+  useEffect(() => {
+    if (!showAnalytics) {
+      setQuestionDetail(null);
+      setDetailError(null);
+      return;
+    }
+    const attemptId =
+      showAnalytics?._id || showAnalytics?.id || showAnalytics?.attemptId;
+    if (!attemptId || typeof adminAPI.getResultDetail !== "function") {
+      setDetailError("detail-unavailable");
+      return;
+    }
+    let cancelled = false;
+    setDetailLoading(true);
+    setDetailError(null);
+    setQuestionDetail(null);
+    adminAPI
+      .getResultDetail(attemptId)
+      .then((res) => {
+        if (cancelled) return;
+        const payload = res?.data?.data ?? res?.data ?? null;
+        const questions =
+          payload?.questions ||
+          payload?.answers ||
+          payload?.attempt_answers ||
+          payload?.items ||
+          null;
+        if (Array.isArray(questions) && questions.length > 0) {
+          setQuestionDetail(questions);
+        } else {
+          // Endpoint exists but exposes no per-question rows — fall back to
+          // the per-attempt summary already in hand (no fake data generated).
+          setDetailError("no-question-rows");
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // Missing endpoint (404) or forbidden: surface summary-only view.
+        setDetailError(
+          err?.response?.status === 404 ? "endpoint-missing" : "fetch-failed",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showAnalytics]);
 
   const filteredResults = results.filter((r) => {
     const matchesSearch =
@@ -106,14 +159,18 @@ export default function ResultsManager() {
     currentPage * pageSize,
   );
 
+  const pct = (r) => {
+    const n = Number(r?.percentage);
+    return Number.isFinite(n) ? n : 0;
+  };
   const stats = {
     total: results.length,
-    passed: results.filter((r) => r.percentage >= 50).length,
-    failed: results.filter((r) => r.percentage < 50).length,
+    passed: results.filter((r) => pct(r) >= 50).length,
+    failed: results.filter((r) => pct(r) < 50).length,
     avgScore:
       results.length > 0
         ? Math.round(
-            results.reduce((sum, r) => sum + r.percentage, 0) / results.length,
+            results.reduce((sum, r) => sum + pct(r), 0) / results.length,
           )
         : 0,
   };
@@ -238,9 +295,11 @@ export default function ResultsManager() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {paginatedResults.map((result) => (
+              {paginatedResults.map((result, idx) => (
                 <tr
-                  key={result._id}
+                  key={
+                    result._id || result.id || result.attemptId || `row-${idx}`
+                  }
                   className="hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
                 >
                   <td className="px-4 py-3">
@@ -511,9 +570,116 @@ export default function ResultsManager() {
                     </span>
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
-                  Detailed question-wise analytics coming soon.
-                </p>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-2">
+                    Question-wise breakdown
+                  </h3>
+                  {detailLoading && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Loading question-wise detail…
+                    </p>
+                  )}
+                  {!detailLoading &&
+                    Array.isArray(questionDetail) &&
+                    questionDetail.length > 0 && (
+                      <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-600">
+                        <table className="w-full text-xs">
+                          <thead className="bg-gray-50 dark:bg-gray-900">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-semibold text-gray-500 dark:text-gray-400">
+                                #
+                              </th>
+                              <th className="px-3 py-2 text-left font-semibold text-gray-500 dark:text-gray-400">
+                                Question
+                              </th>
+                              <th className="px-3 py-2 text-left font-semibold text-gray-500 dark:text-gray-400">
+                                Selected
+                              </th>
+                              <th className="px-3 py-2 text-left font-semibold text-gray-500 dark:text-gray-400">
+                                Correct
+                              </th>
+                              <th className="px-3 py-2 text-left font-semibold text-gray-500 dark:text-gray-400">
+                                Result
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                            {questionDetail.map((q, idx) => {
+                              const qText =
+                                q.questionText ||
+                                q.question ||
+                                q.title ||
+                                `Question ${idx + 1}`;
+                              const selected =
+                                q.selectedOption ??
+                                q.selected ??
+                                q.userAnswer ??
+                                "-";
+                              const correct =
+                                q.correctOption ??
+                                q.correctAnswer ??
+                                q.answer ??
+                                "-";
+                              const isCorrect =
+                                q.isCorrect ??
+                                q.is_correct ??
+                                (String(selected) === String(correct) &&
+                                  selected !== "-");
+                              return (
+                                <tr key={q._id || q.id || idx}>
+                                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400">
+                                    {idx + 1}
+                                  </td>
+                                  <td
+                                    className="px-3 py-2 text-gray-900 dark:text-white max-w-[220px] truncate"
+                                    title={String(qText)}
+                                  >
+                                    {String(qText).slice(0, 80)}
+                                  </td>
+                                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
+                                    {String(selected)}
+                                  </td>
+                                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
+                                    {String(correct)}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <span
+                                      className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${isCorrect ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"}`}
+                                    >
+                                      {isCorrect ? "Correct" : "Wrong"}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  {!detailLoading &&
+                    (!Array.isArray(questionDetail) ||
+                      questionDetail.length === 0) && (
+                      <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-600 p-4 text-center">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Per-attempt summary shown. Question-wise rows are
+                          unavailable
+                          {detailError === "endpoint-missing"
+                            ? " — GET /admin/results/:id is not exposed by the backend."
+                            : detailError === "fetch-failed"
+                              ? " — detail fetch failed (see list data, no fake rows generated)."
+                              : " — this attempt exposes no per-question rows."}
+                        </p>
+                        <button
+                          type="button"
+                          disabled
+                          title="Question-wise detail unavailable: backend does not expose GET /admin/results/:id with per-question rows for this attempt"
+                          className="mt-3 px-4 py-2 text-xs font-bold rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                        >
+                          Question-wise detail unavailable
+                        </button>
+                      </div>
+                    )}
+                </div>
               </div>
               <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end bg-gray-50/50 dark:bg-gray-800/50">
                 <button

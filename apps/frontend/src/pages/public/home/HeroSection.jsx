@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { AnimatedHero } from "../../../shared/components";
+import { handleAvatarError } from "../../../shared/utils/avatarFallback.js";
 import {
   ArrowRight,
   Play,
@@ -38,12 +39,7 @@ function HeroSection({
                     src={user.avatar || user.avatarUrl || user.photoURL}
                     alt={user.name || "User"}
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                      if (e.currentTarget.nextSibling) {
-                        e.currentTarget.nextSibling.style.display = "flex";
-                      }
-                    }}
+                    onError={handleAvatarError}
                   />
                 ) : null}
                 <div

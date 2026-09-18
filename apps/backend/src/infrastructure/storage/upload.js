@@ -19,7 +19,7 @@ const DEFAULT_MAX_SIZE = 10 * 1024 * 1024 // 10MB default for non-video routes
 const ALLOWED_EXTENSIONS = {
   image: ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
   pdf: ['.pdf'],
-  video: ['.mp4', '.webm'],
+  video: ['.mp4', '.webm', '.mkv'],
   document: ['.json', '.csv', '.xlsx', '.xls']
 }
 
@@ -37,7 +37,7 @@ let resolvedDirs = null;
 async function ensureUploadDirs() {
   if (resolvedDirs) return resolvedDirs;
 
-  const uploadsDir = path.join(__dirname, '../../uploads')
+  const uploadsDir = path.join(__dirname, '../../../uploads')
   const videosDir = path.join(uploadsDir, 'videos')
   const pdfsDir = path.join(uploadsDir, 'pdfs')
   const imagesDir = path.join(uploadsDir, 'images')
@@ -87,12 +87,15 @@ const validateFileContent = (filePath, mimetype) => {
   }
 }
 
-// Get max file size based on file type
-const getMaxFileSize = (mimetype) => {
+// Get max file size based on file type.
+// Fallback keeps 10MB for unknown types; any video mimetype resolves to the
+// 100MB video budget above (video routes additionally override the multer
+// instance limit via createUploadMiddleware).
+const getMaxFileSize = (mimetype = '') => {
   if (mimetype.startsWith('image/')) return MAX_FILE_SIZE_IMAGE
   if (mimetype === 'application/pdf') return MAX_FILE_SIZE_PDF
   if (mimetype.startsWith('video/')) return MAX_FILE_SIZE_VIDEO
-  return 10 * 1024 * 1024 // Default 10MB
+  return DEFAULT_MAX_SIZE // 10MB default for non-video routes
 }
 
 // Storage configuration

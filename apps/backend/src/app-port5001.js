@@ -18,6 +18,7 @@ import responseCache from "./middleware/responseCache.js";
 import requestDedup from "./middleware/requestDedup.js";
 import imageOptimization from "./middleware/imageOptimization.js";
 import { initWebSocket } from "./infrastructure/websocket/websocketManager.js";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import rateLimit from "express-rate-limit";
@@ -41,7 +42,10 @@ import {
   requireImageAuth,
   isUserAdminRequest,
 } from "./middleware/auth.middleware.js";
-import { validateCsrfToken } from "./middleware/csrf.middleware.js";
+import {
+  validateCsrfToken,
+  csrfCleanupInterval,
+} from "./middleware/csrf.middleware.js";
 import { validateOrigin } from "./middleware/origin.middleware.js";
 import { publicIdResponseMiddleware } from "./middleware/public-id-response.middleware.js";
 import cacheControlMiddleware from "./middleware/cacheControl.js";
@@ -77,6 +81,7 @@ import practiceRoutes from "./api/routes/practice.js";
 import notificationsPrefRoutes from "./api/routes/notificationsPref.js";
 import phoneAuthRoutes from "./api/routes/phoneAuth.js";
 import attemptRoutes from "./modules/attempts/attempt.routes.js";
+import { stopAttemptSweep as stopAttemptThrottleSweep } from "./modules/attempts/attempt.routes.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import subscriptionService from "./services/SubscriptionService.js";
 import certificateService from "./services/certificateService.js";
@@ -143,6 +148,7 @@ import { registerUserEventSubscribers } from "./modules/users/userEventSubscribe
 import {
   startScheduler,
   stopScheduler,
+  SUBSCRIPTION_LOCK_KEY,
 } from "./services/core/testScheduler.js";
 import {
   startOutboxPoller,
@@ -154,6 +160,14 @@ import {
 import { unlinkSync, existsSync } from "fs";
 import { writeFile } from "fs/promises";
 import { sanitizeErrorMessage } from "./utils/sanitizeError.js";
+import { closeWebSocket } from "./infrastructure/websocket/websocketManager.js";
+
+// Module-scoped handles so gracefulShutdown can stop/close everything started at boot
+let httpServer = null;
+let subscriptionSweeperHandle = null;
+
+// Re-exported stopper for the stale-paused-attempt sweeper (tests/admin tooling).
+export const stopAttemptSweep = stopAttemptCleaner;
 
 const READY_FILE = path.join(process.cwd(), ".backend-ready");
 
@@ -705,9 +719,16 @@ app.use("/api/admin/assets/upload", uploadLimiter);
 // public avatar/banner route below is intentionally left unguarded.
 const IMAGE_EXT_RE = /\.(jpg|jpeg|png|gif|webp|avif|svg)$/i;
 
+// Image transforms must run BEFORE the static mount: express.static ends the
+// response on a hit, so an imageOptimization mounted after it would never
+// execute (it calls next() on miss so static still serves everything else).
+app.use("/uploads", imageOptimization);
+
 app.use(
   "/uploads",
   (req, res, next) => {
+    // Avatars/banners are public profile assets — exempt from image auth
+    if (/avatar_|banner_/i.test(req.path)) return next();
     if (IMAGE_EXT_RE.test(req.path)) return requireImageAuth(req, res, next);
     next();
   },
@@ -720,6 +741,50 @@ app.use(
     maxAge: "7d",
     etag: true,
   }),
+  (req, res, next) => {
+    // Check if an avatar/banner was requested from a legacy path or missing file
+    if (/avatar_/i.test(req.path)) {
+      const filename = path.basename(req.path);
+      const inAvatars = path.join(
+        __dirname,
+        "..",
+        "uploads",
+        "avatars",
+        filename,
+      );
+      if (fs.existsSync(inAvatars)) {
+        return res.sendFile(inAvatars);
+      }
+      return res
+        .status(200)
+        .type("svg")
+        .set("Cache-Control", "public, max-age=300")
+        .send(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" role="img" aria-label="User avatar"><rect width="80" height="80" rx="40" fill="#e2e8f0"/><circle cx="40" cy="31" r="14" fill="#64748b"/><path d="M16 70c3-14 12-21 24-21s21 7 24 21" fill="#64748b"/></svg>',
+        );
+    }
+    if (/banner_/i.test(req.path)) {
+      const filename = path.basename(req.path);
+      const inAvatars = path.join(
+        __dirname,
+        "..",
+        "uploads",
+        "avatars",
+        filename,
+      );
+      if (fs.existsSync(inAvatars)) {
+        return res.sendFile(inAvatars);
+      }
+      return res
+        .status(200)
+        .type("svg")
+        .set("Cache-Control", "public, max-age=300")
+        .send(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" role="img" aria-label="Banner"><rect width="1200" height="400" fill="#6366f1"/></svg>',
+        );
+    }
+    next();
+  },
 );
 
 // Avatars/banners are public profile assets — left unauthenticated by design.
@@ -764,8 +829,6 @@ app.use(
     etag: true,
   }),
 );
-
-app.use("/uploads", imageOptimization);
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -1118,6 +1181,7 @@ const startServer = async () => {
 
     logger.info("Initializing WebSocket server...");
     const server = createServer(app);
+    httpServer = server;
     await initWebSocket(server);
 
     // FIX #11: Per-request timeout to bound runaway/abandoned connections.
@@ -1159,7 +1223,10 @@ const startServer = async () => {
               name: "scheduled_reminder",
               payload: { inactivityHours: 24 },
             },
-            { repeat: { every: 6 * 60 * 60 * 1000 } },
+            {
+              repeat: { every: 6 * 60 * 60 * 1000 },
+              jobId: "scheduled-reminders-6h",
+            },
           );
           logger.info(
             "Scheduled repeating reminder job (every 6h, with retry).",
@@ -1217,16 +1284,50 @@ const startServer = async () => {
               `[SubscriptionExpiry] Startup run failed: ${e.message}`,
             ),
           );
-        setInterval(
-          () => {
-            subscriptionService
+        // Distributed lock on the dedicated subscription key (never the
+        // scheduler lock — sharing it would let a long sweep block test
+        // state transitions and vice versa) so only one replica runs the
+        // hourly expiry sweep in scaled deployments.
+        const runSubscriptionSweep = async () => {
+          const redis = getRedisClient();
+          let lockAcquired = false;
+          if (redis) {
+            try {
+              const locked = await redis.set(
+                SUBSCRIPTION_LOCK_KEY,
+                "locked",
+                "PX",
+                55_000,
+                "NX",
+              );
+              if (!locked) return;
+              lockAcquired = true;
+            } catch {
+              /* fail-open to local execution on Redis error */
+            }
+          }
+          try {
+            await subscriptionService
               .processExpiredSubscriptions()
               .catch((e) =>
                 logger.warn(
                   `[SubscriptionExpiry] Interval run failed: ${e.message}`,
                 ),
               );
-          },
+          } finally {
+            // Release immediately so the next tick never waits out the full
+            // TTL after a fast sweep; TTL remains as the crash-safety net.
+            if (redis && lockAcquired) {
+              try {
+                await redis.del(SUBSCRIPTION_LOCK_KEY);
+              } catch {
+                /* best-effort */
+              }
+            }
+          }
+        };
+        subscriptionSweeperHandle = setInterval(
+          runSubscriptionSweep,
           60 * 60 * 1000,
         );
         logger.info(
@@ -1255,17 +1356,59 @@ const gracefulShutdown = async (signal) => {
     } catch {
       /* ignore */
     }
+    // Shutdown order: close the HTTP server FIRST so no new connections are
+    // accepted while background work drains (previously close was last, which
+    // parked SIGTERM behind keep-alive sockets until the 15s force path).
+    try {
+      if (httpServer) {
+        // Race the close against a 15s force path: a hung keep-alive socket
+        // must not park SIGTERM forever (container orchestrators SIGKILL).
+        await Promise.race([
+          new Promise((resolve) => httpServer.close(resolve)),
+          new Promise((resolve) => setTimeout(resolve, 15000)),
+        ]);
+        httpServer = null;
+      }
+    } catch (err) {
+      logger.warn(`Failed to close HTTP server gracefully: ${err.message}`);
+    }
     try {
       stopScheduler();
       stopOutboxPoller();
       stopAttemptCleaner();
+      try {
+        stopAttemptThrottleSweep?.();
+      } catch {
+        /* throttle sweep already stopped */
+      }
+      try {
+        if (csrfCleanupInterval) clearInterval(csrfCleanupInterval);
+      } catch {
+        /* csrf sweeper already cleared */
+      }
+      if (subscriptionSweeperHandle) {
+        clearInterval(subscriptionSweeperHandle);
+        subscriptionSweeperHandle = null;
+      }
       logger.info("Schedulers and background cleaners stopped.");
     } catch (err) {
       logger.warn(`Failed to stop schedulers gracefully: ${err.message}`);
     }
     try {
-      await drainEmailQueue();
+      // Bound the email drain: an unreachable SMTP spool must not stall
+      // shutdown past a 5s grace window (then queues/sockets/DB still close).
+      await Promise.race([
+        drainEmailQueue(),
+        new Promise((resolve) => setTimeout(resolve, 5000)),
+      ]);
       await closeQueueResources();
+      await closeWebSocket();
+      try {
+        await messageBroker.unsubscribeAll?.();
+      } catch {
+        /* broker may not support bulk unsubscribe */
+      }
+      await messageBroker.close();
       await closeRedis();
       await dbHelpers.close();
       logger.info("Database connections closed");

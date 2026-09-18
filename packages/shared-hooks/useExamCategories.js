@@ -1,5 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { request } from "./apiClientConfig.js";
+import { request, getSharedApiClient } from "./apiClientConfig.js";
+
+function warnMissingClient(caller) {
+  if (typeof console !== "undefined" && console.warn) {
+    console.warn(
+      `${caller}: no API client configured (passed apiClient + getSharedApiClient() both null). ` +
+        "Using fetch fallback with cookies/CSRF. Call setSharedApiClient(apiClient) at app root for correct auth.",
+    );
+  }
+}
+
+function toActionableError(err, caller) {
+  const base = err?.message || "Request failed";
+  if (/not configured|localhost in production/i.test(base)) return base;
+  return `${base} (${caller}: if unauthenticated, call setSharedApiClient(apiClient) at app root.)`;
+}
 
 export function useExamCategories(options = {}) {
   const { apiClient = null } = options;
@@ -14,8 +29,11 @@ export function useExamCategories(options = {}) {
     setLoading(true);
     setError(null);
     try {
+      if (!apiClient && !getSharedApiClient())
+        warnMissingClient("useExamCategories.fetchCategories");
       const data = await request("GET", "/exam-categories", null, {
         apiClient,
+        signal: abortRef.current?.signal,
       });
       if (data.success) {
         // Filter out "All Exams" and active only
@@ -27,7 +45,7 @@ export function useExamCategories(options = {}) {
         setError(data.message || "Failed to fetch categories");
       }
     } catch (err) {
-      setError(err.message);
+      setError(toActionableError(err, "useExamCategories.fetchCategories"));
     } finally {
       setLoading(false);
     }
@@ -37,7 +55,12 @@ export function useExamCategories(options = {}) {
     setLoading(true);
     setError(null);
     try {
-      const data = await request("GET", "/exam-info", null, { apiClient });
+      if (!apiClient && !getSharedApiClient())
+        warnMissingClient("useExamCategories.fetchExamInfo");
+      const data = await request("GET", "/exam-info", null, {
+        apiClient,
+        signal: abortRef.current?.signal,
+      });
       if (data.success) {
         // Filter active only and sort by display_order
         const filteredExamInfo = data.data
@@ -54,7 +77,7 @@ export function useExamCategories(options = {}) {
         setError(data.message || "Failed to fetch exam info");
       }
     } catch (err) {
-      setError(err.message);
+      setError(toActionableError(err, "useExamCategories.fetchExamInfo"));
     } finally {
       setLoading(false);
     }
@@ -74,12 +97,19 @@ export function useExamCategories(options = {}) {
           cat.id === categoryId ||
           cat.label === categoryId ||
           cat.slug === categoryId ||
-          cat.categoryId === categoryId,
+          cat.categoryId === categoryId ||
+          cat.examId === categoryId ||
+          cat._id === categoryId ||
+          cat.public_id === categoryId ||
+          cat.publicId === categoryId,
       );
 
       // Try to match by multiple possible ID fields
       const categoryKey =
         category?.categoryId ||
+        category?.public_id ||
+        category?.publicId ||
+        category?._id ||
         category?.slug ||
         String(categoryId).toLowerCase();
 
@@ -119,11 +149,18 @@ export function useExamCategories(options = {}) {
           String(cat.id) === String(categoryId) ||
           cat.label === categoryId ||
           cat.slug === categoryId ||
-          cat.categoryId === categoryId,
+          cat.categoryId === categoryId ||
+          cat.examId === categoryId ||
+          cat._id === categoryId ||
+          cat.public_id === categoryId ||
+          cat.publicId === categoryId,
       );
 
       const categoryKey =
         category?.categoryId ||
+        category?.public_id ||
+        category?.publicId ||
+        category?._id ||
         category?.slug ||
         String(categoryId).toLowerCase();
 
@@ -152,29 +189,55 @@ export function useExamCategories(options = {}) {
     }));
   }, [examInfo]);
 
-  // Get category label by ID
+  // Get category label by ID (matches id/label/slug/categoryId/examId/_id/public_id/publicId)
   const getCategoryLabel = useCallback(
     (categoryId) => {
-      const category = categories.find((cat) => cat.id === categoryId);
+      const category = categories.find(
+        (cat) =>
+          cat.id === categoryId ||
+          cat.label === categoryId ||
+          cat.slug === categoryId ||
+          cat.categoryId === categoryId ||
+          cat.examId === categoryId ||
+          cat._id === categoryId ||
+          cat.public_id === categoryId ||
+          cat.publicId === categoryId,
+      );
       return category ? category.label : categoryId;
     },
     [categories],
   );
 
-  // Get exam info by category and exam ID
+  // Get exam info by category and exam ID (matches public_id/publicId/_id alternates)
   const getExamInfo = useCallback(
     (categoryId, examId) => {
       return examInfo.find(
-        (exam) => exam.categoryId === categoryId && exam.examId === examId,
+        (exam) =>
+          (exam.categoryId === categoryId ||
+            exam.category_id === categoryId ||
+            exam.public_id === categoryId ||
+            exam.publicId === categoryId) &&
+          (exam.examId === examId ||
+            exam.id === examId ||
+            exam._id === examId ||
+            exam.public_id === examId ||
+            exam.publicId === examId),
       );
     },
     [examInfo],
   );
 
-  // Get exam by ID
+  // Get exam by ID (matches id/_id/public_id/publicId/examId alternates)
   const getExamById = useCallback(
     (examId) => {
-      return exams.find((exam) => exam.id === examId);
+      return exams.find(
+        (exam) =>
+          exam.id === examId ||
+          exam.examId === examId ||
+          exam._id === examId ||
+          exam.public_id === examId ||
+          exam.publicId === examId,
+      );
     },
     [exams],
   );

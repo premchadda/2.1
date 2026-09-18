@@ -13,7 +13,7 @@ const router = express.Router();
 // @route   GET /api/previous-year-papers
 router.get(
   "/",
-  responseCache({ ttl: 60, prefix: "res:public:pyp:" }),
+  responseCache({ ttl: 60, prefix: "res:public:pyp:", userScoped: false }),
   async (req, res) => {
     try {
       const { exam, year, limit = 20, page = 1 } = req.query;

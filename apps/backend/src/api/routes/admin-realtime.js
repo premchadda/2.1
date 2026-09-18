@@ -7,11 +7,7 @@ import {
 } from "../../infrastructure/database/postgres-helpers.js";
 import { getProPassPrice } from "./admin-helpers.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
-import {
-  protect,
-  admin,
-  superAdmin,
-} from "../../middleware/auth.middleware.js";
+import { protect, admin } from "../../middleware/auth.middleware.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
@@ -421,7 +417,8 @@ router.get("/realtime/live-feed", async (req, res) => {
         icon: "UserPlus",
         color: "blue",
         title: "New User",
-        description: `${u.name || u.email} joined`,
+        // PII: never expose raw email in feed description — mask it
+        description: `${u.name || "A user"} joined`,
         timeAgo: `${timeDiff}m ago`,
         timestamp: u.created_at,
       });

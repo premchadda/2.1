@@ -1,4 +1,4 @@
-import { useState } from "react";
+
 import PropTypes from "prop-types";
 import {
   Clock,
@@ -8,7 +8,6 @@ import {
   ZoomIn,
   Eye,
   EyeOff,
-  Sparkles,
   RotateCcw,
   Check,
   X,
@@ -19,7 +18,6 @@ import DifficultyBadge from "../../../shared/components/common/DifficultyBadge";
 import sanitizeHtml from "../../../shared/lib/sanitizeHtml";
 import { getLocalizedField } from "../../../shared/lib/language";
 import { formatPyqSourceLabel } from "../../../shared/lib/questionUtils.js";
-import SocraticHintModal from "./SocraticHintModal";
 
 const DEFAULT_MARKS_PER_QUESTION = 2;
 const DEFAULT_NEGATIVE_MARKS = 0.5;
@@ -53,7 +51,6 @@ export default function QuestionViewer({
   showReviewExplanation,
   setShowReviewExplanation,
 }) {
-  const [showSocraticHint, setShowSocraticHint] = useState(false);
   const currentQId = currentQ?.id || currentQ?._id || currentQuestion;
   const isQuestionSaved = savedQuestions.has(String(currentQId));
   const isReattemptActive = Boolean(
@@ -91,8 +88,7 @@ export default function QuestionViewer({
             currentQ?.examName ||
             currentQ?.exam_name ||
             test?.examName ||
-            test?.exam_name ||
-            test?.title,
+            test?.exam_name,
           year:
             currentQ?.year ||
             currentQ?.pyqYear ||
@@ -199,17 +195,7 @@ export default function QuestionViewer({
 
         {/* Right: Socratic Hint, Save Question (and Discuss in Review mode) */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {!reviewMode && (
-            <button
-              onClick={() => setShowSocraticHint(true)}
-              aria-label="Unlock Socratic Clue"
-              title="Unlock Socratic Clue (-5% to -25% penalty)"
-              className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold hover:bg-purple-100 dark:hover:bg-purple-800/50 transition-colors shadow-2xs cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-              <span>Clue</span>
-            </button>
-          )}
+
           {reviewMode && (
             <button
               onClick={() => setShowDiscussions(true)}
@@ -240,8 +226,8 @@ export default function QuestionViewer({
 
       {/* Question Text */}
       <div className="prose max-w-none mb-5 w-full overflow-hidden">
-        {/* Previous-year paper source — exam name year stage date shift */}
-        {pyqLabel && (
+        {/* Previous-year paper source — exam name year stage date shift (review mode only) */}
+        {reviewMode && pyqLabel && (
           <div className="mb-3.5 flex flex-wrap items-center gap-2 not-prose">
             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded-md px-2.5 py-0.5 shadow-2xs">
               <Tag className="w-3 h-3 text-purple-600 dark:text-purple-400 shrink-0" />
@@ -368,7 +354,15 @@ export default function QuestionViewer({
           aria-label="Numeric answer input"
           type="number"
           value={answers[currentQuestion] ?? ""}
-          onChange={(e) => handleAnswer(parseFloat(e.target.value) || "")}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === "") {
+              handleAnswer("");
+              return;
+            }
+            const n = Number(v);
+            handleAnswer(Number.isNaN(n) ? "" : n);
+          }}
           className={`w-full border-2 rounded-xl font-medium bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all ${reviewMode ? "p-2.5 sm:p-3 text-xs sm:text-sm" : "p-3 sm:p-3.5 text-sm sm:text-base"}`}
           placeholder="Enter your answer"
         />
@@ -931,17 +925,7 @@ export default function QuestionViewer({
         </div>
       )}
 
-      {/* Socratic Hint & Clue Guidance Drawer */}
-      <SocraticHintModal
-        isOpen={showSocraticHint}
-        onClose={() => setShowSocraticHint(false)}
-        question={currentQ}
-        questionIndex={currentQuestion}
-        telemetry={{
-          timeSpentSeconds: questionTimers[currentQuestion] || 0,
-          benchmarkTimeSeconds: currentQ?.benchmarkTimeSeconds || 60,
-        }}
-      />
+
     </div>
   );
 }

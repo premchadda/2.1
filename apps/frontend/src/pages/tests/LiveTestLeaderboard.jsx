@@ -152,12 +152,12 @@ export default function LiveTestLeaderboard() {
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {leaderboard.map((entry, index) => {
+              {leaderboard.map((entry) => {
                 const isCurrentUser =
                   String(entry.userId) === String(user?.id || user?._id);
                 return (
                   <div
-                    key={`${entry.userId}-${index}`}
+                    key={entry.userId ?? entry.id ?? entry.rank}
                     className={`px-6 py-4 flex items-center justify-between ${isCurrentUser ? "bg-indigo-50" : ""}`}
                   >
                     <div className="flex items-center gap-4">

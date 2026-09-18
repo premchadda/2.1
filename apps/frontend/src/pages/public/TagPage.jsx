@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "../../shared/providers/AuthContext";
-import { getTests, getTestSeries } from "../../shared/lib/dataService";
+import { getTests, getTestSeries, apiClient } from "../../shared/lib/dataService";
 import { testsAPI } from "../../shared/lib/testsAPI";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
 import { TestCard, AnimatedHero, SEO } from "../../shared/components";
@@ -36,11 +36,9 @@ function TagPage({ tagProp }) {
           testsAPI.getByTag(tag).catch(() => null),
           getTests().catch(() => []),
           getTestSeries().catch(() => []),
-          fetch(
-            `${import.meta.env.VITE_API_URL || ""}/api/tag-configs/${tag}`,
-            { signal: controller.signal },
-          )
-            .then((res) => res.json())
+          apiClient
+            .get(`/api/tag-configs/${tag}`, { signal: controller.signal })
+            .then((res) => res.data)
             .catch(() => null),
         ]);
         if (controller.signal.aborted) return;

@@ -66,9 +66,19 @@ export default function SocraticHintModal({
   useEffect(() => {
     if (!isOpen || !questionId) return;
 
-    // Fetch hint for activeTier & language if not cached
-    const cacheKey = `${activeTier}_${language}`;
-    if (hintData[cacheKey]) return;
+    // Fetch hint for activeTier & language if not cached (scoped per question)
+    const cacheKey = `${questionId}_${activeTier}_${language}`;
+    const cached = hintData[cacheKey];
+    if (cached) {
+      if (onHintApplied) {
+        onHintApplied({
+          questionId,
+          tier: activeTier,
+          penaltyFactor: cached.penaltyFactor || 0.05,
+        });
+      }
+      return;
+    }
 
     let isMounted = true;
     setLoading(true);
@@ -102,30 +112,12 @@ export default function SocraticHintModal({
       })
       .catch((_err) => {
         if (!isMounted) return;
-        // Algorithmic client fallback if offline or mock environment
-        const fallbackText =
-          activeTier === 1
-            ? language === "hi"
-              ? "💡 **अवधारणा संकेत**: इस प्रश्न को हल करने के लिए मौलिक सूत्रों और समीकरणों का संतुलित उपयोग करें।"
-              : "💡 **Concept Clue**: Break down the problem into fundamental components. Note the governing mathematical or conceptual relationship."
-            : activeTier === 2
-              ? language === "hi"
-                ? "🪜 **दृष्टिकोण संकेत**: पहले सभी दी गई राशियों को समान इकाइयों में व्यवस्थित करें और चरणबद्ध गणना करें।"
-                : "🪜 **Approach Clue**: Align all given parameters into uniform units. Define the unknown variable and establish the primary identity."
-              : language === "hi"
-                ? "🚫 **विकल्प निरसन**: सामान्य भ्रम पैदा करने वाले गलत विकल्पों को सावधानीपूर्वक निरस्त करें।"
-                : "🚫 **Distractor Elimination**: Watch out for common sign and boundary traps. Verify calculation before finalizing.";
-
-        setHintData((prev) => ({
-          ...prev,
-          [cacheKey]: {
-            hint: fallbackText,
-            tier: activeTier,
-            penaltyFactor:
-              activeTier === 1 ? 0.05 : activeTier === 2 ? 0.15 : 0.25,
-            eliminatedOptionIndices: activeTier === 3 ? [0, 1] : [],
-          },
-        }));
+        // No fabricated fallback hint — surface the failure honestly.
+        setError(
+          language === "hi"
+            ? "संकेत उपलब्ध नहीं है। कृपया अपना कनेक्शन जांचें और पुनः प्रयास करें।"
+            : "Hint unavailable. Please check your connection and try again.",
+        );
       })
       .finally(() => {
         if (isMounted) setLoading(false);
@@ -138,7 +130,7 @@ export default function SocraticHintModal({
 
   if (!isOpen) return null;
 
-  const currentHint = hintData[`${activeTier}_${language}`];
+  const currentHint = hintData[`${questionId}_${activeTier}_${language}`];
 
   return (
     <div

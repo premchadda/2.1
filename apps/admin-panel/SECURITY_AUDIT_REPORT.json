@@ -45,7 +45,7 @@
       "function": "Bulk Actions - Make Admin",
       "root_cause": "The bulk actions toolbar includes a 'Make Admin' button that grants admin role to all selected users with a single click and no confirmation dialog. The role change is sent immediately via updateUserRole().",
       "impact": "A compromised admin session or accidental clicks could elevate multiple regular users to admin role instantly, granting them full platform management access. There is no audit log entry triggered from the frontend for this critical action.",
-      "recommended_fix": "Add a two-step confirmation dialog (using confirmOnce) before any bulk role change. Log the action client-side for audit trail. Consider requiring super_admin role for admin-role grants."
+      "recommended_fix": "Add a two-step confirmation dialog (using confirmOnce) before any bulk role change. Log the action client-side for audit trail. Consider requiring second_tier role for admin-role grants."
     },
     {
       "id": "CRIT-04",
@@ -166,7 +166,7 @@
       "function": "handleDownloadBackup",
       "root_cause": "The backup filename (backup.fileName) from the server response is used directly in link.setAttribute('download', fileName) without sanitization.",
       "impact": "If the server returns a malicious filename (e.g., '../../etc/passwd' or a filename with path traversal), it could potentially be used for social engineering or, in edge cases, filesystem manipulation on download.",
-      "recommended_fix": "Sanitize the filename: const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^\.+/, '');"
+      "recommended_fix": "Sanitize the filename: const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^\\.+/, '');"
     },
     {
       "id": "MED-03",
@@ -226,13 +226,13 @@
     {
       "id": "MED-08",
       "severity": "medium",
-      "category": "Role Permissions Manager Missing Super Admin Check",
+      "category": "Role Permissions Manager Missing Second-tier Check",
       "file": "src/features/admin/users-enrollments/RolePermissionsManager.jsx",
       "line": 93,
       "function": "handleSave",
-      "root_cause": "Any admin can create, edit, or delete roles and their permissions. There is no check that the current user is a super_admin before allowing role modifications.",
-      "impact": "A regular admin could create a new role with admin:write or roles:delete permissions, then assign it to themselves, effectively escalating to super_admin.",
-      "recommended_fix": "Add role permission checks: if (user.role !== 'super_admin') { toast.error('Only super admins can manage roles'); return; } before create/update/delete operations."
+      "root_cause": "Any admin can create, edit, or delete roles and their permissions. There is no check that the current user is a second_tier before allowing role modifications.",
+      "impact": "A regular admin could create a new role with admin:write or roles:delete permissions, then assign it to themselves, effectively escalating to second_tier.",
+      "recommended_fix": "Add role permission checks: if (user.role !== 'second_tier') { toast.error('Only second-tiers can manage roles'); return; } before create/update/delete operations."
     },
     {
       "id": "MED-09",
@@ -283,7 +283,7 @@
     "httpOnly cookie-based authentication properly implemented, eliminating localStorage token theft (XSS)",
     "CSRF token mechanism exists with per-request validation on mutations (POST/PUT/DELETE/PATCH)",
     "DOMPurify-based HTML sanitization with explicit allowlist configuration",
-    "Role-based access control with admin/super_admin distinction in ProtectedRoute",
+    "Role-based access control with admin/second_tier distinction in ProtectedRoute",
     "Zod validation schemas for all admin forms (questions, tests, categories, etc.)",
     "Backend session management with refresh token rotation",
     "WebSocket connection uses credentials: true for authenticated socket connections",

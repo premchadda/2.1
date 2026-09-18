@@ -107,6 +107,10 @@ export function isValidImageUrl(url) {
     /cloudinary\.com/i,
     /supabase\.co\/storage/i,
     /amazonaws\.com/i,
+    // BENIGN VALIDATION ALLOWLIST (kept intentionally): matches local-dev
+    // upload URLs (e.g. loopback-host uploads paths served during development).
+    // This is a validation regex, NOT a hardcoded endpoint — no request is
+    // ever sent to it. Do not remove.
     /localhost:\d+\/uploads/i,
   ];
   for (const pattern of validPatterns) {
@@ -173,19 +177,24 @@ export function getAssetUrl(path) {
     return "https:" + path;
   }
   if (path.startsWith("/")) {
+    // Env-only host resolution: deploys MUST set VITE_API_URL (or
+    // VITE_BACKEND_URL). Same-origin fallback for relative asset paths in the
+    // browser, empty string otherwise (caller resolves relative to the page).
+    // Never hardcode a production host here.
     let apiHost = "";
     if (typeof import.meta !== "undefined" && import.meta.env) {
       apiHost =
-        import.meta.env.VITE_API_URL ||
-        import.meta.env.VITE_BACKEND_URL ||
-        (import.meta.env.PROD ? "https://trstprep-v-1.onrender.com" : "");
+        import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "";
     } else if (typeof process !== "undefined" && process?.env) {
       apiHost =
-        process.env.VITE_API_URL ||
-        process.env.VITE_BACKEND_URL ||
-        (process.env.NODE_ENV === "production"
-          ? "https://trstprep-v-1.onrender.com"
-          : "");
+        process.env.VITE_API_URL || process.env.VITE_BACKEND_URL || "";
+    }
+    if (
+      !apiHost &&
+      typeof window !== "undefined" &&
+      window.location?.origin
+    ) {
+      apiHost = window.location.origin;
     }
     const baseUrl = /^https?:\/\//i.test(apiHost)
       ? apiHost.replace(/\/api\/?$/, "").replace(/\/+$/, "")
@@ -335,9 +344,13 @@ export const getAvatarGradient = (name) => {
   return AVATAR_GRADIENTS[sum % AVATAR_GRADIENTS.length];
 };
 
-// ===== PRO-PASS DISPLAY (CANONICAL) =====
-// Canonical remaining-days phrasing. Mirrors shared-hooks `formatRemainingDays`
-// (useProPass.js) so non-React consumers can import it from here without React.
+// ===== PRO-PASS DISPLAY (CANONICAL SINGLE SOURCE) =====
+// Canonical remaining-days phrasing. `packages/shared-hooks/useProPass.js`
+// re-exports this function (no local copy) so both packages share one
+// implementation. DEPRECATION NOTE: do NOT fork or duplicate this function
+// elsewhere — import from `@trstprep/shared-config` (non-React) or via the
+// `shared-hooks/useProPass.js` re-export (React). This copy is authoritative;
+// any divergent local copy is deprecated and must delegate here.
 
 export function formatRemainingDays(days) {
   if (days === null || days === undefined) return "";
@@ -443,7 +456,9 @@ export function idsEqual(a, b) {
 }
 
 export function getEntityId(item) {
-  return item?._id ?? item?.id ?? item?.public_id ?? null;
+  // Canonical order (matches useGenericCRUD getItemKey): _id → public_id /
+  // publicId → id, so public identifiers win over internal numeric ids.
+  return item?._id ?? item?.public_id ?? item?.publicId ?? item?.id ?? null;
 }
 
 // ===== CSRF TOKEN STORE =====
@@ -463,6 +478,8 @@ export {
   ValidationError,
   AuthenticationError,
   NotFoundError,
+  ForbiddenError,
+  RateLimitError,
 } from "./apiClient.js";
 
 // ===== LOGGER =====

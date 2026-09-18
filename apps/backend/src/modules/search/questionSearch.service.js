@@ -38,8 +38,21 @@ const questionSearchService = {
     return QuestionSearchIndex.upsertFromQuestion(questionId)
   },
 
-  async bulkIndex(limit = 50) {
-    return QuestionSearchIndex.bulkIndexUnindexed(limit)
+  // Cursor loop: the bulk INSERT drains via NOT EXISTS (each call inserts
+  // the next `limit` unindexed rows), so pages advance without an explicit
+  // cursor — afterId is accepted for route signature compatibility. Bounded
+  // to maxPages invocations; stops early on a short page (tail drained).
+  async bulkIndex(limit = 50, afterId = null, maxPages = 1) {
+    void afterId
+    const perPage = Math.min(Math.max(parseInt(limit) || 50, 1), 50)
+    const pages = Math.min(Math.max(parseInt(maxPages) || 1, 1), 10)
+    let indexed = 0
+    for (let page = 0; page < pages; page++) {
+      const n = await QuestionSearchIndex.bulkIndexUnindexed(perPage)
+      indexed += n
+      if (n < perPage) break
+    }
+    return indexed
   },
 
   async removeFromIndex(questionId) {

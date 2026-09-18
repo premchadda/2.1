@@ -16,13 +16,17 @@ import {
   Bookmark,
   Brain,
   X,
-  Layers,
+  Globe,
+  Menu,
   Tag,
 } from "lucide-react";
 import { formatPyqSourceLabel } from "../../../shared/lib/questionUtils.js";
 
 export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
   const questions = session?.questions || [];
+  // Canonical session id: backend may return id, sessionId, or session_id.
+  const activeSessionId =
+    session?.id ?? session?.sessionId ?? session?.session_id ?? null;
   const [currentIndex, setCurrentIndex] = useState(session?.currentIndex || 0);
   const [userAnswers, setUserAnswers] = useState({}); // { [qId]: selectedOptionIndex }
   const [struckOptions, setStruckOptions] = useState({}); // { [qId]: Set of option indices }
@@ -36,6 +40,30 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [showQuestionPalette, setShowQuestionPalette] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [preferredLang, setPreferredLang] = useState(() => {
+    try {
+      return (
+        localStorage.getItem("trstprep_practice_lang") ||
+        (localStorage.getItem("test_language")?.toLowerCase() === "hi"
+          ? "hi"
+          : "en") ||
+        "en"
+      );
+    } catch {
+      return "en";
+    }
+  });
+
+  const handleSetLang = (newLang) => {
+    setPreferredLang(newLang);
+    try {
+      localStorage.setItem("trstprep_practice_lang", newLang);
+      localStorage.setItem("test_language", newLang);
+      localStorage.setItem("trstprep_language", newLang);
+    } catch {
+      // ignore
+    }
+  };
 
   const currentQ = questions[currentIndex] || null;
   const isLearningMode =
@@ -46,6 +74,18 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
     const timer = setInterval(() => setTimeSeconds((s) => s + 1), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Reset per-question state when a different session is loaded — without
+  // this, switching sessions reuses the previous session's answers/timer.
+  useEffect(() => {
+    setCurrentIndex(session?.currentIndex || 0);
+    setUserAnswers({});
+    setStruckOptions({});
+    setMarkedForReview(new Set());
+    setSubmittedAnswers({});
+    setTimeSeconds(session?.timeSpentSec || 0);
+    setAiHint(null);
+  }, [activeSessionId]);
 
   // Strike-out toggle handler
   const toggleStrikeOption = (qId, optionIdx, e) => {
@@ -77,7 +117,10 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
     // learning modes).
     try {
       setSubmitting(true);
-      const res = await practiceAPI.checkAnswer(session.id, currentIndex, {
+      if (activeSessionId == null) {
+        throw new Error("Practice session id is missing");
+      }
+      const res = await practiceAPI.checkAnswer(activeSessionId, currentIndex, {
         selectedOption: optionIdx,
         timeTakenSec: timeSeconds,
       });
@@ -235,7 +278,10 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
 
       let result = null;
       try {
-        result = await practiceAPI.completeSession(session.id, {
+        if (activeSessionId == null) {
+          throw new Error("Practice session id is missing");
+        }
+        result = await practiceAPI.completeSession(activeSessionId, {
           correctCount,
           wrongCount,
           skippedCount,
@@ -248,7 +294,7 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
 
       const summary = result || {
         session: {
-          id: session.id,
+          id: activeSessionId,
           mode: session.mode,
           correctCount,
           wrongCount,
@@ -278,19 +324,23 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
       {/* TOP NAVBAR */}
       <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 sticky top-0 z-30 shadow-xs">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
-          {/* Left: Exit & Title */}
-          <div className="flex items-center gap-3">
+          {/* Left: Back to Section & Title */}
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={onExit}
-              className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 text-slate-700 dark:text-slate-200 hover:text-indigo-600 text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs"
+              title="Back to Section"
+              aria-label="Back to Section"
             >
-              <X className="w-5 h-5" />
+              <ChevronLeft className="w-4 h-4 shrink-0" />
+              <span className="hidden xs:inline">Back to Section</span>
+              <span className="xs:hidden">Back</span>
             </button>
 
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-900 dark:text-white">
-                  Practice Lab Session
+                  Practice Lab
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase">
                   {session?.mode || "Learn"} Mode
@@ -303,7 +353,7 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
           </div>
 
           {/* Center: Live Timer & Speed */}
-          <div className="flex items-center gap-3 bg-slate-100 dark:bg-slate-900 px-3.5 py-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+          <div className="hidden sm:flex items-center gap-3 bg-slate-100 dark:bg-slate-900 px-3.5 py-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200">
               <Clock className="w-4 h-4 text-indigo-500 animate-pulse" />
               <span>{formatTime(timeSeconds)}</span>
@@ -314,21 +364,36 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
             </span>
           </div>
 
-          {/* Right: AI Tutor & Palette */}
-          <div className="flex items-center gap-2">
+          {/* Right: AI Tutor, Language & Palette */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={handleAskAiTutor}
-              className="px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <Brain className="w-4 h-4 text-purple-600 dark:text-purple-400" />
               <span className="hidden sm:inline">AI Hint</span>
             </button>
 
+            {/* Language Switch Option (Click to Change) */}
+            <button
+              type="button"
+              onClick={() => handleSetLang(preferredLang === "hi" ? "en" : "hi")}
+              title={`Switch language (Current: ${preferredLang.toUpperCase()})`}
+              aria-label={`Current language: ${preferredLang.toUpperCase()}. Click to switch.`}
+              className="inline-flex items-center gap-1 h-8 px-2 sm:px-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs"
+            >
+              <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+              <span className="font-black uppercase">{preferredLang}</span>
+            </button>
+
+            {/* Mobile Question Palette Toggle: Top Right Side (Same as Test Interface) */}
             <button
               onClick={() => setShowQuestionPalette(!showQuestionPalette)}
-              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors cursor-pointer"
+              title="Question Palette"
+              aria-label="Toggle Question Palette"
+              className="p-1.5 sm:p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors cursor-pointer shadow-2xs"
             >
-              <Layers className="w-4.5 h-4.5" />
+              <Menu className="w-4.5 h-4.5" />
             </button>
           </div>
         </div>
@@ -395,13 +460,13 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
               : null;
             if (!pyqLabel) return null;
             return (
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded-lg px-2.5 py-1 shadow-2xs">
-                  <Tag className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+              <div className="mb-3 flex flex-wrap items-center gap-1.5 text-[10px] sm:text-[11px] italic text-slate-400 dark:text-slate-500">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50/70 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-800/40 text-[10px] sm:text-[11px] font-medium italic shadow-2xs">
+                  <Tag className="w-3 h-3 text-purple-500/80 shrink-0" />
                   <span>{pyqLabel}</span>
                 </span>
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
-                  Asked in previous year paper
+                <span className="text-[10px] sm:text-[10.5px] italic text-slate-400 dark:text-slate-500">
+                  (Asked in previous year paper)
                 </span>
               </div>
             );

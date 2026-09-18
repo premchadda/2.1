@@ -303,8 +303,9 @@ export const captureSession = async (req, userId, sessionType = "web") => {
           user_id: userId,
           userName: user.name,
           user_name: user.name,
-          userEmail: user.email,
-          user_email: user.email,
+          // PII: mask email in admin-room list payload; stored column untouched.
+          userEmail: "***@***",
+          user_email: "***@***",
           user_role: user.role,
           ip_address: ipAddress,
           device_type: device,
@@ -429,7 +430,8 @@ export const captureSession = async (req, userId, sessionType = "web") => {
         session_id: sessionId,
         user_id: String(userId),
         user_name: user.name,
-        user_email: user.email,
+        // PII: mask email in admin-room list payload; stored column untouched.
+        user_email: "***@***",
         user_role: user.role,
         ip_address: ipAddress,
         device_type: device,

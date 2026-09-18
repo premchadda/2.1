@@ -27,6 +27,7 @@ import {
   revokeHandoff,
 } from "../../services/core/sessionHandoffService.js";
 import { processSyncReplay } from "../../services/core/syncReplayService.js";
+import attemptControllerRouter from "./attempt.controller.js";
 
 const router = express.Router();
 
@@ -93,7 +94,13 @@ const sweepThrottleMap = () => {
   }
   return true;
 };
-setInterval(sweepThrottleMap, 10 * 60_000).unref?.();
+// Exported stopper so gracefulShutdown can clear the interval on teardown
+// (the handle is unref'd so it never blocks process.exit in tests).
+const throttleSweepInterval = setInterval(sweepThrottleMap, 10 * 60_000);
+throttleSweepInterval.unref?.();
+export const stopAttemptSweep = () => {
+  clearInterval(throttleSweepInterval);
+};
 
 const findQuestionByIdentifier = (questionId) =>
   findEntityByIdentifier(dbHelpers, "questions", questionId);
@@ -223,7 +230,7 @@ const normalizeQuestionTimers = async (questionTimers) => {
 //          two active attempts for the same test. Clients must use the canonical path.
 //          Kept as an explicit 410 to surface the deprecation in logs rather than a
 //          silent 404 that looks like a routing bug.
-router.post("/start", protect, (req, res) => {
+router.post("/start", (req, res) => {
   res.status(410).json({
     success: false,
     code: "ENDPOINT_DEPRECATED",
@@ -235,7 +242,7 @@ router.post("/start", protect, (req, res) => {
 // @route   POST /api/attempt/pause
 // @desc    Pause an active test attempt
 // @access  Private
-router.post("/pause", protect, async (req, res) => {
+router.post("/pause", async (req, res) => {
   try {
     const { attemptId, remainingTime, currentQuestionIndex, questionTimers } =
       req.body;
@@ -273,6 +280,22 @@ router.post("/pause", protect, async (req, res) => {
       return res
         .status(400)
         .json({ success: false, message: "Invalid remaining time value" });
+    }
+
+    // Closed attempts reject pause: only live attempts can transition state.
+    const pauseStatus = String(attempt.status || "").toLowerCase();
+    if (
+      attempt.isCompleted ||
+      attempt.is_completed ||
+      ["submitted", "completed", "revoked", "expired", "abandoned"].includes(
+        pauseStatus,
+      )
+    ) {
+      return res.status(409).json({
+        success: false,
+        code: "ATTEMPT_CLOSED",
+        message: "Attempt is no longer active and cannot be paused",
+      });
     }
 
     // Update attempt with paused state
@@ -342,7 +365,7 @@ router.post("/pause", protect, async (req, res) => {
 // @route   POST /api/attempt/resume
 // @desc    Resume a paused test attempt
 // @access  Private
-router.post("/resume", protect, async (req, res) => {
+router.post("/resume", async (req, res) => {
   try {
     const { attemptId } = req.body;
     const userId = req.user.id;
@@ -473,7 +496,7 @@ router.post("/resume", protect, async (req, res) => {
 // @route   POST /api/attempt/save-progress
 // @desc    Save attempt progress (auto-save or manual)
 // @access  Private
-router.post("/save-progress", protect, async (req, res) => {
+router.post("/save-progress", async (req, res) => {
   try {
     const {
       attemptId,
@@ -517,6 +540,23 @@ router.post("/save-progress", protect, async (req, res) => {
       return res
         .status(400)
         .json({ success: false, message: "Invalid remaining time value" });
+    }
+
+    // Closed attempts reject writes: post-revoke/submit autosaves must not
+    // silently resurrect activity timestamps on a terminal row.
+    const saveStatus = String(attempt.status || "").toLowerCase();
+    if (
+      attempt.isCompleted ||
+      attempt.is_completed ||
+      ["submitted", "completed", "revoked", "expired", "abandoned"].includes(
+        saveStatus,
+      )
+    ) {
+      return res.status(409).json({
+        success: false,
+        code: "ATTEMPT_CLOSED",
+        message: "Attempt is no longer active and cannot be modified",
+      });
     }
 
     // Calculate total time spent
@@ -762,6 +802,18 @@ router.post("/:attemptId/event", protect, async (req, res) => {
         .json({ success: false, message: "Not authorized" });
     }
 
+    // Integrity states reject anti-cheat events: a revoked/expired attempt is
+    // under administrative control, so further client events are meaningless
+    // (submitted/completed still accept a post-submit flush).
+    const eventStatus = String(attempt.status || "").toLowerCase();
+    if (["revoked", "expired"].includes(eventStatus)) {
+      return res.status(409).json({
+        success: false,
+        code: "ATTEMPT_CLOSED",
+        message: "Attempt is closed and no longer accepts events",
+      });
+    }
+
     // Validate event type
     const validEvents = Object.values(EVENT_TYPES);
     if (!validEvents.includes(eventType)) {
@@ -876,7 +928,38 @@ router.post("/:attemptId/events", protect, async (req, res) => {
         .json({ success: false, message: "Not authorized" });
     }
 
+    // Revoked/expired attempts reject batched anti-cheat events (same rule as
+    // the single-event endpoint); submitted/completed still accept a flush.
+    const batchStatus = String(attempt.status || "").toLowerCase();
+    if (["revoked", "expired"].includes(batchStatus)) {
+      return res.status(409).json({
+        success: false,
+        code: "ATTEMPT_CLOSED",
+        message: "Attempt is closed and no longer accepts events",
+      });
+    }
+
     const validEvents = Object.values(EVENT_TYPES);
+
+    // Pre-resolve distinct question ids BEFORE opening the transaction: a
+    // 100-event batch must not hold the write txn open across up to 100
+    // sequential lookups (lock contention + latency).
+    const distinctQids = [
+      ...new Set(
+        events.map((e) => e?.questionId).filter((q) => q !== undefined && q !== null && String(q) !== ""),
+      ),
+    ];
+    const qidMap = new Map();
+    await Promise.all(
+      distinctQids.map(async (qid) => {
+        try {
+          const q = await findQuestionByIdentifier(qid);
+          qidMap.set(String(qid), getInternalId(q) ?? null);
+        } catch {
+          qidMap.set(String(qid), null);
+        }
+      }),
+    );
 
     // Batch insert using raw connection transaction
     const client = await pool.connect();
@@ -889,14 +972,12 @@ router.post("/:attemptId/events", protect, async (req, res) => {
           continue; // skip invalid events dynamically
         }
 
-        const question = e.questionId
-          ? await findQuestionByIdentifier(e.questionId)
+        // Pre-resolved above (outside the txn). IMPORTANT: question_id is an
+        // INTEGER FK in attempt_events — null when unresolvable, never the
+        // raw string, or PostgreSQL throws an invalid input syntax error.
+        const mappedQuestionId = e.questionId
+          ? (qidMap.get(String(e.questionId)) ?? null)
           : null;
-        // IMPORTANT: question_id is an INTEGER FK in attempt_events.
-        // If the lookup returns null (question not found, or the questionId is a
-        // public-ID string like 'qst_xxx' that didn't resolve), we MUST use null —
-        // NOT the raw string — or PostgreSQL will throw an invalid input syntax error.
-        const mappedQuestionId = getInternalId(question) ?? null;
 
         const eventData = {
           ...(e.metadata || {}),
@@ -1377,5 +1458,8 @@ router.post("/:attemptId/sync-replay", protect, async (req, res) => {
       .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
+
+// Wire previously-unmounted attempt.controller.js as a sub-router.
+router.use("/managed", attemptControllerRouter);
 
 export default router;

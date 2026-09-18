@@ -16,15 +16,20 @@ export function Logo({
   return (
     <div className={`flex items-center gap-2 shrink-0 ${containerSize}`}>
       <div
-        className={`${iconSize} shrink-0 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center`}
+        className={`${iconSize} shrink-0 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center`}
       >
         <span className="text-white font-bold text-sm">T</span>
       </div>
-      <span
-        className={`${textSize} font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent shrink-0`}
-      >
-        TrstPrep
-      </span>
+      <div className="flex flex-col leading-none">
+        <span
+          className={`${textSize} font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent shrink-0`}
+        >
+          TrstPrep
+        </span>
+        <span className="text-[7.5px] font-black text-indigo-600/70 dark:text-indigo-400/80 tracking-[0.25em] uppercase mt-0.5">
+          Intelligence
+        </span>
+      </div>
     </div>
   );
 }

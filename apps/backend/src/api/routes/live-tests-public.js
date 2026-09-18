@@ -13,7 +13,8 @@ const router = express.Router();
 // @route   GET /api/live-tests
 router.get(
   "/",
-  responseCache({ ttl: 30, prefix: "res:public:live:" }),
+  // Public identical-for-everyone roster: cache once globally, not per user.
+  responseCache({ ttl: 30, prefix: "res:public:live:", userScoped: false }),
   async (req, res) => {
     try {
       const {

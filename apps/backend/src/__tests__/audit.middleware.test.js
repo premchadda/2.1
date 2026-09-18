@@ -157,7 +157,7 @@ describe("auditMiddleware metadata & routing capture", () => {
         "user-agent": "Mozilla/5.0 TestBrowser",
       },
       socket: {},
-      user: { id: 7, email: "admin@trstprep.com", name: "SuperAdmin" },
+      user: { id: 7, email: "admin@trstprep.com", name: "TestAdmin" },
     };
     const res = makeRes();
 
@@ -176,7 +176,7 @@ describe("auditMiddleware metadata & routing capture", () => {
     expect(params[5]).toBe("203.0.113.195"); // stripped ::ffff: and picked first hop
     expect(params[6]).toBe("Mozilla/5.0 TestBrowser"); // user_agent
     expect(params[12]).toBe("admin@trstprep.com"); // admin_email
-    expect(params[13]).toBe("SuperAdmin"); // admin_name
+    expect(params[13]).toBe("TestAdmin"); // admin_name
   });
 
   it("extracts integer and UUID resource IDs from the request path", async () => {

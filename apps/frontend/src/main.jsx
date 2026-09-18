@@ -9,7 +9,8 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
 import { AuthProvider } from "./shared/providers/AuthContext";
 import { ThemeProvider } from "./shared/context/ThemeContext.jsx";
-import { setSharedApiClient } from "@trstprep/shared-hooks";
+import { setSharedApiClient, initProPassAuth } from "@trstprep/shared-hooks";
+import { useAuth } from "./shared/providers/AuthContext";
 import { apiClient } from "./shared/lib/dataService.js";
 import "./styles/tokens.css";
 import "./styles/index.css";
@@ -21,6 +22,9 @@ import "./styles/responsive.css";
 
 // Register the frontend API client instance globally for shared hooks
 setSharedApiClient(apiClient);
+// Wire Pro Pass auth to the app root (documents the useProPass → useAuth
+// dependency; fails fast if the provider is ever unwired).
+initProPassAuth(useAuth);
 
 // HIGH-06 FIX: Validate required environment variables at startup
 import { validateEnvVars } from "./shared/lib/env-validation.js";

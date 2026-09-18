@@ -485,7 +485,7 @@ function ExamInfoNew() {
       }
     } catch (err) {
       if (err.name !== "AbortError") {
-        console.error("Error fetching exam data:", err);
+        console.error("Error fetching exam data:", err?.message ?? err);
         setError("Failed to load exam information");
       }
     } finally {

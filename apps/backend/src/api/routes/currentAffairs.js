@@ -1,71 +1,12 @@
 import express from "express";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { auth, protect } from "../../middleware/auth.middleware.js";
-import { asyncHandler } from "../../middleware/asyncHandler.js";
-import { executePaginatedQuery } from "../../utils/queryBuilder.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
 
-/**
- * GET /api/current-affairs
- * Get current affairs with filters (daily, weekly, monthly)
- */
-router.get(
-  "/",
-  asyncHandler(async (req, res) => {
-    const {
-      period = "daily",
-      category,
-      page = 1,
-      limit = 20,
-      date,
-    } = req.query;
-
-    // Build date filter based on period
-    const now = new Date();
-    let dateFilter = null;
-
-    if (date) {
-      // Explicit date filter takes precedence (frontend date navigation)
-      dateFilter = String(date);
-    } else if (period === "daily") {
-      dateFilter = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0];
-    } else if (period === "weekly") {
-      dateFilter = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0];
-    } else if (period === "monthly") {
-      dateFilter = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0];
-    }
-
-    const filters = {};
-    if (category) filters.category = category;
-    if (dateFilter) filters.date = { $gte: dateFilter };
-
-    const allowedFields = ["category", "date"];
-
-    const result = await executePaginatedQuery(
-      dbHelpers,
-      "current_affairs",
-      ["id", "title", "content", "category", "date", "language", "created_at"],
-      filters,
-      allowedFields,
-      { page, limit },
-      { orderBy: "date DESC" },
-    );
-
-    res.json({
-      success: true,
-      data: result.data,
-      pagination: result.pagination,
-    });
-  }),
-);
+// NOTE: The optimized list handler (GET /) is served by
+// current-affairs-public.js via mountExtractedRoutes.
 
 /**
  * GET /api/current-affairs/:id

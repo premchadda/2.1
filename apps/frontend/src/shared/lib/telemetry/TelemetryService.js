@@ -203,8 +203,23 @@ class TelemetryService {
         err,
       );
 
-      // Re-queue failed events at the front
-      this.queue = [...batch, ...this.queue];
+      // Only re-queue on retryable failures (5xx / network). A 400/404 means
+      // the payload itself was rejected — re-queuing would loop forever and
+      // starve fresh events, so drop the batch instead.
+      const status = err?.status ?? err?.response?.status;
+      const retryable =
+        status === undefined ||
+        status === null ||
+        status === 0 ||
+        status >= 500 ||
+        err?.code === "ERR_NETWORK" ||
+        err?.name === "NetworkError";
+      if (retryable) {
+        // Re-queue failed events at the front
+        this.queue = [...batch, ...this.queue];
+      } else {
+        this.droppedEventsCount += batch.length;
+      }
       this.isFlushing = false;
 
       // Local storage overflow protection (memory limit: 1000 events)
@@ -274,6 +289,11 @@ class TelemetryService {
     const url = `${apiClient.defaults.baseURL || ""}/api/attempt/${this.attemptId}/events`;
     const payload = JSON.stringify({ events: payloadEvents });
 
+    // NOTE (CSRF limitation): navigator.sendBeacon cannot set custom headers,
+    // so the X-CSRF-Token header is intentionally omitted here. The beacon
+    // relies on the httpOnly cookie session; the backend must exempt this
+    // keepalive path from strict CSRF or accept the cookie-only fallback.
+    // Failures are best-effort and never re-queued (unload path).
     if (navigator.sendBeacon) {
       try {
         const blob = new Blob([payload], { type: "application/json" });
@@ -352,6 +372,27 @@ class TelemetryService {
       }
     } catch (err) {
       console.error("[TelemetryService] Failed to flush offline events:", err);
+      // Same retryable-only rule as flush(): drop poison batches (400/404)
+      // from the offline queue so one bad payload can't block the queue.
+      const status = err?.status ?? err?.response?.status;
+      const retryable =
+        status === undefined ||
+        status === null ||
+        status === 0 ||
+        status >= 500 ||
+        err?.code === "ERR_NETWORK" ||
+        err?.name === "NetworkError";
+      if (!retryable && this.offlineQueue) {
+        try {
+          localStorage.setItem(
+            this.offlineQueue.storageKey,
+            JSON.stringify(remainder),
+          );
+          this.droppedEventsCount += batch.length;
+        } catch {
+          // ignore storage errors — next flush will retry from disk
+        }
+      }
       this.isFlushing = false;
       this.scheduleRetry();
     }

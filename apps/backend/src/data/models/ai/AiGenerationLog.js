@@ -1,14 +1,44 @@
 import { dbHelpers } from '../../../infrastructure/database/postgres-helpers.js'
 
 const MODEL_PRICING = {
+  // Specific (longer) keys MUST come before their prefixes — matching uses
+  // `includes`, so 'gpt-4o-mini' must win over 'gpt-4' (100x cost difference).
+  'gpt-4o-mini': { input: 0.00015 / 1000, output: 0.0006 / 1000 },
+  'gpt-4o': { input: 0.0025 / 1000, output: 0.01 / 1000 },
+  'gpt-4-turbo': { input: 0.01 / 1000, output: 0.03 / 1000 },
   'gpt-4': { input: 0.03 / 1000, output: 0.06 / 1000 },
   'gpt-3.5-turbo': { input: 0.0015 / 1000, output: 0.002 / 1000 },
+  'claude-3-5-sonnet': { input: 0.003 / 1000, output: 0.015 / 1000 },
+  'claude-3.5-sonnet': { input: 0.003 / 1000, output: 0.015 / 1000 },
+  'claude-3.5': { input: 0.003 / 1000, output: 0.015 / 1000 },
+  'claude-sonnet': { input: 0.003 / 1000, output: 0.015 / 1000 },
+  'claude-3-opus': { input: 0.015 / 1000, output: 0.075 / 1000 },
+  'claude-3-haiku': { input: 0.00025 / 1000, output: 0.00125 / 1000 },
   'claude-3': { input: 0.015 / 1000, output: 0.075 / 1000 },
+  'text-embedding-3-small': { input: 0.00002 / 1000, output: 0 },
+  'text-embedding-3-large': { input: 0.00013 / 1000, output: 0 },
+  'text-embedding-ada': { input: 0.0001 / 1000, output: 0 },
+  'llama': { input: 0.0002 / 1000, output: 0.0002 / 1000 },
+  'mistral': { input: 0.0002 / 1000, output: 0.0006 / 1000 },
+  'gemini': { input: 0.00035 / 1000, output: 0.00105 / 1000 },
+  'deepseek': { input: 0.00014 / 1000, output: 0.00028 / 1000 },
+  // Approximate rates for newer model families (no exact contract — recheck
+  // provider pricing before using these for billing; longest-match wins).
+  'gpt-5': { input: 0.005 / 1000, output: 0.015 / 1000 },
+  'gpt-4.1': { input: 0.002 / 1000, output: 0.008 / 1000 },
+  'claude-4': { input: 0.003 / 1000, output: 0.015 / 1000 },
+  'sonnet-4': { input: 0.003 / 1000, output: 0.015 / 1000 },
+  'gemini-2': { input: 0.00035 / 1000, output: 0.00105 / 1000 },
+  'qwen': { input: 0.0002 / 1000, output: 0.0006 / 1000 },
   'default': { input: 0.002 / 1000, output: 0.002 / 1000 }
 }
 
 function calculateCost(model, inputTokens, outputTokens) {
-  const modelKey = Object.keys(MODEL_PRICING).find(key => model?.toLowerCase()?.includes(key)) || 'default';
+  const name = model?.toLowerCase?.() || ''
+  // Longest-prefix match so specific variants win over family prefixes.
+  const modelKey = Object.keys(MODEL_PRICING)
+    .filter((key) => key !== 'default' && name.includes(key))
+    .sort((a, b) => b.length - a.length)[0] || 'default';
   const pricing = MODEL_PRICING[modelKey];
   return (inputTokens * pricing.input) + (outputTokens * pricing.output);
 }
@@ -123,8 +153,27 @@ class AiGenerationLog {
 
   static async create(data) {
     const now = new Date()
-    const inputTokens = data.tokensInput || 0
-    const outputTokens = data.tokensOutput || 0
+    // Never persist zero-token rows: a provider that omits usage (or a caller
+    // that passes 0) would make cost dashboards under-report. Fall back to a
+    // chars/4 estimate from the prompt / text length metadata.
+    let inputTokens = data.tokensInput || 0
+    let outputTokens = data.tokensOutput || 0
+    if (inputTokens === 0 && outputTokens === 0) {
+      try {
+        const { default: usageLogger } = await import('../../../infrastructure/logger/logger.js')
+        usageLogger.warn?.(
+          { entityType: data.entityType, entityId: data.entityId, model: data.model },
+          '[AI Usage] Zero-token row, falling back to chars/4 estimate',
+        )
+      } catch {
+        /* logger unavailable — estimate still applies */
+      }
+      const textLen =
+        (typeof data.prompt === 'string' ? data.prompt.length : 0) ||
+        (data.metadata && typeof data.metadata.textLength === 'number' ? data.metadata.textLength : 0) ||
+        0
+      inputTokens = Math.max(1, Math.ceil(textLen / 4))
+    }
     const costUsd = data.costUsd || calculateCost(data.model, inputTokens, outputTokens)
 
     const payload = {

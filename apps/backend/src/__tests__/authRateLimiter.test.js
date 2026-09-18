@@ -71,9 +71,16 @@ describe("aiRateLimiter", () => {
   });
 
   afterEach(() => {
-    process.env.NODE_ENV = originalEnv.NODE_ENV;
-    process.env.AI_FREE_HOURLY_LIMIT = originalEnv.AI_FREE_HOURLY_LIMIT;
-    process.env.AI_PRO_HOURLY_LIMIT = originalEnv.AI_PRO_HOURLY_LIMIT;
+    // Restore without coercing undefined → the string "undefined" (which
+    // would poison parseInt into NaN for later tests in this file).
+    for (const key of [
+      "NODE_ENV",
+      "AI_FREE_HOURLY_LIMIT",
+      "AI_PRO_HOURLY_LIMIT",
+    ]) {
+      if (originalEnv[key] === undefined) delete process.env[key];
+      else process.env[key] = originalEnv[key];
+    }
   });
 
   it("returns 429 when free user exceeds hourly limit", async () => {
@@ -121,7 +128,7 @@ describe("aiRateLimiter", () => {
     expect(res.locals.aiRateLimit.remaining).toBe(47);
   });
 
-  it("fails open when Redis is unavailable", async () => {
+  it("uses per-process fallback caps (not unlimited) when Redis is unavailable", async () => {
     mockGetRedisClient.mockReturnValue(null);
 
     const req = makeReq();
@@ -132,9 +139,10 @@ describe("aiRateLimiter", () => {
 
     expect(next).toHaveBeenCalled();
     expect(res.statusCode).toBeNull();
+    expect(res.locals.aiRateLimit.degraded).toBe(true);
   });
 
-  it("fails open when Redis throws an error", async () => {
+  it("uses per-process fallback caps (not unlimited) when Redis throws an error", async () => {
     mockIncr.mockRejectedValue(new Error("Redis connection lost"));
 
     const req = makeReq();
@@ -145,6 +153,7 @@ describe("aiRateLimiter", () => {
 
     expect(next).toHaveBeenCalled();
     expect(res.statusCode).toBeNull();
+    expect(res.locals.aiRateLimit.degraded).toBe(true);
   });
 
   it("sets Retry-After header when rate limited", async () => {

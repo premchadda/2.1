@@ -12,7 +12,11 @@ const router = express.Router();
 // @route   GET /api/exams/:examId/year/:year — cached, read replica
 router.get(
   "/:examId/year/:year",
-  responseCache({ ttl: 60, prefix: "res:public:exams:year:" }),
+  responseCache({
+    ttl: 60,
+    prefix: "res:public:exams:year:",
+    userScoped: false,
+  }),
   async (req, res) => {
     try {
       const { examId, year } = req.params;
@@ -23,12 +27,10 @@ router.get(
       });
 
       if (!yearlyData) {
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message: "Yearly data not found for this exam and year",
-          });
+        return res.status(404).json({
+          success: false,
+          message: "Yearly data not found for this exam and year",
+        });
       }
       res.json({ success: true, data: yearlyData });
     } catch (error) {
@@ -43,7 +45,11 @@ router.get(
 // @route   GET /api/exams/:examId/years — cached, read replica
 router.get(
   "/:examId/years",
-  responseCache({ ttl: 60, prefix: "res:public:exams:years:" }),
+  responseCache({
+    ttl: 60,
+    prefix: "res:public:exams:years:",
+    userScoped: false,
+  }),
   async (req, res) => {
     try {
       const { examId } = req.params;
@@ -65,7 +71,11 @@ router.get(
 // @route   GET /api/exams/:examId/updates — cached, read replica, paginated
 router.get(
   "/:examId/updates",
-  responseCache({ ttl: 30, prefix: "res:public:exams:updates:" }),
+  responseCache({
+    ttl: 30,
+    prefix: "res:public:exams:updates:",
+    userScoped: false,
+  }),
   async (req, res) => {
     try {
       const { examId } = req.params;

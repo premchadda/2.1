@@ -2,15 +2,12 @@ import express from "express";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { parseAssetId } from "../../shared/utils/parseAssetId.js";
 import { buildAssetUrlMap } from "./admin-assets.js";
-import {
-  protect,
-  admin,
-  superAdmin,
-} from "../../middleware/auth.middleware.js";
+import { protect, admin } from "../../middleware/auth.middleware.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import { aiRateLimiter } from "../../middleware/aiRateLimiter.js";
 import { callAIWithFallback } from "../../modules/ai/aiClient.js";
+import { sanitizeForPrompt } from "../../modules/ai/aiMentor.service.js";
 
 const router = express.Router();
 
@@ -551,15 +548,15 @@ router.post(
 
     if (process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY) {
       try {
-        const prompt = `You are an expert exam question creator. Generate exactly ${questionCount} multiple-choice questions for the subject "${sub}" on topic "${top}" at ${diff} difficulty level.
+        const prompt = `You are an expert exam question creator. Generate exactly ${questionCount} multiple-choice questions for the subject "${sanitizeForPrompt(sub)}" on topic "${sanitizeForPrompt(top)}" at ${diff} difficulty level.
 Return ONLY a valid JSON array of objects. Each object must have:
 - "questionText": string
 - "options": array of 4 distinct string choices
 - "correctAnswer": string (must exactly match one of the options)
 - "explanation": string (clear educational reasoning)
-- "difficulty": "${diff}"
-- "subject": "${sub}"
-- "topic": "${top}"
+- "difficulty": "${sanitizeForPrompt(diff)}"
+- "subject": "${sanitizeForPrompt(sub)}"
+- "topic": "${sanitizeForPrompt(top)}"
 Do not include markdown codeblocks or other commentary.`;
 
         const response = await callAIWithFallback(
@@ -584,19 +581,38 @@ Do not include markdown codeblocks or other commentary.`;
           const parsed = JSON.parse(cleaned);
           if (Array.isArray(parsed) && parsed.length > 0) {
             generatedQuestions = parsed.map((q, idx) => {
-              const opts =
-                Array.isArray(q.options) && q.options.length >= 2
-                  ? q.options
-                  : ["Option A", "Option B", "Option C", "Option D"];
+              // Placeholder stand-ins must never be persisted as real options:
+              // a missing/short options array is an invalid AI answer, not a
+              // cue to fabricate choices.
+              if (!Array.isArray(q.options) || q.options.length < 2) {
+                const placeholderErr = new Error(
+                  `AI answer invalid: question ${idx + 1} returned unusable options`,
+                );
+                placeholderErr.status = 400;
+                placeholderErr.code = "INVALID_AI_ANSWER";
+                throw placeholderErr;
+              }
+              const opts = q.options;
               // The answer MUST reference an existing option — an LLM
-              // paraphrase that matches nothing breaks scoring silently.
-              const rawAns = q.correctAnswer || q.correct_answer || opts[0];
+              // paraphrase that matches nothing breaks scoring silently, so a
+              // miss is a 400, never a silent pick of opts[0].
+              const rawAns = q.correctAnswer ?? q.correct_answer;
               const trimmedOptions = opts.map((o) => String(o).trim());
-              const matched =
-                trimmedOptions.find(
-                  (o) =>
-                    o.toLowerCase() === String(rawAns).trim().toLowerCase(),
-                ) || opts[0];
+              const matched = trimmedOptions.find(
+                (o) =>
+                  o.toLowerCase() ===
+                  String(rawAns ?? "")
+                    .trim()
+                    .toLowerCase(),
+              );
+              if (!matched) {
+                const answerErr = new Error(
+                  `AI answer invalid: question ${idx + 1} correctAnswer matches no option`,
+                );
+                answerErr.status = 400;
+                answerErr.code = "INVALID_AI_ANSWER";
+                throw answerErr;
+              }
               return {
                 questionText:
                   q.questionText || q.question || `Question ${idx + 1}`,
@@ -611,18 +627,36 @@ Do not include markdown codeblocks or other commentary.`;
                 topic: q.topic || top,
                 is_practice: Boolean(isPractice),
                 status: "active",
+                // AI-path quarantine flags (symmetric with the
+                // template-fallback flags below): attributable + reviewable.
+                generated_by: "ai",
+                generatedBy: "ai",
+                is_active: true,
+                isActive: true,
               };
             });
           }
         }
       } catch (aiErr) {
+        // Moderation refusals must never be masked by the template fallback
+        // nor persisted — rethrow to surface 500/451.
+        if (/moderation/i.test(aiErr?.message || "")) {
+          throw aiErr;
+        }
+        // Invalid-AI-answer throws from validation below must bypass the
+        // fallback so the client gets a 400 instead of persisted rows.
+        if (aiErr?.code === "INVALID_AI_ANSWER" || aiErr?.status === 400) {
+          throw aiErr;
+        }
         logger.warn(
           `[AI] Question generation error: ${aiErr.message}. Falling back to structured generator.`,
         );
       }
     }
 
+    let isTemplateFallback = false;
     if (!generatedQuestions || generatedQuestions.length === 0) {
+      isTemplateFallback = true;
       for (let i = 1; i <= questionCount; i++) {
         const sampleOptions = [
           `Fundamental principle of ${top} (Concept ${i})`,
@@ -642,6 +676,11 @@ Do not include markdown codeblocks or other commentary.`;
           topic: top,
           is_practice: Boolean(isPractice),
           status: "active",
+          // Template fallback rows are quarantined: inactive until reviewed
+          generated_by: "template_fallback",
+          generatedBy: "template_fallback",
+          is_active: false,
+          isActive: false,
         });
       }
     }
@@ -683,6 +722,7 @@ Do not include markdown codeblocks or other commentary.`;
       success: results.length > 0,
       count: results.length,
       data: results,
+      generatedBy: isTemplateFallback ? "template_fallback" : "ai",
       ...(failed.length > 0 ? { failedCount: failed.length, failed } : {}),
     });
   }),

@@ -22,7 +22,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { apiClient } from "../../../shared/lib/apiClient";
+import { apiClient } from "../../../shared/lib/dataService.js";
 
 const RISK_TIER_STYLES = {
   CRITICAL: {
