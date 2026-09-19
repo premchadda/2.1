@@ -18,10 +18,15 @@ import {
   Filter,
   Check,
   HelpCircle,
+  Clock,
 } from "lucide-react";
 import sanitizeHtml from "../../shared/lib/sanitizeHtml";
 import MathRenderer from "../../shared/components/MathRenderer";
 import { apiClient } from "../../shared/lib/dataService";
+import {
+  getEstimatedReadingSeconds,
+  formatReadingTime,
+} from "@trstprep/shared-config";
 
 export default function TestReview() {
   const navigate = useNavigate();
@@ -298,6 +303,7 @@ export default function TestReview() {
 
   const currentQuestion = questions[currentQuestionIndex] || questions[0];
   const userAnswer = userAnswers[currentQuestionIndex];
+  const questionTimeSpent = userAnswer?.timeSpent || 0;
   const isOriginalCorrect = userAnswer?.isCorrect;
   const isOriginalSkipped =
     userAnswer?.selectedOption === null ||
@@ -809,7 +815,7 @@ export default function TestReview() {
                         />
                         Live Attempt Status
                       </p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                         {isOriginalSkipped ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-400 border border-slate-200 dark:border-gray-700">
                             <HelpCircle className="w-3.5 h-3.5" /> Unattempted
@@ -824,6 +830,33 @@ export default function TestReview() {
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-200 border border-rose-200 dark:border-rose-800">
                             <XCircle className="w-3.5 h-3.5" /> Answered
                             Incorrectly
+                          </span>
+                        )}
+
+                        {/* Estimated Reading Time */}
+                        {currentQuestion && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-gray-600"
+                            title="Estimated reading time"
+                          >
+                            <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+                            <span>
+                              ~
+                              {formatReadingTime(
+                                getEstimatedReadingSeconds(currentQuestion),
+                              )}
+                            </span>
+                          </span>
+                        )}
+
+                        {/* Time Spent */}
+                        {questionTimeSpent > 0 && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
+                            title="Time spent on this question"
+                          >
+                            <Clock className="w-3.5 h-3.5 text-indigo-500" />
+                            <span>{questionTimeSpent}s</span>
                           </span>
                         )}
                       </div>

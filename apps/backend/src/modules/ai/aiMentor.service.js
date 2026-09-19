@@ -154,6 +154,49 @@ async function callAI(messages, options = {}) {
     }
     return result;
   } catch (error) {
+    // Keyless "search connect" fallback: with no LLM key configured (or the
+    // provider unreachable), answer from the prompt's own context instead of
+    // throwing a 503. Moderation refusals still throw.
+    const msg = String(error?.message || "");
+    if (/moderation/i.test(msg)) {
+      throw {
+        message: error.message,
+        status: error.status || error.statusCode,
+        code: error.code,
+        latencyMs: error.latencyMs || 0,
+      };
+    }
+    if (/not configured|unavailable/i.test(msg)) {
+      try {
+        const { buildSearchGroundedAnswer } = await import("./aiClient.js");
+        const userText = (messages || [])
+          .filter((m) => m?.role === "user")
+          .map((m) => String(m.content || ""))
+          .join("\n")
+          .slice(0, 1500);
+        const text = buildSearchGroundedAnswer({
+          kind: "mentor",
+          promptType: "strategy",
+          dbContext: userText,
+          webHits: [],
+          language: "en",
+        });
+        const fallback = {
+          text,
+          model: "search-grounded",
+          provider: "search",
+          tokensInput: 0,
+          tokensOutput: 0,
+          latencyMs: 0,
+        };
+        if (!options.skipCache) {
+          await aiCache.set(messages, cacheModel, fallback, templateVersion);
+        }
+        return fallback;
+      } catch {
+        /* fall through to original throw */
+      }
+    }
     throw {
       message: error.message,
       status: error.status || error.statusCode,

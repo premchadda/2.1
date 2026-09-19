@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { practiceAPI } from "../../../shared/lib/practiceAPI";
 import { toast } from "react-hot-toast";
 import {
@@ -113,12 +114,25 @@ export default function FundamentalsGym({ onBack }) {
   const [sessionHistory, setSessionHistory] = useState([]);
   const historyIdRef = useRef(0);
 
+  // Live fundamental categories with fallback to the hardcoded reference
+  // grid when the backend returns nothing or errors.
+  const { data: liveCategories } = useQuery({
+    queryKey: ["practice-fundamental-categories"],
+    queryFn: practiceAPI.getFundamentalCategories,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+  const categories =
+    Array.isArray(liveCategories) && liveCategories.length > 0
+      ? liveCategories
+      : DRILL_CATEGORIES;
+
   const openDrillSetup = (catId) => setSetupCatId(catId);
 
   const beginDrill = async (catId) => {
     try {
       setLoading(true);
-      const cat = DRILL_CATEGORIES.find((c) => c.id === catId) || {
+      const cat = categories.find((c) => c.id === catId) || {
         id: catId,
         title: catId,
       };
@@ -143,9 +157,14 @@ export default function FundamentalsGym({ onBack }) {
   };
 
   // Records the finished round into in-memory session history only.
-  // No submitFundamentalDrill / database write happens anywhere.
+  // Also reports the drill to the backend for analytics; a failure only
+  // toasts and never blocks the local history update.
   const finishRound = () => {
     setCompleted(true);
+    const durationSec = Math.max(
+      0,
+      Math.round((Date.now() - (startTime || Date.now())) / 1000),
+    );
     historyIdRef.current += 1;
     setSessionHistory((prev) => [
       {
@@ -160,6 +179,16 @@ export default function FundamentalsGym({ onBack }) {
       },
       ...prev,
     ]);
+    practiceAPI
+      .submitFundamentalDrill({
+        category: activeCategory?.id,
+        total: answeredCount,
+        correct: score,
+        duration_sec: durationSec,
+      })
+      .catch(() => {
+        toast.error("Drill saved locally; server sync failed");
+      });
   };
 
   // "Try again" with the exact same question set
@@ -236,8 +265,7 @@ export default function FundamentalsGym({ onBack }) {
               Drill Setup
             </h3>
             <p className="text-[11px] text-slate-500 dark:text-gray-400">
-              {DRILL_CATEGORIES.find((c) => c.id === setupCatId)?.title ||
-                setupCatId}
+              {categories.find((c) => c.id === setupCatId)?.title || setupCatId}
             </p>
           </div>
         </div>
@@ -1751,7 +1779,7 @@ export default function FundamentalsGym({ onBack }) {
 
       {/* CATEGORIES GRID OF CARDS — compact + animated */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-        {DRILL_CATEGORIES.map((cat, idx) => (
+        {categories.map((cat, idx) => (
           <div
             key={cat.id}
             onClick={() => setSelectedCategory(cat)}

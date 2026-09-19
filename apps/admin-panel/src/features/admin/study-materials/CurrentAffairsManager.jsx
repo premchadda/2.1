@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { apiClient } from "../../../shared/api/adminApi";
+import { apiClient } from "../../../shared/lib/dataService.js";
 import { toast } from "react-hot-toast";
 import { useConfirm } from "../../../shared/components/common/ConfirmModal";
 import {

@@ -17,6 +17,9 @@ import { sanitizeForPrompt } from "./aiMentor.service.js";
 
 /**
  * Call AI API for text generation.
+ * Keyless fallback: with no LLM key, returns a search-grounded answer built
+ * from the prompt's own question context (provider "search", zero tokens)
+ * instead of throwing — callers log it like any other generation.
  */
 async function callAI(prompt, options = {}) {
   const systemPrompt =
@@ -26,11 +29,32 @@ async function callAI(prompt, options = {}) {
     { role: "system", content: systemPrompt },
     { role: "user", content: prompt },
   ];
-  return callAIWithFallback(messages, {
-    model: options.model,
-    maxTokens: options.maxTokens || AI_CONFIG.maxTokens,
-    temperature: options.temperature || AI_CONFIG.temperature,
-  });
+  try {
+    return await callAIWithFallback(messages, {
+      model: options.model,
+      maxTokens: options.maxTokens || AI_CONFIG.maxTokens,
+      temperature: options.temperature || AI_CONFIG.temperature,
+    });
+  } catch (err) {
+    const msg = String(err?.message || "");
+    if (/moderation/i.test(msg)) throw err;
+    if (!/not configured|unavailable/i.test(msg)) throw err;
+    const { buildSearchGroundedAnswer } = await import("./aiClient.js");
+    return {
+      text: buildSearchGroundedAnswer({
+        kind: "explanation",
+        promptType: "explain_simply",
+        dbContext: String(prompt || "").slice(0, 1500),
+        webHits: [],
+        language: options.language || "en",
+      }),
+      model: "search-grounded",
+      provider: "search",
+      tokensInput: 0,
+      tokensOutput: 0,
+      latencyMs: 0,
+    };
+  }
 }
 
 const aiExplanationService = {
@@ -127,7 +151,7 @@ const aiExplanationService = {
         entityId: questionId,
         prompt: prompt.substring(0, 1000),
         model: aiResult.model,
-        provider: AI_CONFIG.provider,
+        provider: aiResult.provider || AI_CONFIG.provider,
         tokensInput: aiResult.tokensInput,
         tokensOutput: aiResult.tokensOutput,
         latencyMs: aiResult.latencyMs,

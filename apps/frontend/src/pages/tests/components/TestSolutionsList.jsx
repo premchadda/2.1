@@ -17,6 +17,10 @@ import {
 import MathRenderer from "../../../shared/components/MathRenderer";
 import sanitizeHtml from "../../../shared/lib/sanitizeHtml";
 import { getLocalizedField } from "../../../shared/lib/language";
+import {
+  getEstimatedReadingSeconds,
+  formatReadingTime,
+} from "@trstprep/shared-config";
 
 export default function TestSolutionsList({
   sectionRef,
@@ -492,6 +496,17 @@ export default function TestSolutionsList({
                               {q.section}
                             </span>
                           )}
+
+                          <span
+                            className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 bg-slate-100/80 dark:bg-gray-700/60 px-1.5 py-0.5 rounded"
+                            title="Estimated reading time"
+                          >
+                            <BookOpen className="w-3 h-3 text-slate-400" />
+                            <span>
+                              ~
+                              {formatReadingTime(getEstimatedReadingSeconds(q))}
+                            </span>
+                          </span>
 
                           {qTime > 0 && (
                             <span className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">

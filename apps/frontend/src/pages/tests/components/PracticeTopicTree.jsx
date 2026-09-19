@@ -45,7 +45,10 @@ export default function PracticeTopicTree({
   // Set default active subject when data loads
   const currentSubject = useMemo(() => {
     if (!subjectList.length) return null;
-    return subjectList.find((s) => s.id === activeSubjectId) || subjectList[0];
+    return (
+      subjectList.find((s) => String(s.id) === String(activeSubjectId)) ||
+      subjectList[0]
+    );
   }, [subjectList, activeSubjectId]);
 
   // Filter topics by search query
@@ -111,7 +114,8 @@ export default function PracticeTopicTree({
       {/* Subject Navigation Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
         {subjectList.map((sub) => {
-          const isActive = (currentSubject?.id || subjects[0]?.id) === sub.id;
+          const isActive =
+            String(currentSubject?.id ?? subjects[0]?.id) === String(sub.id);
           return (
             <button
               key={sub.id}

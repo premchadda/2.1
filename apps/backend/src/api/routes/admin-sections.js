@@ -752,28 +752,43 @@ router.post("/dedup", protect, admin, async (req, res) => {
       .map((t) => t.table_name)
       .filter((t) => t !== "test_sections");
 
-    // Re-link duplicate section_id references to their keepers
-    for (const [dupeIdStr, keeperId] of Object.entries(mergeMap)) {
-      const dupeId = Number(dupeIdStr);
+    // Split the merge map once — reused per table inside the transaction.
+    const dupeIds = Object.keys(mergeMap).map(Number);
+    const keeperIds = Object.values(mergeMap).map(Number);
+
+    // FIX: run the entire re-link + delete in ONE transaction. Previously every
+    // per-table UPDATE failure was swallowed with `.catch()` and the duplicate
+    // rows were DELETED anyway, leaving rows in other tables pointing at
+    // section ids that no longer exist. Any failure now rolls everything back.
+    const client = await pool.connect();
+    let deletedCount = 0;
+    try {
+      await client.query("BEGIN");
       for (const tableName of tableNames) {
-        await pool
-          .query(
-            `UPDATE "${tableName}" SET section_id = $1 WHERE section_id = $2`,
-            [keeperId, dupeId],
-          )
-          .catch((e) =>
-            logger.error(`[Dedup] Re-linking error in "${tableName}":`, e),
-          );
+        await client.query(
+          `UPDATE "${tableName}" t
+           SET section_id = m.keeper_id
+           FROM (SELECT unnest($1::int[]) AS dupe_id, unnest($2::int[]) AS keeper_id) AS m
+           WHERE t.section_id = m.dupe_id`,
+          [dupeIds, keeperIds],
+        );
       }
+
+      // Delete the duplicates from test_sections
+      const deleteRes = await client.query(
+        "DELETE FROM test_sections WHERE id = ANY($1::int[])",
+        [allDupesToDelete],
+      );
+      deletedCount = deleteRes.rowCount;
+      await client.query("COMMIT");
+    } catch (txErr) {
+      await client.query("ROLLBACK");
+      throw txErr;
+    } finally {
+      client.release();
     }
 
-    // Delete the duplicates from test_sections
-    const deleteRes = await pool.query(
-      "DELETE FROM test_sections WHERE id = ANY($1::int[])",
-      [allDupesToDelete],
-    );
-
-    res.json({ success: true, data: { deleted: deleteRes.rowCount } });
+    res.json({ success: true, data: { deleted: deletedCount } });
   } catch (error) {
     logger.error("[Sections] Dedup error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });

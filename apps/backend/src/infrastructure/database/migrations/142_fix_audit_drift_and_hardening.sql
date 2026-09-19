@@ -7,7 +7,7 @@
 -- Filename 142_* is the next free numeric prefix (runner forbids new
 -- letter-suffixes; 000/056 pairs are grandfathered) — runner picks it up.
 --
--- SECTION MAP (audit = docs/audit/17-09-2026 Audit Report.md §database A-J):
+-- SECTION MAP (audit = docs/AUDIT.md — consolidated; source: audit/17-09-2026 Audit Report.md §database A-J):
 --   §0 helpers ............ 116 idiom re-assert (SECURITY DEFINER + fixed
 --                            search_path); CREATE OR REPLACE, never drops
 --                            dependent policies. (audit §C.8)

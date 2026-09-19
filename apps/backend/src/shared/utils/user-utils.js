@@ -16,31 +16,76 @@ const UPLOADS_ROOT = path.resolve(__dirname, "../../../uploads");
  */
 export const availableProfileAsset = (asset) => {
   if (typeof asset !== "string" || !asset) return asset;
+  if (asset.startsWith("data:")) return asset;
+
+  let checkPath = asset;
   if (
-    asset.startsWith("http://") ||
-    asset.startsWith("https://") ||
-    asset.startsWith("data:")
+    asset.startsWith("http://localhost") ||
+    asset.startsWith("https://localhost") ||
+    asset.startsWith("http://127.0.0.1") ||
+    asset.startsWith("https://127.0.0.1")
   ) {
+    try {
+      checkPath = new URL(asset).pathname;
+    } catch {
+      return null;
+    }
+  } else if (asset.startsWith("http://") || asset.startsWith("https://")) {
+    // External remote URL (S3, Supabase, OAuth photo)
     return asset;
   }
-  if (asset.startsWith("/assets/avatar/")) {
-    const filename = path.basename(asset);
-    return fs.existsSync(path.join(UPLOADS_ROOT, "avatars", filename))
-      ? asset
-      : null;
+
+  const findUserFallbackAsset = (filename) => {
+    const match = filename.match(/^(avatar|banner)_(\d+)_/i);
+    if (!match) return null;
+    const [, prefix, userId] = match;
+    const pattern = new RegExp(`^${prefix}_${userId}_`, "i");
+
+    const avatarsDir = path.join(UPLOADS_ROOT, "avatars");
+    if (fs.existsSync(avatarsDir)) {
+      const candidates = fs
+        .readdirSync(avatarsDir)
+        .filter((f) => pattern.test(f));
+      if (candidates.length > 0) {
+        return `/assets/avatar/${candidates[candidates.length - 1]}`;
+      }
+    }
+
+    const imagesDir = path.join(UPLOADS_ROOT, "images");
+    if (fs.existsSync(imagesDir)) {
+      const candidates = fs
+        .readdirSync(imagesDir)
+        .filter((f) => pattern.test(f));
+      if (candidates.length > 0) {
+        return `/uploads/images/${candidates[candidates.length - 1]}`;
+      }
+    }
+
+    return null;
+  };
+
+  if (checkPath.startsWith("/assets/avatar/")) {
+    const filename = path.basename(checkPath);
+    if (fs.existsSync(path.join(UPLOADS_ROOT, "avatars", filename))) {
+      return `/assets/avatar/${filename}`;
+    }
+    return findUserFallbackAsset(filename);
   }
-  if (asset.startsWith("/uploads/")) {
-    const relPath = asset.replace(/^\/uploads\//, "");
-    if (fs.existsSync(path.join(UPLOADS_ROOT, relPath))) return asset;
-    const filename = path.basename(asset);
+
+  if (checkPath.startsWith("/uploads/")) {
+    const relPath = checkPath.replace(/^\/uploads\//, "");
+    if (fs.existsSync(path.join(UPLOADS_ROOT, relPath)))
+      return `/uploads/${relPath}`;
+    const filename = path.basename(checkPath);
     if (fs.existsSync(path.join(UPLOADS_ROOT, "avatars", filename))) {
       return `/assets/avatar/${filename}`;
     }
     if (fs.existsSync(path.join(UPLOADS_ROOT, "images", filename))) {
       return `/uploads/images/${filename}`;
     }
-    return null;
+    return findUserFallbackAsset(filename);
   }
+
   return asset;
 };
 

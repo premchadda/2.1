@@ -164,15 +164,17 @@ const deleteOldProfileAsset = (oldPath) => {
     return;
   }
 
-  // Legacy local paths under /assets/avatar/
-  if (!oldPath.startsWith("/assets/avatar/")) return;
-
+  // Local paths under /assets/avatar/, /uploads/, or localhost
   const fileName = path.basename(oldPath);
-  const filePath = path.join(__dirname, "../../../uploads/avatars", fileName);
+  const avatarPath = path.join(__dirname, "../../../uploads/avatars", fileName);
+  const imagePath = path.join(__dirname, "../../../uploads/images", fileName);
 
   try {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    if (fs.existsSync(avatarPath)) {
+      fs.unlinkSync(avatarPath);
+    }
+    if (fs.existsSync(imagePath)) {
+      fs.unlinkSync(imagePath);
     }
   } catch (error) {
     console.error(
@@ -207,7 +209,7 @@ const saveProfileAsset = async (imageData, userId, prefix, oldPath = null) => {
   const ext = matches[1] === "jpeg" ? "jpg" : matches[1];
   const base64Data = matches[2];
   const buffer = Buffer.from(base64Data, "base64");
-  const fileName = `${prefix}_${userId}_${Date.now()}.${ext}`;
+  let fileName = `${prefix}_${userId}_${Date.now()}.${ext}`;
 
   // Compress to keep files small: avatars are square thumbnails, banners are wide.
   const maxWidth = prefix === "banner" ? 1280 : 256;
@@ -223,6 +225,7 @@ const saveProfileAsset = async (imageData, userId, prefix, oldPath = null) => {
       .webp({ quality: 80 })
       .toBuffer();
     mimetype = "image/webp";
+    fileName = `${prefix}_${userId}_${Date.now()}.webp`;
   } catch (error) {
     console.error(
       `❌ [assetSaveError] Failed to compress ${fileName}:`,
@@ -238,25 +241,29 @@ const saveProfileAsset = async (imageData, userId, prefix, oldPath = null) => {
     filename: fileName,
   };
 
-  try {
-    const result = await storeUploadedAssetFile(syntheticFile, {
-      category: "avatars",
-    });
-    return result.publicUrl;
-  } catch (error) {
-    console.error(
-      `❌ [assetSaveError] Storage provider failed for ${fileName}:`,
-      error.message,
-    );
-    // Fallback: write to local disk
-    const uploadDir = path.join(__dirname, "../../../uploads/avatars");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+  const provider = (process.env.STORAGE_PROVIDER || "local").toLowerCase();
+  if (provider === "s3" || provider === "supabase") {
+    try {
+      const result = await storeUploadedAssetFile(syntheticFile, {
+        category: "avatars",
+      });
+      return result.publicUrl;
+    } catch (error) {
+      console.error(
+        `❌ [assetSaveError] Remote storage failed for ${fileName}:`,
+        error.message,
+      );
     }
-    const filePath = path.join(uploadDir, fileName);
-    await fs.promises.writeFile(filePath, compressedBuffer);
-    return `/assets/avatar/${fileName}`;
   }
+
+  // Local storage: write directly to uploads/avatars and return /assets/avatar/${fileName}
+  const uploadDir = path.join(__dirname, "../../../uploads/avatars");
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  const filePath = path.join(uploadDir, fileName);
+  await fs.promises.writeFile(filePath, compressedBuffer);
+  return `/assets/avatar/${fileName}`;
 };
 
 // @route   GET /api/users/profile

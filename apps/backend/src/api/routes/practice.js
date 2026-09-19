@@ -907,6 +907,21 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
     const { chapterId } = req.params;
     const userId = req.user.id;
 
+    // Non-empty guard (slug-compatible: callers may send slugs, so no
+    // numeric-only check here). Missing params are a 400, unknown chapters
+    // are a 404 — never a 500 via the catch below.
+    if (
+      chapterId === undefined ||
+      chapterId === null ||
+      String(chapterId).trim() === "" ||
+      chapterId === "undefined" ||
+      chapterId === "null"
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid chapter ID" });
+    }
+
     // 1+2. Chapter existence + chapter topics are independent (both keyed
     // only by the :chapterId param), so they run together in one group.
     const [chapterRes, topicsRes] = await Promise.all([
@@ -914,7 +929,7 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
         `
       SELECT c.id, c.title, c.slug, COALESCE(c.subject_id, c.study_material_id) AS subject_id
       FROM subject_chapters c
-      WHERE c.id = $1 AND c.is_active = true AND (c.is_deleted IS NOT TRUE)
+      WHERE (c.id::text = $1 OR c.slug = $1) AND c.is_active = true AND (c.is_deleted IS NOT TRUE)
     `,
         [chapterId],
       ),
@@ -929,7 +944,10 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
       LEFT JOIN questions q ON q.topic_id = t.id
         AND (q.is_active = true OR q.is_active IS NULL)
         AND (q.is_deleted = false OR q.is_deleted IS NULL)
-      WHERE t.chapter_id = $1 AND t.is_active = true AND (t.is_deleted IS NOT TRUE)
+      WHERE t.chapter_id IN (
+        SELECT c.id FROM subject_chapters c
+        WHERE c.id::text = $1 OR c.slug = $1
+      ) AND t.is_active = true AND (t.is_deleted IS NOT TRUE)
       GROUP BY t.id, t.name, t.slug, t.description, t.order_index
       ORDER BY t.order_index NULLS LAST, t.name
     `,
@@ -1181,10 +1199,33 @@ router.get("/topics/:topicId/stats", protect, async (req, res) => {
     const { topicId } = req.params;
     const userId = req.user.id;
 
+    // Non-empty guard (slug-compatible: callers may send slugs, so no
+    // numeric-only check here). Unknown topics are a 404 — never a 500
+    // via the catch below.
+    if (
+      topicId === undefined ||
+      topicId === null ||
+      String(topicId).trim() === "" ||
+      topicId === "undefined" ||
+      topicId === "null"
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid topic ID" });
+    }
+    const topicRes = await pool.query(
+      `SELECT id FROM subject_topics WHERE id::text = $1 OR slug = $1 LIMIT 1`,
+      [topicId],
+    );
+    if (!topicRes.rows.length) {
+      return res.status(404).json({ success: false, error: "Topic not found" });
+    }
+    const numericTopicId = topicRes.rows[0].id;
+
     // The three reads are independent (count, difficulty split, mastery),
     // so they run together in one group instead of three serial round-trips.
     const [total, diffSplit, mastery] = await Promise.all([
-      countPracticeQuestions(`q.topic_id = $1`, [topicId]),
+      countPracticeQuestions(`q.topic_id = $1`, [numericTopicId]),
       pool.query(
         `
       SELECT
@@ -1193,9 +1234,9 @@ router.get("/topics/:topicId/stats", protect, async (req, res) => {
         SUM(CASE WHEN LOWER(q.difficulty)='hard' THEN 1 ELSE 0 END)::int AS hard
       FROM questions q WHERE ${PRACTICE_Q_WHERE} AND q.topic_id = $1
     `,
-        [topicId],
+        [numericTopicId],
       ),
-      computeTopicMastery(userId, topicId),
+      computeTopicMastery(userId, numericTopicId),
     ]);
 
     res.json({
@@ -1273,6 +1314,14 @@ router.post("/sessions", protect, async (req, res) => {
 
     // Cap targetCount (default 20, max 200 for latency)
     const count = Math.min(Math.max(parseInt(targetCount, 10) || 20, 1), 200);
+
+    // Perf guard: large ORDER BY RANDOM() payloads are slow — log a hint
+    // (userId + count only, no PII) so slow session creates are traceable.
+    if (count > 50) {
+      console.warn(
+        `[practice] large session request: userId=${userId} count=${count}`,
+      );
+    }
 
     // Numeric guard (mirror test submit): non-numeric time limits are a 400,
     // valid values are clamped to [30s, 6h] so a stale client can't create
@@ -1453,12 +1502,65 @@ router.get("/sessions/active", protect, async (req, res) => {
     session.questions = questions;
     delete session.questionsJson;
 
+    // Attach user answers history for this session
+    await attachSessionAnswers(session, ids, userId);
+
     res.json({ success: true, data: session });
   } catch (err) {
     console.error("GET /api/practice/sessions/active error:", err);
     res.status(500).json({ success: false, error: sanitizeErrorMessage(err) });
   }
 });
+
+/**
+ * Helper: Fetch all answers attempted in a practice session and attach to session object
+ */
+async function attachSessionAnswers(session, ids, userId) {
+  if (!session?.id || !Array.isArray(ids) || ids.length === 0) return session;
+  try {
+    const ansRes = await pool.query(
+      `SELECT pa.question_id, pa.selected_option, pa.is_correct, pa.is_skipped,
+              pa.time_taken_sec, q.correct_option, q.correct_answer, q.explanation, q.explanation_hi
+       FROM practice_answers pa
+       LEFT JOIN questions q ON q.id = pa.question_id
+       WHERE pa.session_id = $1 AND pa.user_id = $2`,
+      [session.id, userId],
+    );
+
+    const questionIndexMap = {};
+    ids.forEach((qId, i) => {
+      questionIndexMap[qId] = i;
+    });
+
+    const answersList = [];
+    const answersMap = {};
+    for (const a of ansRes.rows) {
+      const qIdx = questionIndexMap[a.question_id];
+      if (qIdx !== undefined) {
+        const item = {
+          index: qIdx,
+          questionId: a.question_id,
+          selectedOption: a.selected_option,
+          isCorrect: a.is_correct,
+          isSkipped: a.is_skipped,
+          correctOption: a.correct_option ?? a.correct_answer,
+          explanation: a.explanation,
+          explanationHi: a.explanation_hi,
+        };
+        answersList.push(item);
+        answersMap[qIdx] = item;
+      }
+    }
+
+    session.answers = answersList;
+    session.answersMap = answersMap;
+  } catch (err) {
+    console.warn("[practice] Failed to attach session answers:", err.message);
+    session.answers = [];
+    session.answersMap = {};
+  }
+  return session;
+}
 
 /**
  * GET /api/practice/sessions/:id
@@ -1489,6 +1591,10 @@ router.get("/sessions/:id", protect, async (req, res) => {
     const questions = await getSafeQuestions(ids);
     session.questions = questions;
     delete session.questionsJson;
+
+    // Attach user answers history for this session
+    await attachSessionAnswers(session, ids, req.user.id);
+
     res.json({ success: true, data: session });
   } catch (err) {
     res.status(500).json({ success: false, error: sanitizeErrorMessage(err) });
@@ -1513,12 +1619,10 @@ router.patch("/sessions/:id", protect, async (req, res) => {
     const safeIndex =
       Number.isInteger(currentIndex) && currentIndex >= 0 ? currentIndex : null;
     if (currentIndex !== undefined && safeIndex === null) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "currentIndex must be an integer >= 0",
-        });
+      return res.status(400).json({
+        success: false,
+        error: "currentIndex must be an integer >= 0",
+      });
     }
     // Clamp to the session's question range so a stale client can't push the
     // cursor past the end (counter-delta logic in /check assumes in-range).
@@ -1736,6 +1840,35 @@ router.get("/sessions/:id/questions/:idx", protect, async (req, res) => {
       return res
         .status(404)
         .json({ success: false, error: "Question missing" });
+
+    // Check if this question was already attempted/answered in this session
+    try {
+      const ansRes = await pool.query(
+        `SELECT pa.selected_option, pa.is_correct, pa.is_skipped, q.correct_answer, q.correct_option, q.explanation, q.explanation_hi
+         FROM practice_answers pa
+         JOIN questions q ON q.id = pa.question_id
+         WHERE pa.session_id = $1 AND pa.question_id = $2 AND pa.user_id = $3
+         ORDER BY pa.id DESC LIMIT 1`,
+        [sessionId, ids[idx], req.user.id],
+      );
+      if (ansRes.rows.length > 0) {
+        const a = ansRes.rows[0];
+        q.userAnswer = {
+          selectedOption: a.selected_option,
+          isCorrect: a.is_correct,
+          isSkipped: a.is_skipped,
+          correctOption: a.correct_option ?? a.correct_answer,
+          explanation: a.explanation,
+          explanationHi: a.explanation_hi,
+        };
+      }
+    } catch (ansErr) {
+      console.warn(
+        "[practice] Failed to attach userAnswer to question:",
+        ansErr.message,
+      );
+    }
+
     res.json({ success: true, data: q });
   } catch (err) {
     res.status(500).json({ success: false, error: sanitizeErrorMessage(err) });
@@ -2738,7 +2871,17 @@ router.get("/reports/admin/all", protect, admin, async (req, res) => {
 router.put("/reports/admin/:id/status", protect, admin, async (req, res) => {
   try {
     const { status, notes } = req.body;
-    const reportId = req.params.id;
+    const reportId = parsePositiveInt(req.params.id);
+    if (!reportId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid report ID" });
+    }
+    const safeStatus = status || "resolved";
+    const VALID_REPORT_STATUSES = ["pending", "resolved", "rejected"];
+    if (!VALID_REPORT_STATUSES.includes(safeStatus)) {
+      return res.status(400).json({ success: false, error: "Invalid status" });
+    }
 
     const result = await pool.query(
       `
@@ -2747,7 +2890,7 @@ router.put("/reports/admin/:id/status", protect, admin, async (req, res) => {
       WHERE id = $3
       RETURNING *
     `,
-      [status || "resolved", notes || null, reportId],
+      [safeStatus, notes || null, reportId],
     );
 
     if (result.rows.length === 0) {
@@ -2865,10 +3008,16 @@ router.get("/questions", protect, async (req, res) => {
 
 router.get("/questions/:id", protect, async (req, res) => {
   try {
+    const id = parsePositiveInt(req.params.id);
+    if (!id) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid question ID" });
+    }
     const result = await pool.query(
       `SELECT id, question_text, options, explanation, subject, topic, difficulty, language
        FROM questions WHERE id = $1 AND is_practice = true AND is_active = true`,
-      [req.params.id],
+      [id],
     );
     if (!result.rows.length)
       return res
@@ -2973,8 +3122,8 @@ router.get("/fundamentals/categories", protect, async (req, res) => {
 });
 
 /**
- * POST /api/practice/fundamentals/submit
- * Body: { category, score, totalQuestions, durationMs }
+ * GET /api/practice/fundamentals/drill
+ * Query: { category, count }
  */
 router.get("/fundamentals/drill", protect, async (req, res) => {
   try {
@@ -3071,6 +3220,10 @@ router.get("/fundamentals/drill", protect, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/practice/fundamentals/submit
+ * Body: { category, score, totalQuestions, durationMs }
+ */
 router.post(
   "/fundamentals/submit",
   protect,
@@ -3314,14 +3467,30 @@ router.post(
   protect,
   async (req, res) => {
     try {
-      const { approachId } = req.params;
+      const questionId = parsePositiveInt(req.params.id);
+      if (!questionId) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Invalid question ID" });
+      }
+      const approachId = parsePositiveInt(req.params.approachId);
+      if (!approachId) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Invalid approach ID" });
+      }
       const r = await pool.query(
         `
-      UPDATE question_approaches SET upvotes = upvotes + 1 WHERE id = $1 RETURNING upvotes
+      UPDATE question_approaches SET upvotes = upvotes + 1 WHERE id = $1 AND question_id = $2 RETURNING upvotes
     `,
-        [approachId],
+        [approachId, questionId],
       );
-      res.json({ success: true, upvotes: r.rows[0]?.upvotes || 0 });
+      if (!r.rows.length) {
+        return res
+          .status(404)
+          .json({ success: false, error: "Approach not found" });
+      }
+      res.json({ success: true, upvotes: r.rows[0].upvotes });
     } catch (err) {
       res
         .status(500)
@@ -3459,10 +3628,21 @@ router.get("/vault/items", protect, async (req, res) => {
 
 /**
  * POST /api/practice/ai/tutor
+ *
+ * Keyless "search connect" tutor: no LLM key needed. The answer is composed
+ * from the question's own DB context (explanation, approved approaches,
+ * similar questions) plus keyless web search, via buildSearchGroundedAnswer.
+ * Static strings below are the last-resort fallback only.
  */
 router.post("/ai/tutor", protect, async (req, res) => {
   try {
-    const { questionId, promptType = "hint", userAnswer } = req.body;
+    const {
+      questionId,
+      promptType = "hint",
+      userAnswer,
+      language = "en",
+      studentAttempt = "",
+    } = req.body || {};
     if (
       questionId !== undefined &&
       questionId !== null &&
@@ -3474,27 +3654,119 @@ router.post("/ai/tutor", protect, async (req, res) => {
         .json({ success: false, error: "Invalid question ID" });
     }
 
-    const qR = await pool.query(
-      `SELECT question_text, explanation, options FROM questions WHERE id = $1`,
-      [questionId],
-    );
-    const q = qR.rows[0];
-
-    let responseText = "";
-    if (promptType === "hint") {
-      responseText =
-        "💡 **Hint**: Look at the relation between initial and final values. Express the successive change as a single ratio.";
-    } else if (promptType === "explain_simply") {
-      responseText =
-        "🧒 **Simple Explanation**: Imagine you have ₹100. If you increase it by 10%, it becomes ₹110. If you then decrease it by 10%, 10% of 110 is ₹11, so it becomes ₹99! That is a net loss of 1%.";
-    } else if (promptType === "another_method") {
-      responseText =
-        "⚡ **Alternative Method**: Use the formula $a + b + \\frac{ab}{100}$. Here $a = +10$, $b = -10$, so $10 - 10 - \\frac{100}{100} = -1\\%$.";
-    } else {
-      responseText = `🔍 **Error Diagnosis**: Option ${userAnswer} assumes simple subtraction instead of applying percentage to the updated base value.`;
+    // Only look up the question when a numeric questionId was supplied;
+    // when absent, skip the query entirely (no behavior change otherwise).
+    let q = null;
+    let dbContext = String(studentAttempt || "").slice(0, 400);
+    let similarTitles = [];
+    if (questionId !== undefined && questionId !== null && questionId !== "") {
+      const qR = await pool.query(
+        `SELECT id, question_text, explanation, options, correct_option, topic_id, subject_id FROM questions WHERE id = $1`,
+        [questionId],
+      );
+      q = qR.rows[0] || null;
+      if (q) {
+        try {
+          const ctxR = await pool.query(
+            `SELECT content FROM question_explanations_v2 WHERE question_id = $1 ORDER BY created_at DESC LIMIT 1`,
+            [q.id],
+          );
+          if (ctxR.rows[0]?.content)
+            dbContext =
+              `${dbContext}\n${String(ctxR.rows[0].content).slice(0, 400)}`.trim();
+        } catch {
+          /* explanations table optional */
+        }
+        try {
+          const simR = await pool.query(
+            `SELECT id, question_text FROM questions
+              WHERE id <> $1 AND (topic_id = $2 OR subject_id = $3)
+                AND (is_deleted = false OR is_deleted IS NULL)
+              ORDER BY id DESC LIMIT 3`,
+            [q.id, q.topic_id, q.subject_id],
+          );
+          similarTitles = simR.rows.map((r) => ({
+            title: `Practice Q${r.id}: ${String(r.question_text || "").slice(0, 90)}`,
+            url: `/practice?mode=similar&questionId=${r.id}`,
+            snippet: "",
+          }));
+        } catch {
+          /* similar lookup optional */
+        }
+      }
     }
 
-    res.json({ success: true, data: { promptType, response: responseText } });
+    // Keyless web search (fail-soft): enrich with external sources, never gate.
+    let webHits = [];
+    try {
+      const { freeWebSearch } = await import("../../modules/ai/aiClient.js");
+      const queryText =
+        q?.question_text ||
+        req.body?.doubt ||
+        req.body?.topic ||
+        "competitive exam concept explanation";
+      webHits = await freeWebSearch(queryText, { limit: 3 });
+    } catch {
+      webHits = [];
+    }
+
+    let opts = [];
+    try {
+      const raw = q?.options;
+      opts = Array.isArray(raw) ? raw : JSON.parse(raw || "[]");
+    } catch {
+      opts = [];
+    }
+
+    let responseText = "";
+    let provider = "static";
+    try {
+      const { buildSearchGroundedAnswer } =
+        await import("../../modules/ai/aiClient.js");
+      const grounded = buildSearchGroundedAnswer({
+        kind: "tutor",
+        promptType,
+        questionText: q?.question_text || "",
+        options: opts,
+        correctOption: q?.correct_option ?? null,
+        explanation: q?.explanation || "",
+        dbContext,
+        webHits: [...similarTitles, ...webHits],
+        language,
+      });
+      // Use grounded answer whenever we had any real context; otherwise fall
+      // through to the static last-resort strings.
+      if (q || webHits.length > 0 || dbContext) {
+        responseText = grounded;
+        provider = "search";
+      }
+    } catch {
+      /* fall through to static */
+    }
+    if (!responseText) {
+      if (promptType === "hint") {
+        responseText =
+          "💡 **Hint**: Look at the relation between initial and final values. Express the successive change as a single ratio.";
+      } else if (promptType === "explain_simply") {
+        responseText =
+          "🧒 **Simple Explanation**: Imagine you have ₹100. If you increase it by 10%, it becomes ₹110. If you then decrease it by 10%, 10% of 110 is ₹11, so it becomes ₹99! That is a net loss of 1%.";
+      } else if (promptType === "another_method") {
+        responseText =
+          "⚡ **Alternative Method**: Use the formula $a + b + \\frac{ab}{100}$. Here $a = +10$, $b = -10$, so $10 - 10 - \\frac{100}{100} = -1\\%$.";
+      } else {
+        responseText = `🔍 **Error Diagnosis**: Option ${userAnswer} assumes simple subtraction instead of applying percentage to the updated base value.`;
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        promptType,
+        response: responseText,
+        provider,
+        sources: [...similarTitles, ...webHits].slice(0, 5),
+      },
+    });
   } catch (err) {
     console.error("POST /ai/tutor error:", err);
     res.status(500).json({ success: false, error: sanitizeErrorMessage(err) });

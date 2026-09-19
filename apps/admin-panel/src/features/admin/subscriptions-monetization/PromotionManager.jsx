@@ -19,7 +19,7 @@ import {
   ToggleRight,
 } from "lucide-react";
 import AdminPageHeader from "../../../shared/components/admin/AdminPageHeader";
-import adminApi from "../../../shared/api/adminApi";
+import { adminAPI as adminApi } from "../../../shared/lib/dataService.js";
 import toast from "react-hot-toast";
 
 export default function PromotionManager() {

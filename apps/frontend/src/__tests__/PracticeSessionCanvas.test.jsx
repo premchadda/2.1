@@ -2,20 +2,25 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import PracticeSessionCanvas from "../pages/tests/components/PracticeSessionCanvas";
 
-// Mock dataService
+// Mock practiceAPI (canonical AI path: POST /api/practice/ai/tutor via askAiTutor)
 const mockCheckAnswer = vi.fn();
 const mockCompleteSession = vi.fn();
-const mockGetSocraticHint = vi.fn();
-const mockAskDoubt = vi.fn();
+const mockAskAiTutor = vi.fn();
 
+vi.mock("../shared/lib/practiceAPI", () => ({
+  practiceAPI: {
+    checkAnswer: (...args) => mockCheckAnswer(...args),
+    completeSession: (...args) => mockCompleteSession(...args),
+    askAiTutor: (...args) => mockAskAiTutor(...args),
+  },
+}));
+
+// Legacy dataService mock kept so older imports (if any) resolve safely
 vi.mock("../shared/lib/dataService", () => ({
   practiceAPI: {
     checkAnswer: (...args) => mockCheckAnswer(...args),
     completeSession: (...args) => mockCompleteSession(...args),
-  },
-  aiAPI: {
-    getSocraticHint: (...args) => mockGetSocraticHint(...args),
-    askDoubt: (...args) => mockAskDoubt(...args),
+    askAiTutor: (...args) => mockAskAiTutor(...args),
   },
 }));
 
@@ -84,9 +89,9 @@ describe("PracticeSessionCanvas - Interactive Socratic Tutor", () => {
   });
 
   it("opens Socratic drawer and loads Step 1 concept hint on click", async () => {
-    mockGetSocraticHint.mockResolvedValueOnce({
-      hint: "Recall that the square root of a number $N$ is a number $x$ such that $x^2 = N$.",
-      stepNumber: 1,
+    mockAskAiTutor.mockResolvedValueOnce({
+      response:
+        "Recall that the square root of a number $N$ is a number $x$ such that $x^2 = N$.",
     });
 
     render(
@@ -107,10 +112,10 @@ describe("PracticeSessionCanvas - Interactive Socratic Tutor", () => {
 
     // Verify loading and hint resolution
     await waitFor(() => {
-      expect(mockGetSocraticHint).toHaveBeenCalledWith(
+      expect(mockAskAiTutor).toHaveBeenCalledWith(
         expect.objectContaining({
-          questionText: "What is the square root of 144?",
-          stepNumber: 1,
+          questionId: "q1",
+          promptType: "hint",
           language: "en",
         }),
       );
@@ -127,14 +132,13 @@ describe("PracticeSessionCanvas - Interactive Socratic Tutor", () => {
       explanation: "12 * 12 = 144",
     });
 
-    mockGetSocraticHint
+    mockAskAiTutor
       .mockResolvedValueOnce({
-        hint: "Recall definition of square root.",
-        stepNumber: 1,
+        response: "Recall definition of square root.",
       })
       .mockResolvedValueOnce({
-        hint: "You selected Option A (10). Notice $10^2 = 100 < 144$. What square is closer?",
-        stepNumber: 2,
+        response:
+          "You selected Option A (10). Notice $10^2 = 100 < 144$. What square is closer?",
       });
 
     render(
@@ -164,9 +168,9 @@ describe("PracticeSessionCanvas - Interactive Socratic Tutor", () => {
     fireEvent.click(unlockBtn);
 
     await waitFor(() => {
-      expect(mockGetSocraticHint).toHaveBeenCalledWith(
+      expect(mockAskAiTutor).toHaveBeenCalledWith(
         expect.objectContaining({
-          stepNumber: 2,
+          promptType: "why_wrong",
           studentAttempt: expect.stringContaining(
             "Candidate selected Option A: 10",
           ),
@@ -177,14 +181,13 @@ describe("PracticeSessionCanvas - Interactive Socratic Tutor", () => {
   });
 
   it("supports toggling Hindi bilingual hints in Socratic drawer", async () => {
-    mockGetSocraticHint
+    mockAskAiTutor
       .mockResolvedValueOnce({
-        hint: "English Concept Hint",
-        stepNumber: 1,
+        response: "English Concept Hint",
       })
       .mockResolvedValueOnce({
-        hint: "हिन्दी में संकल्पना: किसी संख्या $N$ का वर्गमूल वह संख्या $x$ है...",
-        stepNumber: 1,
+        response:
+          "हिन्दी में संकल्पना: किसी संख्या $N$ का वर्गमूल वह संख्या $x$ है...",
       });
 
     render(
@@ -206,9 +209,9 @@ describe("PracticeSessionCanvas - Interactive Socratic Tutor", () => {
     fireEvent.click(langBtn);
 
     await waitFor(() => {
-      expect(mockGetSocraticHint).toHaveBeenCalledWith(
+      expect(mockAskAiTutor).toHaveBeenCalledWith(
         expect.objectContaining({
-          stepNumber: 1,
+          promptType: "hint",
           language: "hi",
         }),
       );

@@ -313,4 +313,111 @@ router.get("/results", async (req, res) => {
   }
 });
 
+// Get single result detail with per-question rows
+router.get("/results/:id", async (req, res) => {
+  try {
+    const attemptId = Number(req.params.id);
+    if (!Number.isInteger(attemptId) || attemptId <= 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid attempt id" });
+    }
+
+    const attemptResult = await dbHelpers.pool.query(
+      `SELECT
+         a.id, a.user_id, a.test_id,
+         a.score, a.total_marks,
+         a.submitted_at, a.created_at,
+         u.name AS user_name,
+         t.total_marks AS test_total_marks
+       FROM attempts a
+       LEFT JOIN users u ON u.id = a.user_id
+       LEFT JOIN tests t ON t.id = a.test_id
+       WHERE a.id = $1`,
+      [attemptId],
+    );
+
+    if (attemptResult.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Attempt not found" });
+    }
+
+    const a = attemptResult.rows[0];
+    const score = parseFloat(a.score) || 0;
+    const totalMarks =
+      parseFloat(a.total_marks) || parseFloat(a.test_total_marks) || 100;
+
+    const answersResult = await dbHelpers.pool.query(
+      `SELECT
+         aa.question_id,
+         aa.selected_option,
+         aa.selected_option_id,
+         aa.is_correct,
+         aa.is_unattempted,
+         q.question_text,
+         q.options,
+         q.correct_option,
+         q.correct_answer,
+         q.marks,
+         q.explanation
+       FROM attempt_answers aa
+       LEFT JOIN questions q ON q.id = aa.question_id
+       WHERE aa.attempt_id = $1
+       ORDER BY aa.id`,
+      [attemptId],
+    );
+
+    const questions = answersResult.rows.map((row) => {
+      const selectedOption =
+        row.selected_option ?? row.selected_option_id ?? null;
+      const correctOption = row.correct_option ?? row.correct_answer ?? null;
+      const skipped =
+        row.is_unattempted === true ||
+        selectedOption === null ||
+        selectedOption === undefined ||
+        selectedOption === "";
+      const isCorrect = skipped ? false : row.is_correct === true;
+      return {
+        questionId: row.question_id,
+        questionText: row.question_text || "",
+        options: row.options || [],
+        selectedOption,
+        correctOption,
+        isCorrect,
+        marks: row.marks ?? null,
+        explanation: row.explanation || "",
+      };
+    });
+
+    const total = questions.length;
+    const correct = questions.filter((q) => q.isCorrect).length;
+    const skipped = questions.filter((q) => {
+      const s = q.selectedOption;
+      return s === null || s === undefined || s === "";
+    }).length;
+    const wrong = total - correct - skipped;
+
+    return res.json({
+      success: true,
+      data: {
+        attempt: {
+          id: a.id,
+          userId: a.user_id,
+          userName: a.user_name || "User " + a.user_id,
+          testId: a.test_id,
+          score,
+          totalMarks,
+          submittedAt: a.submitted_at || a.created_at,
+        },
+        questions,
+        summary: { total, correct, wrong, skipped },
+      },
+    });
+  } catch (error) {
+    logger.error("Failed to fetch result detail", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
 export default router;
