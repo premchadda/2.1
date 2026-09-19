@@ -319,6 +319,7 @@ const layoutRoutes = [
   createRoute("/practice/chapter/:chapterSlug", <PracticeLab />, {
     protected: true,
   }),
+  createRoute("/practice/chapter", <PracticeLab />, { protected: true }),
   createRoute("/practice/exam/:examSlug", <PracticeLab />, {
     protected: true,
   }),

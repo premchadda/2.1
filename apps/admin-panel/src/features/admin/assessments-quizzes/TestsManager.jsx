@@ -90,7 +90,7 @@ const FullTestImportModal = lazy(
   () => import("./components/FullTestImportModal"),
 );
 import SECTION_PRESETS from "../../../shared/config/sectionPresets.js";
-import { EmptyState } from "../../../shared/components/common/EmptyState.jsx";
+import { EmptyState } from "../../../shared/components/ui/EmptyState.jsx";
 
 const TEST_CATEGORY_TABS = [
   { id: "mock-tests", label: "Mock Tests", icon: CheckSquare },

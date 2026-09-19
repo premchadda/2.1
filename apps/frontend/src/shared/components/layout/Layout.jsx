@@ -82,10 +82,53 @@ function Layout() {
     "/reset-password",
   ].includes(location.pathname);
 
+  // Practice session mode check (matches real test environment: hide Navbar, BottomNav, and Sidebars)
+  const [isPracticeMode, setIsPracticeMode] = useState(() => {
+    return (
+      typeof window !== "undefined" &&
+      (location.pathname.startsWith("/practice/session") ||
+        document.body.classList.contains("practice-session-active") ||
+        document.body.classList.contains("practice-mode-active"))
+    );
+  });
+
+  useEffect(() => {
+    const checkPractice = () => {
+      const active =
+        location.pathname.startsWith("/practice/session") ||
+        (typeof document !== "undefined" &&
+          (document.body.classList.contains("practice-session-active") ||
+            document.body.classList.contains("practice-mode-active")));
+      setIsPracticeMode(Boolean(active));
+    };
+
+    checkPractice();
+
+    const handlePracticeEvent = (e) => {
+      setIsPracticeMode(Boolean(e?.detail?.active));
+    };
+
+    window.addEventListener(
+      "trstprep:practice-mode-change",
+      handlePracticeEvent,
+    );
+    return () => {
+      window.removeEventListener(
+        "trstprep:practice-mode-change",
+        handlePracticeEvent,
+      );
+    };
+  }, [location.pathname]);
+
   // Left nav mode applies on desktop whenever navMode is 'left' for authenticated users on app routes
   // Guarded by isHydrated to avoid SSR mismatch from window/localStorage access
   const isLeftNavMode =
-    isHydrated && navMode === "left" && !isMobile && !isAuthPage && !!user;
+    isHydrated &&
+    navMode === "left" &&
+    !isMobile &&
+    !isAuthPage &&
+    !isPracticeMode &&
+    !!user;
 
   return (
     <div
@@ -103,32 +146,37 @@ function Layout() {
       <div aria-live="polite" aria-atomic="true" className="sr-only">
         {routeAnnouncement}
       </div>
-      {/* Top Navbar */}
-      <header role="banner">
-        <Navbar
-          onMenuClick={toggleSidebar}
-          isLeftNavMode={isLeftNavMode}
-          onNavModeToggle={toggleNavMode}
+
+      {/* Top Navbar — hidden in practice mode to match real test environment */}
+      {!isPracticeMode && (
+        <header role="banner">
+          <Navbar
+            onMenuClick={toggleSidebar}
+            isLeftNavMode={isLeftNavMode}
+            onNavModeToggle={toggleNavMode}
+          />
+        </header>
+      )}
+
+      {/* Desktop Left Sidebar — hidden in practice mode */}
+      {!isPracticeMode && isLeftNavMode && <LeftSidebar />}
+
+      {/* Mobile Sidebar (Right Side) — hidden in practice mode */}
+      {!isPracticeMode && (
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={closeSidebar}
+          isMobile={isMobile}
+          isLeftNavMode={false}
         />
-      </header>
-
-      {/* Desktop Left Sidebar */}
-      {isLeftNavMode && <LeftSidebar />}
-
-      {/* Mobile Sidebar (Right Side) */}
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={closeSidebar}
-        isMobile={isMobile}
-        isLeftNavMode={false}
-      />
+      )}
 
       <main
         id="main-content"
         tabIndex={-1}
         className={`
-           pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] md:pb-0
-           ${isLeftNavMode ? "lg:ml-[260px]" : ""}
+           ${isPracticeMode ? "p-0 m-0 w-full max-w-full" : "pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] md:pb-0"}
+           ${!isPracticeMode && isLeftNavMode ? "lg:ml-[260px]" : ""}
          `}
       >
         <PageTransition className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -136,11 +184,13 @@ function Layout() {
         </PageTransition>
       </main>
 
-      {/* Mobile Bottom Navigation */}
-      <BottomNav />
+      {/* Mobile Bottom Navigation — hidden in practice mode to match real test environment */}
+      {!isPracticeMode && <BottomNav />}
 
       {/* Content information / Site-wide Footer (homepage only) */}
-      {location.pathname === "/" && <Footer isLeftNavMode={isLeftNavMode} />}
+      {!isPracticeMode && location.pathname === "/" && (
+        <Footer isLeftNavMode={isLeftNavMode} />
+      )}
     </div>
   );
 }

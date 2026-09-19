@@ -310,6 +310,9 @@ router.get(
       if (safeUser.avatar) {
         safeUser.avatar = availableProfileAsset(safeUser.avatar);
       }
+      if (safeUser.banner) {
+        safeUser.banner = availableProfileAsset(safeUser.banner);
+      }
       // PERF: resolve everything in ONE parallel batch. The previous code ran
       // these as sequential waves (CSRF write -> enrollments/attempts), costing
       // 2+ extra DB round-trips (~600ms) against hosted Postgres.

@@ -979,7 +979,13 @@ export const authController = {
         // authenticating until TTL expiry. Best-effort (never blocks logout).
         try {
           await invalidateSessionCache(sessionId);
-        } catch {}
+        } catch (cacheErr) {
+          // Best-effort: revoked session may briefly re-auth until TTL if this fails.
+          console.warn(
+            "[Auth] invalidateSessionCache failed:",
+            cacheErr?.message,
+          );
+        }
       }
       // Per-device revocation: invalidateSession() above already deactivated
       // this device's session row, and verifyRefreshTokenForSession() rejects
@@ -998,7 +1004,10 @@ export const authController = {
         // old cached version keeps validating revoked refresh tokens).
         try {
           await invalidateUserCache(req.user.id);
-        } catch {}
+        } catch (cacheErr) {
+          // Best-effort: stale user row keeps validating a revoked refresh token.
+          console.warn("[Auth] invalidateUserCache failed:", cacheErr?.message);
+        }
       }
       // Evict the SWR-cached /me body for this user so a logged-out browser
       // never receives a stale authenticated payload (defense in depth —
@@ -1016,7 +1025,10 @@ export const authController = {
       if (req.authToken) {
         try {
           await deleteCsrfToken(req.authToken);
-        } catch {}
+        } catch (csrfErr) {
+          // Best-effort: a logged-out token's CSRF cannot be replayed only if this succeeds.
+          console.warn("[Auth] deleteCsrfToken failed:", csrfErr?.message);
+        }
       }
       clearAuthCookies(res);
       res.status(200).json({
@@ -1560,13 +1572,26 @@ export const authController = {
           if (r?.session_id) {
             try {
               await invalidateSessionCache(r.session_id);
-            } catch {}
+            } catch (cacheErr) {
+              console.warn(
+                "[Auth] invalidateSessionCache failed:",
+                cacheErr?.message,
+              );
+            }
           }
         }
-      } catch {}
+      } catch (sessErr) {
+        // Best-effort: session rows are dead in the DB; only cached copies linger.
+        console.warn(
+          "[Auth] password-reset session cache sweep failed:",
+          sessErr?.message,
+        );
+      }
       try {
         await invalidateUserCache(user._id || user.id);
-      } catch {}
+      } catch (cacheErr) {
+        console.warn("[Auth] invalidateUserCache failed:", cacheErr?.message);
+      }
 
       try {
         await messageBroker.publish("user.password_changed", {
@@ -1590,7 +1615,9 @@ export const authController = {
         if (maybeToken) {
           try {
             await deleteCsrfToken(maybeToken);
-          } catch {}
+          } catch (csrfErr) {
+            console.warn("[Auth] deleteCsrfToken failed:", csrfErr?.message);
+          }
         }
       }
 
@@ -1701,7 +1728,13 @@ export const authController = {
             otherSessionIds = (others.rows || [])
               .map((r) => r?.session_id)
               .filter(Boolean);
-          } catch {}
+          } catch (listErr) {
+            // Non-fatal: the UPDATE below still revokes; only cache eviction is skipped.
+            console.warn(
+              "[Auth] listing sessions for eviction failed:",
+              listErr?.message,
+            );
+          }
         }
         await revokePool
           .query(
@@ -1724,17 +1757,30 @@ export const authController = {
             )
             .catch(() => {});
         }
-      } catch {}
+      } catch (revokeErr) {
+        // Non-fatal: password is already changed; refresh tokens may linger until expiry.
+        console.warn(
+          "[Auth] password-change token revocation failed:",
+          revokeErr?.message,
+        );
+      }
       // H2 FIX: evict revoked sessions + the stale cached user row (its
       // refresh_token_version just changed). Best-effort.
       for (const sid of otherSessionIds) {
         try {
           await invalidateSessionCache(sid);
-        } catch {}
+        } catch (cacheErr) {
+          console.warn(
+            "[Auth] invalidateSessionCache failed:",
+            cacheErr?.message,
+          );
+        }
       }
       try {
         await invalidateUserCache(user._id || user.id);
-      } catch {}
+      } catch (cacheErr) {
+        console.warn("[Auth] invalidateUserCache failed:", cacheErr?.message);
+      }
 
       try {
         await messageBroker.publish("user.password_changed", {
@@ -1797,12 +1843,16 @@ export const authController = {
         if (req.authToken) {
           try {
             await deleteCsrfToken(req.authToken);
-          } catch {}
+          } catch (csrfErr) {
+            console.warn("[Auth] deleteCsrfToken failed:", csrfErr?.message);
+          }
         }
         const newCsrfToken = generateCsrfToken();
         try {
           await storeCsrfToken(newAccessToken, newCsrfToken);
-        } catch {}
+        } catch (csrfErr) {
+          console.warn("[Auth] storeCsrfToken failed:", csrfErr?.message);
+        }
         setCsrfCookie(res, newCsrfToken);
         return res.status(200).json({
           success: true,
@@ -1822,7 +1872,9 @@ export const authController = {
       if (req.authToken) {
         try {
           await deleteCsrfToken(req.authToken);
-        } catch {}
+        } catch (csrfErr) {
+          console.warn("[Auth] deleteCsrfToken failed:", csrfErr?.message);
+        }
       }
       clearAuthCookies(res);
 
@@ -2234,7 +2286,13 @@ export const authController = {
           const hash = pwRow.rows[0]?.password;
           if (hash && (await bcrypt.compare(String(currentPassword), hash)))
             confirmed = true;
-        } catch {}
+        } catch (pwErr) {
+          // Non-fatal: falls through to the TOTP check below.
+          console.warn(
+            "[Auth] backup-codes password confirmation failed:",
+            pwErr?.message,
+          );
+        }
       }
       if (!confirmed && confirmTotp && row.secret) {
         try {
@@ -2242,7 +2300,13 @@ export const authController = {
             String(confirmTotp),
             row.secret,
           );
-        } catch {}
+        } catch (totpErr) {
+          // Non-fatal: a malformed code simply stays unconfirmed.
+          console.warn(
+            "[Auth] backup-codes TOTP confirmation failed:",
+            totpErr?.message,
+          );
+        }
       }
       if (!confirmed) {
         return res.status(401).json({
@@ -2293,7 +2357,13 @@ export const authController = {
             const hash = pwRow.rows[0]?.password;
             if (hash && (await bcrypt.compare(String(currentPassword), hash)))
               confirmed = true;
-          } catch {}
+          } catch (pwErr) {
+            // Non-fatal: falls through to the TOTP check below.
+            console.warn(
+              "[Auth] disable-2FA password confirmation failed:",
+              pwErr?.message,
+            );
+          }
         }
         if (!confirmed && confirmTotp && existingRow.secret) {
           try {
@@ -2301,7 +2371,13 @@ export const authController = {
               String(confirmTotp),
               existingRow.secret,
             );
-          } catch {}
+          } catch (totpErr) {
+            // Non-fatal: a malformed code simply stays unconfirmed.
+            console.warn(
+              "[Auth] disable-2FA TOTP confirmation failed:",
+              totpErr?.message,
+            );
+          }
         }
         if (!confirmed) {
           return res.status(401).json({
@@ -2418,7 +2494,13 @@ export const authController = {
           const failEmail =
             failUser?.email || `2fa-user-${String(userId)}@unknown.local`;
           await recordLoginAttempt(failEmail, ipAddress, false, userAgent);
-        } catch {}
+        } catch (lockErr) {
+          // Non-fatal: the 401 below still denies; only lockout counting is skipped.
+          console.warn(
+            "[Auth] 2FA lockout attempt recording failed:",
+            lockErr?.message,
+          );
+        }
         return res
           .status(401)
           .json({ success: false, message: "Invalid verification code" });
@@ -2551,7 +2633,10 @@ export const authController = {
       // Clear lockout attempts on 2FA success (mirrors standard login).
       try {
         if (user?.email) await clearLoginAttempts(user.email);
-      } catch {}
+      } catch (clearErr) {
+        // Non-fatal: stale lockout expires on its own.
+        console.warn("[Auth] clearLoginAttempts failed:", clearErr?.message);
+      }
 
       res.status(200).json({
         success: true,

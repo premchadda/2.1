@@ -46,7 +46,10 @@ import {
   validateCsrfToken,
   csrfCleanupInterval,
 } from "./middleware/csrf.middleware.js";
-import { validateOrigin } from "./middleware/origin.middleware.js";
+import {
+  validateOrigin,
+  secretsEqual,
+} from "./middleware/origin.middleware.js";
 import { publicIdResponseMiddleware } from "./middleware/public-id-response.middleware.js";
 import cacheControlMiddleware from "./middleware/cacheControl.js";
 import { traceMiddleware } from "./middleware/trace.middleware.js";
@@ -755,6 +758,29 @@ app.use(
       if (fs.existsSync(inAvatars)) {
         return res.sendFile(inAvatars);
       }
+      const inImages = path.join(
+        __dirname,
+        "..",
+        "uploads",
+        "images",
+        filename,
+      );
+      if (fs.existsSync(inImages)) {
+        return res.sendFile(inImages);
+      }
+      const match = filename.match(/^avatar_(\d+)_/i);
+      if (match) {
+        const userId = match[1];
+        const avatarsDir = path.join(__dirname, "..", "uploads", "avatars");
+        if (fs.existsSync(avatarsDir)) {
+          const files = fs
+            .readdirSync(avatarsDir)
+            .filter((f) => f.startsWith(`avatar_${userId}_`));
+          if (files.length > 0) {
+            return res.sendFile(path.join(avatarsDir, files[files.length - 1]));
+          }
+        }
+      }
       return res
         .status(200)
         .type("svg")
@@ -774,6 +800,29 @@ app.use(
       );
       if (fs.existsSync(inAvatars)) {
         return res.sendFile(inAvatars);
+      }
+      const inImages = path.join(
+        __dirname,
+        "..",
+        "uploads",
+        "images",
+        filename,
+      );
+      if (fs.existsSync(inImages)) {
+        return res.sendFile(inImages);
+      }
+      const match = filename.match(/^banner_(\d+)_/i);
+      if (match) {
+        const userId = match[1];
+        const avatarsDir = path.join(__dirname, "..", "uploads", "avatars");
+        if (fs.existsSync(avatarsDir)) {
+          const files = fs
+            .readdirSync(avatarsDir)
+            .filter((f) => f.startsWith(`banner_${userId}_`));
+          if (files.length > 0) {
+            return res.sendFile(path.join(avatarsDir, files[files.length - 1]));
+          }
+        }
       }
       return res
         .status(200)
@@ -801,9 +850,26 @@ app.use(
     immutable: true,
     etag: true,
   }),
-  // A profile can reference an asset created by a previous deployment. Serve
-  // a deterministic placeholder instead of leaking a noisy 404 to clients.
+  // A profile can reference an asset created by a previous deployment. Check images and user candidate, or serve placeholder.
   (req, res) => {
+    const filename = path.basename(req.path);
+    const inImages = path.join(__dirname, "..", "uploads", "images", filename);
+    if (fs.existsSync(inImages)) {
+      return res.sendFile(inImages);
+    }
+    const match = filename.match(/^avatar_(\d+)_/i);
+    if (match) {
+      const userId = match[1];
+      const avatarsDir = path.join(__dirname, "..", "uploads", "avatars");
+      if (fs.existsSync(avatarsDir)) {
+        const files = fs
+          .readdirSync(avatarsDir)
+          .filter((f) => f.startsWith(`avatar_${userId}_`));
+        if (files.length > 0) {
+          return res.sendFile(path.join(avatarsDir, files[files.length - 1]));
+        }
+      }
+    }
     res
       .status(200)
       .type("svg")
@@ -948,7 +1014,9 @@ app.get(
       const provided = authHeader.startsWith("Bearer ")
         ? authHeader.slice(7)
         : authHeader;
-      if (provided !== metricsToken) {
+      // FIX: constant-time compare (was `provided !== metricsToken`, which
+      // leaks the token through response-time side channels).
+      if (!secretsEqual(provided, metricsToken)) {
         return res
           .status(401)
           .send("Unauthorized: invalid or missing METRICS_AUTH_TOKEN");

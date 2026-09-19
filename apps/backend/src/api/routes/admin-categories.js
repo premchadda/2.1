@@ -179,12 +179,15 @@ router.post(
 
     if (testSeriesId.length > 0) {
       const categoryId = newCategory._id || newCategory.id;
-      for (const seriesId of testSeriesId) {
-        await pool.query(
-          "INSERT INTO test_category_series (test_category_id, test_series_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-          [categoryId, seriesId],
-        );
-      }
+      // Batch the junction inserts into one statement (was N round-trips).
+      const placeholders = testSeriesId
+        .map((_, i) => `($1, $${i + 2})`)
+        .join(", ");
+      await pool.query(
+        `INSERT INTO test_category_series (test_category_id, test_series_id)
+         VALUES ${placeholders} ON CONFLICT DO NOTHING`,
+        [categoryId, ...testSeriesId],
+      );
     }
 
     res.status(201).json({ success: true, data: newCategory });

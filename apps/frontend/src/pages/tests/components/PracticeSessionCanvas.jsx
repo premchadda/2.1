@@ -1,6 +1,12 @@
+/**
+ * @deprecated PracticeSessionCanvas is a legacy practice renderer kept only
+ * for existing __tests__ imports. The canonical practice path is
+ * PracticeWorkspace + practiceAPI.askAiTutor (POST /api/practice/ai/tutor).
+ * Do not add new features here — mirror fixes into PracticeWorkspace.
+ */
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { practiceAPI, aiAPI } from "../../../shared/lib/dataService";
+import { practiceAPI } from "../../../shared/lib/practiceAPI";
 import sanitizeHtml from "../../../shared/lib/sanitizeHtml";
 import { formatTime } from "../../../shared/lib/format.js";
 import MathRenderer from "../../../shared/components/MathRenderer";
@@ -192,29 +198,33 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
         )}: ${currentQ.options[userSelected]}`;
       }
 
-      const res = await aiAPI.getSocraticHint({
-        questionText: currentQ.questionText || currentQ.question || "",
-        options: currentQ.options || [],
+      // Canonical AI path: POST /api/practice/ai/tutor (same as
+      // PracticeWorkspace.handleAskAiTutor).
+      const res = await practiceAPI.askAiTutor({
+        questionId: qId,
+        promptType:
+          step === 1 ? "hint" : step === 2 ? "why_wrong" : "explain_simply",
+        userAnswer: userSelected,
         studentAttempt,
-        explanation: currentQ.explanation || "",
-        stepNumber: step,
         language: lang,
       });
 
       const hintText =
+        res?.response ||
         res?.hint ||
         "Focus on identifying the core principle before substituting numbers.";
       setSocraticHints((prev) => ({ ...prev, [cacheKey]: hintText }));
       setAiHint(hintText);
     } catch {
-      // Fallback to general doubt resolver
+      // Fallback to general tutor prompt via the same canonical endpoint
       try {
-        const fallbackRes = await aiAPI.askDoubt({
-          question: currentQ.questionText || currentQ.question || "",
-          topic: currentQ.topic,
-          subject: currentQ.subject,
+        const fallbackRes = await practiceAPI.askAiTutor({
+          questionId: currentQ.id || currentQ._id,
+          promptType: "doubt",
+          language: socraticLanguage,
         });
         const fallbackText =
+          fallbackRes?.response ||
           fallbackRes?.answer ||
           fallbackRes?.hint ||
           "Break down the problem by identifying the core formula or rule first.";
@@ -333,8 +343,8 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
               aria-label="Back to Section"
             >
               <ChevronLeft className="w-4 h-4 shrink-0" />
-              <span className="hidden xs:inline">Back to Section</span>
-              <span className="xs:hidden">Back</span>
+              <span>Back</span>
+              <span className="hidden sm:inline">&nbsp;to Section</span>
             </button>
 
             <div>

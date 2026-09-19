@@ -34,7 +34,7 @@ export { default as ScrollToTop } from "./ScrollToTop.jsx";
 export { default as SearchBox } from "./SearchBox.jsx";
 export { default as SuccessMessage } from "./SuccessMessage.jsx";
 export { default as VideoPlayer } from "./VideoPlayer.jsx";
-export { EmptyState } from "./EmptyState.jsx";
+export { EmptyState } from "../ui/EmptyState.jsx";
 export { default as Pagination } from "./Pagination.jsx";
 export { default as CommandPalette } from "./CommandPalette.jsx";
 export { default as PageTransition } from "./PageTransition.jsx";

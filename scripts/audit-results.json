@@ -1,0 +1,1060 @@
+{
+  "totalProcessed": 45178,
+  "counts": {
+    "gsWithReasoning": 160,
+    "gsWithEnglish": 7,
+    "gsWithQuant": 92,
+    "quantWithReasoning": 247,
+    "reasoningWithQuant": 111
+  },
+  "gsWithReasoningSample": [
+    {
+      "id": 3248,
+      "test_id": 312,
+      "subject_id": 4,
+      "pattern": "blood_relations_pointing",
+      "text": "Pointing to a woman, John says, \"She is the wife of my uncle's only son.\" How is the woman related t"
+    },
+    {
+      "id": 3282,
+      "test_id": 312,
+      "subject_id": 5,
+      "pattern": "blood_relations_pointing",
+      "text": "Pointing to a man, a woman said, \"His mother is the only daughter of my father.\" How is the man rela"
+    },
+    {
+      "id": 3327,
+      "test_id": 312,
+      "subject_id": 5,
+      "pattern": "seating_arrangement",
+      "text": "Ques - Six persons A, B, C, D, E and F are sitting in a straight line facing north. A sits at the le"
+    },
+    {
+      "id": 3329,
+      "test_id": 312,
+      "subject_id": 5,
+      "pattern": "blood_relations",
+      "text": "Ques - Introducing a boy, a girl said, 'He is the son of the daughter of the father of my uncle.' Ho"
+    },
+    {
+      "id": 3330,
+      "test_id": 312,
+      "subject_id": 5,
+      "pattern": "logical_venn_diagram",
+      "text": "Ques - Which of the following Venn diagrams best represents the relationship between: Mammals, Whale"
+    },
+    {
+      "id": 3332,
+      "test_id": 312,
+      "subject_id": 5,
+      "pattern": "coding_decoding",
+      "text": "Ques - In a certain code language, '523' means 'Book is Red', '647' means 'Red Pen Costly' and '839'"
+    },
+    {
+      "id": 3339,
+      "test_id": 312,
+      "subject_id": 5,
+      "pattern": "order_and_ranking",
+      "text": "Ques - In a row of 40 students, Priya is 15th from the left end. Riya is 10 places to the right of P"
+    },
+    {
+      "id": 3348,
+      "test_id": 309,
+      "subject_id": 4,
+      "pattern": "blood_relations_pointing",
+      "text": "Pointing to a woman, John says, \"She is the wife of my uncle's only son.\" How is the woman related t"
+    },
+    {
+      "id": 3368,
+      "test_id": 307,
+      "subject_id": 4,
+      "pattern": "blood_relations_pointing",
+      "text": "Pointing to a woman, John says, \"She is the wife of my uncle's only son.\" How is the woman related t"
+    },
+    {
+      "id": 3383,
+      "test_id": 311,
+      "subject_id": 4,
+      "pattern": "blood_relations_pointing",
+      "text": "Pointing to a woman, John says, \"She is the wife of my uncle's only son.\" How is the woman related t"
+    },
+    {
+      "id": 3508,
+      "test_id": 308,
+      "subject_id": 4,
+      "pattern": "blood_relations_pointing",
+      "text": "Pointing to a woman, John says, \"She is the wife of my uncle's only son.\" How is the woman related t"
+    },
+    {
+      "id": 3523,
+      "test_id": 310,
+      "subject_id": 4,
+      "pattern": "blood_relations_pointing",
+      "text": "Pointing to a woman, John says, \"She is the wife of my uncle's only son.\" How is the woman related t"
+    },
+    {
+      "id": 22631,
+      "test_id": 265,
+      "subject_id": 5,
+      "pattern": "syllogism",
+      "text": "Consider the following statements: The Governor can dissolve the State Legislative Assembly. The Pre"
+    },
+    {
+      "id": 23107,
+      "test_id": 269,
+      "subject_id": 5,
+      "pattern": "syllogism",
+      "text": "Consider the following statements: All Money Bills fall under the broader category of Financial Bill"
+    },
+    {
+      "id": 23306,
+      "test_id": 271,
+      "subject_id": 5,
+      "pattern": "syllogism",
+      "text": "With reference to the provisions related to All India Services under the Indian Constitution, consid"
+    },
+    {
+      "id": 24141,
+      "test_id": 274,
+      "subject_id": 11,
+      "pattern": "syllogism",
+      "text": "Consider the following statements: 1) Both the Prime Minister (PM) and Chief Minister (CM) can advis"
+    },
+    {
+      "id": 24920,
+      "test_id": 290,
+      "subject_id": 11,
+      "pattern": "statement_conclusion",
+      "text": "Consider the following statements: Statement 1: Qutub-ud-din Aibak established the Slave Dynasty aft"
+    },
+    {
+      "id": 25956,
+      "test_id": 294,
+      "subject_id": 5,
+      "pattern": "syllogism",
+      "text": "Consider the following statements: 1. Article 246A grants exclusive power to Parliament to make laws"
+    },
+    {
+      "id": 32053,
+      "test_id": 68,
+      "subject_id": 11,
+      "pattern": "statement_conclusion",
+      "text": "Consider the following two statements: Statement 1: Potential difference is measured in volts. State"
+    },
+    {
+      "id": 32985,
+      "test_id": 81,
+      "subject_id": 11,
+      "pattern": "syllogism",
+      "text": "With reference to the Meghalaya Official Languages Ordinance 2026, consider the following statements"
+    },
+    {
+      "id": 36008,
+      "test_id": 65,
+      "subject_id": 5,
+      "pattern": "syllogism",
+      "text": "About the Joint Sitting of both the Houses of Parliament, consider the following statements: i. The "
+    },
+    {
+      "id": 37198,
+      "test_id": 395,
+      "subject_id": 5,
+      "pattern": "seating_arrangement",
+      "text": "L, M, N, D, E and F live on six different floors of the same building. The lowermost floor in the bu"
+    },
+    {
+      "id": 37215,
+      "test_id": 395,
+      "subject_id": 5,
+      "pattern": "analogy_series_classification",
+      "text": "Select the set in which the numbers are related in the same way as are the numbers of the following "
+    },
+    {
+      "id": 37222,
+      "test_id": 395,
+      "subject_id": 8,
+      "pattern": "analogy_series_classification",
+      "text": "Which of the given letter-number clusters will replace the question mark (?) in the following series"
+    },
+    {
+      "id": 37339,
+      "test_id": 399,
+      "subject_id": 5,
+      "pattern": "analogy_series_classification",
+      "text": "Select the set in which the numbers are related in the same way as are the numbers of the following "
+    },
+    {
+      "id": 37357,
+      "test_id": 399,
+      "subject_id": 8,
+      "pattern": "analogy_series_classification",
+      "text": "Which of the given letter-number clusters will replace the question mark (?) in the following series"
+    },
+    {
+      "id": 37521,
+      "test_id": 400,
+      "subject_id": 11,
+      "pattern": "syllogism",
+      "text": "Read the given statements and conclusions carefully. Assuming that the information given in the stat"
+    },
+    {
+      "id": 37545,
+      "test_id": 400,
+      "subject_id": 5,
+      "pattern": "seating_arrangement",
+      "text": "X, Y, Z, S, T and U live on six different floors of the same building. The lowermost floor in the bu"
+    },
+    {
+      "id": 37710,
+      "test_id": 401,
+      "subject_id": 5,
+      "pattern": "analogy_series_classification",
+      "text": "Select the set in which the numbers are related in the same way as are the numbers of the following "
+    },
+    {
+      "id": 37813,
+      "test_id": 393,
+      "subject_id": 11,
+      "pattern": "syllogism",
+      "text": "Read the given statements and conclusions carefully. Assuming that the information given in the stat"
+    },
+    {
+      "id": 37890,
+      "test_id": 405,
+      "subject_id": 9,
+      "pattern": "seating_arrangement",
+      "text": "A, B, C, D, E and F live on six different floors of the same building. The lowermost floor in the bu"
+    },
+    {
+      "id": 38018,
+      "test_id": 394,
+      "subject_id": 8,
+      "pattern": "analogy_series_classification",
+      "text": "Which of the given letter-number clusters will replace the question mark (?) in the following series"
+    },
+    {
+      "id": 38098,
+      "test_id": 423,
+      "subject_id": 5,
+      "pattern": "analogy_series_classification",
+      "text": "In the following number-pairs, the second number is obtained by applying certain mathematical operat"
+    },
+    {
+      "id": 38195,
+      "test_id": 407,
+      "subject_id": 9,
+      "pattern": "seating_arrangement",
+      "text": "Kamal, Lalit, Manish, Neil, Om and Pawan live on six different floors of the same building. The lowe"
+    },
+    {
+      "id": 38441,
+      "test_id": 424,
+      "subject_id": 5,
+      "pattern": "seating_arrangement",
+      "text": "J, K, L, R, S and T live on six different floors of the same building. The lowermost floor in the bu"
+    },
+    {
+      "id": 38452,
+      "test_id": 424,
+      "subject_id": 5,
+      "pattern": "analogy_series_classification",
+      "text": "Select the set in which the numbers are related in the same way as are the numbers of the following "
+    },
+    {
+      "id": 38453,
+      "test_id": 424,
+      "subject_id": 5,
+      "pattern": "seating_arrangement",
+      "text": "X, Y, Z, S, T and U live on six different floors of the same building. The lowermost floor in the bu"
+    },
+    {
+      "id": 38490,
+      "test_id": 431,
+      "subject_id": 5,
+      "pattern": "analogy_series_classification",
+      "text": "In the following number-pairs, the second number is obtained by applying certain mathematical operat"
+    },
+    {
+      "id": 38498,
+      "test_id": 431,
+      "subject_id": 8,
+      "pattern": "analogy_series_classification",
+      "text": "Which of the given letter-number clusters will replace the question mark (?) in the following series"
+    },
+    {
+      "id": 38512,
+      "test_id": 431,
+      "subject_id": 5,
+      "pattern": "analogy_series_classification",
+      "text": "Select the set in which the numbers are related in the same way as are the numbers of the following "
+    },
+    {
+      "id": 38527,
+      "test_id": 431,
+      "subject_id": 4,
+      "pattern": "syllogism",
+      "text": "Read the given statements and conclusions carefully. You have to take the given statements to be tru"
+    },
+    {
+      "id": 38590,
+      "test_id": 418,
+      "subject_id": 8,
+      "pattern": "analogy_series_classification",
+      "text": "Which of the given letter-number clusters will replace the question mark (?) in the following series"
+    },
+    {
+      "id": 38612,
+      "test_id": 418,
+      "subject_id": 9,
+      "pattern": "seating_arrangement",
+      "text": "A, B, C, Q, R and S live on six different floors of the same building. The lowermost floor in the bu"
+    },
+    {
+      "id": 38623,
+      "test_id": 418,
+      "subject_id": 5,
+      "pattern": "seating_arrangement",
+      "text": "P, Q, R, S, T and U live on six different floors of the same building. The lowermost floor in the bu"
+    },
+    {
+      "id": 38765,
+      "test_id": 432,
+      "subject_id": 5,
+      "pattern": "analogy_series_classification",
+      "text": "In the following number-pairs, the second number is obtained by applying certain mathematical operat"
+    },
+    {
+      "id": 38804,
+      "test_id": 425,
+      "subject_id": 4,
+      "pattern": "seating_arrangement",
+      "text": "In this question, a question is followed by two statements numbered (I) and (II). You have to decide"
+    },
+    {
+      "id": 38811,
+      "test_id": 425,
+      "subject_id": 4,
+      "pattern": "syllogism",
+      "text": "Read the given statements and conclusions carefully. You have to take the given statements to be tru"
+    },
+    {
+      "id": 38813,
+      "test_id": 425,
+      "subject_id": 5,
+      "pattern": "seating_arrangement",
+      "text": "A, B, C, D, E and F live on six different floors of the same building. The lowermost floor in the bu"
+    },
+    {
+      "id": 38826,
+      "test_id": 425,
+      "subject_id": 5,
+      "pattern": "seating_arrangement",
+      "text": "C, D, N, O, P and Q live on six different floors of the same building. The lowermost floor in the bu"
+    },
+    {
+      "id": 38892,
+      "test_id": 429,
+      "subject_id": 5,
+      "pattern": "analogy_series_classification",
+      "text": "Select the set in which the numbers are related in the same way as are the numbers of the following "
+    }
+  ],
+  "gsWithEnglishSample": [
+    {
+      "id": 3267,
+      "test_id": 312,
+      "subject_id": 4,
+      "text": "Change the following from active to passive: They have been neglecting maintenance of the archives f"
+    },
+    {
+      "id": 3268,
+      "test_id": 312,
+      "subject_id": 4,
+      "text": "Identify the misspelt word"
+    },
+    {
+      "id": 3274,
+      "test_id": 312,
+      "subject_id": 5,
+      "text": "Select the most appropriate antonym of the given word. Perfidious"
+    },
+    {
+      "id": 3325,
+      "test_id": 312,
+      "subject_id": 5,
+      "text": "Select the most appropriate synonym of the given word: PERFIDIOUS"
+    },
+    {
+      "id": 3367,
+      "test_id": 309,
+      "subject_id": 4,
+      "text": "Change the following from active to passive: They have been neglecting maintenance of the archives f"
+    },
+    {
+      "id": 3402,
+      "test_id": 311,
+      "subject_id": 4,
+      "text": "Change the following from active to passive: They have been neglecting maintenance of the archives f"
+    },
+    {
+      "id": 3403,
+      "test_id": 311,
+      "subject_id": 4,
+      "text": "Identify the misspelt word"
+    }
+  ],
+  "gsWithQuantSample": [
+    {
+      "id": 3310,
+      "test_id": 312,
+      "subject_id": 6,
+      "text": "A retailer marks an air conditioner 80% above its cost price. He offers a first discount of 25% on t"
+    },
+    {
+      "id": 3316,
+      "test_id": 312,
+      "subject_id": 5,
+      "text": "An amount is said to double in 5 years with compound interest. How many years will it take for the a"
+    },
+    {
+      "id": 3319,
+      "test_id": 312,
+      "subject_id": 5,
+      "text": "A sum becomes ₹6,600 in 2 years and ₹7,920 in 3 years at compound interest. What is the original pri"
+    },
+    {
+      "id": 37195,
+      "test_id": 395,
+      "subject_id": 5,
+      "text": "Amit invested the same sum at simple and compound interest (compounded annually) for 2 years at 4% p"
+    },
+    {
+      "id": 37343,
+      "test_id": 399,
+      "subject_id": 5,
+      "text": "If x = asinθ and y = acosθ, then find the relation between x, y and a."
+    },
+    {
+      "id": 37556,
+      "test_id": 400,
+      "subject_id": 4,
+      "text": "In what duration (in years) will ₹6,000 fetch a simple interest of ₹1,080 at 6% per annum rate of in"
+    },
+    {
+      "id": 37708,
+      "test_id": 401,
+      "subject_id": 4,
+      "text": "Piyush has ₹1407 with him. He divides this amount between his two sons, Manoj and Anand, and asks th"
+    },
+    {
+      "id": 37825,
+      "test_id": 393,
+      "subject_id": 5,
+      "text": "A man sold an article for ₹132 by first giving a d% discount on its marked price, and then another d"
+    },
+    {
+      "id": 37902,
+      "test_id": 405,
+      "subject_id": 6,
+      "text": "If a boat travels with a speed of 12 km/hr in still water and the speed of stream is 3 km/hr, what w"
+    },
+    {
+      "id": 37911,
+      "test_id": 405,
+      "subject_id": 6,
+      "text": "A boat moves at a speed of 7 km/h in still water. The boat goes 40 km downstream and then 40 km upst"
+    },
+    {
+      "id": 38000,
+      "test_id": 394,
+      "subject_id": 12,
+      "text": "A motorboat has a speed of 25 km/h in still water. It takes 4 hours to cover a distance of 80 km ups"
+    },
+    {
+      "id": 38225,
+      "test_id": 407,
+      "subject_id": 5,
+      "text": "Amit invested equal amounts at simple interest and compound interest, compounded annually, for 2 yea"
+    },
+    {
+      "id": 38369,
+      "test_id": 417,
+      "subject_id": 5,
+      "text": "Amit invested equal amounts at simple interest and compound interest, compounded annually, for 2 yea"
+    },
+    {
+      "id": 38491,
+      "test_id": 431,
+      "subject_id": 4,
+      "text": "Gopal has ₹1394 with him. He divides this amount between his two sons, Akshay and Arjun, and asks th"
+    },
+    {
+      "id": 38516,
+      "test_id": 431,
+      "subject_id": 7,
+      "text": "A boat covers a certain distance downstream in 6 hours and takes 8 hours to return upstream to the s"
+    },
+    {
+      "id": 38807,
+      "test_id": 425,
+      "subject_id": 4,
+      "text": "Ashish has ₹1404 with him. He divides this amount between his two sons, Arun and Mahesh, and asks th"
+    },
+    {
+      "id": 38901,
+      "test_id": 429,
+      "subject_id": 4,
+      "text": "Arun has ₹1407 with him. He divides this amount between his two sons, Mahesh and Vijay, and asks the"
+    },
+    {
+      "id": 38905,
+      "test_id": 429,
+      "subject_id": 4,
+      "text": "In what duration (in years) will ₹8,400 fetch a simple interest of ₹840 at 5% per annum rate of inte"
+    },
+    {
+      "id": 39072,
+      "test_id": 433,
+      "subject_id": 4,
+      "text": "At what rate per annum will a sum of money become five times itself in 9 years under simple interest"
+    },
+    {
+      "id": 39100,
+      "test_id": 433,
+      "subject_id": 12,
+      "text": "A boat takes 8 hours to row 72 km downstream and 12 hours to row the same distance upstream. Find th"
+    },
+    {
+      "id": 39124,
+      "test_id": 419,
+      "subject_id": 7,
+      "text": "The HCF and LCM of two numbers are 5 and 180 respectively. If one number is 45, what is the other nu"
+    },
+    {
+      "id": 39207,
+      "test_id": 430,
+      "subject_id": 4,
+      "text": "Veer has ₹1404 with him. He divides this amount between his two sons, Nitin and Pravin, and asks the"
+    },
+    {
+      "id": 39215,
+      "test_id": 430,
+      "subject_id": 5,
+      "text": "In a right-angled triangle, if the lengths of the opposite side and the adjacent side to angle θ are"
+    },
+    {
+      "id": 39307,
+      "test_id": 434,
+      "subject_id": 4,
+      "text": "Arjun has ₹1394 with him. He divides this amount between his two sons, Kartik and Ishan, and asks th"
+    },
+    {
+      "id": 44458,
+      "test_id": 344,
+      "subject_id": 5,
+      "text": "The difference between the simple interest and the compound interest on ₹5000/- at 10% per anmum for"
+    },
+    {
+      "id": 44487,
+      "test_id": 344,
+      "subject_id": 12,
+      "text": "If tan θ + cot θ = 5, then the value of tan 2 θ + cot 2 θ + 2tan 2 60° is:"
+    },
+    {
+      "id": 45277,
+      "test_id": 490,
+      "subject_id": 6,
+      "text": "4% more is gained by selling a table for ₹1,800 than by selling it for ₹1,750, What is its cost pric"
+    },
+    {
+      "id": 45388,
+      "test_id": 353,
+      "subject_id": 4,
+      "text": "A sum becomes ₹26,400 after 2 years at simple interest of 5% per annum. Find the sum."
+    },
+    {
+      "id": 45618,
+      "test_id": 354,
+      "subject_id": 8,
+      "text": "12 men and 16 women together can complete a work in 4 days. It takes 80 days for one man alone to co"
+    },
+    {
+      "id": 45621,
+      "test_id": 354,
+      "subject_id": 4,
+      "text": "Find the approximate simple interest on Rs.2000 from March 9,2010 to May 21, 2010 at 8.25% per annum"
+    },
+    {
+      "id": 45629,
+      "test_id": 354,
+      "subject_id": 5,
+      "text": "Aparna changes the marked price of an item to 50% above its C.P. What % discount allowed in approxim"
+    },
+    {
+      "id": 45920,
+      "test_id": 355,
+      "subject_id": 6,
+      "text": "When Babu decreases the selling price of the shoes from Rs. 360 to Rs. 345, his loss increases by 4%"
+    },
+    {
+      "id": 45924,
+      "test_id": 355,
+      "subject_id": 7,
+      "text": "Mayank, Deepak and Pawan, each of them working alone can complete a work in 5, 10 and 15 days respec"
+    },
+    {
+      "id": 45956,
+      "test_id": 355,
+      "subject_id": 6,
+      "text": "Manu sold a dozen watches for Rs.1454.64 per watch and made a profit of 16%. Find the cost price of "
+    },
+    {
+      "id": 46121,
+      "test_id": 343,
+      "subject_id": 5,
+      "text": "What is the difference between the maturity values, if Rs. 12,500 is invested for 2 years at 20% per"
+    },
+    {
+      "id": 46136,
+      "test_id": 343,
+      "subject_id": 4,
+      "text": "What will be the maturity value, if Rs. 13,500 is deposited at a simple interest of 12.5% for two ye"
+    },
+    {
+      "id": 46225,
+      "test_id": 358,
+      "subject_id": 5,
+      "text": "An article was sold for Rs. 26000 at a discount of 35%. Find the selling price if the discount was 1"
+    },
+    {
+      "id": 46318,
+      "test_id": 356,
+      "subject_id": 7,
+      "text": "A wholesaler sold a water purifier at a loss of 40%. If the selling price has been increased by Rs. "
+    },
+    {
+      "id": 46322,
+      "test_id": 356,
+      "subject_id": 5,
+      "text": "Find the simple interest on Rs. 50 for 6 months at the rate of 10 paise per rupee per month."
+    },
+    {
+      "id": 46439,
+      "test_id": 362,
+      "subject_id": 5,
+      "text": "A ladder leaning against a wall makes an angle θ with the horizontal ground such that tanθ = \\(\\frac"
+    },
+    {
+      "id": 46618,
+      "test_id": 363,
+      "subject_id": 5,
+      "text": "The difference between the compound interest, compounded annually and the simple interest if ₹47,100"
+    },
+    {
+      "id": 46943,
+      "test_id": 365,
+      "subject_id": 5,
+      "text": "The difference between the compound interest, compounded annually and the simple interest if ₹17,700"
+    },
+    {
+      "id": 46944,
+      "test_id": 365,
+      "subject_id": 4,
+      "text": "Find the simple interest (in ₹) if a sum of ₹350 is borrowed for 1.5 years at 20% per annum rate of "
+    },
+    {
+      "id": 47034,
+      "test_id": 367,
+      "subject_id": 4,
+      "text": "On selling a wardrobe at ₹3,437, the value of gain is 75% more than the value of loss incurred on se"
+    },
+    {
+      "id": 47242,
+      "test_id": 369,
+      "subject_id": 7,
+      "text": "The retail price of a water geyser is ₹11,300. If the manufacturer gains 5%, the wholesale dealer ga"
+    },
+    {
+      "id": 47254,
+      "test_id": 369,
+      "subject_id": 4,
+      "text": "How long (in years) will it take for ₹1,680 to become ₹2,100 at a rate of 4% per annum simple intere"
+    },
+    {
+      "id": 47454,
+      "test_id": 370,
+      "subject_id": 7,
+      "text": "The retail price of a water geyser is ₹11,300. If the manufacturer gains 5%, the wholesale dealer ga"
+    },
+    {
+      "id": 47494,
+      "test_id": 370,
+      "subject_id": 4,
+      "text": "How long (in years) will it take for ₹1,680 to become ₹2,100 at a rate of 4% per annum simple intere"
+    },
+    {
+      "id": 47543,
+      "test_id": 366,
+      "subject_id": 5,
+      "text": "The difference between the compound interest, compounded annually and the simple interest if ₹17,700"
+    },
+    {
+      "id": 47544,
+      "test_id": 366,
+      "subject_id": 4,
+      "text": "Find the simple interest (in ₹) if a sum of ₹350 is borrowed for 1.5 years at 20% per annum rate of "
+    }
+  ],
+  "quantWithReasoningSample": [
+    {
+      "id": 26660,
+      "test_id": 100,
+      "subject_id": 2,
+      "pattern": "mathematical_operations",
+      "text": "If '+' means '-', '-' means '+', '×' means '÷' and '÷' means 'x', then the value of is:"
+    },
+    {
+      "id": 28160,
+      "test_id": 109,
+      "subject_id": 2,
+      "pattern": "mathematical_operations",
+      "text": "If ‘+’ means ‘-’, ‘-’ means ‘+’, ‘x’ means ‘÷’ and ‘÷’ means ‘x’, then the value of ([(30 × 5) + (84"
+    },
+    {
+      "id": 37093,
+      "test_id": 395,
+      "subject_id": 2,
+      "pattern": "coding_decoding",
+      "text": "In a certain code language, ‘LIME’ is coded as ‘4839’ and ‘TIME’ is coded as ‘9324’. What is the cod"
+    },
+    {
+      "id": 37099,
+      "test_id": 395,
+      "subject_id": 2,
+      "pattern": "direction_sense",
+      "text": "Pawan starts from Point A and drives 25 km towards North. He then takes a right turn, drives 15 km, "
+    },
+    {
+      "id": 37117,
+      "test_id": 395,
+      "subject_id": 2,
+      "pattern": "blood_relations",
+      "text": "In a certain code language, A + B means ‘A is the sister of B’ A - B means ‘A is the husband of B’ A"
+    },
+    {
+      "id": 37260,
+      "test_id": 399,
+      "subject_id": 2,
+      "pattern": "blood_relations",
+      "text": "​In a certain code language, A + B means ‘A is the sister of B’, A – B means ‘A is the husband of B’"
+    },
+    {
+      "id": 37263,
+      "test_id": 399,
+      "subject_id": 2,
+      "pattern": "coding_decoding",
+      "text": "In a certain code language, ‘kids are playing’ is coded as ‘pu rs bp’ and ‘people love kids’ is code"
+    },
+    {
+      "id": 37264,
+      "test_id": 399,
+      "subject_id": 2,
+      "pattern": "analogy_series_classification",
+      "text": "In the following number-pairs, the second number is obtained by applying certain mathematical operat"
+    },
+    {
+      "id": 37268,
+      "test_id": 399,
+      "subject_id": 2,
+      "pattern": "coding_decoding",
+      "text": "In a certain code language, ‘LITE’ is coded as ‘1527’ and ‘EDIT’ is coded as ‘5124’. What is the cod"
+    },
+    {
+      "id": 37277,
+      "test_id": 399,
+      "subject_id": 2,
+      "pattern": "syllogism",
+      "text": "Read the given statements and conclusions carefully. Assuming that the information given in the stat"
+    },
+    {
+      "id": 37279,
+      "test_id": 399,
+      "subject_id": 2,
+      "pattern": "seating_arrangement",
+      "text": "D, E, F, G, S, T and U are sitting around a circular table facing the centre. T sits to the immediat"
+    },
+    {
+      "id": 37286,
+      "test_id": 399,
+      "subject_id": 2,
+      "pattern": "seating_arrangement",
+      "text": "P, Q, R, S, E and F live on six different floors of the same building. The lowermost floor in the bu"
+    },
+    {
+      "id": 37287,
+      "test_id": 399,
+      "subject_id": 2,
+      "pattern": "mathematical_operations",
+      "text": "If ‘+’ means ‘−’, ‘−’ means ‘×’, ‘×’ means ‘÷’, ‘÷’ means ‘+’, then what will come in place of the q"
+    },
+    {
+      "id": 37632,
+      "test_id": 401,
+      "subject_id": 2,
+      "pattern": "coding_decoding",
+      "text": "In a certain code language, ‘BUST’ is coded as ‘3519’ and ‘LIDS’ is coded as ‘6894’. What is the cod"
+    },
+    {
+      "id": 37635,
+      "test_id": 401,
+      "subject_id": 2,
+      "pattern": "analogy_series_classification",
+      "text": "Which of the given letter-number clusters will replace the question mark (?) in the following series"
+    },
+    {
+      "id": 37642,
+      "test_id": 401,
+      "subject_id": 2,
+      "pattern": "coding_decoding",
+      "text": "In a certain code language, ‘ BITE’ is coded as ‘4568’ and ‘TIME’ is coded as ‘4826 ’. What is the c"
+    },
+    {
+      "id": 37649,
+      "test_id": 401,
+      "subject_id": 2,
+      "pattern": "blood_relations",
+      "text": "A is the sister of B. C is the brother of D. E is the husband of D. B is the mother of C. How is A r"
+    },
+    {
+      "id": 37651,
+      "test_id": 401,
+      "subject_id": 2,
+      "pattern": "blood_relations",
+      "text": "Kc is the daughter of Cw. Lu is the father of Qk. Ef is the mother of Kc. Qk is the brother of Ef. H"
+    },
+    {
+      "id": 37654,
+      "test_id": 401,
+      "subject_id": 2,
+      "pattern": "seating_arrangement",
+      "text": "C, D, N, O, P and Q live on six different floors of the same building. The lowermost floor in the bu"
+    },
+    {
+      "id": 37744,
+      "test_id": 393,
+      "subject_id": 2,
+      "pattern": "analogy_series_classification",
+      "text": "Select the set in which the numbers are related in the same way as are the numbers of the following "
+    },
+    {
+      "id": 37752,
+      "test_id": 393,
+      "subject_id": 2,
+      "pattern": "blood_relations",
+      "text": "A is the wife of B. B is the father of C. D is the brother of C. E is the son of D. How is A related"
+    },
+    {
+      "id": 37829,
+      "test_id": 405,
+      "subject_id": 2,
+      "pattern": "analogy_series_classification",
+      "text": "Based on the alphabetical order, three of the following four are alike in a certain way and thus for"
+    },
+    {
+      "id": 37833,
+      "test_id": 405,
+      "subject_id": 2,
+      "pattern": "analogy_series_classification",
+      "text": "Select the set in which the numbers are related in the same way as are the numbers of the following "
+    },
+    {
+      "id": 37841,
+      "test_id": 405,
+      "subject_id": 2,
+      "pattern": "coding_decoding",
+      "text": "In a certain code language, ‘LITE’ is coded as ‘3492’ and ‘TIME’ is coded as ‘3954’. What is the cod"
+    },
+    {
+      "id": 37842,
+      "test_id": 405,
+      "subject_id": 2,
+      "pattern": "seating_arrangement",
+      "text": "Seven people, B, C, O, P, Q, R and S, are sitting in a straight line, facing north. Q sits second fr"
+    },
+    {
+      "id": 37931,
+      "test_id": 394,
+      "subject_id": 2,
+      "pattern": "seating_arrangement",
+      "text": "A, B, C, D, E, F and G sit around a circular table, facing the centre. F sits third to the left of C"
+    },
+    {
+      "id": 37938,
+      "test_id": 394,
+      "subject_id": 2,
+      "pattern": "analogy_series_classification",
+      "text": "In the following number-pairs, the second number is obtained by applying certain mathematical operat"
+    },
+    {
+      "id": 37939,
+      "test_id": 394,
+      "subject_id": 2,
+      "pattern": "mathematical_operations",
+      "text": "If ‘+’ means ‘−’, ‘−’ means ‘×’, ‘×’ means ‘÷’, ‘÷’ means ‘+’, then what will come in place of the q"
+    },
+    {
+      "id": 37947,
+      "test_id": 394,
+      "subject_id": 2,
+      "pattern": "coding_decoding",
+      "text": "In a certain code language, ‘repair the mobile’ is coded as ‘gf ed ls’ and ‘mobile is lost’ is coded"
+    },
+    {
+      "id": 37948,
+      "test_id": 394,
+      "subject_id": 2,
+      "pattern": "coding_decoding",
+      "text": "In a certain code language, ‘MILE’ is coded as ‘9574’ and ‘TIME’ is coded as ‘5429’. What is the cod"
+    },
+    {
+      "id": 37954,
+      "test_id": 394,
+      "subject_id": 2,
+      "pattern": "seating_arrangement",
+      "text": "Seven people F, G, H, I, V, W, and X are sitting around a circular table facing the centre of the ta"
+    },
+    {
+      "id": 38033,
+      "test_id": 423,
+      "subject_id": 2,
+      "pattern": "syllogism",
+      "text": "​Read the given statements and conclusions carefully. Assuming that the information given in the sta"
+    },
+    {
+      "id": 38034,
+      "test_id": 423,
+      "subject_id": 2,
+      "pattern": "seating_arrangement",
+      "text": "A, B, C, D, E, F and G are sitting around a circular table facing the centre. Only one person sits b"
+    },
+    {
+      "id": 38055,
+      "test_id": 423,
+      "subject_id": 2,
+      "pattern": "seating_arrangement",
+      "text": "P, Q, R, S, T and U live on six different floors of the same building. The lowermost floor in the bu"
+    },
+    {
+      "id": 38128,
+      "test_id": 407,
+      "subject_id": 2,
+      "pattern": "seating_arrangement",
+      "text": "Seven people F, G, H, I, V, W, and X are sitting around a circular table facing the centre of the ta"
+    },
+    {
+      "id": 38130,
+      "test_id": 407,
+      "subject_id": 2,
+      "pattern": "coding_decoding",
+      "text": "In a certain code language, ‘GLOW’ is coded as ‘4628’ and ‘WEAR’ is coded as ‘3574’. What is the cod"
+    },
+    {
+      "id": 38138,
+      "test_id": 407,
+      "subject_id": 2,
+      "pattern": "analogy_series_classification",
+      "text": "Based on the alphabetical order, three of the following four are alike in a certain way and thus for"
+    },
+    {
+      "id": 38143,
+      "test_id": 407,
+      "subject_id": 2,
+      "pattern": "coding_decoding",
+      "text": "In a certain code language, ‘LITE’ is coded as ‘8196’ and ‘FELT’ is coded as ‘6481’. What is the cod"
+    },
+    {
+      "id": 38145,
+      "test_id": 407,
+      "subject_id": 2,
+      "pattern": "syllogism",
+      "text": "Read the given statements and conclusions carefully. Assuming that the information given in the stat"
+    },
+    {
+      "id": 38150,
+      "test_id": 407,
+      "subject_id": 2,
+      "pattern": "direction_sense",
+      "text": "Kinshuk starts from Point D and walks 5 km towards South. She turns left and walks 9 km. She then tu"
+    },
+    {
+      "id": 38241,
+      "test_id": 417,
+      "subject_id": 2,
+      "pattern": "syllogism",
+      "text": "Read the given statements and conclusions carefully. Assuming that the information given in the stat"
+    },
+    {
+      "id": 38243,
+      "test_id": 417,
+      "subject_id": 2,
+      "pattern": "seating_arrangement",
+      "text": "Seven people, A, B, C, D, E, F and G, are sitting in a row, facing north. Only two people sit to the"
+    },
+    {
+      "id": 38248,
+      "test_id": 417,
+      "subject_id": 2,
+      "pattern": "analogy_series_classification",
+      "text": "Which of the given letter-number clusters will replace the question mark (?) in the following series"
+    },
+    {
+      "id": 38274,
+      "test_id": 424,
+      "subject_id": 2,
+      "pattern": "coding_decoding",
+      "text": "In a certain code language, ‘COOK’ is coded as ‘8245’ and ‘HOOK’ is coded as ‘5429’. What is the cod"
+    },
+    {
+      "id": 38278,
+      "test_id": 424,
+      "subject_id": 2,
+      "pattern": "seating_arrangement",
+      "text": "X, Y, Z, S, T and U live on six different floors of the same building. The lowermost floor in the bu"
+    },
+    {
+      "id": 38296,
+      "test_id": 424,
+      "subject_id": 2,
+      "pattern": "seating_arrangement",
+      "text": "Seven people B, C, D, O, P, Q and R are sitting around a circular table facing the center of the tab"
+    },
+    {
+      "id": 38313,
+      "test_id": 424,
+      "subject_id": 2,
+      "pattern": "analogy_series_classification",
+      "text": "Based on the alphabetical order, three of the following four are alike in a certain way and thus for"
+    },
+    {
+      "id": 38320,
+      "test_id": 424,
+      "subject_id": 2,
+      "pattern": "blood_relations",
+      "text": "In a certain code language, A + B means ‘A is the mother of B’ A – B means ‘A is the brother of B’ A"
+    },
+    {
+      "id": 38392,
+      "test_id": 431,
+      "subject_id": 2,
+      "pattern": "blood_relations",
+      "text": "In a certain code language, A + B means ‘A is the mother of B’ A – B means ‘A is the brother of B’ A"
+    },
+    {
+      "id": 38398,
+      "test_id": 431,
+      "subject_id": 2,
+      "pattern": "analogy_series_classification",
+      "text": "Based on the English alphabetical order, three of the following four are alike in a certain way and "
+    }
+  ]
+}

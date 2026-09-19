@@ -105,7 +105,11 @@ function BottomNav() {
   if (
     hiddenRoutes.includes(location.pathname) ||
     location.pathname.startsWith("/test/") ||
-    location.pathname.startsWith("/live-test/")
+    location.pathname.startsWith("/live-test/") ||
+    location.pathname.startsWith("/practice/session") ||
+    (typeof document !== "undefined" &&
+      (document.body.classList.contains("practice-session-active") ||
+        document.body.classList.contains("practice-mode-active")))
   ) {
     return null;
   }

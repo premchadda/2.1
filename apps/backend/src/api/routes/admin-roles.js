@@ -615,7 +615,13 @@ router.post("/roles/:id/assign", protect, admin, async (req, res) => {
           [req.user.id],
         );
         granterPerms.push(...granterRows.map((r) => r.name));
-      } catch {}
+      } catch (grantErr) {
+        // Non-fatal: default to the empty set so a wildcard grant stays denied.
+        console.warn(
+          "[Roles] Failed to load granter permissions (defaulting to none):",
+          grantErr?.message,
+        );
+      }
     }
     // No explicit grants means the default admin tier, which never includes
     // "*", so a wildcard grant is denied below.

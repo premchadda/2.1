@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { formatPyqSourceLabel } from "../shared/lib/questionUtils.js";
 import PracticeWorkspace from "../pages/tests/components/PracticeWorkspace";
-import { BrowserRouter } from "react-router-dom";
+import BottomNav from "../shared/components/layout/BottomNav";
+import { BrowserRouter, MemoryRouter } from "react-router-dom";
 
 // Mock practiceAPI
 const mockGetQuestion = vi.fn();
@@ -33,6 +34,10 @@ vi.mock("../shared/components/MathRenderer", () => ({
   default: ({ content, text, children }) => (
     <span>{content || text || children}</span>
   ),
+}));
+
+vi.mock("../pages/tests/components/KnowledgeVaultModal", () => ({
+  default: () => null,
 }));
 
 describe("PYP Question Label Formatting: exam name year stage date shift", () => {
@@ -391,9 +396,11 @@ describe("PracticeWorkspace Language Persistence & Hindi Rendering", () => {
       expect(screen.getByText("What is 2 + 2?")).toBeInTheDocument();
     });
 
-    // Toggle to Hindi
-    const hiButton = screen.getByRole("button", { name: "हिं" });
-    fireEvent.click(hiButton);
+    // Toggle to Hindi via top header language toggle
+    const langToggle = screen.getByRole("button", {
+      name: /switch language|english/i,
+    });
+    fireEvent.click(langToggle);
 
     // Question 1 text should now be in Hindi
     await waitFor(() => {
@@ -403,21 +410,22 @@ describe("PracticeWorkspace Language Persistence & Hindi Rendering", () => {
     // Preference should be saved in localStorage
     expect(localStorage.getItem("trstprep_practice_lang")).toBe("hi");
 
-    // Select option and check answer
+    // Select option -> immediately checks answer without a separate Check Answer button
     const optionB = screen.getByRole("button", { name: /B.*४/i });
     fireEvent.click(optionB);
-    const checkBtn = screen.getByRole("button", { name: /check/i });
-    fireEvent.click(checkBtn);
 
     // Explanation should render in Hindi
     await waitFor(() => {
+      expect(mockCheckAnswer).toHaveBeenCalledWith("sess-lang", 0, {
+        selectedOption: 1,
+      });
       expect(screen.getByText("2 और 2 का योग 4 होता है।")).toBeInTheDocument();
       expect(screen.getByText("सही उत्तर! (Correct)")).toBeInTheDocument();
     });
 
     // Navigate to Question 2
-    const nextBtn = screen.getByRole("button", { name: /next question/i });
-    fireEvent.click(nextBtn);
+    const nextBtns = screen.getAllByRole("button", { name: /^next$/i });
+    fireEvent.click(nextBtns[0]);
 
     // Question 2 should automatically render in Hindi WITHOUT resetting to English!
     await waitFor(() => {
@@ -426,5 +434,276 @@ describe("PracticeWorkspace Language Persistence & Hindi Rendering", () => {
 
     // Language in localStorage must remain "hi"
     expect(localStorage.getItem("trstprep_practice_lang")).toBe("hi");
+  });
+
+  it("displays Q2/20 before question, checks answer immediately on option click, and omits Skip and Check Answer buttons", async () => {
+    const sampleQ = {
+      id: 201,
+      questionText: "What is the capital of France?",
+      options: ["London", "Paris", "Berlin", "Rome"],
+      explanation: "Paris is the capital of France.",
+    };
+
+    mockGetQuestion.mockResolvedValue(sampleQ);
+    mockCheckAnswer.mockResolvedValue({
+      isCorrect: true,
+      correctOption: 1,
+      explanation: "Paris is the capital of France.",
+    });
+
+    render(
+      <BrowserRouter>
+        <PracticeWorkspace
+          session={{
+            id: "sess-q2",
+            currentIndex: 1,
+            totalQuestions: 20,
+            questions: [101, 201],
+          }}
+        />
+      </BrowserRouter>,
+    );
+
+    // Question text and counter badge should be present
+    await waitFor(() => {
+      expect(
+        screen.getByText("What is the capital of France?"),
+      ).toBeInTheDocument();
+    });
+
+    // Verify Q2/20 is displayed before the question
+    expect(screen.getByText("Q2/20.")).toBeInTheDocument();
+    expect(screen.getAllByText("Q2/20").length).toBeGreaterThanOrEqual(1);
+
+    // Verify card-level language switch ("हिं") is removed
+    expect(
+      screen.queryByRole("button", { name: "हिं" }),
+    ).not.toBeInTheDocument();
+
+    // Verify Skip and Check Answer buttons are completely removed
+    expect(
+      screen.queryByRole("button", { name: /^skip$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /check answer/i }),
+    ).not.toBeInTheDocument();
+
+    // Verify only navigation buttons (Prev & Next) are available
+    expect(
+      screen.getAllByRole("button", { name: /^prev$/i }).length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByRole("button", { name: /^next$/i }).length,
+    ).toBeGreaterThanOrEqual(1);
+
+    // Click option B (Paris) -> Immediately evaluates answer without needing Check Answer
+    const optionParis = screen.getByRole("button", { name: /B.*Paris/i });
+    fireEvent.click(optionParis);
+
+    await waitFor(() => {
+      expect(mockCheckAnswer).toHaveBeenCalledWith("sess-q2", 1, {
+        selectedOption: 1,
+      });
+      expect(screen.getByText("Correct Answer!")).toBeInTheDocument();
+      expect(screen.getByText("Interactive AI Tutor")).toBeInTheDocument();
+    });
+  });
+
+  it("does not show double Q1/15 on the card: card header displays Question 1 and only Q1/15. precedes the question text", async () => {
+    const sampleQ = {
+      id: 301,
+      questionText: "What is the speed of light in vacuum?",
+      options: ["3 x 10^8 m/s", "3 x 10^6 m/s", "1.5 x 10^8 m/s", "None"],
+      explanation: "Speed of light is approximately 3 x 10^8 m/s.",
+    };
+
+    mockGetQuestion.mockResolvedValue(sampleQ);
+
+    render(
+      <BrowserRouter>
+        <PracticeWorkspace
+          session={{
+            id: "sess-no-double-q",
+            currentIndex: 0,
+            totalQuestions: 15,
+            questions: [301],
+          }}
+        />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("What is the speed of light in vacuum?"),
+      ).toBeInTheDocument();
+    });
+
+    // Verify card header shows Question 1
+    expect(screen.getByText("Question 1")).toBeInTheDocument();
+
+    // Verify Q1/15. is displayed before question text
+    expect(screen.getByText("Q1/15.")).toBeInTheDocument();
+
+    // Verify there is no duplicate "Q1/15" badge inside the question card header
+    // Total occurrences of "Q1/15" without the period in the whole document should only be in the Question Palette widget title bar
+    const matchesWithoutPeriod = screen.getAllByText("Q1/15");
+    expect(matchesWithoutPeriod.length).toBe(1); // Only in the Question Palette title
+  });
+
+  it("preserves right/wrong attempt history in a session when revisiting question cards", async () => {
+    const q1 = {
+      id: 401,
+      questionText: "First question text",
+      options: ["Option A1", "Option B1", "Option C1", "Option D1"],
+      explanation: "Explanation for Q1",
+    };
+    const q2 = {
+      id: 402,
+      questionText: "Second question text",
+      options: ["Option A2", "Option B2", "Option C2", "Option D2"],
+      explanation: "Explanation for Q2",
+    };
+
+    mockGetQuestion.mockImplementation((sessId, idx) => {
+      return Promise.resolve(idx === 0 ? q1 : q2);
+    });
+
+    mockCheckAnswer.mockResolvedValueOnce({
+      isCorrect: true,
+      correctOption: 0,
+      explanation: "Explanation for Q1",
+    });
+
+    render(
+      <BrowserRouter>
+        <PracticeWorkspace
+          session={{
+            id: "sess-history",
+            currentIndex: 0,
+            totalQuestions: 2,
+            questions: [401, 402],
+          }}
+        />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("First question text")).toBeInTheDocument();
+    });
+
+    // Attempt Question 1 (click option A1)
+    const optA1 = screen.getByRole("button", { name: /A.*Option A1/i });
+    fireEvent.click(optA1);
+
+    await waitFor(() => {
+      expect(screen.getByText("Correct Answer!")).toBeInTheDocument();
+    });
+
+    // Navigate to Question 2
+    const nextBtns = screen.getAllByRole("button", { name: /^next$/i });
+    fireEvent.click(nextBtns[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Second question text")).toBeInTheDocument();
+    });
+
+    // Question 2 should not be checked yet
+    expect(screen.queryByText("Correct Answer!")).not.toBeInTheDocument();
+
+    // Navigate back to Question 1 via Prev button
+    const prevBtns = screen.getAllByRole("button", { name: /^prev$/i });
+    fireEvent.click(prevBtns[0]);
+
+    // Question 1 should still show user's previous attempt and correct feedback
+    await waitFor(() => {
+      expect(screen.getByText("First question text")).toBeInTheDocument();
+      expect(screen.getByText("Correct Answer!")).toBeInTheDocument();
+      expect(screen.getByText(/correct choice.*option a/i)).toBeInTheDocument();
+    });
+
+    // Buttons should remain disabled because it was already answered
+    const optA1Revisited = screen.getByRole("button", {
+      name: /A.*Option A1/i,
+    });
+    expect(optA1Revisited).toBeDisabled();
+  });
+
+  it("adds practice-session-active to document.body and documentElement on mount and cleans up on unmount", async () => {
+    const sampleQ = {
+      id: 501,
+      questionText: "Sample question for class test",
+      options: ["A", "B", "C", "D"],
+    };
+
+    mockGetQuestion.mockResolvedValue(sampleQ);
+
+    const { unmount } = render(
+      <BrowserRouter>
+        <PracticeWorkspace
+          session={{
+            id: "sess-body-class",
+            currentIndex: 0,
+            totalQuestions: 5,
+            questions: [501],
+          }}
+        />
+      </BrowserRouter>,
+    );
+
+    // Verify practice-session-active class is added to body and documentElement
+    expect(document.body.classList.contains("practice-session-active")).toBe(
+      true,
+    );
+    expect(
+      document.documentElement.classList.contains("practice-session-active"),
+    ).toBe(true);
+
+    // Unmount workspace
+    unmount();
+
+    // Verify clean up
+    expect(document.body.classList.contains("practice-session-active")).toBe(
+      false,
+    );
+    expect(
+      document.documentElement.classList.contains("practice-session-active"),
+    ).toBe(false);
+  });
+
+  it("hides mobile BottomNav in practice mode and on /practice/session", () => {
+    // Normal route: BottomNav renders
+    const { unmount: unmount1 } = render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <BottomNav />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByRole("navigation", { name: /mobile navigation/i }),
+    ).toBeInTheDocument();
+    unmount1();
+
+    // On /practice/session: BottomNav returns null (hidden)
+    const { unmount: unmount2 } = render(
+      <MemoryRouter initialEntries={["/practice/session"]}>
+        <BottomNav />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.queryByRole("navigation", { name: /mobile navigation/i }),
+    ).not.toBeInTheDocument();
+    unmount2();
+
+    // When practice-session-active class is on document.body: BottomNav returns null
+    document.body.classList.add("practice-session-active");
+    const { unmount: unmount3 } = render(
+      <MemoryRouter initialEntries={["/practice"]}>
+        <BottomNav />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.queryByRole("navigation", { name: /mobile navigation/i }),
+    ).not.toBeInTheDocument();
+    unmount3();
+    document.body.classList.remove("practice-session-active");
   });
 });

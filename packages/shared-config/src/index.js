@@ -318,6 +318,54 @@ export const formatDuration = (seconds) => {
   return secs > 0 ? `0m ${secs}s` : "0m";
 };
 
+/**
+ * Calculate estimated reading time in seconds from text or question object.
+ * Standard exam question reading speed is ~180 words per minute (~3 words per second).
+ * @param {string|object} content - Text string or Question object
+ * @returns {number} Estimated reading time in seconds (minimum 10s)
+ */
+export const getEstimatedReadingSeconds = (content) => {
+  if (!content) return 15;
+  let text = "";
+  if (typeof content === "string") {
+    text = content;
+  } else if (typeof content === "object") {
+    text = [
+      content.question ||
+        content.questionText ||
+        content.text ||
+        content.prompt ||
+        "",
+      content.questionHi || content.question_hi || "",
+      Array.isArray(content.options)
+        ? content.options
+            .map((o) => (typeof o === "string" ? o : o?.text || o?.value || ""))
+            .join(" ")
+        : "",
+    ].join(" ");
+  }
+  // Strip HTML tags and LaTeX math blocks for realistic word counting
+  const plainText = text
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\$[^$]*\$/g, " math ")
+    .replace(/\\\[[\s\S]*?\\\]/g, " math ");
+  const words = plainText.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(10, Math.round((words / 180) * 60));
+};
+
+/**
+ * Format reading time for display ("15s read", "45s read", "1m 15s read").
+ * @param {number} seconds
+ * @returns {string} Formatted reading time string
+ */
+export const formatReadingTime = (seconds) => {
+  const s = Math.round(Number(seconds) || 15);
+  if (s < 60) return `${s}s read`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return rem > 0 ? `${m}m ${rem}s read` : `${m}m read`;
+};
+
 // ===== AVATAR GRADIENT (CANONICAL) =====
 // Canonical deterministic avatar gradient. Replaces the three forked copies
 // (Community.jsx, Leaderboard.jsx, TestLeaderboardTab.jsx): charcode-sum hash
@@ -546,6 +594,8 @@ export default {
   formatTimeAgo,
   formatTime,
   formatDuration,
+  getEstimatedReadingSeconds,
+  formatReadingTime,
   AVATAR_GRADIENTS,
   getAvatarGradient,
   formatRemainingDays,

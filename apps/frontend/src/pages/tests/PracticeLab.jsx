@@ -54,6 +54,8 @@ const SUBPAGE_TO_SCREEN = {
   session: "session",
   complete: "complete",
   dashboard: "dashboard",
+  mistakes: "mistakes",
+  "mistake-book": "mistakes",
 };
 
 const SCREEN_TO_SUBPAGE = {
@@ -64,6 +66,7 @@ const SCREEN_TO_SUBPAGE = {
   setup: "setup",
   session: "session",
   complete: "complete",
+  mistakes: "mistakes",
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -136,8 +139,23 @@ export default function PracticeLab() {
   const [activeSession, setActiveSession] = useState(null);
   const [completeSummary, setCompleteSummary] = useState(null);
   const [selectedChapter, setSelectedChapter] = useState(null);
-  // Where the user launched the session from — "Back to Section" returns here
-  const [sessionReturnScreen, setSessionReturnScreen] = useState("dashboard");
+  // Where the user launched the session from — "Back to Section" returns here.
+  // Persisted so back-navigation survives a reload of the session screen.
+  const [sessionReturnScreen, setSessionReturnScreen] = useState(() => {
+    try {
+      return sessionStorage.getItem("practice_session_return") || "dashboard";
+    } catch {
+      return "dashboard";
+    }
+  });
+  const persistReturnScreen = (value) => {
+    setSessionReturnScreen(value || "dashboard");
+    try {
+      sessionStorage.setItem("practice_session_return", value || "dashboard");
+    } catch {
+      // ignore
+    }
+  };
   // Prevents duplicate sessions
   const deepLinkLaunchedRef = useRef(false);
 
@@ -150,14 +168,28 @@ export default function PracticeLab() {
 
   // Authoritative curriculum tree from database
   const { data: treeData } = useQuery({
-    queryKey: ["practice-tree", "lab"],
+    queryKey: ["practice-tree"],
     queryFn: practiceAPI.getTree,
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fallback: flat subjects list when the tree has no subjects (e.g. pruned
+  // tree or partial backend response). Merged into dbSubjects below.
+  const { data: subjectsFallback } = useQuery({
+    queryKey: ["practice-subjects"],
+    queryFn: practiceAPI.getSubjects,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
   const dbSubjects = useMemo(() => {
-    return Array.isArray(treeData?.subjects) ? treeData.subjects : [];
-  }, [treeData]);
+    if (Array.isArray(treeData?.subjects) && treeData.subjects.length > 0)
+      return treeData.subjects;
+    const flat = Array.isArray(subjectsFallback)
+      ? subjectsFallback
+      : subjectsFallback?.subjects;
+    return Array.isArray(flat) ? flat : [];
+  }, [treeData, subjectsFallback]);
 
   const allChapters = useMemo(() => {
     return dbSubjects.flatMap((s) =>
@@ -174,7 +206,9 @@ export default function PracticeLab() {
   const navigateScreen = (newScreen, options = {}) => {
     setScreen(newScreen);
     let targetPath = "/practice";
-    if (newScreen === "chapter_detail") {
+    if (newScreen === "mistakes") {
+      targetPath = "/practice/mistakes";
+    } else if (newScreen === "chapter_detail") {
       const c = options.chapter || selectedChapter;
       if (c) {
         const cSlug =
@@ -298,6 +332,9 @@ export default function PracticeLab() {
     if (screen === "setup") {
       return "Custom Practice Setup Wizard";
     }
+    if (screen === "mistakes") {
+      return "Revision Vault - Weak Areas & Mistakes";
+    }
     if (subpage === "mistakes" || searchParams.get("mode") === "mistakes") {
       return "Revision Vault - Weak Areas & Mistakes";
     }
@@ -333,6 +370,34 @@ export default function PracticeLab() {
 
   // Start new practice session
   const handleStartSession = async (config) => {
+    // Only auto-request fullscreen on mobile devices, not on PC / desktop
+    const isMobileDevice =
+      typeof window !== "undefined" &&
+      (window.innerWidth < 768 ||
+        /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent || "",
+        ));
+    if (isMobileDevice) {
+      try {
+        const el = document.documentElement;
+        const fn =
+          el.requestFullscreen ||
+          el.webkitRequestFullscreen ||
+          el.mozRequestFullScreen ||
+          el.msRequestFullscreen;
+        const fsEl =
+          document.fullscreenElement ||
+          document.webkitFullscreenElement ||
+          document.mozFullScreenElement ||
+          document.msFullscreenElement;
+        if (fn && !fsEl) {
+          fn.call(el).catch(() => {});
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     try {
       const session = await practiceAPI.startSession({
         mode: config.mode || "learn",
@@ -345,6 +410,14 @@ export default function PracticeLab() {
         targetCount: config.count || 20,
       });
       setSessionReturnScreen(screen || "dashboard");
+      try {
+        sessionStorage.setItem(
+          "practice_session_return",
+          screen || "dashboard",
+        );
+      } catch {
+        // ignore
+      }
       setActiveSession(session);
       navigateScreen("session");
     } catch (err) {
@@ -383,8 +456,45 @@ export default function PracticeLab() {
           count: 10,
         });
       }
+      setSearchParams({}, { replace: true });
     }
   }, [searchParams]);
+
+  // Reset the deep-link guard when navigation changes so a stale
+  // ?mode=subject does not persist across route transitions.
+  useEffect(() => {
+    deepLinkLaunchedRef.current = false;
+  }, [location.key, location.search]);
+
+  // Session/complete reload recovery: if the URL says session/complete but
+  // in-memory state was lost (reload), try to recover the active session
+  // from the backend instead of rendering a blank screen.
+  useEffect(() => {
+    if (
+      (screen === "session" || screen === "complete") &&
+      activeSession == null &&
+      completeSummary == null
+    ) {
+      let cancelled = false;
+      practiceAPI
+        .getActiveSession()
+        .then((recovered) => {
+          if (cancelled) return;
+          if (recovered?.id ?? recovered?.sessionId ?? recovered?.session_id) {
+            setActiveSession(recovered);
+            if (screen === "complete") setScreen("session");
+          } else {
+            navigate("/practice", { replace: true });
+          }
+        })
+        .catch(() => {
+          if (!cancelled) navigate("/practice", { replace: true });
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [screen]);
 
   // Reset window scroll to top whenever screen changes (e.g. mobile card tap)
   useEffect(() => {
@@ -438,6 +548,34 @@ export default function PracticeLab() {
           onOpenFundamentals={() => navigateScreen("fundamentals")}
           onLaunchSmart={handleLaunchSmartEntry}
           onResume={async (session) => {
+            // Only auto-request fullscreen on mobile devices, not on PC / desktop
+            const isMobileDevice =
+              typeof window !== "undefined" &&
+              (window.innerWidth < 768 ||
+                /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+                  navigator.userAgent || "",
+                ));
+            if (isMobileDevice) {
+              try {
+                const el = document.documentElement;
+                const fn =
+                  el.requestFullscreen ||
+                  el.webkitRequestFullscreen ||
+                  el.mozRequestFullScreen ||
+                  el.msRequestFullscreen;
+                const fsEl =
+                  document.fullscreenElement ||
+                  document.webkitFullscreenElement ||
+                  document.mozFullScreenElement ||
+                  document.msFullscreenElement;
+                if (fn && !fsEl) {
+                  fn.call(el).catch(() => {});
+                }
+              } catch {
+                // ignore
+              }
+            }
+
             try {
               // Defensive: resume payloads may carry id, sessionId, or session_id
               // depending on the list source (practiceAPI normalizes, but callers
@@ -452,7 +590,7 @@ export default function PracticeLab() {
                 throw new Error("Practice session ID is missing");
               }
               const fullSession = await practiceAPI.getSession(resumeId);
-              setSessionReturnScreen("dashboard");
+              persistReturnScreen("dashboard");
               setActiveSession(fullSession);
               navigateScreen("session");
             } catch {
@@ -500,11 +638,34 @@ export default function PracticeLab() {
             onStartSession={(config) => handleStartSession(config)}
           />
         ) : (
-          <div className="max-w-7xl mx-auto py-20 px-4 flex flex-col items-center justify-center min-h-[40vh]">
-            <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
-              Loading chapter practice drills...
+          <div className="max-w-7xl mx-auto py-20 px-4 flex flex-col items-center justify-center min-h-[40vh] text-center">
+            <BookOpen className="w-10 h-10 text-slate-300 dark:text-gray-600 mx-auto mb-3" />
+            <h4 className="text-base font-bold text-slate-800 dark:text-white">
+              {chapterSlug
+                ? `No chapter found for “${chapterSlug}”`
+                : "Choose a chapter to start practicing"}
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-gray-400 mt-1 max-w-md">
+              {chapterSlug
+                ? "The link may be stale or the chapter has no active practice questions yet."
+                : "Browse subjects and chapters to find practice drills."}
             </p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => navigateScreen("exam_practice")}
+                className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition"
+              >
+                Browse Exam Practice
+              </button>
+              <button
+                type="button"
+                onClick={() => navigateScreen("dashboard")}
+                className="px-4 py-2.5 bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-gray-200 rounded-xl text-xs font-bold hover:bg-slate-200 transition"
+              >
+                Back to Dashboard
+              </button>
+            </div>
           </div>
         ))}
 
@@ -521,11 +682,26 @@ export default function PracticeLab() {
         <FundamentalsGym onBack={() => navigateScreen("dashboard")} />
       )}
 
+      {/* Screen: Mistakes / Bookmarks revision */}
+      {screen === "mistakes" && (
+        <MistakesView
+          onBack={() => navigateScreen("dashboard")}
+          onPracticeMistakes={() =>
+            handleStartSession({ mode: "mistakes", count: 25 })
+          }
+        />
+      )}
+
       {/* Screen 4: 3-Layer Practice Workspace */}
       {screen === "session" && activeSession && (
         <PracticeWorkspace
           session={activeSession}
-          onExit={() => navigateScreen(sessionReturnScreen || "dashboard")}
+          onExit={() => {
+            if (typeof document !== "undefined" && document.fullscreenElement) {
+              document.exitFullscreen().catch(() => {});
+            }
+            navigateScreen(sessionReturnScreen || "dashboard");
+          }}
           onLaunchTopicSession={(topicId) =>
             handleStartSession({
               mode: "learn",
@@ -535,6 +711,9 @@ export default function PracticeLab() {
             })
           }
           onComplete={(summary) => {
+            if (typeof document !== "undefined" && document.fullscreenElement) {
+              document.exitFullscreen().catch(() => {});
+            }
             if (!summary) return;
             setCompleteSummary(summary);
             navigateScreen("complete");
@@ -640,7 +819,7 @@ function ExamPracticeHub({
   const [mobileSubjectDropdownOpen, setMobileSubjectDropdownOpen] =
     useState(false);
   const { data: treeData, isLoading: subjectsLoading } = useQuery({
-    queryKey: ["practice-tree", "exam-practice"],
+    queryKey: ["practice-tree"],
     queryFn: practiceAPI.getTree,
     staleTime: 5 * 60 * 1000,
   });
@@ -1061,11 +1240,13 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
   const [activeTopic, setActiveTopic] = useState(null);
   const [mobileTopicDropdownOpen, setMobileTopicDropdownOpen] = useState(false);
 
-  // Fetch topics from DB using chapter.id (numeric) if available
+  // Fetch topics from DB using chapter id or slug (supports numeric ids,
+  // UUIDs, and slugs so deep links never 500 on type mismatch)
+  const chapterKey = chapter?.id ?? chapter?.slug;
   const { data: chapterData, isLoading } = useQuery({
-    queryKey: ["chapter-topics", chapter?.id],
-    queryFn: () => practiceAPI.getChapterTopics(chapter.id),
-    enabled: !!chapter?.id && !isNaN(Number(chapter.id)),
+    queryKey: ["chapter-topics", chapterKey],
+    queryFn: () => practiceAPI.getChapterTopics(chapterKey),
+    enabled: !!(chapter?.id ?? chapter?.slug),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -1092,7 +1273,20 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
 
   // Auto-select first topic
   const currentTopic =
-    topics.find((topic) => topic.id === activeTopic?.id) || topics[0] || null;
+    topics.find((topic) => String(topic.id) === String(activeTopic?.id)) ||
+    topics[0] ||
+    null;
+
+  // Per-topic stats for the selected topic (question count / difficulty /
+  // mastery). Graceful fallback to tree-derived counts when unavailable.
+  const currentTopicKey = currentTopic?.id ?? null;
+  const { data: topicStats } = useQuery({
+    queryKey: ["practice-topic-stats", currentTopicKey],
+    queryFn: () => practiceAPI.getTopicStats(currentTopicKey),
+    enabled: currentTopicKey != null && currentTopicKey !== "",
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
   // Derive subtopics & question types (topictypes) available under this topic
   const subtopicTypes = useMemo(() => {
@@ -1250,7 +1444,48 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
   };
 
   const getAvailableSets = (topic) => {
-    if (!topic || !chapterData || !Array.isArray(topic.practiceSets)) return [];
+    if (!topic) return [];
+    // Fallback: synthesize practice sets from the question count when the
+    // backend does not return an explicit practiceSets array.
+    if (!Array.isArray(topic.practiceSets)) {
+      const total = Number(
+        topic.questionCount ?? topicStats?.questionCount ?? 0,
+      );
+      if (!Number.isFinite(total) || total <= 0) return [];
+      const synth = [
+        {
+          id: "quick",
+          label: "⚡ Quick Drill",
+          description: "Rapid revision",
+          count: Math.min(10, total),
+          difficulty: "mixed",
+        },
+        {
+          id: "standard",
+          label: "📝 Standard Set",
+          description: "Balanced practice",
+          count: Math.min(20, total),
+          difficulty: "mixed",
+        },
+        {
+          id: "full",
+          label: "📚 Full Topic",
+          description: "Every available question",
+          count: total,
+          difficulty: "mixed",
+        },
+      ].filter(
+        (s, i, arr) =>
+          s.count > 0 && arr.findIndex((x) => x.count === s.count) === i,
+      );
+      return synth.map((practiceSet) => ({
+        ...practiceSet,
+        ...practiceSetStyles[practiceSet.id],
+        count: practiceSet.count,
+        desc: `${practiceSet.count} question${practiceSet.count === 1 ? "" : "s"} · ${practiceSet.description}`,
+      }));
+    }
+    if (!chapterData) return [];
 
     return topic.practiceSets
       .map((practiceSet) => {
@@ -1436,7 +1671,7 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
                   {topics.length > 0 ? (
                     topics.map((topic, idx) => {
                       const isActive =
-                        currentTopic?.id === topic.id ||
+                        String(currentTopic?.id) === String(topic.id) ||
                         (!activeTopic && idx === 0);
                       const hasAccuracy =
                         topic.accuracy !== null && topic.attempts > 0;
@@ -1515,7 +1750,8 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
             {topics.length > 0 ? (
               topics.map((topic, idx) => {
                 const isActive =
-                  currentTopic?.id === topic.id || (!activeTopic && idx === 0);
+                  String(currentTopic?.id) === String(topic.id) ||
+                  (!activeTopic && idx === 0);
                 const hasAccuracy =
                   topic.accuracy !== null && topic.attempts > 0;
                 return (
@@ -1598,6 +1834,11 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
                       {currentTopic.description}
                     </p>
                   )}
+                  <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-1.5">
+                    {topicStats
+                      ? `${Number(topicStats.questionCount ?? topicStats.total ?? currentTopic.questionCount ?? 0)} questions${topicStats.difficulty ? ` · ${topicStats.difficulty}` : ""}${topicStats.mastery != null ? ` · Mastery ${topicStats.mastery}%` : topicStats.accuracy != null ? ` · ${topicStats.accuracy}% accuracy` : ""}`
+                      : `${currentTopic.questionCount || 0} questions · detailed stats unavailable`}
+                  </p>
                 </div>
                 <div className="flex gap-3">
                   {[
@@ -1841,6 +2082,15 @@ function PracticeHubDashboard({
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fallback: live active-session lookup so the resume banner works even
+  // when the dashboard payload omits activeSession.
+  const { data: liveActiveSession } = useQuery({
+    queryKey: ["practice-active-session"],
+    queryFn: practiceAPI.getActiveSession,
+    staleTime: 15 * 1000,
+    retry: 1,
+  });
+
   if (isLoading || !dash) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-8 flex justify-center">
@@ -1914,22 +2164,27 @@ function PracticeHubDashboard({
       </div>
 
       {/* 📖 Mistake Book (गलती सुधार) 1-Click Banner */}
-      {dash.activeSession && (
+      {(dash.activeSession ||
+        liveActiveSession?.id ||
+        liveActiveSession?.sessionId) && (
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-900/60 dark:bg-indigo-900/20">
           <div>
             <p className="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-300">
               Practice session in progress
             </p>
             <p className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
-              Resume question {Number(dash.activeSession.currentIndex || 0) + 1}
-              {dash.activeSession.targetCount
-                ? ` of ${dash.activeSession.targetCount}`
+              Resume question{" "}
+              {Number(
+                (dash.activeSession || liveActiveSession)?.currentIndex || 0,
+              ) + 1}
+              {(dash.activeSession || liveActiveSession)?.targetCount
+                ? ` of ${(dash.activeSession || liveActiveSession).targetCount}`
                 : ""}
             </p>
           </div>
           <button
             type="button"
-            onClick={() => onResume(dash.activeSession)}
+            onClick={() => onResume(dash.activeSession || liveActiveSession)}
             className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white transition hover:bg-indigo-700"
           >
             Resume Practice
@@ -2155,7 +2410,134 @@ function PracticeHubDashboard({
                 difficulty: "mixed",
               })
             }
+            onQuickStart={({ chapterId, topicId, mode } = {}) =>
+              onStartSession({
+                mode: mode || "learn",
+                chapterId,
+                topicId,
+                subjectId: undefined,
+                count: 20,
+                difficulty: "mixed",
+              })
+            }
           />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SCREEN: MISTAKES / BOOKMARKS REVISION (paginated, via practiceAPI)
+// ════════════════════════════════════════════════════════════════════════════
+function MistakesView({ onBack, onPracticeMistakes }) {
+  const [page, setPage] = useState(1);
+  const limit = 20;
+  const { data, isLoading } = useQuery({
+    queryKey: ["practice-mistakes", page, limit],
+    queryFn: () => practiceAPI.getMistakes(page, limit),
+    staleTime: 15 * 1000,
+  });
+  const { data: bookmarksData } = useQuery({
+    queryKey: ["practice-bookmarks", 1, limit],
+    queryFn: () => practiceAPI.getBookmarks(1, limit),
+    staleTime: 30 * 1000,
+    retry: 1,
+  });
+  const items = Array.isArray(data?.items)
+    ? data.items
+    : Array.isArray(data?.mistakes)
+      ? data.mistakes
+      : [];
+  const total = Number(data?.total ?? data?.count ?? items.length ?? 0);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const bookmarkCount = Array.isArray(bookmarksData?.items)
+    ? bookmarksData.items.length
+    : Number(bookmarksData?.total ?? bookmarksData?.count ?? 0);
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center text-sm font-semibold text-slate-500 dark:text-gray-400 hover:text-slate-800"
+      >
+        <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Workspace
+      </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-black text-slate-900 dark:text-white">
+            Mistake Notebook
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+            {total > 0
+              ? `${total} past incorrect questions · ${bookmarkCount || 0} bookmarked`
+              : "Every question you miss in tests and practice appears here."}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onPracticeMistakes}
+          disabled={total === 0}
+          className="px-4 py-2.5 bg-amber-500 text-white rounded-xl text-xs font-black hover:bg-amber-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Re-Practice Mistakes →
+        </button>
+      </div>
+      {isLoading ? (
+        <div className="flex justify-center py-10">
+          <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : items.length > 0 ? (
+        <div className="space-y-2">
+          {items.map((m, i) => (
+            <div
+              key={m.id ?? m.questionId ?? i}
+              className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 text-sm"
+            >
+              <div className="font-semibold text-slate-800 dark:text-gray-100 truncate">
+                {m.questionText ||
+                  m.question_text ||
+                  m.title ||
+                  `Question ${m.questionId ?? m.id ?? i + 1}`}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5">
+                {[m.subject, m.topic].filter(Boolean).join(" · ") ||
+                  "Practice mistake"}
+              </div>
+            </div>
+          ))}
+          <div className="flex items-center justify-between pt-2">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="px-3 py-2 text-xs font-bold border rounded-xl disabled:opacity-40"
+            >
+              ← Prev
+            </button>
+            <span className="text-xs text-slate-500">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="px-3 py-2 text-xs font-bold border rounded-xl disabled:opacity-40"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700">
+          <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+          <h4 className="text-base font-bold text-slate-800 dark:text-white">
+            No pending mistakes
+          </h4>
+          <p className="text-xs text-slate-500 mt-1">
+            Questions you answer incorrectly will appear here for revision.
+          </p>
         </div>
       )}
     </div>
@@ -2167,7 +2549,7 @@ function PracticeHubDashboard({
 // ════════════════════════════════════════════════════════════════════════════
 function PracticeSetupWizard({ initialConfig, onBack, onStart }) {
   const { data: treeData, isLoading } = useQuery({
-    queryKey: ["practice-tree", "setup"],
+    queryKey: ["practice-tree"],
     queryFn: practiceAPI.getTree,
     staleTime: 5 * 60 * 1000,
   });

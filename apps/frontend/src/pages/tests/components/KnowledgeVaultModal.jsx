@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createPortal } from "react-dom";
 import { practiceAPI } from "../../../shared/lib/practiceAPI";
 import { toast } from "react-hot-toast";
@@ -54,6 +55,18 @@ export default function KnowledgeVaultModal({ questionId, isOpen, onClose }) {
   const [collection, setCollection] = useState("Default");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: vaultItems } = useQuery({
+    queryKey: ["practice-vault-items"],
+    queryFn: practiceAPI.getVaultItems,
+    staleTime: 30 * 1000,
+    retry: 1,
+    enabled: isOpen && typeof document !== "undefined",
+  });
+  const vaultList = Array.isArray(vaultItems)
+    ? vaultItems
+    : vaultItems?.items || [];
 
   if (!isOpen || typeof document === "undefined") return null;
 
@@ -66,6 +79,7 @@ export default function KnowledgeVaultModal({ questionId, isOpen, onClose }) {
         collectionName: collection,
         userNotes: notes,
       });
+      await queryClient.refetchQueries({ queryKey: ["practice-vault-items"] });
       toast.success("Question added to Knowledge Vault!");
       onClose();
     } catch {
@@ -152,6 +166,36 @@ export default function KnowledgeVaultModal({ questionId, isOpen, onClose }) {
               placeholder="Write your key takeaway or formula reminder..."
               className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+              Vault ({vaultList.length} saved)
+            </label>
+            {vaultList.length > 0 ? (
+              <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                {vaultList.slice(0, 5).map((item, i) => (
+                  <div
+                    key={item.id ?? item.questionId ?? i}
+                    className="text-xs bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 truncate"
+                    title={item.userNotes || item.collectionName || ""}
+                  >
+                    {item.collectionName ? `${item.collectionName} · ` : ""}
+                    {item.questionId ? `Q${item.questionId}` : "Saved question"}
+                    {item.userNotes ? ` — ${item.userNotes}` : ""}
+                  </div>
+                ))}
+                {vaultList.length > 5 && (
+                  <p className="text-[10px] text-slate-400 text-center">
+                    +{vaultList.length - 5} more in your vault
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 bg-slate-50 border border-dashed border-slate-200 rounded-xl px-3 py-2.5 text-center">
+                Vault is empty — saved questions will appear here.
+              </p>
+            )}
           </div>
         </div>
 

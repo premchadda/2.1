@@ -1,5 +1,6 @@
 import express from "express";
 import { protect, admin } from "../../middleware/auth.middleware.js";
+import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 import logBuffer from "../../infrastructure/logger/logBuffer.js";
 import {
   ingestErrorLog,
@@ -207,7 +208,9 @@ router.post("/fingerprint/ingest", (req, res) => {
     const result = ingestErrorLog(req.body);
     res.json({ success: true, data: result });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    res
+      .status(400)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -223,11 +226,14 @@ router.get("/fingerprint/clusters", (req, res) => {
       severity,
       resolved,
       minOccurrences: minOccurrences ? parseInt(minOccurrences, 10) : 1,
-      limit: limit ? parseInt(limit, 10) : 50,
+      // Clamp the client-provided limit so the whole buffer can't be pulled at once.
+      limit: limit ? Math.min(500, Math.max(1, parseInt(limit, 10))) : 50,
     });
     res.json({ success: true, count: clusters.length, data: clusters });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -240,7 +246,9 @@ router.get("/fingerprint/summary", (req, res) => {
     const summary = getErrorSummary();
     res.json({ success: true, data: summary });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -253,7 +261,9 @@ router.post("/fingerprint/:fingerprint/resolve", (req, res) => {
     const resolved = resolveCluster(req.params.fingerprint);
     res.json({ success: true, resolved });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    res
+      .status(400)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 

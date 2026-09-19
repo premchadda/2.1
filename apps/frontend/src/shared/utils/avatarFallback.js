@@ -21,12 +21,15 @@ export const handleAvatarError = (e) => {
   if (target.dataset?.avatarErrorHandled === "1") return;
   target.dataset.avatarErrorHandled = "1";
   target.style.display = "none";
-  const sibling = target.nextSibling;
+  const sibling = target.nextElementSibling || target.nextSibling;
   if (sibling && sibling.style) {
     // Default to flex (avatar fallbacks are flex-centered); opt out with
     // data-avatar-fallback-display="inline" where inline is intended.
     const wantsInline = sibling.dataset?.avatarFallbackDisplay === "inline";
     sibling.style.display = wantsInline ? "inline" : "flex";
+    if (sibling.classList) {
+      sibling.classList.remove("hidden");
+    }
   }
 };
 

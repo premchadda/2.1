@@ -6,6 +6,7 @@ import {
 import { findEntityByIdentifier } from "../../shared/utils/identifier-utils.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
+import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
 
 const router = express.Router();
 
@@ -50,7 +51,9 @@ router.get("/", responseCache("exam-info", 120), async (req, res) => {
 // @route   POST /api/exam-info/report-error
 // @desc    Submit a content-error report from the public exam page
 // @access  Public
-router.post("/report-error", async (req, res) => {
+// NOTE: this is a public, unauthenticated INSERT. It is rate-limited with the
+// strict tier (5/min/IP) so it cannot be used as a storage-growth DoS vector.
+router.post("/report-error", createRateLimiter("strict"), async (req, res) => {
   const { examId, examTitle, year, category, details } = req.body || {};
   const reason = String(category || "").slice(0, 100);
   if (!reason) {

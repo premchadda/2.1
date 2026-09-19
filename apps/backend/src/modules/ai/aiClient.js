@@ -273,6 +273,158 @@ async function generateEmbedding(text, options = {}) {
   return embedding;
 }
 
+/**
+ * Keyless mode — "search connect", zero budget.
+ *
+ * hasAiKey() reads env live (AI_CONFIG is frozen at module load, so a helper
+ * is needed for requests that arrive after env changes in tests).
+ * freeWebSearch() uses DuckDuckGo's keyless HTML endpoint with a short
+ * timeout and fails soft to [] — callers must always have a DB/template
+ * fallback after it.
+ * buildSearchGroundedAnswer() composes a deterministic, honestly-labelled
+ * answer from own-DB context + web hits. It is NOT an LLM — responses carry
+ * provider "search" so logs/UI never misattribute them.
+ */
+function hasAiKey() {
+  return Boolean(
+    process.env.AI_API_KEY ||
+    process.env.OPENROUTER_API_KEY ||
+    process.env.OPENAI_API_KEY,
+  );
+}
+
+async function freeWebSearch(query, { limit = 5, timeoutMs = 8000 } = {}) {
+  const q = String(query || "")
+    .trim()
+    .slice(0, 300);
+  if (!q) return [];
+  try {
+    const response = await fetch(
+      `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`,
+      {
+        headers: { "User-Agent": "TrstPrep-StudyBot/2.1 (educational use)" },
+        signal: AbortSignal.timeout(timeoutMs),
+      },
+    );
+    if (!response.ok) return [];
+    const html = await response.text();
+    const results = [];
+    const anchorRe =
+      /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+    const snippetRe = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+    const stripTags = (s) =>
+      String(s || "")
+        .replace(/<[^>]*>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&#x27;/g, "'")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .trim();
+    let m;
+    const titles = [];
+    while ((m = anchorRe.exec(html)) !== null && titles.length < limit) {
+      let href = (m[1] || "").trim();
+      // DuckDuckGo wraps outbound links as /l/?...&uddg=<target>
+      const uddg = href.match(/[?&]uddg=([^&]+)/);
+      if (uddg) {
+        try {
+          href = decodeURIComponent(uddg[1]);
+        } catch {
+          /* keep raw href */
+        }
+      }
+      titles.push({ url: href, title: stripTags(m[2]) });
+    }
+    let s;
+    const snippets = [];
+    while ((s = snippetRe.exec(html)) !== null && snippets.length < limit) {
+      snippets.push(stripTags(s[1]));
+    }
+    for (let i = 0; i < titles.length && results.length < limit; i++) {
+      if (!titles[i].url || !titles[i].url.startsWith("http")) continue;
+      results.push({
+        title: titles[i].title || titles[i].url,
+        url: titles[i].url,
+        snippet: snippets[i] || "",
+      });
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+function buildSearchGroundedAnswer({
+  kind = "tutor",
+  promptType = "hint",
+  questionText = "",
+  options = [],
+  correctOption = null,
+  explanation = "",
+  dbContext = "",
+  webHits = [],
+  language = "en",
+} = {}) {
+  const hi = String(language || "en")
+    .toLowerCase()
+    .startsWith("hi");
+  const lines = [];
+  const q = String(questionText || "")
+    .trim()
+    .slice(0, 500);
+  if (q) lines.push(hi ? `**प्रश्न:** ${q}` : `**Question:** ${q}`);
+  if (Array.isArray(options) && options.length > 0) {
+    const shown = options
+      .slice(0, 6)
+      .map(
+        (o, i) => `${String.fromCharCode(65 + i)}. ${String(o).slice(0, 120)}`,
+      )
+      .join("\n");
+    lines.push((hi ? "**विकल्प:**\n" : "**Options:**\n") + shown);
+  }
+  const exp = String(explanation || "")
+    .trim()
+    .slice(0, 800);
+  if (exp) lines.push((hi ? "**हल:** " : "**Solution:** ") + exp);
+  const ctx = String(dbContext || "")
+    .trim()
+    .slice(0, 800);
+  if (ctx)
+    lines.push((hi ? "**पाठ्य संदर्भ:** " : "**Study context:** ") + ctx);
+  if (promptType === "hint" || kind === "tutor") {
+    lines.push(
+      hi
+        ? "💡 **संकेत:** पहले इकाइयों/संबंध की पहचान करो, चरण-दर-चरण हल करो, फिर विकल्पों से मिलाओ।"
+        : "💡 **Hint:** Identify the core relation first, solve step by step, then match against the options.",
+    );
+  } else if (promptType === "another_method") {
+    lines.push(
+      hi
+        ? "⚡ **वैकल्पिक विधि:** मान रखकर जाँचो (substitution) या विकल्पों से पीछे की ओर हल करो (back-solving)।"
+        : "⚡ **Alternative method:** Try substitution with simple values, or back-solve from the options.",
+    );
+  }
+  if (Array.isArray(webHits) && webHits.length > 0) {
+    const srcs = webHits
+      .slice(0, 5)
+      .map(
+        (h, i) =>
+          `${i + 1}. [${String(h.title || h.url).slice(0, 80)}](${h.url})${h.snippet ? ` — ${String(h.snippet).slice(0, 140)}` : ""}`,
+      )
+      .join("\n");
+    lines.push(
+      (hi ? "**और पढ़ें (वेब):**\n" : "**Read more (web):**\n") + srcs,
+    );
+  }
+  lines.push(
+    hi
+      ? "_यह उत्तर आपकी पाठ्य-सामग्री और वेब खोज से बना है (कोई paid AI key नहीं)।_"
+      : "_This answer was built from your study content and web search (no paid AI key used)._",
+  );
+  return lines.join("\n\n");
+}
+
 export {
   AI_CONFIG,
   FALLBACK_CONFIG,
@@ -281,4 +433,7 @@ export {
   callAIWithFallback,
   generateEmbedding,
   isContentToxic,
+  hasAiKey,
+  freeWebSearch,
+  buildSearchGroundedAnswer,
 };

@@ -37,7 +37,6 @@
     /* Override excessive padding that wastes 320px width (including audit flagged p-14,24,32) */
     .p-12, .md\:p-12, .p-14, .p-16, .md\:p-16, .p-20, .p-24, .p-32,
     .px-12, .py-12, .pt-12, .pb-12, .px-16, .py-16, .m-12, .m-16, .m-24, .m-32 {
-        padding: 1rem !important;
         margin: 0 !important;
     }
     .p-8, .px-8, .py-8 { padding: 1rem !important; }
@@ -46,7 +45,6 @@
     }
     /* Also handle responsive variants like sm:p-12 etc at narrow widths */
     [class*="p-12"], [class*="p-16"], [class*="p-20"], [class*="gap-12"] {
-        padding: 1rem !important;
         gap: 1rem !important;
     }
 }
@@ -165,5 +163,32 @@
     canvas.particle-canvas {
         display: none !important;
     }
+}
+
+/* ── Real Test Environment Parity for Practice Mode ─────────────────────── */
+/* In practice mode, hide global top Navbar, mobile BottomNav, sidebars, and layout padding */
+body.practice-session-active header[role="banner"],
+body.practice-session-active nav[aria-label="Mobile navigation"],
+body.practice-session-active nav[aria-label="Primary"],
+body.practice-session-active aside[aria-label="Main Navigation"],
+body.practice-session-active aside[aria-label="Mobile Navigation"],
+body.practice-session-active .desktop-left-nav-mode aside,
+html.practice-session-active header[role="banner"],
+html.practice-session-active nav[aria-label="Mobile navigation"],
+html.practice-session-active nav[aria-label="Primary"] {
+    display: none !important;
+}
+
+body.practice-session-active main#main-content,
+html.practice-session-active main#main-content {
+    padding-bottom: 0 !important;
+    margin-left: 0 !important;
+    max-width: 100% !important;
+}
+
+body.practice-session-active .desktop-left-nav-mode,
+html.practice-session-active .desktop-left-nav-mode {
+    padding-left: 0 !important;
+    margin-left: 0 !important;
 }
 

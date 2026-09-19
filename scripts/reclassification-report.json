@@ -1,0 +1,1591 @@
+{
+  "totalProcessed": 45178,
+  "changeStats": {
+    "reasoningFixedFromGs": 44,
+    "quantFixedFromGs": 0,
+    "englishFixedFromGs": 0,
+    "reasoningFixedFromQuant": 39,
+    "quantFixedFromReasoning": 0,
+    "gsReclassified": 0,
+    "totalChanges": 83
+  },
+  "plannedChanges": [
+    {
+      "id": 37095,
+      "test_id": 395,
+      "question_number": 8,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of '?' in the given series? 7 11 19 31 47 ?"
+    },
+    {
+      "id": 37322,
+      "test_id": 399,
+      "question_number": 65,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of '?' in the given series? 91 93 96 101 108 ?"
+    },
+    {
+      "id": 37329,
+      "test_id": 399,
+      "question_number": 72,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 23 24 28 37 53 ?"
+    },
+    {
+      "id": 37633,
+      "test_id": 401,
+      "question_number": 6,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the questio n mark (?) in the given series? 145 141 133 121 105 ?"
+    },
+    {
+      "id": 37923,
+      "test_id": 405,
+      "question_number": 96,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of '?' in the given series? 23 26 32 41 53 ?"
+    },
+    {
+      "id": 37929,
+      "test_id": 394,
+      "question_number": 2,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of '?' in the given series? 55 53 50 45 38 ?"
+    },
+    {
+      "id": 37999,
+      "test_id": 394,
+      "question_number": 72,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of '?' in the given series? 98 100 103 108 115 ?"
+    },
+    {
+      "id": 38118,
+      "test_id": 423,
+      "question_number": 91,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of '?' in the given series? 13 15 18 23 30 ?"
+    },
+    {
+      "id": 38517,
+      "test_id": 431,
+      "question_number": 90,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of '?' in the given series? 10 14 22 34 50 ?"
+    },
+    {
+      "id": 39084,
+      "test_id": 433,
+      "question_number": 80,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of '?' in the given series? 82 80 77 72 65 ?"
+    },
+    {
+      "id": 39210,
+      "test_id": 430,
+      "question_number": 83,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the questio n mark (?) in the given series? 35 36 40 49 65 ?"
+    },
+    {
+      "id": 46370,
+      "test_id": 362,
+      "question_number": 13,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 280,
+        "topic_id": 583,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series based on the English alphabetical order"
+    },
+    {
+      "id": 46454,
+      "test_id": 362,
+      "question_number": 97,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 701 700 697 692 685 ?"
+    },
+    {
+      "id": 46643,
+      "test_id": 363,
+      "question_number": 86,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 802 800 796 790 782 ?"
+    },
+    {
+      "id": 46765,
+      "test_id": 361,
+      "question_number": 8,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 1001 1000 997 992 985 ?"
+    },
+    {
+      "id": 46768,
+      "test_id": 361,
+      "question_number": 11,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 280,
+        "topic_id": 583,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series based on the English alphabetical order"
+    },
+    {
+      "id": 47154,
+      "test_id": 378,
+      "question_number": 97,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 402 400 396 390 382 ?"
+    },
+    {
+      "id": 47168,
+      "test_id": 369,
+      "question_number": 11,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 601 600 597 592 585 ?"
+    },
+    {
+      "id": 47368,
+      "test_id": 370,
+      "question_number": 11,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 601 600 597 592 585 ?"
+    },
+    {
+      "id": 47654,
+      "test_id": 379,
+      "question_number": 97,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 402 400 396 390 382 ?"
+    },
+    {
+      "id": 47776,
+      "test_id": 374,
+      "question_number": 19,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 49 55 63 73 85 99 ?"
+    },
+    {
+      "id": 47836,
+      "test_id": 374,
+      "question_number": 79,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 201, 200, 197, 192, 185, ?"
+    },
+    {
+      "id": 47930,
+      "test_id": 376,
+      "question_number": 73,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 302 300 296 290 282 ?"
+    },
+    {
+      "id": 48094,
+      "test_id": 364,
+      "question_number": 67,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 702 700 696 690 682 ?"
+    },
+    {
+      "id": 48133,
+      "test_id": 375,
+      "question_number": 6,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 502 500 496 490 482 ?"
+    },
+    {
+      "id": 48151,
+      "test_id": 375,
+      "question_number": 24,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 42 57 72 87 102 ?"
+    },
+    {
+      "id": 48268,
+      "test_id": 381,
+      "question_number": 11,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 972 970 966 960 952 ?"
+    },
+    {
+      "id": 48325,
+      "test_id": 381,
+      "question_number": 68,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 61 54 61 47 61 40 61 ?"
+    },
+    {
+      "id": 48403,
+      "test_id": 371,
+      "question_number": 22,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 401 400 397 392 385 ?"
+    },
+    {
+      "id": 48576,
+      "test_id": 380,
+      "question_number": 19,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 280,
+        "topic_id": 583,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series based on the English alphabetical order"
+    },
+    {
+      "id": 48627,
+      "test_id": 380,
+      "question_number": 70,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 163 131 99 67 35 ?"
+    },
+    {
+      "id": 48670,
+      "test_id": 377,
+      "question_number": 13,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 280,
+        "topic_id": 583,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series based on the English alphabetical order"
+    },
+    {
+      "id": 48674,
+      "test_id": 377,
+      "question_number": 17,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 992 990 986 980 972 ?"
+    },
+    {
+      "id": 48741,
+      "test_id": 377,
+      "question_number": 84,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 51 87 121 153 183 211 ?"
+    },
+    {
+      "id": 48771,
+      "test_id": 372,
+      "question_number": 14,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 501 500 497 492 485 ?"
+    },
+    {
+      "id": 48830,
+      "test_id": 372,
+      "question_number": 73,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 34 46 58 70 ? 94 106"
+    },
+    {
+      "id": 48933,
+      "test_id": 383,
+      "question_number": 76,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 46 55 78 87 110 119 ?"
+    },
+    {
+      "id": 48963,
+      "test_id": 403,
+      "question_number": 6,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 512 520 510 522 ? 524 506"
+    },
+    {
+      "id": 49055,
+      "test_id": 403,
+      "question_number": 98,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 428, 405, 372, ?, 276, 213"
+    },
+    {
+      "id": 49178,
+      "test_id": 392,
+      "question_number": 21,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 280,
+        "topic_id": 583,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series based on the English alphabetical order"
+    },
+    {
+      "id": 49242,
+      "test_id": 392,
+      "question_number": 85,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 852 850 846 840 832 ?"
+    },
+    {
+      "id": 49245,
+      "test_id": 392,
+      "question_number": 88,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 273 224 180 141 107 ?"
+    },
+    {
+      "id": 49274,
+      "test_id": 404,
+      "question_number": 17,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 277, 254, 221, ?, 125, 62"
+    },
+    {
+      "id": 49286,
+      "test_id": 404,
+      "question_number": 29,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 1514 1513 1517 1508 1524 ?"
+    },
+    {
+      "id": 49358,
+      "test_id": 382,
+      "question_number": 1,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 280,
+        "topic_id": 583,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series based on the English alphabetical order"
+    },
+    {
+      "id": 49362,
+      "test_id": 382,
+      "question_number": 5,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 952 950 946 940 932 ?"
+    },
+    {
+      "id": 49380,
+      "test_id": 382,
+      "question_number": 23,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 23 29 35 41 47 ?"
+    },
+    {
+      "id": 49540,
+      "test_id": 390,
+      "question_number": 83,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 862 860 856 850 842 ?"
+    },
+    {
+      "id": 49545,
+      "test_id": 390,
+      "question_number": 88,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 176 168 159 149 138 ? 113"
+    },
+    {
+      "id": 49613,
+      "test_id": 402,
+      "question_number": 21,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 7 9 13 21 37 ?"
+    },
+    {
+      "id": 49657,
+      "test_id": 397,
+      "question_number": 79,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 211, 198, 175, 142, 99, ?"
+    },
+    {
+      "id": 49753,
+      "test_id": 402,
+      "question_number": 96,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 282, 259, 226, ?, 130, 67"
+    },
+    {
+      "id": 49762,
+      "test_id": 385,
+      "question_number": 5,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 79 77.8 76.6 ? 74.2 73"
+    },
+    {
+      "id": 49863,
+      "test_id": 409,
+      "question_number": 6,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 512 520 510 522 ? 524 506"
+    },
+    {
+      "id": 49955,
+      "test_id": 409,
+      "question_number": 98,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 428, 405, 372, ?, 276, 213"
+    },
+    {
+      "id": 50039,
+      "test_id": 398,
+      "question_number": 21,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 280,
+        "topic_id": 583,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series based on the English alphabetical order"
+    },
+    {
+      "id": 50083,
+      "test_id": 386,
+      "question_number": 83,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 872 870 866 860 852 ?"
+    },
+    {
+      "id": 50137,
+      "test_id": 398,
+      "question_number": 85,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 852 850 846 840 832 ?"
+    },
+    {
+      "id": 50140,
+      "test_id": 398,
+      "question_number": 88,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 273 224 180 141 107 ?"
+    },
+    {
+      "id": 50237,
+      "test_id": 396,
+      "question_number": 80,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 86 97 73 82 60 67 47 52 ?"
+    },
+    {
+      "id": 50251,
+      "test_id": 396,
+      "question_number": 94,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What will come in place of the question mark (?) in the given series? 832 830 826 820 812 ?"
+    },
+    {
+      "id": 50275,
+      "test_id": 410,
+      "question_number": 17,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 277, 254, 221, ?, 125, 62"
+    },
+    {
+      "id": 50287,
+      "test_id": 410,
+      "question_number": 29,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 1514 1513 1517 1508 1524 ?"
+    },
+    {
+      "id": 50367,
+      "test_id": 391,
+      "question_number": 12,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 280,
+        "topic_id": 583,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series based on the English alphabetical order"
+    },
+    {
+      "id": 50530,
+      "test_id": 408,
+      "question_number": 73,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 327, 304, 271, ?, 175, 112"
+    },
+    {
+      "id": 50731,
+      "test_id": 416,
+      "question_number": 74,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 173, 151, 131, 113, 97, ?"
+    },
+    {
+      "id": 50757,
+      "test_id": 416,
+      "question_number": 100,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 1412 1420 1430 1442 1456 ?"
+    },
+    {
+      "id": 50760,
+      "test_id": 412,
+      "question_number": 3,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 8 13 20 29 40 ?"
+    },
+    {
+      "id": 50785,
+      "test_id": 412,
+      "question_number": 28,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 1012 1010 1000 998 988 ? 976"
+    },
+    {
+      "id": 50869,
+      "test_id": 414,
+      "question_number": 12,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 356, 333, 300, ?, 204, 141"
+    },
+    {
+      "id": 51139,
+      "test_id": 426,
+      "question_number": 82,
+      "old": {
+        "subject_id": 5,
+        "chapter_id": 697,
+        "topic_id": 2364,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 223, 174, 132, 97, 69, ?"
+    },
+    {
+      "id": 51236,
+      "test_id": 413,
+      "question_number": 79,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 135 123 109 93 75 ?"
+    },
+    {
+      "id": 51253,
+      "test_id": 413,
+      "question_number": 96,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 1212 1220 1230 1242 1256 ?"
+    },
+    {
+      "id": 51267,
+      "test_id": 421,
+      "question_number": 10,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 280,
+        "topic_id": 583,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series based on the English alphabetical order"
+    },
+    {
+      "id": 51281,
+      "test_id": 421,
+      "question_number": 24,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 21, 52, 87, 126, 169, ?"
+    },
+    {
+      "id": 51286,
+      "test_id": 421,
+      "question_number": 29,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 1312 1320 1330 1342 1356 ?"
+    },
+    {
+      "id": 51454,
+      "test_id": 435,
+      "question_number": 97,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 43 27 43 41 43 55 43 ?"
+    },
+    {
+      "id": 51469,
+      "test_id": 411,
+      "question_number": 12,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 356, 333, 300, ?, 204, 141"
+    },
+    {
+      "id": 51497,
+      "test_id": 422,
+      "question_number": 27,
+      "old": {
+        "subject_id": 2,
+        "chapter_id": 284,
+        "topic_id": 729,
+        "section": "Quantitative Aptitude"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 4 8 15 27 46 ? 113"
+    },
+    {
+      "id": 51738,
+      "test_id": 420,
+      "question_number": 81,
+      "old": {
+        "subject_id": 5,
+        "chapter_id": 697,
+        "topic_id": 2364,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 216, 182, 152, 126, 104, ?"
+    },
+    {
+      "id": 51751,
+      "test_id": 420,
+      "question_number": 94,
+      "old": {
+        "subject_id": 5,
+        "chapter_id": 697,
+        "topic_id": 2364,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 1512 1520 1530 1542 1556 ?"
+    },
+    {
+      "id": 51837,
+      "test_id": 415,
+      "question_number": 80,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 1112 1120 1130 1142 1156 ?"
+    },
+    {
+      "id": 51843,
+      "test_id": 415,
+      "question_number": 86,
+      "old": {
+        "subject_id": 8,
+        "chapter_id": 830,
+        "topic_id": 2611,
+        "section": "General Awareness"
+      },
+      "new": {
+        "subject_id": 1,
+        "chapter_id": 7,
+        "topic_id": 11,
+        "section": "General Intelligence & Reasoning"
+      },
+      "subtype": "series",
+      "textSnippet": "What should come in place of the question mark (?) in the given series? 6 13 25 42 64 ?"
+    }
+  ]
+}

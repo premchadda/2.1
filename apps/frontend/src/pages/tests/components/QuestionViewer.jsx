@@ -11,12 +11,17 @@ import {
   Check,
   X,
   Tag,
+  BookOpen,
 } from "lucide-react";
 import MathRenderer from "../../../shared/components/MathRenderer";
 import DifficultyBadge from "../../../shared/components/common/DifficultyBadge";
 import sanitizeHtml from "../../../shared/lib/sanitizeHtml";
 import { getLocalizedField } from "../../../shared/lib/language";
 import { formatPyqSourceLabel } from "../../../shared/lib/questionUtils.js";
+import {
+  getEstimatedReadingSeconds,
+  formatReadingTime,
+} from "@trstprep/shared-config";
 
 const DEFAULT_MARKS_PER_QUESTION = 2;
 const DEFAULT_NEGATIVE_MARKS = 0.5;
@@ -158,6 +163,19 @@ export default function QuestionViewer({
                 1,
               )}{" "}
               Marks
+            </span>
+          )}
+
+          {/* Estimated Reading Time */}
+          {currentQ && (
+            <span
+              className="flex items-center gap-1 text-gray-600 dark:text-gray-300 text-[10px] sm:text-[11px] font-medium bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded shrink-0"
+              title="Estimated reading time"
+            >
+              <BookOpen className="w-3 h-3 text-gray-500 dark:text-gray-400 shrink-0" />
+              <span>
+                ~{formatReadingTime(getEstimatedReadingSeconds(currentQ))}
+              </span>
             </span>
           )}
 

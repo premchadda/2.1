@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import { practiceAPI } from "../../../shared/lib/practiceAPI";
 import sanitizeHtml from "../../../shared/lib/sanitizeHtml.js";
@@ -23,7 +23,15 @@ import {
   Menu,
   Tag,
   X,
+  Maximize,
+  Minimize,
+  Clock,
 } from "lucide-react";
+import {
+  formatTime,
+  getEstimatedReadingSeconds,
+  formatReadingTime,
+} from "@trstprep/shared-config";
 import { formatPyqSourceLabel } from "../../../shared/lib/questionUtils.js";
 import { handleAvatarError } from "../../../shared/utils/avatarFallback.js";
 
@@ -49,21 +57,197 @@ export default function PracticeWorkspace({
     return map;
   });
 
+  const questionCacheRef = useRef(questionCache);
+  questionCacheRef.current = questionCache;
+
+  // Defensive: session rows may carry id, sessionId, or session_id depending
+  // on the list source. Resolve once so no call-site can hit ".../undefined".
+  const activeSessionId =
+    session?.id ?? session?.sessionId ?? session?.session_id;
+
   const [currentIdx, setCurrentIdx] = useState(session?.currentIndex || 0);
   const [question, setQuestion] = useState(() => {
     const startIdx = session?.currentIndex || 0;
     return questionCache[startIdx] || null;
   });
-  const [selectedOption, setSelectedOption] = useState(null);
-  const [isChecked, setIsChecked] = useState(false);
-  const [checkResult, setCheckResult] = useState(null);
+
+  const [answerResults, setAnswerResults] = useState(() => {
+    const initial = {};
+    if (session?.answers && Array.isArray(session.answers)) {
+      session.answers.forEach((ans) => {
+        if (
+          ans &&
+          ans.index !== undefined &&
+          !ans.isSkipped &&
+          ans.selectedOption !== null &&
+          ans.selectedOption !== undefined
+        ) {
+          initial[ans.index] = Boolean(ans.isCorrect);
+        }
+      });
+    } else if (session?.answersMap && typeof session.answersMap === "object") {
+      Object.entries(session.answersMap).forEach(([idx, ans]) => {
+        if (
+          ans &&
+          !ans.isSkipped &&
+          ans.selectedOption !== null &&
+          ans.selectedOption !== undefined
+        ) {
+          initial[Number(idx)] = Boolean(ans.isCorrect);
+        }
+      });
+    }
+    try {
+      const activeId = session?.id ?? session?.sessionId ?? session?.session_id;
+      if (activeId) {
+        const cached = localStorage.getItem(
+          `practice_session_answers_${activeId}`,
+        );
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          Object.assign(initial, parsed);
+        }
+      }
+    } catch {}
+    return initial;
+  });
+
+  const [userSelections, setUserSelections] = useState(() => {
+    const initial = {};
+    const processAns = (ans, idxKey) => {
+      if (!ans) return;
+      const idx = ans.index !== undefined ? ans.index : Number(idxKey);
+      if (!Number.isNaN(idx)) {
+        initial[idx] = {
+          selectedOption: ans.selectedOption ?? null,
+          isChecked:
+            !ans.isSkipped &&
+            ans.selectedOption !== null &&
+            ans.selectedOption !== undefined,
+          isSkipped: Boolean(ans.isSkipped),
+          isCorrect: Boolean(ans.isCorrect),
+          checkResult: {
+            isCorrect: Boolean(ans.isCorrect),
+            correctOption: ans.correctOption,
+            explanation: ans.explanation,
+            explanationHi: ans.explanationHi,
+          },
+        };
+      }
+    };
+    if (session?.answers && Array.isArray(session.answers)) {
+      session.answers.forEach((ans) => processAns(ans));
+    } else if (session?.answersMap && typeof session.answersMap === "object") {
+      Object.entries(session.answersMap).forEach(([idx, ans]) =>
+        processAns(ans, idx),
+      );
+    }
+    try {
+      const activeId = session?.id ?? session?.sessionId ?? session?.session_id;
+      if (activeId) {
+        const cached = localStorage.getItem(
+          `practice_session_selections_${activeId}`,
+        );
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          Object.assign(initial, parsed);
+        }
+      }
+    } catch {}
+    return initial;
+  });
+
+  const userSelectionsRef = useRef(userSelections);
+  userSelectionsRef.current = userSelections;
+
+  const answerResultsRef = useRef(answerResults);
+  answerResultsRef.current = answerResults;
+
+  const [questionTimes, setQuestionTimes] = useState(() => {
+    const initial = {};
+    const processTime = (ans, idxKey) => {
+      if (!ans) return;
+      const idx = ans.index !== undefined ? ans.index : Number(idxKey);
+      const t = ans.timeTaken ?? ans.time_taken_sec ?? ans.time_taken ?? 0;
+      if (!Number.isNaN(idx) && t > 0) {
+        initial[idx] = Number(t);
+      }
+    };
+    if (session?.answers && Array.isArray(session.answers)) {
+      session.answers.forEach((ans) => processTime(ans));
+    } else if (session?.answersMap && typeof session.answersMap === "object") {
+      Object.entries(session.answersMap).forEach(([idx, ans]) =>
+        processTime(ans, idx),
+      );
+    }
+    try {
+      const activeId = session?.id ?? session?.sessionId ?? session?.session_id;
+      if (activeId) {
+        const cached = localStorage.getItem(
+          `practice_session_times_${activeId}`,
+        );
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          Object.assign(initial, parsed);
+        }
+      }
+    } catch {}
+    return initial;
+  });
+
+  const questionTimesRef = useRef(questionTimes);
+  questionTimesRef.current = questionTimes;
+
+  const [selectedOption, setSelectedOption] = useState(() => {
+    const startIdx = session?.currentIndex || 0;
+    return userSelections[startIdx]?.selectedOption ?? null;
+  });
+  const [isChecked, setIsChecked] = useState(() => {
+    const startIdx = session?.currentIndex || 0;
+    return Boolean(userSelections[startIdx]?.isChecked);
+  });
+  const [checkResult, setCheckResult] = useState(() => {
+    const startIdx = session?.currentIndex || 0;
+    return userSelections[startIdx]?.checkResult ?? null;
+  });
   const [loading, setLoading] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const loadIdRef = useRef(0);
-  const [answerResults, setAnswerResults] = useState({});
-  const [userSelections, setUserSelections] = useState({});
+
+  // Track active time spent per question (pauses when question is answered or during finish/loading)
+  useEffect(() => {
+    if (loading || finishing || isChecked) return;
+
+    const timer = setInterval(() => {
+      setQuestionTimes((prev) => {
+        const current = prev[currentIdx] || 0;
+        const updated = { ...prev, [currentIdx]: current + 1 };
+        try {
+          const activeId =
+            session?.id ?? session?.sessionId ?? session?.session_id;
+          if (activeId) {
+            localStorage.setItem(
+              `practice_session_times_${activeId}`,
+              JSON.stringify(updated),
+            );
+          }
+        } catch {}
+        return updated;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [
+    currentIdx,
+    loading,
+    finishing,
+    isChecked,
+    session?.id,
+    session?.sessionId,
+    session?.session_id,
+  ]);
 
   // Learning System Tabs & Data
   const [activeExplTab, setActiveExplTab] = useState("text"); // text | visual | video | formula
@@ -107,6 +291,172 @@ export default function PracticeWorkspace({
   const [isSubmittingApproach, setIsSubmittingApproach] = useState(false);
   const [showMobilePalette, setShowMobilePalette] = useState(false);
 
+  // Fullscreen state & helpers (Matches Test Interface behavior)
+  const [isFullscreen, setIsFullscreen] = useState(() => {
+    return (
+      typeof document !== "undefined" &&
+      Boolean(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement,
+      )
+    );
+  });
+
+  // Set practice-session-active class on body/html so global top Navbar and mobile BottomNav are hidden (matching real test environment)
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.body.classList.add("practice-session-active");
+      document.documentElement.classList.add("practice-session-active");
+      try {
+        window.dispatchEvent(
+          new CustomEvent("trstprep:practice-mode-change", {
+            detail: { active: true },
+          }),
+        );
+      } catch {}
+    }
+    return () => {
+      if (typeof document !== "undefined") {
+        document.body.classList.remove("practice-session-active");
+        document.documentElement.classList.remove("practice-session-active");
+        try {
+          window.dispatchEvent(
+            new CustomEvent("trstprep:practice-mode-change", {
+              detail: { active: false },
+            }),
+          );
+        } catch {}
+      }
+    };
+  }, []);
+
+  const requestFullscreenSafely = useCallback(() => {
+    try {
+      const el = document.documentElement;
+      const fn =
+        el.requestFullscreen ||
+        el.webkitRequestFullscreen ||
+        el.mozRequestFullScreen ||
+        el.msRequestFullscreen;
+      const fsEl =
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement;
+      if (fn && !fsEl) {
+        fn.call(el).catch(() => {});
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const exitFullscreenSafely = useCallback(() => {
+    try {
+      const fsEl =
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement;
+      const exitFn =
+        document.exitFullscreen ||
+        document.webkitExitFullscreen ||
+        document.mozCancelFullScreen ||
+        document.msExitFullscreen;
+      if (fsEl && exitFn) {
+        exitFn.call(document).catch(() => {});
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    const fsEl =
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.mozFullScreenElement ||
+      document.msFullscreenElement;
+    if (fsEl) {
+      exitFullscreenSafely();
+    } else {
+      requestFullscreenSafely();
+    }
+  }, [exitFullscreenSafely, requestFullscreenSafely]);
+
+  // Attempt fullscreen on session workspace mount (mobile only), track fullscreen state, and cleanup on unmount
+  useEffect(() => {
+    const isMobile =
+      typeof window !== "undefined" &&
+      (window.innerWidth < 768 ||
+        /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent || "",
+        ));
+
+    // Only auto-request fullscreen on mobile devices, not on PC / desktop
+    if (isMobile) {
+      requestFullscreenSafely();
+    }
+
+    // In case mobile browser requires a user gesture after async route transition,
+    // fire on the very first touch/click anywhere
+    const handleFirstGesture = () => {
+      if (isMobile) {
+        requestFullscreenSafely();
+      }
+    };
+    if (isMobile) {
+      window.addEventListener("click", handleFirstGesture, { capture: true });
+      window.addEventListener("touchstart", handleFirstGesture, {
+        capture: true,
+      });
+    }
+
+    const handleFsChange = () => {
+      const fsEl =
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement;
+      setIsFullscreen(Boolean(fsEl));
+      if (fsEl && isMobile) {
+        window.removeEventListener("click", handleFirstGesture, {
+          capture: true,
+        });
+        window.removeEventListener("touchstart", handleFirstGesture, {
+          capture: true,
+        });
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFsChange);
+    document.addEventListener("webkitfullscreenchange", handleFsChange);
+    document.addEventListener("mozfullscreenchange", handleFsChange);
+    document.addEventListener("MSFullscreenChange", handleFsChange);
+
+    return () => {
+      if (isMobile) {
+        window.removeEventListener("click", handleFirstGesture, {
+          capture: true,
+        });
+        window.removeEventListener("touchstart", handleFirstGesture, {
+          capture: true,
+        });
+      }
+      document.removeEventListener("fullscreenchange", handleFsChange);
+      document.removeEventListener("webkitfullscreenchange", handleFsChange);
+      document.removeEventListener("mozfullscreenchange", handleFsChange);
+      document.removeEventListener("MSFullscreenChange", handleFsChange);
+      exitFullscreenSafely();
+    };
+  }, [requestFullscreenSafely, exitFullscreenSafely]);
+
+  const handleExit = useCallback(() => {
+    exitFullscreenSafely();
+    if (onExit) onExit();
+  }, [exitFullscreenSafely, onExit]);
+
   const { user } = useAuth();
   const userName = user?.name || user?.fullName || "Candidate";
   const userInitials = (user?.name || user?.fullName || "U")
@@ -117,11 +467,6 @@ export default function PracticeWorkspace({
     .join("")
     .toUpperCase();
   const userEmail = user?.email || "";
-
-  // Defensive: session rows may carry id, sessionId, or session_id depending
-  // on the list source. Resolve once so no call-site can hit ".../undefined".
-  const activeSessionId =
-    session?.id ?? session?.sessionId ?? session?.session_id;
 
   const totalQuestions = Number(
     session?.totalQuestions ?? session?.questions?.length ?? 0,
@@ -143,6 +488,24 @@ export default function PracticeWorkspace({
     loadQuestion(currentIdx);
   }, [currentIdx]);
 
+  // Debounced autosave of the current index so a reload resumes at the
+  // right question. Fires ~2s after the index settles.
+  useEffect(() => {
+    if (
+      activeSessionId === undefined ||
+      activeSessionId === null ||
+      activeSessionId === ""
+    ) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      practiceAPI
+        .patchSession(activeSessionId, { current_index: currentIdx })
+        .catch(() => {});
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [currentIdx, activeSessionId]);
+
   const loadQuestion = async (idx) => {
     const loadId = ++loadIdRef.current;
     try {
@@ -155,20 +518,20 @@ export default function PracticeWorkspace({
       }
       setAiTutorResponse(null);
 
-      // Restore previously saved answer state if question was visited
-      const prev = userSelections[idx];
-      if (prev) {
+      // Restore previously saved answer state if question was visited or answered
+      const prev = userSelectionsRef.current[idx];
+      if (prev && prev.isChecked) {
         setSelectedOption(prev.selectedOption ?? null);
-        setIsChecked(Boolean(prev.isChecked));
+        setIsChecked(true);
         setCheckResult(prev.checkResult ?? null);
       } else {
-        setSelectedOption(null);
+        setSelectedOption(prev?.selectedOption ?? null);
         setIsChecked(false);
         setCheckResult(null);
       }
 
       // Check if question is already available in cache for instant render
-      let q = questionCache[idx];
+      let q = questionCacheRef.current[idx] || questionCache[idx];
       if (q) {
         if (loadId !== loadIdRef.current) return;
         setQuestion(q);
@@ -177,8 +540,46 @@ export default function PracticeWorkspace({
         q = await practiceAPI.getQuestion(activeSessionId, idx);
         if (loadId !== loadIdRef.current) return;
         setQuestion(q);
-        setQuestionCache((prev) => ({ ...prev, [idx]: q }));
+        const nextCache = { ...questionCacheRef.current, [idx]: q };
+        questionCacheRef.current = nextCache;
+        setQuestionCache(nextCache);
         setLoading(false);
+      }
+
+      // If question carried userAnswer from backend (e.g. after refresh or resuming) and local state didn't have it:
+      if (!userSelectionsRef.current[idx] && q?.userAnswer) {
+        const ua = q.userAnswer;
+        const restored = {
+          selectedOption: ua.selectedOption ?? null,
+          isChecked:
+            !ua.isSkipped &&
+            ua.selectedOption !== null &&
+            ua.selectedOption !== undefined,
+          isSkipped: Boolean(ua.isSkipped),
+          isCorrect: Boolean(ua.isCorrect),
+          checkResult: {
+            isCorrect: Boolean(ua.isCorrect),
+            correctOption: ua.correctOption,
+            explanation: ua.explanation,
+            explanationHi: ua.explanationHi,
+          },
+        };
+        userSelectionsRef.current = {
+          ...userSelectionsRef.current,
+          [idx]: restored,
+        };
+        setUserSelections((prev) => ({ ...prev, [idx]: restored }));
+        if (restored.isChecked) {
+          setSelectedOption(restored.selectedOption);
+          setIsChecked(true);
+          setCheckResult(restored.checkResult);
+          const newAns = {
+            ...answerResultsRef.current,
+            [idx]: Boolean(ua.isCorrect),
+          };
+          answerResultsRef.current = newAns;
+          setAnswerResults(newAns);
+        }
       }
 
       // Fetch supplementary learning data asynchronously in the background
@@ -215,40 +616,76 @@ export default function PracticeWorkspace({
     }
   };
 
-  const handleCheckAnswer = async () => {
-    if (selectedOption === null || selectedOption === undefined) return;
-    if (isChecking || skipping || finishing) return;
+  const handleSelectOption = async (optionIdx) => {
+    if (isChecked || isChecking || finishing) return;
+    setSelectedOption(optionIdx);
+
     try {
       if (
         activeSessionId === undefined ||
         activeSessionId === null ||
         activeSessionId === ""
-      )
+      ) {
         throw new Error("Practice session ID is missing");
+      }
       setIsChecking(true);
-      const res = await practiceAPI.checkAnswer(activeSessionId, currentIdx, {
-        selectedOption: selectedOption,
-      });
+      const timeSpent =
+        questionTimesRef.current[currentIdx] || questionTimes[currentIdx] || 0;
+      const payload = {
+        selectedOption: optionIdx,
+        ...(timeSpent > 0 ? { time_taken_sec: timeSpent } : {}),
+      };
+      const res = await practiceAPI.checkAnswer(
+        activeSessionId,
+        currentIdx,
+        payload,
+      );
       setCheckResult(res);
-      setAnswerResults((prev) => ({
-        ...prev,
+      const newAnswerResults = {
+        ...answerResultsRef.current,
         [currentIdx]: Boolean(res?.isCorrect),
-      }));
-      setUserSelections((prev) => ({
-        ...prev,
-        [currentIdx]: {
-          selectedOption,
-          isChecked: true,
-          checkResult: res,
-          isCorrect: Boolean(res?.isCorrect),
-        },
-      }));
+      };
+      answerResultsRef.current = newAnswerResults;
+      setAnswerResults(newAnswerResults);
+
+      const newSelection = {
+        selectedOption: optionIdx,
+        isChecked: true,
+        checkResult: res,
+        isCorrect: Boolean(res?.isCorrect),
+        isSkipped: false,
+      };
+      const newUserSelections = {
+        ...userSelectionsRef.current,
+        [currentIdx]: newSelection,
+      };
+      userSelectionsRef.current = newUserSelections;
+      setUserSelections(newUserSelections);
       setIsChecked(true);
+
+      // Persist to localStorage for uninterrupted resumption
+      try {
+        if (activeSessionId) {
+          localStorage.setItem(
+            `practice_session_answers_${activeSessionId}`,
+            JSON.stringify(newAnswerResults),
+          );
+          localStorage.setItem(
+            `practice_session_selections_${activeSessionId}`,
+            JSON.stringify(newUserSelections),
+          );
+        }
+      } catch {}
     } catch {
       toast.error("Failed to check answer");
     } finally {
       setIsChecking(false);
     }
+  };
+
+  const handleCheckAnswer = async () => {
+    if (selectedOption === null || selectedOption === undefined) return;
+    await handleSelectOption(selectedOption);
   };
 
   const handleAskAiTutor = async (promptType) => {
@@ -333,6 +770,18 @@ export default function PracticeWorkspace({
           ? (result.mastery.mastery ?? null)
           : null;
 
+      exitFullscreenSafely();
+      try {
+        if (activeSessionId) {
+          localStorage.removeItem(
+            `practice_session_answers_${activeSessionId}`,
+          );
+          localStorage.removeItem(
+            `practice_session_selections_${activeSessionId}`,
+          );
+          localStorage.removeItem(`practice_session_times_${activeSessionId}`);
+        }
+      } catch {}
       onComplete?.({
         ...result,
         questionsAttempted: completedTotal,
@@ -448,28 +897,28 @@ export default function PracticeWorkspace({
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 pb-12">
       {/* ── 1. TOP STICKY APP BAR (Matches Test Interface on Mobile & Desktop) ── */}
-      <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 px-3 sm:px-6 py-2.5 shadow-xs mb-4 sm:mb-6">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+      <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 px-2.5 sm:px-6 py-2 sm:py-2.5 shadow-xs mb-4 sm:mb-6">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-3">
           {/* Top Left: Back to Section Button */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {onExit && (
               <button
                 type="button"
-                onClick={onExit}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 border border-slate-200 dark:border-slate-600 px-2.5 sm:px-3 py-1.5 rounded-xl transition active:scale-95 shadow-2xs cursor-pointer"
+                onClick={handleExit}
+                className="inline-flex items-center gap-1 sm:gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 border border-slate-200 dark:border-slate-600 px-2 sm:px-3 py-1.5 rounded-xl transition active:scale-95 shadow-2xs cursor-pointer shrink-0"
                 title="Back to Section"
                 aria-label="Back to Section"
               >
                 <ArrowLeft className="w-4 h-4 shrink-0" />
-                <span className="hidden xs:inline">Back to Section</span>
-                <span className="xs:hidden">Back</span>
+                <span>Back</span>
+                <span className="hidden sm:inline">&nbsp;to Section</span>
               </button>
             )}
           </div>
 
           {/* Top Center: Question Counter & Accuracy */}
-          <div className="flex items-center gap-1.5 sm:gap-2 text-xs font-bold">
-            <span className="text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-700/60 px-2.5 py-1 rounded-lg border border-slate-200/60 dark:border-slate-700">
+          <div className="flex items-center gap-1 sm:gap-2 text-xs font-bold shrink-0">
+            <span className="text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-700/60 px-2 sm:px-2.5 py-1 rounded-lg border border-slate-200/60 dark:border-slate-700 whitespace-nowrap">
               Q{currentIdx + 1} / {totalQuestions}
             </span>
             <span className="hidden sm:inline-flex text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-300 px-2 py-1 rounded-lg">
@@ -477,36 +926,49 @@ export default function PracticeWorkspace({
             </span>
           </div>
 
-          {/* Top Right: Language Switch Option (Click to Change) & Question Palette (Mobile) */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Language Switch: 1-Click Toggle EN ↔ HI */}
+          {/* Top Right: Fullscreen, Language Switch Option (Click to Change) & Question Palette (Mobile) */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* Fullscreen Button */}
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+              aria-label={
+                isFullscreen ? "Exit Fullscreen mode" : "Enter Fullscreen mode"
+              }
+              className="inline-flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs shrink-0"
+            >
+              {isFullscreen ? (
+                <Minimize className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300 shrink-0" />
+              ) : (
+                <Maximize className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300 shrink-0" />
+              )}
+            </button>
+
+            {/* Language Switch: 1-Click Toggle EN ↔ HI (Shows language name only, no EN/HI badge) */}
             <button
               type="button"
               onClick={() => {
                 const nextLang = preferredLang === "hi" ? "en" : "hi";
                 handleSetLang(nextLang);
               }}
-              title={`Switch language (Current: ${preferredLang.toUpperCase()})`}
-              aria-label={`Current language: ${preferredLang.toUpperCase()}. Click to switch.`}
-              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs"
+              title={`Switch language (Current: ${preferredLang === "hi" ? "हिन्दी" : "English"})`}
+              aria-label={`Switch language. Current: ${preferredLang === "hi" ? "हिन्दी" : "English"}`}
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs shrink-0"
             >
               <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
               <span>{preferredLang === "hi" ? "हिन्दी" : "English"}</span>
-              <span className="text-[10px] bg-indigo-200/80 dark:bg-indigo-800/80 text-indigo-900 dark:text-indigo-100 px-1 py-0.5 rounded font-black uppercase">
-                {preferredLang}
-              </span>
             </button>
 
-            {/* Mobile Question Palette Toggle: Top Right Side (Same as Test Interface) */}
+            {/* Mobile Question Palette Toggle: Icon only on mobile (Never show Palette word) */}
             <button
               type="button"
               onClick={() => setShowMobilePalette(!showMobilePalette)}
               title="Question Palette"
               aria-label="Toggle Question Palette"
-              className="lg:hidden inline-flex items-center gap-1.5 h-8 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs"
+              className="lg:hidden inline-flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs shrink-0"
             >
               <Menu className="w-4 h-4 text-slate-700 dark:text-slate-300 shrink-0" />
-              <span className="hidden xs:inline">Palette</span>
             </button>
           </div>
         </div>
@@ -521,43 +983,31 @@ export default function PracticeWorkspace({
               className={`bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 sm:p-6 shadow-xs mb-6 transition-opacity duration-150 ${loading ? "opacity-60 pointer-events-none" : "opacity-100"}`}
             >
               <div className="flex items-center justify-between gap-2 mb-4">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Question {currentIdx + 1}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Question {currentIdx + 1}
+                  </span>
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 text-[11px] font-medium"
+                    title="Estimated reading time"
+                  >
+                    <BookOpen className="w-3 h-3 text-slate-400 dark:text-slate-400" />
+                    <span>
+                      ~{formatReadingTime(getEstimatedReadingSeconds(question))}
+                    </span>
+                  </span>
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/40 text-[11px] font-medium"
+                    title="Time spent on this question"
+                  >
+                    <Clock className="w-3 h-3 text-indigo-500" />
+                    <span>{formatTime(questionTimes[currentIdx] || 0)}</span>
+                  </span>
+                </div>
                 <div className="flex items-center gap-2">
-                  {(hasHindi || preferredLang === "hi") && (
-                    <div
-                      className="flex items-center bg-slate-100 dark:bg-slate-700/60 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700"
-                      role="group"
-                      aria-label="Question language"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleSetLang("en")}
-                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
-                          preferredLang !== "hi"
-                            ? "bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 shadow-xs"
-                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                        }`}
-                      >
-                        <Languages className="w-3 h-3" /> EN
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSetLang("hi")}
-                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
-                          preferredLang === "hi"
-                            ? "bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 shadow-xs"
-                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                        }`}
-                      >
-                        हिं
-                      </button>
-                    </div>
-                  )}
                   <button
                     onClick={() => setVaultOpen(true)}
-                    className="inline-flex items-center text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 px-3 py-1.5 rounded-lg border border-slate-200 transition"
+                    className="inline-flex items-center text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 px-3 py-1.5 rounded-lg border border-slate-200 transition cursor-pointer"
                   >
                     <Bookmark className="w-3.5 h-3.5 mr-1 text-amber-500" />{" "}
                     Save to Knowledge Vault
@@ -565,12 +1015,15 @@ export default function PracticeWorkspace({
                 </div>
               </div>
 
-              {/* Question Text (language-aware) */}
+              {/* Question Text (language-aware) with Q{currentIdx + 1}/{totalQuestions} before question */}
               <div
                 className={`text-base font-medium text-slate-900 dark:text-slate-100 leading-relaxed ${
                   pyqLabel ? "mb-2.5" : "mb-6"
                 }`}
               >
+                <span className="font-bold text-indigo-600 dark:text-indigo-400 mr-2 select-none">
+                  Q{currentIdx + 1}/{totalQuestions}.
+                </span>
                 <MathRenderer
                   content={
                     isHi && questionTextHi ? questionTextHi : questionTextEn
@@ -591,13 +1044,13 @@ export default function PracticeWorkspace({
                 </div>
               )}
 
-              {/* Options */}
+              {/* Options — Instant Check on Click */}
               <div className="space-y-3 mb-6">
                 {(question.options || []).map((opt, i) => {
                   const optKey = String.fromCharCode(65 + i);
                   const isSelected = selectedOption === i;
                   let style =
-                    "border-slate-200 hover:border-slate-300 bg-white text-slate-800";
+                    "border-slate-200 hover:border-slate-300 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 cursor-pointer";
                   if (isChecked) {
                     const value =
                       checkResult?.correctOption ?? checkResult?.correctAnswer;
@@ -612,23 +1065,24 @@ export default function PracticeWorkspace({
 
                     if (isOptionCorrect) {
                       style =
-                        "border-emerald-500 bg-emerald-50 text-emerald-900 font-medium";
+                        "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 font-medium";
                     } else if (isSelected && !checkResult?.isCorrect) {
-                      style = "border-rose-500 bg-rose-50 text-rose-900";
+                      style =
+                        "border-rose-500 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 font-medium";
                     } else {
                       style =
-                        "border-slate-100 bg-slate-50 text-slate-400 opacity-60";
+                        "border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 opacity-60";
                     }
                   } else if (isSelected) {
                     style =
-                      "border-indigo-600 bg-indigo-50/50 text-indigo-900 font-medium shadow-xs";
+                      "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 font-medium shadow-xs";
                   }
 
                   return (
                     <button
                       key={i}
-                      disabled={isChecked}
-                      onClick={() => setSelectedOption(i)}
+                      disabled={isChecked || isChecking}
+                      onClick={() => handleSelectOption(i)}
                       className={`w-full text-left p-4 rounded-xl border transition-all flex items-start ${style}`}
                     >
                       <span className="w-6 h-6 rounded-full border border-current flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 mt-0.5">
@@ -653,69 +1107,20 @@ export default function PracticeWorkspace({
                 })}
               </div>
 
-              {/* Check Answer Button / Navigation */}
-              {!isChecked ? (
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handlePreviousQuestion}
-                      disabled={currentIdx === 0 || loading || finishing}
-                      className="px-3.5 sm:px-4 py-2.5 rounded-xl font-bold text-xs border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition inline-flex items-center gap-1 cursor-pointer"
-                    >
-                      <ArrowLeft className="w-3.5 h-3.5" /> Prev
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSkipQuestion}
-                      disabled={skipping || finishing}
-                      className="px-3.5 sm:px-4 py-2.5 rounded-xl font-bold text-xs border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
-                    >
-                      {skipping ? "Skipping…" : "Skip"}
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleCheckAnswer}
-                      disabled={
-                        selectedOption === null ||
-                        selectedOption === undefined ||
-                        skipping ||
-                        finishing ||
-                        isChecking
-                      }
-                      className={`px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm transition ${
-                        selectedOption !== null && selectedOption !== undefined
-                          ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm cursor-pointer"
-                          : "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
-                      }`}
-                    >
-                      Check Answer
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleNextQuestion}
-                      disabled={loading || finishing}
-                      className="px-3.5 sm:px-4 py-2.5 rounded-xl font-bold text-xs border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition inline-flex items-center gap-1 cursor-pointer"
-                    >
-                      Next <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ) : (
+              {/* Feedback Banner when checked */}
+              {isChecked && (
                 <div
-                  className={`p-4 rounded-xl border flex items-center justify-between mb-2 ${
+                  className={`p-4 rounded-xl border flex items-center justify-between mb-4 shadow-2xs ${
                     checkResult?.isCorrect
-                      ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                      : "bg-rose-50 border-rose-200 text-rose-900"
+                      ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200"
+                      : "bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200"
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     {checkResult?.isCorrect ? (
-                      <CheckCircle className="w-5 h-5 text-emerald-600" />
+                      <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                     ) : (
-                      <XCircle className="w-5 h-5 text-rose-600" />
+                      <XCircle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
                     )}
                     <span className="font-bold text-sm">
                       {checkResult?.isCorrect
@@ -727,7 +1132,7 @@ export default function PracticeWorkspace({
                           : "Incorrect"}
                     </span>
                   </div>
-                  <span className="text-xs font-medium">
+                  <span className="text-xs font-semibold">
                     {isHi ? "सही विकल्प:" : "Correct Choice:"} Option{" "}
                     {(() => {
                       const value =
@@ -741,6 +1146,33 @@ export default function PracticeWorkspace({
                   </span>
                 </div>
               )}
+
+              {/* Navigation Bar (Prev and Next only, responsive) */}
+              <div className="flex items-center justify-between gap-2.5 sm:gap-3 w-full mt-4">
+                <button
+                  type="button"
+                  onClick={handlePreviousQuestion}
+                  disabled={currentIdx === 0 || loading || finishing}
+                  className="px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
+                >
+                  <ArrowLeft className="w-4 h-4 shrink-0" />
+                  <span>Prev</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleNextQuestion}
+                  disabled={loading || finishing}
+                  className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50 shrink-0"
+                >
+                  <span>
+                    {currentIdx + 1 >= totalQuestions
+                      ? "Finish Practice"
+                      : "Next"}
+                  </span>
+                  <ArrowRight className="w-4 h-4 shrink-0" />
+                </button>
+              </div>
             </div>
 
             {/* ── 3. POST-CHECK LEARNING SYSTEM ────────────────────────────────── */}
@@ -1092,7 +1524,7 @@ export default function PracticeWorkspace({
           )}
 
           <aside
-            className={`fixed lg:sticky top-0 lg:top-6 inset-y-0 right-0 z-[60] lg:z-auto h-full lg:h-auto ${
+            className={`fixed lg:sticky top-0 lg:top-20 inset-y-0 right-0 z-[60] lg:z-30 h-full max-h-[100dvh] lg:max-h-[calc(100vh-6rem)] ${
               showMobilePalette
                 ? "translate-x-0"
                 : "translate-x-full lg:translate-x-0"
@@ -1100,7 +1532,7 @@ export default function PracticeWorkspace({
               showMobilePalette ? "block" : "hidden lg:block"
             } w-80 sm:w-88 lg:w-full lg:col-span-4 xl:col-span-4 flex-shrink-0 transition-transform duration-300 ease-in-out`}
           >
-            <div className="h-full lg:h-auto bg-sky-50/70 dark:bg-slate-800/90 backdrop-blur-md rounded-none lg:rounded-2xl border-l lg:border border-slate-200 dark:border-slate-700 shadow-2xl lg:shadow-xs overflow-hidden flex flex-col relative">
+            <div className="h-full bg-sky-50/70 dark:bg-slate-800/90 backdrop-blur-md rounded-none lg:rounded-2xl border-l lg:border border-slate-200 dark:border-slate-700 shadow-2xl lg:shadow-xs overflow-hidden flex flex-col justify-between relative">
               {/* Mobile Close Button */}
               <button
                 type="button"
@@ -1198,7 +1630,7 @@ export default function PracticeWorkspace({
               </div>
 
               {/* 3. Section / Topic Sticky Header */}
-              <div className="px-3.5 py-2 text-xs font-bold border-b border-sky-200/80 dark:border-slate-700 flex justify-between items-center bg-sky-100/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300">
+              <div className="px-3.5 py-2 text-xs font-bold border-b border-sky-200/80 dark:border-slate-700 flex justify-between items-center bg-sky-100/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 shrink-0">
                 <div className="flex items-center gap-1.5 min-w-0 pr-1">
                   <span className="uppercase text-[10px] tracking-wider opacity-90 bg-sky-200/90 dark:bg-sky-900/60 text-sky-900 dark:text-sky-200 px-1.5 py-0.5 rounded font-bold shrink-0">
                     Topic
@@ -1213,7 +1645,7 @@ export default function PracticeWorkspace({
               </div>
 
               {/* 4. Circular Question Bubbles Grid (TCS / NTA Test Style) */}
-              <div className="p-3.5 flex-1 overflow-y-auto max-h-[320px] no-scrollbar">
+              <div className="p-3.5 flex-1 min-h-0 overflow-y-auto max-h-[45vh] lg:max-h-[340px] no-scrollbar">
                 <div className="grid grid-cols-5 gap-2.5">
                   {Array.from({ length: totalQuestions }, (_, i) => {
                     const isCurrent = i === currentIdx;
@@ -1256,8 +1688,8 @@ export default function PracticeWorkspace({
                 </div>
               </div>
 
-              {/* 5. Navigation & Submit Action Footer Bar */}
-              <div className="p-3.5 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0 space-y-2.5">
+              {/* 5. Navigation & Submit Action Footer Bar (Pinned at Bottom on Mobile & Desktop) */}
+              <div className="mt-auto shrink-0 p-3.5 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 space-y-2.5 sticky bottom-0 pb-safe z-10 shadow-xs">
                 {/* Previous & Next Buttons */}
                 <div className="grid grid-cols-2 gap-2">
                   <button

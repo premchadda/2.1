@@ -16,7 +16,7 @@ import {
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
-import { apiClient } from "../../../shared/api/adminApi.js";
+import { apiClient } from "../../../shared/lib/dataService.js";
 import { toast } from "react-hot-toast";
 import { logger } from "../../../shared/lib/logger.js";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";

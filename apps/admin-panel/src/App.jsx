@@ -260,7 +260,7 @@ function App() {
               path="live-monitor"
               element={
                 <ProtectedRoute
-                  requireAnyPermission={["tests:view", "tests:read", "tests:*"]}
+                  requireAnyPermission={["tests:admin", "tests:*"]}
                 >
                   <LiveTestMonitor />
                 </ProtectedRoute>
@@ -270,7 +270,7 @@ function App() {
               path="live-proctoring"
               element={
                 <ProtectedRoute
-                  requireAnyPermission={["tests:view", "tests:read", "tests:*"]}
+                  requireAnyPermission={["tests:admin", "tests:*"]}
                 >
                   <LiveProctoringConsole />
                 </ProtectedRoute>
@@ -280,7 +280,7 @@ function App() {
               path="live-proctoring/:liveTestId"
               element={
                 <ProtectedRoute
-                  requireAnyPermission={["tests:view", "tests:read", "tests:*"]}
+                  requireAnyPermission={["tests:admin", "tests:*"]}
                 >
                   <LiveProctoringConsole />
                 </ProtectedRoute>

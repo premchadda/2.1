@@ -18,7 +18,10 @@ router.get(
   aiRateLimiter,
   async (req, res, next) => {
     try {
-      const limit = parseInt(req.query.limit || "5", 10);
+      const limit = Math.min(
+        100,
+        Math.max(1, parseInt(req.query.limit, 10) || 5),
+      );
       const recommendations = await nodeEngineService.getRecommendations(
         req.user.id,
         limit,
