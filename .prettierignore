@@ -1,0 +1,4 @@
+# Large generated data dumps
+scripts/question-classification-audit-*.json
+scripts/taxonomy-cache.json
+scripts/recon-ga-samples.json

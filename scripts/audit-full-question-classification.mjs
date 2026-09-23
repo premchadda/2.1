@@ -38,6 +38,8 @@ const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
   max: 4,
+  statement_timeout: 120000,
+  query_timeout: 120000,
 });
 
 const args = process.argv.slice(2);
@@ -83,6 +85,30 @@ export const SELF_TEST_CASES = [
   { text: "Who wrote the book 'Discovery of India'? Jawaharlal Nehru", subject: 11 },
   { text: "Which classical dance form originated in Kerala? Kathakali", subject: 11 },
   { text: "Which of the following is NOT a greenhouse gas? Nitrogen", subject: 10 },
+  // --- edge cases: full-question (not one-word) + reasoning that looks like GK/Math ---
+  { text: "What is the atomic number of nitrogen?", subject: 9 },                 // Chemistry, not Physics via Hindi परमाणु
+  { text: "Ozone is a molecule made up of ______ oxygen atoms.", subject: 9 },    // Chemistry
+  { text: "As we move to higher energy levels in the Bohr model of a hydrogen atom, the energy...", subject: 9 }, // Chemistry atomic structure
+  { text: "Which of the following sites do NOT have nuclear power plant?", subject: 11 }, // Static GK/Geo fact list, not modern physics formula
+  { text: "Select the correctly spelt word: The transistors are used as the main amplifier.", subject: 3 }, // English spelling despite "transistor"
+  { text: "Find the odd one out: Iron, Copper, Brass, Aluminium", subject: 1 },   // Reasoning format over chemistry "metal" words
+  { text: "In a certain code, HISTORY is written as ... How is MATHS coded?", subject: 1 }, // Coding despite "maths"
+  { text: "Pointing to a photograph, Ram said, 'He is the son of my mother's only son.' How is the man related to Ram?", subject: 1 }, // Blood relations
+  { text: "If the cost price is Rs 240 and selling price is Rs 300, find the profit percentage.", subject: 2 }, // Quant word problem
+  { text: "Statements: All birds can fly. Conclusions: I. Some flying things are birds. II. No bird can fly. Which conclusions follow?", subject: 1 }, // Syllogism not GK
+  { text: "Who wrote the book 'Wings of Fire'?", subject: 11 },                    // Static GK books
+  { text: "The Great Himalaya range is mainly composed of which rocks?", subject: 6 }, // Geography not reasoning
+  { text: "Which vitamin deficiency causes scurvy?", subject: 10 },                // Biology
+  { text: "Article 32 of the Indian Constitution deals with which remedy?", subject: 5 }, // Polity
+  { text: "A train 180 m long runs at 54 km/h. How long does it take to cross a platform 270 m long?", subject: 2 }, // Quant time-distance
+  { text: "There are 5 students seated in a row, P is left of Q, R is right of S... who is in the middle?", subject: 1 }, // Seating despite names
+  // --- residual FP guards (2026-09-22 pass 2) ---
+  { text: "In a food chain, secondary producers are ______. एक खाद्य श्रृंखला में, द्वितीयक उत्पादक ______ होते हैं।", subject: 10 }, // Biology, not series via श्रृंखला
+  { text: "The average of eight consecutive odd numbers is 48. Find the sum of the fifth and seventh odd numbers.", subject: 2 }, // Quant, not odd-one-out via 'odd number'
+  { text: "If the total number of pages printed by all the given printers together on Wednesday was 1000, how many did A print?", subject: null }, // Undetermined DI better than Computer FP
+  { text: "Select the most appropriate option to substitute the underlined segment: He switch off the light every night.", subject: 3 }, // English error, not networking via 'switch'
+  { text: "According to Census of India 2011, which state has the maximum female work force in rural India?", subject: 6 }, // Census geography (review: Static vs Geo boundary)
+  { text: "What is the nut of an oak tree called? बलूत के पेड़ के नट को क्या कहते हैं?", subject: null }, // Undetermined better than Physics via बलूत
 ];
 
 function runSelfTest() {
@@ -170,7 +196,7 @@ async function main() {
   };
 
   const BATCH = 500;
-  let offset = 0;
+  let lastId = 0;
   while (true) {
     const batch = await pool.query(
       `SELECT id, test_id, question_number, section, subject_id, chapter_id, topic_id, subtopic_id,
@@ -178,18 +204,20 @@ async function main() {
               question_text, question_text_hi, options, options_hi,
               explanation, explanation_hi, correct_option
        FROM questions
+       WHERE id > $1
        ORDER BY id
-       LIMIT $1 OFFSET $2;`,
-      [BATCH, offset]
+       LIMIT $2;`,
+      [lastId, BATCH]
     );
     if (!batch.rows.length) break;
-    offset += batch.rows.length;
+    lastId = batch.rows[batch.rows.length - 1].id;
 
     for (const q of batch.rows) {
       processOne(q, tax, ruleTargets, findings, stats);
       if (LIMIT && stats.scanned >= LIMIT) break;
     }
     if (LIMIT && stats.scanned >= LIMIT) break;
+    if (stats.scanned % 5000 === 0) console.log(`  ... ${stats.scanned} scanned`);
   }
 
   return { findings, stats, ruleTargets, tax };

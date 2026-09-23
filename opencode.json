@@ -9,5 +9,12 @@
       "options": {}
     }
   },
-  "autoupdate": false
+  "autoupdate": false,
+  "mcp": {
+    "agent-browser": {
+      "type": "local",
+      "command": ["npx", "-y", "agent-browser", "mcp", "--tools", "core"],
+      "enabled": true
+    }
+  }
 }

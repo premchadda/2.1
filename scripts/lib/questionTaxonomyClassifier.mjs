@@ -92,68 +92,72 @@ export function rule(subject, weight, id, groups, not) {
 // This is what stops "odd one out: chicken pox, rubella" being filed as Biology.
 // ---------------------------------------------------------------------------
 export const REASONING_RULES = [
-  rule(1, 6, "analogy", [
-    [/select the (?:option|set|number|word|pair|letter)[^.]{0,60}(?:related|same way|alike|similar)/i, /is related to the (?:third|second|fifth)[^.]{0,40}same way/i, /complete the analogy/i, /उसी प्रकार संबंधित/i],
-    [/\brelated to\b/i, /\bsame way\b/i, /\balike\b/i, /\banalogy/i, /\bसमान संबंध/i],
+  rule(1, 9, "analogy", [
+    [/select the (?:option|set|number|word|pair|letter)[^.]{0,80}(?:related|relationship|same way|alike|similar)/i, /is related to the (?:third|second|fifth)[^.]{0,40}same way/i, /complete the analogy/i, /उसी प्रकार संबंधित/i, /share the same relationship/i, /same relationship as that/i],
+    [/\brelated to\b/i, /\brelationship\b/i, /\bsame way\b/i, /\balike\b/i, /\banalogy/i, /\bसमान संबंध/i],
   ]),
-  rule(1, 7, "classification_odd_one_out", [
-    [/odd one out/i, /odd word/i, /odd number/i, /odd letter/i, /विषम/, /three of the following four are alike/i, /which (?:word|number|figure|option) is (?:different|not like)/i, /find the (?:odd|different|unlike)/i, /select the odd/i, /choose the (?:unlike|different|odd)/i, /असंगत/, /भिन्न/],
+  rule(1, 9, "classification_odd_one_out", [
+    [/odd one out/i, /find the (?:odd|different|unlike)/i, /select the odd/i, /choose the (?:unlike|different|odd)/i, /three of the following four are alike/i, /which (?:word|number|figure|option) is (?:different|not like)/i, /विषम (?:संख्या|शब्द|अक्षर|आकृति)/i, /असंगत/, /(?:four|three) (?:words|numbers|letter-clusters?|pairs) have been given/i, /तीन किसी न किसी प्रकार समान हैं/i, /एक असंगत है/i],
   ]),
-  rule(1, 6, "series_missing_term", [
-    [/replace the question mark/i, /complete the series/i, /complete the pattern/i, /missing (?:number|term|letter|character|figure)/i, /next (?:term|number|letter|figure) in the (?:series|sequence)/i, /प्रश्न चिह्न/, /श्रृंखला/, /in the series/i, /find the missing \(?/i, /sequence of letters/i],
-    [/\?/, /question mark/i, /series/i, /sequence/i, /श्रृंखला/],
+  rule(1, 9, "series_missing_term", [
+    [/replace the question mark/i, /complete the series/i, /complete the pattern/i, /missing (?:number|term|letter|character|figure)/i, /next (?:term|number|letter|figure) in the (?:series|sequence)/i, /प्रश्न चिह्न/, /in the series/i, /find the missing \(?/i, /sequence of letters/i, /complete the given (?:letter )?series/i, /placed from left to right in the blanks/i, /दिए गए अक्षर श्रृंखला/i],
+    [/\?/, /question mark/i, /series/i, /sequence/i, /श्रृंखला/, /letter series/i, /blanks/i],
   ]),
-  rule(1, 8, "coding_decoding", [
+  rule(1, 9, "coding_decoding", [
     [/in a certain code/i, /in a code language/i, /coded as/i, /is written as/i, /code for/i, /कूट भाषा/, /कूटबद्ध/],
     [/code|coded|written as|कूट/i],
   ]),
-  rule(1, 8, "blood_relations", [
+  rule(1, 9, "blood_relations", [
     [/pointing to/i, /pointing towards/i, /mother'?s only (?:son|daughter)/i, /father'?s only (?:son|daughter)/i, /brother of (?:my|her|his) (?:father|mother)/i, /sister of (?:my|her|his) (?:father|mother)/i, /how is [^.]{0,40}related to/i, /रक्त संबंध/, /इशारा/, /family (?:tree|relationship)/i, /is the (?:son|daughter|brother|sister|father|mother|husband|wife) of/i, /in terms of relationship/i],
     [/\b(?:father|mother|sister|brother|son|daughter|uncle|aunt|nephew|niece|wife|husband|cousin|grandfather|grandmother|paternal|maternal|relationship)\b/i],
   ]),
-  rule(1, 8, "direction_sense", [
+  rule(1, 9, "direction_sense", [
     [/walk(?:s|ed|ing)? \d+\s?(?:km|kms|m|metre|meter|feet|steps)/i, /move(?:s|d)? \d+\s?(?:km|kms|m|metre|meter)/i, /turns? (?:to the )?(?:left|right)/i, /took a (?:left|right) turn/i, /बाएं मुड़/, /दाएं मुड़/],
     [/\b(?:north|south|east|west|left|right|उत्तर|दक्षिण|पूर्व|पश्चिम)\b/i],
   ]),
-  rule(1, 8, "seating_arrangement", [
+  rule(1, 9, "seating_arrangement", [
     [/sitting/i, /seated/i, /sit in a/i, /बैठे/, /around a (?:circular|round) table/i],
     [/\b(?:row|circle|circular|straight line|facing|extreme|immediate left|immediate right|opposite|centre|center|मेज)\b/i],
   ]),
-  rule(1, 7, "puzzle_floor", [
+  rule(1, 8, "puzzle_floor", [
     [/different floors?/i, /floor (?:number|above|below|just)/i, /lives? on (?:an )?(?:odd|even)[- ]numbered floor/i, /working together, all having different/i],
     [/\b(?:floors?|lives?|living|stays?|above|below)\b/i],
   ]),
-  rule(1, 7, "syllogism", [
+  rule(1, 10, "syllogism", [
     [/statements?\s*:/i, /कथन\s*:/, /logically follow/i, /तार्किक रूप से अनुसरण/],
     [/conclusions?\s*:/i, /निष्कर्ष\s*:/, /logically follow/i, /follows?\b/i],
   ]),
-  rule(1, 5, "venn_diagram", [[/venn diagram/i, /वेन आरेख/]]),
-  rule(1, 6, "cube_dice", [
-    [/\bdice\b/i, /\bcube\b/i, /घन/, /पासा/],
-    [/opposite (?:face|to the face)/i, /painted/i, /\bfaces?\b/i, /\bdice|cube|घन|पासा\b/i],
+  rule(1, 10, "venn_diagram", [
+    [/venn diagram/i, /वेन आरेख/i, /best represents the relationship between/i, /संबंध को (?:सर्वोत्तम|सही) (?:रूप से )?(?:दर्शाता|निरूपित)/i, /relationship between the following classes/i, /classes given below/i],
   ]),
-  rule(1, 7, "mirror_water_paper", [
+  rule(1, 9, "cube_dice", [
+    [/\bdice\b/i, /पासा/, /painted (?:cube|faces?)|cube (?:is )?(?:painted|cut into)/i, /अभिलेख/, /on the (?:faces?|surface) of (?:the )?cube/i],
+    [/opposite (?:face|to the face)/i, /painted/i, /dice|घन|पासा/i, /faces? (?:of|on)/i],
+  ], [/surface area|volume of|cuboid|find the (?:area|volume|cost)/i]),
+  rule(1, 9, "mirror_water_paper", [
     [/mirror image/i, /water image/i, /दर्पण छवि/, /जल प्रतिबिंब/, /paper (?:is )?folded/i, /कागज को मोड़ा/, /embedded in the given figure/i, /figure completion/i, /count(?:ing)? (?:the )?(?:number of )?(?:triangles|squares|figures|rectangles)/i, /folded and (?:cut|punched)/i, /दी गई आकृति में अंतर्निहित/],
   ]),
-  rule(1, 8, "mathematical_operations", [
-    [/means\s*['"‘’`]?\s*(?:x|\+|-|×|÷|minus|plus|multiplied|divided)/i, /get replaced by/i, /replaced by\s*(?:\+|-|×|÷)/i, /प्रतिस्थापित/],
-    [/means?\b/i, /replaced\b/i, /प्रतिस्थापित/],
+  rule(1, 9, "mathematical_operations", [
+    [/means?\s*['"‘’`]?\s*(?:x|\+|-|×|÷|minus|plus|addition|subtraction|multiplication|division|multiplied|divided|add|subtract|multiply|divide)/i, /get replaced by/i, /replaced by\s*(?:\+|-|×|÷)/i, /प्रतिस्थापित/, /[#@$%&*]\s*=\s*(?:x|\+|-|×|÷)/i, /if\s*['"‘’`]?\s*[#@$%&*]\s*(?:means|=)/i],
+    [/means?\b/i, /replaced\b/i, /प्रतिस्थापित/, /evaluate\s*:/i, /[#@$%&*]/],
   ]),
-  rule(1, 6, "ranking_order", [
+  rule(1, 8, "ranking_order", [
     [/rank(?:s|ing|ed)?/i, /position from the (?:top|bottom|left|right)/i, /क्रम/],
     [/\b(?:rank|position|top|bottom|above|below|row)\b/i],
   ]),
-  rule(1, 6, "data_sufficiency", [[/data sufficiency/i, /statements? (?:i|ii|iii|1|2)\b[^.]{0,30}(?:alone|together)/i]]),
-  rule(1, 6, "statement_assumption_conclusion", [
+  rule(1, 7, "data_sufficiency", [[/data sufficiency/i, /statements? (?:i|ii|iii|1|2)\b[^.]{0,30}(?:alone|together)/i]]),
+  rule(1, 7, "statement_assumption_conclusion", [
     [/statement[^.]{0,40}(?:assumption|argument|conclusion|course of action)/i, /\bassumption\b/i, /\bconclusion\b/i, /cause and effect/i, /decision making/i, /statement based/i],
     [/\bstatement\b/i, /\bargument\b/i, /\bconclusion\b/i, /\bcause\b/i, /\bdecision\b/i],
   ]),
-  rule(1, 5, "non_verbal_figure", [
-    [/select the figure/i, /figure (?:series|analogy|classification|matrix)/i, /which figure/i, /आकृति/, /transparent sheet/i],
+  rule(1, 7, "non_verbal_figure", [
+    [/select the figure/i, /figure (?:series|analogy|classification|matrix)/i, /which figure/i, /transparent sheet/i, /paper (?:is )?(?:folded|punched)/i],
+  ], [/glacial|valley|landform|geomorph/i]),
+  rule(1, 9, "alphabet_test", [
+    [/alphabet(?:ical)? (?:series|order|test|position)/i, /arrange the (?:given )?words? in (?:a )?(?:meaningful|alphabetical|dictionary) order/i, /english alphabetical (?:series|order)/i, /वर्णमाला क्रम/i, /शब्दकोश के अनुसार/i, /meaningful order/i, /letter-cluster/i, /अक्षर-समूह/i, /new letter-cluster/i],
   ]),
-  rule(1, 5, "alphabet_test", [[/alphabet(?:ical)? (?:series|order|test|position)/i, /arrange the (?:given )?words? in (?:a )?(?:meaningful|alphabetical|dictionary) order/i]]),
-  rule(1, 4, "input_output", [[/input output/i, /step \d+ (?:is|arrangement)/i]]),
-  rule(1, 4, "counting_figures", [[/how many (?:triangles|squares|rectangles|straight lines|circles)/i]]),
+  rule(1, 6, "input_output", [[/input output/i, /step \d+ (?:is|arrangement)/i]]),
+  rule(1, 8, "counting_figures", [[/how many (?:triangles|squares|rectangles|straight lines|circles)/i]]),
 ];
 
 // ---------------------------------------------------------------------------
@@ -176,8 +180,8 @@ export const ENGLISH_RULES = [
     [/means/i, /meaning/i, /choose/i, /select/i, /expression/i],
   ]),
   rule(3, 7, "active_passive", [
-    [/passive voice/i, /active voice/i, /passive form/i, /कर्मवाच्य/, /भाववाच्य/],
-    [/sentence/i, /change/i, /convert/i, /voice/i],
+    [/passive voice/i, /active voice/i, /passive form/i, /कर्मवाच्य/, /भाववाच्य/, /active to passive/i, /passive to active/i, /change the voice/i, /into passive/i, /into active/i],
+    [/sentence/i, /change/i, /convert/i, /voice/i, /following/i, /passive/i, /active/i],
   ]),
   rule(3, 7, "direct_indirect", [
     [/indirect speech/i, /direct speech/i, /reported speech/i, /narration/i, /अप्रत्यक्ष कथन/, /प्रत्यक्ष कथन/],
@@ -189,15 +193,18 @@ export const ENGLISH_RULES = [
   ]),
   rule(3, 6, "cloze_test", [[/cloze test/i, /fill in the blanks in the (?:following )?passage/i]]),
   rule(3, 6, "fill_blanks", [
-    [/fill in the blank/i, /fill in the blanks/i, /fill up the blank/i, /रिक्त स्थान/],
+    [/fill in the blank/i, /fill in the blanks/i, /fill up the blank/i, /रिक्त स्थान की पूर्ति/i, /prolonged drought/i],
+  ], [
+    /letter series/i, /letter-cluster/i, /number series/i, /अक्षर श्रृंखला/i, /अक्षर-समूह/i,
+    /complete the given (?:letter )?series/i, /placed from left to right in the blanks/i, /alphabetical series/i
   ]),
   rule(3, 7, "sentence_improvement", [
-    [/improve the (?:underlined|bold)/i, /sentence improvement/i, /replace the underlined/i, /part of the sentence that contains an error/i],
-    [/sentence/i, /part/i],
+    [/improve the (?:underlined|bold)/i, /sentence improvement/i, /replace the (?:underlined|highlighted|bracketed)/i, /most suitable option to replace/i, /part of the sentence that contains an error/i, /substitute the underlined/i, /underlined segment/i],
+    [/sentence/i, /part/i, /replace/i, /option/i, /substitute/i, /segment/i],
   ]),
   rule(3, 7, "comprehension", [
-    [/reading comprehension/i, /read the (?:following )?passage/i, /based on the (?:following )?passage/i, /following passage/i, /गद्यांश/],
-    [/passage/i, /answer/i, /questions?/i, /गद्यांश/],
+    [/reading comprehension/i, /read the (?:following )?passage/i, /based on the (?:following )?passage/i, /following passage/i, /गद्यांश/, /according to the author/i, /author(?:'s)? (?:mean|view|opinion|argument)/i],
+    [/passage/i, /answer/i, /questions?/i, /गद्यांश/, /author/i, /text/i],
   ]),
   rule(3, 8, "spelling", [
     [/correct(?:ly)? spelled/i, /correctly spelt/i, /wrongly spelt/i, /misspelt/i, /misspelled/i, /incorrectly spelt/i, /correct spelling/i, /spelling of/i, /identify the (?:mis|in)spelt/i, /वर्तनी/],
@@ -223,6 +230,8 @@ export const QUANT_RULES = [
   rule(2, 7, "simplification", [
     [/simplify/i, /evaluate:/i, /find the value of/i, /solve for/i, /calculate the value/i],
     [/\d/, /=/],
+  ], [
+    /means\s*['"‘’`]?\s*(?:x|\+|-|×|÷|minus|plus)/i, /get replaced by/i, /replaced by\s*(?:\+|-|×|÷)/i, /प्रतिस्थापित/, /[#@$%&*]\s*=\s*(?:x|\+|-|×|÷)/i, /if\s*['"‘’`]?\s*[#@$%&*]\s*=/i, /interchanged/i
   ]),
   rule(2, 8, "profit_loss", [
     [/profit (?:percentage|percent|of|earned|made)/i, /loss (?:percentage|percent|of|incurred|at)/i, /cost price/i, /selling price/i, /marked price/i, /sold at a/i, /bought.*sold/i, /लाभ/, /हानि/],
@@ -251,7 +260,7 @@ export const QUANT_RULES = [
     [/\d/],
   ]),
   rule(2, 8, "time_work", [
-    [/time and work/i, /(?:finish|complete|do) (?:the |a )?work/i, /\d+ days? to (?:finish|complete)/i, /efficiency/i, /समय और कार्य/],
+    [/time and work/i, /(?:finish|complete|do) (?:the |a )?work/i, /\d+ days? to (?:finish|complete)/i, /efficiency/i, /समय और कार्य/, /दिनों? में (?:पूरा|कर|समाप्त)/, /कार्य को \d+ दिन/, /मिलकर.*कार्य/, /कार्य क्षमता/],
     [/\d/],
   ]),
   rule(2, 8, "pipe_cistern", [
@@ -331,7 +340,7 @@ export const HISTORY_RULES = [
     [/gautama buddha|lord buddha|buddh(?:ism|a)\b|lumbini|bodh ?gaya|sarnath|kushinagar|mahavira|jain(?:ism)?\b|tirthankara|buddhist (?:sangha|council)|nirvana|बौद्ध|जैन/],
   ]),
   rule(4, 8, "maurya_gupta", [
-    [/maurya|chandragupta maurya|ashoka|ashokan|kautilya|chanakya|arthashastra|bindusara|gupta (?:empire|dynasty|period)|samudragupta|aryabhata|kalidasa|मौर्य|गुप्त/],
+    [/maurya|chandragupta maurya|ashoka|ashokan|kautilya|chanakya|arthashastra|bindusara|gupta (?:empire|dynasty|period)|samudragupta|aryabhata|kalidasa|मौर्य|गुप्त\s*(?:साम्राज्य|वंश|काल|शासक|सम्राट)|समुद्रगुप्त|चंद्रगुप्त|कुमारगुप्त|स्कंदगुप्त/i],
   ]),
   rule(4, 9, "delhi_sultanate", [
     [/delhi sultanate|slave dynasty|mamluk|qutb-?ud-?din aibak|qutub-?ud-?din aibak|iltutmish|balban|alauddin khilji|khilji|tughlaq|firoz shah|sayyid dynasty|lodi dynasty|ibn battuta|सल्तनत|गुलाम वंश|खिलजी|तुगलक/],
@@ -346,10 +355,13 @@ export const HISTORY_RULES = [
     [/bhakti (?:movement|saint)|sufi (?:saint|movement)|kabir|guru nanak|mirabai|tulsidas|chaitanya|khwaja moinuddin|dargah|chishti|भक्ति|सूफी/],
   ]),
   rule(4, 8, "british_european", [
-    [/east india company|british (?:rule|india|administration|raj)|viceroy|governor-?general|dupleix|plassey|buxar|battle of|regulating act|pitt'?s india act|doctrine of lapse|अंग्रेज|ईस्ट इंडिया/],
+    [/east india company|british (?:rule|india|administration|raj)|viceroy|governor-?general|dupleix|plassey|buxar|battle of|regulating act|pitt'?s india act|doctrine of lapse|अंग्रेजों|अंग्रेज\s*(?:हुकूमत|शासन|साम्राज्य|सरकार)|ब्रिटिश\s*(?:शासन|साम्राज्य|हुकूमत|ईस्ट इंडिया)|गवर्नर\s*जनरल|वायसराय/i],
+  ], [
+    /अंग्रेजी वर्णमाला/i, /अंग्रेजी वर्ण/i, /अंग्रेजी अक्षर/i, /अंग्रेजी भाषा/i, /अंग्रेजी शब्द/i,
+    /alphabetical series/i, /letter-cluster/i, /english alphabetical/i
   ]),
   rule(4, 8, "revolt_1857", [
-    [/revolt of 1857|sepoy (?:mutiny|revolt)|1857 (?:revolt|uprising)|mangal pandey|rani lakshmibai|bahadur shah zafar|विद्रोह/],
+    [/revolt of 1857|sepoy (?:mutiny|revolt)|1857 (?:revolt|uprising)|mangal pandey|rani lakshmibai|bahadur shah zafar|1857 का विद्रोह|सिपाही विद्रोह|सैनिक विद्रोह/i],
   ]),
   rule(4, 9, "national_movement", [
     [/indian national congress|inc session|swaraj|non-?cooperation|civil disobedience|quit india|dandi|salt march|khilafat|home rule|partition of bengal|jallianwala|rowlatt|round table|कांग्रेस|सविनय अवज्ञा|भारत छोड़ो/],
@@ -493,13 +505,15 @@ export const ECONOMY_RULES = [
 // ---------------------------------------------------------------------------
 export const PHYSICS_RULES = [
   rule(8, 9, "mechanics_motion", [
-    [/newton'?s? (?:law|first|second|third)/i, /law of motion|inertia|acceleration|momentum|friction|gravitation|law of gravity/i, /velocity of|force (?:of|is|applied)/i, /गति के नियम|त्वरण|बल/],
-  ]),
+    [/newton'?s? (?:law|first|second|third)/i, /law of motion|inertia|acceleration|momentum|friction|gravitation|law of gravity/i, /velocity of|force (?:of|is|applied)/i, /गति के नियम|त्वरण|न्यूटन|जड़त्व|घर्षण|गुरुत्वाकर्षण|अभिलंब/],
+  ], [/firepower|census|work ?force|exogenic|table land|oak tree|बलूत|global firepower|military strength|female work/i]),
   rule(8, 9, "optics", [
     [/refraction|reflection|focal length|convex (?:lens|mirror)|concave (?:lens|mirror)|myopia|hypermetropia|presbyopia|prism|dispersion of light|optical (?:fibre|fiber|instrument)|अवतल|उत्तल|अपवर्तन|परावर्तन/],
   ]),
   rule(8, 8, "work_energy_power", [
-    [/work (?:done|energy)|kinetic energy|potential energy|mechanical energy|conservation of energy|joule|horsepower|गतिज ऊर्जा|कार्य/],
+    [/work (?:done|energy)|kinetic energy|potential energy|mechanical energy|conservation of energy|joule|horsepower|गतिज ऊर्जा|किया गया कार्य|कार्य\s*(?:ऊर्जा|सामर्थ्य|शक्ति|जूल|भौतिकी)/],
+  ], [
+    /समय और कार्य/i, /time and work/i, /days? to (?:finish|complete)/i, /दिनों? में (?:पूरा|कर)/i, /नल और टंकी/i, /pipes? and cistern/i
   ]),
   rule(8, 8, "heat_thermo", [
     [/specific heat|latent heat|conduction|convection|thermal (?:expansion|conductivity)|boiling point|melting point|celsius|fahrenheit|kelvin|thermometer|ऊष्मा|तापमान/],
@@ -508,7 +522,14 @@ export const PHYSICS_RULES = [
     [/electric current|potential difference|resistance|ohm'?s law|ammeter|voltmeter|electric (?:power|circuit|bulb|fuse)|magnetic field|electromagnet|solenoid|faraday|galvanometer|विद्युत|चुंबक/],
   ]),
   rule(8, 10, "modern_physics", [
-    [/photoelectric|photovoltaic|semiconductor|transistor|diode|x-?ray|radioactiv|nuclear (?:fission|fusion)|modern physics/i, /परमाणु/],
+    // Explicit modern/nuclear/optoelectronics signals only.
+    // Bare Hindi "परमाणु" (atom) alone must NOT reclassify atomic-number /
+    // molecule / periodic-table questions as Physics (they are Chemistry).
+    // Bohr model of hydrogen atom is filed under Chemistry atomic structure here.
+    [/photoelectric|photovoltaic|semiconductor|transistor|diode\b|x-?ray|radioactiv|nuclear (?:fission|fusion|reactor|energy|decay|isotope)|modern physics|quantum (?:mechanics|number|theory)/i],
+  ], [
+    // Veto chemistry phrasing and site-list GK about power plants.
+    /atomic (?:number|mass|radius) of|mendeleev|periodic table|law of octaves|valency|chemical (?:formula|bond|reaction)|bohr model|which of the following sites|power plant/i,
   ]),
   rule(8, 8, "sound_waves", [
     [/sound wave|wavelength|echo|ultrasound|sonic boom|decibel|doppler (?:effect|shift)|whistle|pitch (?:of|changes)|ध्वनि/],
@@ -526,7 +547,12 @@ export const PHYSICS_RULES = [
 // ---------------------------------------------------------------------------
 export const CHEMISTRY_RULES = [
   rule(9, 9, "atomic_structure", [
-    [/atomic (?:number|mass|radius)|electron|proton|neutron|isotope|isobar|valenc(?:e|y)|shell (?:of|in) (?:an )?atom/i, /परमाणु|इलेक्ट्रॉन/],
+    [/atomic (?:number|mass|radius|structure|model|theory|ity)|electron|proton|neutron|isotope|isobar|valenc(?:e|y)|shell (?:of|in) (?:an )?atom|bohr|molecul/i],
+  ]),
+  // Hindi atomic-structure phrasing (परमाणु + structure/number/mass context) stays Chemistry.
+  rule(9, 8, "atomic_structure_hi", [
+    [/परमाणु/i],
+    [/संख्या|द्रव्यमान|संरचना|मॉडल|इलेक्ट्रॉन|कक्षा|मोल|तत्व|अणु/i],
   ]),
   rule(9, 9, "periodic_table", [
     [/periodic table|mendeleev|modern periodic|group \d+ element|alkali metal|noble gas|halogen|lanthanide|actinide|आवर्त सारणी/],
@@ -562,7 +588,7 @@ export const CHEMISTRY_RULES = [
 // ---------------------------------------------------------------------------
 export const BIOLOGY_RULES = [
   rule(10, 9, "human_body", [
-    [/human (?:body|heart|brain|eye|ear|kidney|liver|lung|stomach|blood|skeleton)/i, /digest(?:ion|ive)|respirat(?:ion|ory)|circulat(?:ion|ory)|excret(?:ion|ory)|nervous system|endocrine|hormone|blood (?:group|pressure|vessel|circulation)|neuron|बहती है|रक्त|मानव शरीर/],
+    [/human (?:body|heart|brain|eye|ear|kidney|liver|lung|stomach|blood|skeleton)/i, /digest(?:ion|ive)|respirat(?:ion|ory)|circulat(?:ion|ory)|excret(?:ion|ory)|nervous system|endocrine|hormone|blood (?:group|pressure|vessel|circulation)|neuron|रक्त|मानव शरीर/],
   ]),
   rule(10, 9, "cell_biology", [
     [/cell (?:wall|membrane|organelle|nucleus|division|theory)/i, /mitochondri|ribosome|chloroplast|prokaryot|eukaryot|mitosis|meiosis|कोशिका/],
@@ -581,6 +607,8 @@ export const BIOLOGY_RULES = [
   ]),
   rule(10, 8, "animal_kingdom", [
     [/animal (?:kingdom|ia|classified)|vertebrat|invertebrat|mammal(?:s|ia)|reptile|amphibian|arthropod|insect(?:s)?\b|phylum|जंतु/],
+  ], [
+    /venn diagram/i, /वेन आरेख/i, /statements?\s*:/i, /कथन\s*:/i, /conclusions?\s*:/i, /odd one out/i, /विषम/i, /analog(?:y|ous)/i, /related to the/i, /relationship between/i
   ]),
   rule(10, 7, "microbiology", [
     [/bacteri(?:a|um|al)|virus(?:es)?\b|fungi|fungus|protozoa|algae|algae|pathogen|microorganis|सूक्ष्मजीव|जीवाणु|विषाणु/],
@@ -634,6 +662,11 @@ export const STATIC_GK_RULES = [
   rule(11, 6, "misc_gk_facts", [
     [/which of the following is (?:not )?(?:true|correct) about/i, /number of (?:districts|states|members) in/i],
   ]),
+  // Site / infrastructure fact lists (dams, power plants, airports) — Static GK,
+  // not modern physics, even when they mention "nuclear".
+  rule(11, 7, "sites_infrastructure", [
+    [/which of the following sites|nuclear power plant|thermal power (?:plant|station)|hydro (?:electric )?power (?:plant|station)|airport (?:is|was) (?:located|situated)|dam (?:is|was) (?:built|constructed|across)/i],
+  ], [/photoelectric|semiconductor|fission|fusion|radioactive decay/i]),
 ];
 
 // ---------------------------------------------------------------------------
@@ -688,14 +721,14 @@ export const CURRENT_AFFAIRS_RULES = [
 // ---------------------------------------------------------------------------
 export const COMPUTER_RULES = [
   rule(13, 9, "computer_hardware_io", [
-    [/input device|output device|keyboard|mouse\b|printer|scanner|plotter|joystick|trackball|touch ?screen|light pen|microphone|taskbar|recycle bin|motherboard|microprocessor/i, /\bram\b (?:memory|is|of)|random access memory|\brom\b (?:memory|is)|read only memory|cpu (?:is|of|chip|speed)|arithmetic logic unit|control unit|memory (?:is|unit|chip|of|size)/i],
+    [/input device|output device|keyboard|mouse\b|scanner|plotter|joystick|trackball|touch ?screen|light pen|microphone|taskbar|recycle bin|motherboard|microprocessor|printer (?:is|which|type|device|used)/i, /\bram\b (?:memory|is|of)|random access memory|\brom\b (?:memory|is)|read only memory|cpu (?:is|of|chip|speed)|arithmetic logic unit|control unit|memory (?:is|unit|chip|of|size)/i],
     [/device|computer|screen|output|input|display|memory|system|hardware|print|data|desktop|processor|storage/i],
-  ]),
+  ], [/pages printed by|pie chart|on wednesday|expenditure|data interpretation/i]),
   rule(13, 9, "computer_software_os", [
     [/operating system|windows \d|linux|mac ?os|ms-?word|ms-?excel|powerpoint|spreadsheet|application software|system software|utility software|open source|proprietary software|third[- ]party software/i],
   ]),
   rule(13, 9, "computer_networking", [
-    [/network topology|\blan\b|\bwan\b|modem|router|switch(?:es)?\b|ip address|http(?:s)?\b|\bftp\b|\btcp\b|\burl\b|web browser|web page|\bwww\b|e-?mail|protocol|server (?:is|that)|\bbandwidth\b|wi-?fi|internet (?:is|was|service)/i],
+    [/network topology|\blan\b|\bwan\b|modem|router|network switch|switching (?:hub|table)|ip address|http(?:s)?\b|\bftp\b|\btcp\b|\burl\b|web browser|web page|\bwww\b|e-?mail|protocol|server (?:is|that)|\bbandwidth\b|wi-?fi|internet (?:is|was|service)/i],
   ]),
   rule(13, 8, "computer_database", [
     [/database|dbms|\bsql\b|primary key|foreign key|record (?:in )?(?:a )?(?:table|database)|field (?:in )?(?:a )?(?:table|database)|normalis|normaliz/i],
@@ -753,6 +786,47 @@ export const ENGLISH_FORMAT_RULES = new Set([
   "active_passive", "direct_indirect", "sentence_rearrangement", "cloze_test",
   "fill_blanks", "sentence_improvement", "comprehension", "spelling",
   "parts_of_speech", "tenses_grammar", "vocabulary_context",
+]);
+
+/**
+ * Reasoning problem-format rules — when one of these matches, the question is
+ * testing structural logic / relational ability, and MUST outrank topical entities
+ * (e.g. animal names in a Venn diagram or British names in an Alphabet series).
+ */
+export const REASONING_FORMAT_RULES = new Set([
+  "analogy",
+  "classification_odd_one_out",
+  "series_missing_term",
+  "coding_decoding",
+  "blood_relations",
+  "direction_sense",
+  "seating_arrangement",
+  "puzzle_floor",
+  "syllogism",
+  "venn_diagram",
+  "cube_dice",
+  "mirror_water_paper",
+  "mathematical_operations",
+  "ranking_order",
+  "non_verbal_figure",
+  "alphabet_test",
+  "counting_figures",
+  "data_sufficiency",
+  "statement_assumption_conclusion",
+]);
+
+/**
+ * Quantitative Aptitude format rules — mathematical word problems that outrank
+ * general physical formula distractors.
+ */
+export const QUANT_FORMAT_RULES = new Set([
+  "profit_loss", "discount", "simple_interest", "compound_interest",
+  "ratio_proportion", "mixture_alligation", "average", "time_work",
+  "pipes_cistern", "speed_distance_time", "boats_streams", "lcm_hcf",
+  "number_system", "surds_indices", "percentage", "algebra", "trigonometry",
+  "heights_distances", "geometry_lines_triangles", "geometry_circles",
+  "mensuration_2d", "mensuration_3d", "coordinate_geometry",
+  "data_interpretation_chart", "statistics_probability", "simplification",
 ]);
 
 /**
@@ -815,42 +889,59 @@ function bestOf(hits) {
 
 /**
  * Classify a question from FULL text (stem + options + explanation + Hindi).
- * Returns an auditable decision object.
+ * Returns an auditable decision object with strict format-first precedence.
  */
 export function classifyQuestion(combined, stem, currentSubjectId, section) {
   const perSet = {};
   const contentHits = [];
   let reasoningHits = [];
   let englishHits = [];
+  let quantHits = [];
   for (const [setName, rules] of ALL_RULE_SETS) {
     const hits = evaluateRules(combined, rules, stem);
     perSet[setName] = hits;
-    if (setName === "reasoning") reasoningHits = hits;
-    else if (setName === "english") englishHits = hits;
+    if (setName === "reasoning") reasoningHits.push(...hits);
+    else if (setName === "english") englishHits.push(...hits);
+    else if (setName === "quant") quantHits.push(...hits);
     else contentHits.push(...hits);
   }
 
   const bestReasoning = bestOf(reasoningHits);
   const bestEnglish = bestOf(englishHits);
+  const bestQuant = bestOf(quantHits);
   const bestContent = bestOf(contentHits);
 
   let decision;
-  const allHits = [...contentHits, ...reasoningHits, ...englishHits];
+  const allHits = [...contentHits, ...quantHits, ...reasoningHits, ...englishHits];
 
-  // 1. A reasoning FORMAT signature ("odd one out", "in a certain code") outranks
-  //    topical keywords: "odd one out: chicken pox, rubella" is a Reasoning question.
-  if (bestReasoning && bestReasoning.effectiveWeight >= 7 && (!bestContent || bestReasoning.effectiveWeight >= bestContent.effectiveWeight)) {
+  // 1. REASONING FORMAT SIGNATURE:
+  // If the question exhibits a structural reasoning format signature (analogy, odd-one-out,
+  // series, coding-decoding, blood relations, direction sense, seating arrangement,
+  // syllogisms, venn diagrams, dice, paper folding, math operations, alphabet test),
+  // it is ALWAYS Reasoning — regardless of whether the puzzle items are animals,
+  // historical figures, rivers, or numbers.
+  if (bestReasoning && REASONING_FORMAT_RULES.has(bestReasoning.id) && (bestReasoning.inStem || bestReasoning.effectiveWeight >= 6)) {
     decision = { subjectId: 1, ruleId: bestReasoning.id, ...bestReasoning, basis: "reasoning_format_signature" };
   }
-  // 2. An English exam FORMAT signature in the STEM ("identify the misspelt word",
-  //    "rearrange the following sentences", "convert into passive voice") is
-  //    decisive — a passage/option can contain any topical words.
-  else if (bestEnglish && bestEnglish.inStem && bestEnglish.effectiveWeight >= 7 && ENGLISH_FORMAT_RULES.has(bestEnglish.id) && (!bestContent || bestEnglish.effectiveWeight + 1 >= bestContent.effectiveWeight)) {
+  // 2. ENGLISH FORMAT SIGNATURE:
+  // If the STEM contains an explicit English language testing directive (error spotting,
+  // synonym/antonym, one word substitution, idioms, active/passive, direct/indirect,
+  // sentence rearrangement, spelling correction, cloze test, grammar), English takes precedence.
+  else if (bestEnglish && ENGLISH_FORMAT_RULES.has(bestEnglish.id) && (bestEnglish.inStem || bestEnglish.effectiveWeight >= 6)) {
     decision = { subjectId: 3, ruleId: bestEnglish.id, ...bestEnglish, basis: "english_format_signature" };
   }
-  // 3. Otherwise the strongest content rule wins.
+  // 3. QUANTITATIVE APTITUDE FORMAT SIGNATURE:
+  // Explicit math word problem signatures (profit/loss, simple/compound interest,
+  // time and work, pipes and cisterns, train speed, boats and streams, geometry,
+  // trigonometry, mensuration) take precedence over general science/physics formulas.
+  else if (bestQuant && QUANT_FORMAT_RULES.has(bestQuant.id) && (bestQuant.inStem || bestQuant.effectiveWeight >= 6)) {
+    decision = { subjectId: 2, ruleId: bestQuant.id, ...bestQuant, basis: "quant_format_signature" };
+  }
+  // 4. STRONGEST CONTENT RULE (History, Polity, Geography, Economy, Physics, Chemistry, Biology, GK, Computer):
   else if (bestContent) {
     decision = { subjectId: bestContent.subject, ruleId: bestContent.id, ...bestContent, basis: "content_rule" };
+  } else if (bestQuant) {
+    decision = { subjectId: 2, ruleId: bestQuant.id, ...bestQuant, basis: "quant_content" };
   } else if (bestEnglish) {
     decision = { subjectId: 3, ruleId: bestEnglish.id, ...bestEnglish, basis: "english_weak" };
   } else if (bestReasoning) {

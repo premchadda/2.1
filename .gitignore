@@ -128,6 +128,8 @@ graphify-out/
 
 # Scratch and temp files
 scratch/
+scripts/out/
+*.jsonl
 apps/backend/scratch/
 apps/backend/src/uploads/
 test_login_fetch.js
