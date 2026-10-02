@@ -85,6 +85,13 @@ These are real, graph-surfaced landmines. Check them every session:
    - Run `scripts/run-database-audit.js` first; do NOT assume tables/indexes
      exist. Read/write split: write pool = `DATABASE_URL`, read pool =
      `DATABASE_READ_URL` (falls back to primary).
+   - Per-request RLS identity: `protect()`/`optionalAuth`/`requireImageAuth`
+     establish `{userId, isAdmin}` via AsyncLocalStorage and both pools +
+     `withTransaction()` apply `app.current_user_id`/`app.is_admin` with
+     SET LOCAL (`config/database-replicas.js`, `applyIdentityGucs`). No
+     identity (workers, boot, public traffic) keeps the service-role path.
+     Enforcement still needs a non-bypass DB role — the owner role bypasses
+     RLS today, so policies evaluate but do not yet restrict.
 
 3. **Core abstractions you will likely touch (god nodes)**
    `PostgresHelpers` (283 edges), `DataService` (186), `pool` (143),
