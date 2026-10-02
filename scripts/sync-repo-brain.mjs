@@ -175,6 +175,7 @@ let html = readFileSync(BRAIN, 'utf8');
 let changed = 0;
 let unchanged = 0;
 const seen = new Set();
+const staleKeys = new Set(); // span keys whose values differ (for CHECK_ONLY reporting)
 html = html.replace(/<span data-brain="([^"]+)"[^>]*>([^<]*)<\/span>/g,
   (m, key, old) => {
     const value = facts[key];
@@ -182,6 +183,7 @@ html = html.replace(/<span data-brain="([^"]+)"[^>]*>([^<]*)<\/span>/g,
     seen.add(key);
     if (old === value) { unchanged++; return m; }
     changed++;
+    staleKeys.add(key);
     return m.replace(/>[^<]*</, `>${value}<`);
   });
 
@@ -192,6 +194,7 @@ if (titleRe.test(html)) {
   if (cur !== facts.refreshed) {
     html = html.replace(titleRe, `$1${facts.refreshed}$3`);
     changed++;
+    staleKeys.add('title(refreshed)');
   }
 }
 
@@ -203,7 +206,14 @@ if (!changed) {
   process.exit(0);
 }
 if (CHECK_ONLY) {
-  console.log(`[sync-repo-brain] --check: ${changed} span(s) stale.`);
+  // `head` is informational — it names the commit the numbers describe, and any
+  // new commit necessarily moves it. Enforce only the data spans.
+  const enforced = [...staleKeys].filter((k) => k !== 'head');
+  if (!enforced.length) {
+    console.log(`[sync-repo-brain] up to date (${unchanged} spans verified, ${seen.size} keys; head pointer is informational).`);
+    process.exit(0);
+  }
+  console.log(`[sync-repo-brain] --check: ${changed} span(s) stale (${enforced.join(', ')}).`);
   process.exit(1);
 }
 writeFileSync(BRAIN, html, 'utf8');
