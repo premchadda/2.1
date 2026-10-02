@@ -63,17 +63,21 @@ These are real, graph-surfaced landmines. Check them every session:
    (`docs/legacy-migrations/README.md`, `docs/ARCHITECTURE.md`)
    - `migration_008` standardizes `user_id` UUID→INTEGER, adds
      `test_category_series` junction table, soft-delete pattern, audit trail.
-   - Migrations 003–017 reconstructed in `098_reconstructed_baseline.sql`.
+   - 004–017 are retired-number gaps; `003_baseline_harmonization.sql` stands
+     alone and `098_reconstructed_baseline.sql` re-creates only 14 core tables
+     from that era (not the full 003–017 surface).
    - Migrations 094–101 added (certificates, missing tables, soft-delete
      columns, exam_id type fix, RLS policies, duplicate table reconciliation,
      achievement consolidation).
-   - Migrations 102–141 added (attempt numbering, bookmarks, Node Engine V2
+   - Migrations 102–146 added (attempt numbering, bookmarks, Node Engine V2
      tables, practice redesign, `test_category_series` junction ensure,
      webhook events, RLS waves, taxonomy cascades, lifecycle/shuffle seed,
      performance backfills, audit follow-up, subject_topics index rename,
      138 practice revision pipeline reconciliation, 139 user recommendations reconciliation,
      140 practice_sessions/practice_answers updated_at column fix,
-     141 subject_videos FortSpy columns — next file is `142_*`).
+     141 subject_videos FortSpy columns, 142 audit-drift hardening,
+     143 remaining drift fixes, 144 single-admin convergence, 145 convergence
+     backstops, 146 stale-bypass cleanup — next file is `147_*`).
    - NOTE: the live DB has drifted ahead of shipped migrations (verified
      Sept 2026 via information_schema) — e.g. `revision_queue.priority` is
      INTEGER, `practice_answers` carries `is_skipped`/`time_taken_sec`/`mode`.
