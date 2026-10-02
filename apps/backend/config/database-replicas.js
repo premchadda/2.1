@@ -4,6 +4,7 @@ try {
   dns.setDefaultResultOrder("ipv4first");
 } catch (e) {}
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import { Pool } from "pg";
 import dotenv from "dotenv";
 
@@ -102,6 +103,88 @@ if (readPool !== writePool) {
   readPool.on("error", (err) => {
     console.error("[DB readPool background error]:", err.message);
   });
+}
+
+// ---- Per-request Postgres identity for RLS (app.current_user_id / app.is_admin)
+// The DB's RLS policies read these GUCs (migrations 000/048/116/142 provide
+// current_user_id_setting() and current_is_admin()). Auth middleware
+// (protect / optionalAuth / requireImageAuth) establishes the identity per
+// request via runWithRequestIdentity(); the pool wrapper below and
+// withTransaction() apply it with SET LOCAL, which dies with the transaction
+// — so a pooled connection can never serve a later request with a stale
+// identity. No identity (boot jobs, workers, public traffic, tests) keeps
+// today's direct-pool path with zero behavior change.
+const requestIdentityStore = new AsyncLocalStorage();
+
+export const runWithRequestIdentity = (rawIdentity, fn) =>
+  requestIdentityStore.run(normalizeRequestIdentity(rawIdentity), fn);
+
+export const getRequestIdentity = () => requestIdentityStore.getStore() ?? null;
+
+export const normalizeRequestIdentity = (identity) => {
+  if (!identity) return null;
+  const userId = Number(identity.userId);
+  // Fail-closed: only positive integer user ids become GUCs. Anything else
+  // (missing, non-numeric, legacy non-integer) yields no identity — i.e. the
+  // pre-existing service-role behavior, never a wrong user's identity.
+  if (!Number.isInteger(userId) || userId <= 0) return null;
+  return {
+    userId: String(userId),
+    isAdmin: identity.isAdmin === true ? "true" : "false",
+  };
+};
+
+const IDENTITY_GUC_SQL =
+  "SELECT set_config('app.current_user_id', $1, true), set_config('app.is_admin', $2, true)";
+
+// Apply the current request identity on an already-open transaction client.
+// SET LOCAL (third set_config arg = true) scopes the GUCs to the transaction.
+export const applyIdentityGucs = async (client) => {
+  const identity = getRequestIdentity();
+  if (!identity) return false;
+  await client.query(IDENTITY_GUC_SQL, [identity.userId, identity.isAdmin]);
+  return true;
+};
+
+const queryWithIdentity = (pool, rawQuery, args) => {
+  const last = args[args.length - 1];
+  if (typeof last === "function" || !getRequestIdentity()) {
+    return rawQuery(...args);
+  }
+  // Dedicated client + transaction so SET LOCAL cannot leak across requests.
+  return (async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await applyIdentityGucs(client);
+      let result;
+      try {
+        result = await client.query(...args);
+      } catch (err) {
+        try {
+          await client.query("ROLLBACK");
+        } catch {
+          // Connection already broken; release() below still runs.
+        }
+        throw err;
+      }
+      await client.query("COMMIT");
+      return result;
+    } finally {
+      client.release();
+    }
+  })();
+};
+
+export const patchPoolQuery = (pool) => {
+  const rawQuery = pool.query.bind(pool);
+  pool.query = (...args) => queryWithIdentity(pool, rawQuery, args);
+  return pool;
+};
+
+patchPoolQuery(writePool);
+if (readPool !== writePool) {
+  patchPoolQuery(readPool);
 }
 
 /**

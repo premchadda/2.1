@@ -11,6 +11,7 @@ import {
 } from "./db/constants.js";
 import { RELATIONSHIP_DEFINITIONS } from "./db/relationships.js";
 import {
+  applyIdentityGucs,
   getReadPool,
   getWritePool,
 } from "../../../config/database-replicas.js";
@@ -347,6 +348,8 @@ class PostgresHelpers {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
+      // RLS identity for this transaction (no-op without a request identity).
+      await applyIdentityGucs(client);
       // Default lock_timeout (10s, overridable via options or 'none'):
       // without it, one stuck row/advisory lock pins a pool client
       // indefinitely — repeated hits exhaust the pool and stall the app.
@@ -2384,6 +2387,8 @@ export const withTransaction = async (fn, options = {}) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    // RLS identity for this transaction (no-op without a request identity).
+    await applyIdentityGucs(client);
     if (options.lockTimeout) {
       const lockTimeoutStr = String(options.lockTimeout).trim();
       if (!/^\d+(ms|s|min|h|d)?$/i.test(lockTimeoutStr)) {

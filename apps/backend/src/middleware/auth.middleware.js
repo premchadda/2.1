@@ -6,6 +6,7 @@ import {
   isRedisReady,
 } from "../infrastructure/cache/redisClient.js";
 import { isTransientDbError } from "../shared/utils/db-errors.js";
+import { runWithRequestIdentity } from "../../config/database-replicas.js";
 import { getRuntimeSecuritySettings } from "../services/SettingsService.js";
 import {
   decryptUserPii,
@@ -707,7 +708,13 @@ export const protect = async (req, res, next) => {
       throw expiryErr;
     }
 
-    next();
+    // RLS: run downstream handlers with this request's DB identity so every
+    // pooled query in the chain evaluates user-scoped policies correctly.
+    // SET LOCAL scoping (pool wrapper / withTransaction) guarantees no leak.
+    return runWithRequestIdentity(
+      { userId: req.user.id, isAdmin: req.user.isAdmin === true },
+      () => next(),
+    );
   } catch (error) {
     // A transient DB/infra failure (connection reset, DB booting during a
     // restart, DNS blip) must NOT be reported as an authentication failure.
@@ -887,7 +894,11 @@ export const requireImageAuth = async (req, res, next) => {
     req.user.is_pro_user = req.user.isProUser;
     req.user.isPro = req.user.isProUser;
 
-    next();
+    // RLS: image requests run pooled queries downstream — same identity rule.
+    return runWithRequestIdentity(
+      { userId: req.user.id, isAdmin: req.user.isAdmin === true },
+      () => next(),
+    );
   } catch (error) {
     return res.status(401).json({
       success: false,
@@ -1006,6 +1017,14 @@ export const optionalAuth = async (req, res, next) => {
       }
     }
 
+    // RLS: only an attached verified user establishes a DB identity;
+    // anonymous paths keep today's (service-role) behavior.
+    if (req.user) {
+      return runWithRequestIdentity(
+        { userId: req.user.id, isAdmin: req.user.isAdmin === true },
+        () => next(),
+      );
+    }
     next();
   } catch (error) {
     // SEC-03: Differentiate error types so frontend can distinguish

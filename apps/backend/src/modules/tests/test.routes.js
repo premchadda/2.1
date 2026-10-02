@@ -1,5 +1,6 @@
 import express from "express";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
+import { applyIdentityGucs } from "../../../config/database-replicas.js";
 import { protect, optionalAuth } from "../../middleware/auth.middleware.js";
 import {
   responseCache,
@@ -759,6 +760,8 @@ router.post("/:testId/start", protect, async (req, res) => {
     let wasResumed = false;
     try {
       await startClient.query("BEGIN");
+      // RLS identity for this request's transaction (no-op outside requests).
+      await applyIdentityGucs(startClient);
       // Serialize concurrent start requests for this user.
       await startClient.query("SELECT id FROM users WHERE id = $1 FOR UPDATE", [
         req.user.id,
@@ -1349,6 +1352,8 @@ router.put("/:testId/submit", protect, async (req, res) => {
     const client = await dbHelpers.pool.connect();
     try {
       await client.query("BEGIN");
+      // RLS identity for this request's transaction (no-op outside requests).
+      await applyIdentityGucs(client);
 
       if (attemptId) {
         let attemptQuery = "SELECT * FROM attempts WHERE public_id = $1";
