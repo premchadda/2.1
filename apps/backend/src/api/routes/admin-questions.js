@@ -559,8 +559,8 @@ router.get("/questions/orphaned", async (req, res) => {
   }
 });
 
-// DELETE /api/admin/questions/bulk - Bulk delete multiple questions
-router.delete("/questions/bulk", async (req, res) => {
+// DELETE /api/admin/questions/bulk - Bulk delete multiple questions (canonical)
+const handleBulkDeleteQuestions = async (req, res) => {
   try {
     const { ids } = req.body;
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -591,7 +591,11 @@ router.delete("/questions/bulk", async (req, res) => {
       .status(500)
       .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-});
+};
+router.delete("/questions/bulk", handleBulkDeleteQuestions);
+// POST /api/admin/questions/bulk-delete - Alias for clients (e.g. admin-panel)
+// that issue bulk deletes via POST; delegates to the canonical DELETE handler.
+router.post("/questions/bulk-delete", handleBulkDeleteQuestions);
 
 // GET /api/admin/questions/practice - List practice questions only
 router.get("/questions/practice", async (req, res) => {

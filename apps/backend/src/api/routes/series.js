@@ -577,15 +577,34 @@ router.get("/:slug/tests", optionalAuth, async (req, res) => {
 
     // Get tests strictly for this series via DB match and avoids fetch-all
     let tests = [];
+    let baseTotalCount = 0;
     try {
       const result = await dbHelpers.pool.query(
-        `SELECT * FROM tests WHERE is_active = true AND (series_id = $1 OR series_id = $2)`,
+        // Explicit column list (mirrors public-data.routes.js tests SELECT) to avoid
+        // SELECT * over-fetch; includes description for toPublicTestDTO + LIMIT 2000
+        // to bound the series payload. Covers all fields used by
+        // mapTestToFrontend/mapTestSeriesToFrontend via toPublicTestDTO.
+        `SELECT id, series_id, slug, title, description, category, sub_category, type, total_questions, total_marks, duration, passing_marks, negative_marking, tags, is_live, live_schedule, scheduled_at, difficulty, is_active, created_at, updated_at, subject_id, is_pro, stage_id, banner_asset_id, promotion_banner_asset_id, is_coming_soon, public_id_uuid, public_id, category_path_ids, category_path_names, languages, coming_soon_date, test_category_id, stage_ids, section_id, status, year, is_deleted, deleted_by, deleted_at, _orphaned, _deleted_series_id, orphaned_at, cutoff_marks, published_at, live_at, expired_at, archived_at, state_updated_by, moderation_status, reviewed_by, reviewed_at, review_notes, instructions, test_type, start_time, end_time, shuffle_questions, shuffle_options, allow_review, max_attempts, version, attempt_count, imported_from, source_test_id, ai_explanation_enabled, _deleted_test_id, short_title, question_language_mode, is_pyq, pyq_year, show_config, timing_config, optional_section_config, attempt_rules, analysis_config, access_config, availability, is_featured, seo, exam_category_id, proctoring, adaptive, features, shift, pdf_asset_id, content_source, content_path, exam_id FROM tests WHERE is_active = true AND (series_id = $1 OR series_id = $2) LIMIT 2000`,
         [Number(sId) || -1, String(sId)],
       );
       tests = result.rows.map((row) => dbHelpers.toCamel(row));
     } catch (e) {
       console.error(e);
     }
+    try {
+      const countResult = await dbHelpers.pool.query(
+        `SELECT COUNT(*) as total FROM tests WHERE is_active = true AND (series_id = $1 OR series_id = $2)`,
+        [Number(sId) || -1, String(sId)],
+      );
+      baseTotalCount = parseInt(countResult.rows[0]?.total, 10) || tests.length;
+    } catch (e) {
+      console.error(e);
+    }
+
+    const hasExtraFilters =
+      (category && category !== "all") ||
+      (subCategory && subCategory !== "all") ||
+      (type && type !== "all");
 
     // Apply additional filters
     if (category && category !== "all") {
@@ -608,7 +627,7 @@ router.get("/:slug/tests", optionalAuth, async (req, res) => {
       );
     }
 
-    const totalCount = tests.length;
+    const totalCount = hasExtraFilters ? tests.length : baseTotalCount;
     if (page && limit) {
       const p = Math.max(1, parseInt(page) || 1);
       const l = Math.min(100, Math.max(1, parseInt(limit) || 20));

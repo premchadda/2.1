@@ -268,56 +268,17 @@ router.delete(
   }),
 );
 
-// ===== SUBJECTS MANAGEMENT =====
-router.get(
-  "/subjects",
-  asyncHandler(async (req, res) => {
-    const subjects = await dbHelpers.find("subjects", { isActive: true });
-    res.json({ success: true, data: subjects });
-  }),
-);
+// NOTE: GET /subjects intentionally lives ONLY in admin-catalog.js (the
+// canonical subjects read endpoint). A duplicate GET /subjects here used to
+// shadow/duplicate it because both routers are root-mounted in admin.js
+// (catalog first). The response contract was identical
+// ({ success: true, data: subjects }), so no caller depends on this variant.
 
-router.post(
-  "/subjects",
-  asyncHandler(async (req, res) => {
-    const newSubject = await dbHelpers.insertOne("subjects", {
-      ...req.body,
-      createdAt: new Date().toISOString(),
-    });
-    res.status(201).json({ success: true, data: newSubject });
-  }),
-);
-
-router.put(
-  "/subjects/:id",
-  asyncHandler(async (req, res) => {
-    const updated = await dbHelpers.updateById("subjects", req.params.id, {
-      ...req.body,
-      updatedAt: new Date().toISOString(),
-    });
-    if (!updated)
-      return res
-        .status(404)
-        .json({ success: false, message: "Subject not found" });
-    res.json({ success: true, data: updated });
-  }),
-);
-
-router.delete(
-  "/subjects/:id",
-  asyncHandler(async (req, res) => {
-    const deleted = await dbHelpers.softDelete(
-      "subjects",
-      req.params.id,
-      req.user.id,
-    );
-    if (!deleted)
-      return res
-        .status(404)
-        .json({ success: false, message: "Subject not found" });
-    res.json({ success: true, message: "Subject moved to trash" });
-  }),
-);
+// NOTE: POST /subjects, PUT /subjects/:id and DELETE /subjects/:id
+// intentionally live ONLY in admin-catalog.js (canonical validated versions).
+// Duplicate raw-passthrough write variants here were unreachable dead code
+// because both routers are root-mounted in admin.js (catalog first).
+// No caller depends on these variants.
 
 // ===== SUBJECT PARTS MANAGEMENT =====
 router.get(

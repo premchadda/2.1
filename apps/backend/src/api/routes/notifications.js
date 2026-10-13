@@ -71,6 +71,67 @@ router.get("/", protect, async (req, res) => {
       unreadCount = unreadNotifications.length;
     }
 
+    // Resolve seriesSlug by testId via tests -> test_series lookup (no hardcoded fallback).
+    // Precedence: metadata.seriesSlug/series_slug wins; otherwise resolve from DB.
+    // If testId is missing/unresolvable, leave link null (do NOT fabricate exam slug).
+    const testsNeedingSlug = [
+      ...new Set(
+        (notifications || [])
+          .map((n) => {
+            let md = {};
+            try {
+              md =
+                typeof n.metadata === "string"
+                  ? JSON.parse(n.metadata)
+                  : n.metadata || {};
+            } catch {
+              md = {};
+            }
+            if (md.seriesSlug || md.series_slug) return null;
+            return md.testId || md.test_id || n.test_id || n.testId || null;
+          })
+          .filter(Boolean)
+          .map((v) => String(v)),
+      ),
+    ];
+    const seriesSlugByTestId = new Map();
+    if (testsNeedingSlug.length > 0) {
+      try {
+        const numericIds = testsNeedingSlug
+          .filter((v) => /^\d+$/.test(v))
+          .map(Number);
+        if (numericIds.length > 0) {
+          const testsRes = await pool.query(
+            `SELECT id, series_id FROM tests WHERE id = ANY($1::int[]) LIMIT 200`,
+            [numericIds],
+          );
+          const sIds = [
+            ...new Set(
+              (testsRes.rows || []).map((r) => r.series_id).filter(Boolean),
+            ),
+          ]
+            .map(Number)
+            .filter((n) => Number.isInteger(n));
+          const slugBySeriesId = new Map();
+          if (sIds.length > 0) {
+            const seriesRes = await pool.query(
+              `SELECT id, slug FROM test_series WHERE id = ANY($1::int[]) LIMIT 200`,
+              [sIds],
+            );
+            (seriesRes.rows || []).forEach((r) => {
+              if (r.slug) slugBySeriesId.set(String(r.id), r.slug);
+            });
+          }
+          (testsRes.rows || []).forEach((r) => {
+            const sSlug = slugBySeriesId.get(String(r.series_id));
+            if (sSlug) seriesSlugByTestId.set(String(r.id), sSlug);
+          });
+        }
+      } catch {
+        // Fail-soft: leave unresolvable links null.
+      }
+    }
+
     const formattedNotifications = (notifications || []).map((n) => {
       const metadata =
         typeof n.metadata === "string"
@@ -78,8 +139,11 @@ router.get("/", protect, async (req, res) => {
           : n.metadata || {};
       const testId =
         metadata.testId || metadata.test_id || n.test_id || n.testId;
+      // Explicit metadata slug wins; else DB-resolved slug; else null (no fabricated fallback).
       const seriesSlug =
-        metadata.seriesSlug || metadata.series_slug || "ssc-cgl-2026";
+        metadata.seriesSlug ||
+        metadata.series_slug ||
+        (testId ? seriesSlugByTestId.get(String(testId)) || null : null);
       const attemptId = metadata.attemptId || metadata.attempt_id;
 
       let link =
@@ -90,7 +154,7 @@ router.get("/", protect, async (req, res) => {
         metadata.link ||
         metadata.actionUrl ||
         null;
-      if (!link && testId) {
+      if (!link && testId && seriesSlug) {
         link = `/${seriesSlug}/tests/${testId}/result${attemptId ? `?attemptId=${attemptId}` : ""}`;
       }
 

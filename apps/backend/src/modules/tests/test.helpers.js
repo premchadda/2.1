@@ -1166,7 +1166,33 @@ export function toPublicTestDTO(test) {
     subcategory:
       test.subcategory || test.subCategory || test.sub_category || "",
     categoryId: test.categoryId || test.category_id || null,
+    testCategoryId: test.testCategoryId || test.test_category_id || null,
+    test_category_id: test.test_category_id || test.testCategoryId || null,
+    category_id: test.category_id || test.categoryId || null,
+    categoryPathIds: Array.isArray(test.categoryPathIds)
+      ? test.categoryPathIds
+      : Array.isArray(test.category_path_ids)
+        ? test.category_path_ids
+        : [],
+    category_path_ids: Array.isArray(test.category_path_ids)
+      ? test.category_path_ids
+      : Array.isArray(test.categoryPathIds)
+        ? test.categoryPathIds
+        : [],
+    categoryPathNames: Array.isArray(test.categoryPathNames)
+      ? test.categoryPathNames
+      : Array.isArray(test.category_path_names)
+        ? test.category_path_names
+        : [],
+    category_path_names: Array.isArray(test.category_path_names)
+      ? test.category_path_names
+      : Array.isArray(test.categoryPathNames)
+        ? test.categoryPathNames
+        : [],
+    subjectId: test.subjectId || test.subject_id || null,
+    subject_id: test.subject_id || test.subjectId || null,
     subCategoryId: test.subCategoryId || test.sub_category_id || null,
+    sub_category_id: test.sub_category_id || test.subCategoryId || null,
     categorySlug: test.categorySlug || test.category_slug || null,
     subCategorySlug: test.subCategorySlug || test.sub_category_slug || null,
     seriesId: test.seriesId || test.series_id || null,

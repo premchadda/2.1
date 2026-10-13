@@ -14,6 +14,7 @@ import {
 import EnrollmentService from "../../services/EnrollmentService.js";
 import { invalidateResponseCache } from "../../middleware/responseCache.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import logger from "../../infrastructure/logger/logger.js";
 
 const router = express.Router();
 const enrollmentLimiter = createRateLimiter("moderate");
@@ -25,12 +26,8 @@ router.post(
   async (req, res) => {
     try {
       const { materialId } = req.params;
-      console.log(
-        "[Enroll Study Material] Request received for materialId:",
-        materialId,
-        "userId:",
-        req.user.id,
-      );
+      // PII-safe: log materialId only, never userId.
+      logger.debug({ materialId }, "[Enroll Study Material] Request received");
 
       const material = await findEntityByIdentifier(
         dbHelpers,
@@ -42,16 +39,18 @@ router.post(
       );
 
       if (!material) {
-        console.log("[Enroll Study Material] Material not found:", materialId);
+        logger.debug(
+          { materialId },
+          "[Enroll Study Material] Material not found",
+        );
         return res.status(404).json({
           success: false,
           message: "Study material not found",
         });
       }
-      console.log(
-        "[Enroll Study Material] Material found:",
-        material._id || material.id,
-        material.title,
+      logger.debug(
+        { materialId, title: material.title },
+        "[Enroll Study Material] Material found",
       );
 
       const canonicalMaterialId = getInternalId(material);
@@ -63,7 +62,10 @@ router.post(
       );
 
       if (result.alreadyEnrolled) {
-        console.log("[Enroll Study Material] User already enrolled");
+        logger.debug(
+          { materialId },
+          "[Enroll Study Material] User already enrolled",
+        );
         const enrolledMaterialIds =
           await EnrollmentService.getEnrolledStudyMaterialIds(
             dbHelpers,
@@ -84,8 +86,9 @@ router.post(
         });
       }
 
-      console.log(
-        "[Enroll Study Material] Created enrollment record in enrollments table",
+      logger.debug(
+        { materialId },
+        "[Enroll Study Material] Created enrollment record",
       );
 
       // /me caches the enrolledStudyMaterials list — evict after enrollment.
@@ -126,11 +129,10 @@ router.delete(
   async (req, res) => {
     try {
       const { materialId } = req.params;
-      console.log(
-        "[Unenroll Study Material] Request received for materialId:",
-        materialId,
-        "userId:",
-        req.user.id,
+      // PII-safe: log materialId only, never userId.
+      logger.debug(
+        { materialId },
+        "[Unenroll Study Material] Request received",
       );
 
       const material = await findEntityByIdentifier(
@@ -143,19 +145,18 @@ router.delete(
       );
 
       if (!material) {
-        console.log(
-          "[Unenroll Study Material] Material not found:",
-          materialId,
+        logger.debug(
+          { materialId },
+          "[Unenroll Study Material] Material not found",
         );
         return res.status(404).json({
           success: false,
           message: "Study material not found",
         });
       }
-      console.log(
-        "[Unenroll Study Material] Material found:",
-        material._id || material.id,
-        material.title,
+      logger.debug(
+        { materialId, title: material.title },
+        "[Unenroll Study Material] Material found",
       );
 
       const canonicalMaterialId = getInternalId(material);
@@ -178,8 +179,9 @@ router.delete(
               archivedAt: new Date().toISOString(),
             });
           }
-          console.log(
-            `[Unenroll Study Material] Archived ${studyHistory.length} study progress records`,
+          logger.debug(
+            { count: studyHistory.length, materialId },
+            "[Unenroll Study Material] Archived study progress records",
           );
         }
       } catch (archiveError) {
@@ -196,7 +198,8 @@ router.delete(
       );
 
       if (!unenrolled) {
-        console.log(
+        logger.debug(
+          { materialId },
           "[Unenroll Study Material] User not enrolled in this material",
         );
         return res.status(400).json({
@@ -205,7 +208,10 @@ router.delete(
         });
       }
 
-      console.log("[Unenroll Study Material] Successfully unenrolled");
+      logger.debug(
+        { materialId },
+        "[Unenroll Study Material] Successfully unenrolled",
+      );
 
       // /me caches the enrolledStudyMaterials list — evict after unenrollment.
       invalidateResponseCache("auth-me").catch(() => {});

@@ -25,9 +25,9 @@ const router = express.Router();
 // Apply full admin security pipeline
 router.use(restrictAdminOrigin);
 router.use(validateAdminApiKey);
-router.use(validateCsrfToken);
 router.use(protect);
 router.use(admin);
+router.use(validateCsrfToken);
 router.use(loadAdminPermissions);
 router.use(requireAdminPermission);
 router.use(auditMiddleware({ includeBody: false }));

@@ -167,8 +167,28 @@ async function upsertSlug(client, table, slug, extra = {}) {
     if (insertCols.length > 0) {
       const placeholders = insertCols.map((_, i) => `$${i + 1}`);
       const ins = `INSERT INTO ${table} (${insertCols.map((c) => `"${c}"`).join(", ")}) VALUES (${placeholders.join(", ")}) RETURNING id`;
-      const insResult = await client.query(ins, insertVals);
-      resultId = insResult.rows[0]?.id ?? null;
+      try {
+        const insResult = await client.query(ins, insertVals);
+        resultId = insResult.rows[0]?.id ?? null;
+      } catch (insErr) {
+        // Race: a concurrent import inserted the same slug between our SELECT
+        // and INSERT (e.g. two import-selected batches resolving "matriculation"
+        // at once). Re-select instead of failing the whole test import.
+        if (insErr?.code === "23505") {
+          for (const col of cfg.findCols) {
+            if (!existingCols.has(col)) continue;
+            const { rows } = await client.query(
+              `SELECT id FROM ${table} WHERE ${col} = $1 LIMIT 1`,
+              [slug],
+            );
+            if (rows[0]?.id) {
+              resultId = rows[0].id;
+              break;
+            }
+          }
+        }
+        if (!resultId) throw insErr;
+      }
     }
   }
 
@@ -954,6 +974,12 @@ export async function importFullTest(json, config = {}) {
 
       for (let qi = 0; qi < questions.length; qi++) {
         const q = questions[qi];
+        // Savepoint per question: prep runs taxonomy upserts (writes). If one
+        // fails we must roll back to here — otherwise the aborted transaction
+        // poisons every later statement with misleading "current transaction
+        // is aborted" errors and fails the whole test.
+        const prepSp = `qprep_${sIdx}_${String(qi).replace(/[^0-9]/g, "")}`;
+        await client.query(`SAVEPOINT "${prepSp}"`);
         try {
           // ── Resolve subjectId on question level (may differ from section)
           const qSubjectSlug = q.subjectId || section.subjectId || "general";
@@ -1074,7 +1100,13 @@ export async function importFullTest(json, config = {}) {
           };
 
           validQRows.push({ qRow, qi, originalQ: q });
+          await client.query(`RELEASE SAVEPOINT "${prepSp}"`);
         } catch (qPrepErr) {
+          try {
+            await client.query(`ROLLBACK TO SAVEPOINT "${prepSp}"`);
+          } catch (_) {
+            void _;
+          }
           result.errors.push({
             questionId: q.id || "unknown",
             sectionId: section.name || "unknown",

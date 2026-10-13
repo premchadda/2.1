@@ -14,6 +14,12 @@ const resourceForPath = (path = "") => {
     )
   )
     return "users";
+  // Assessment/taxonomy group. Maps to the single "tests" resource so the
+  // existing tests:* grants keep working. NOTE (frontend alignment): the
+  // admin-panel rbac.js maps practice-questions/categories/tag-configs to
+  // tests and live*/proctoring to live/proctoring — the backend has no
+  // "live"/"proctoring" resources, so those paths are folded into "tests"
+  // here instead of introducing new resource names that no grant contains.
   if (
     [
       "tests",
@@ -25,6 +31,14 @@ const resourceForPath = (path = "") => {
       "exam-categories",
       "exam-info",
       "exams",
+      "practice-questions",
+      "categories",
+      "tag-configs",
+      "live",
+      "live-tests",
+      "live-monitor",
+      "live-proctoring",
+      "proctoring",
     ].includes(resource)
   )
     return "tests";

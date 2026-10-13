@@ -169,7 +169,7 @@ router.get("/", responseCache("tests-list-v2", 60), async (req, res) => {
 // @access  Public
 router.get(
   "/series/:seriesId",
-  responseCache("tests-series-v2", 300, { userScoped: false }),
+  responseCache("tests-series-v3", 300, { userScoped: false }),
   async (req, res) => {
     try {
       const { seriesId } = req.params;

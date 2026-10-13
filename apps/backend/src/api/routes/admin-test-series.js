@@ -36,6 +36,27 @@ const router = express.Router();
 router.use(protect);
 router.use(admin);
 
+// test_series.exam_id is INTEGER REFERENCES exams(id), but the admin UI sends
+// exam slugs/titles (e.g. "ssc-selection-post"). Inserting the raw string hits
+// Postgres with 22P02. Resolve to the integer id first; empty → NULL.
+const resolveExamId = async (raw) => {
+  if (raw === undefined || raw === null || String(raw).trim() === "") {
+    return null;
+  }
+  const text = String(raw).trim();
+  if (!isNaN(Number(text))) return Number(text);
+  const slugified = text.toLowerCase().replace(/\s+/g, "-");
+  const { rows } = await pool.query(
+    `SELECT id FROM exams
+      WHERE id::text = $1 OR slug = $1 OR slug = $2 OR public_id = $1
+        OR LOWER(title) = LOWER($1)
+        OR LOWER(REPLACE(title, ' ', '-')) = $2
+      LIMIT 1`,
+    [text, slugified],
+  );
+  return rows.length ? rows[0].id : undefined;
+};
+
 const testSeriesSchema = createSchema()
   .field("title", {
     type: "string",
@@ -254,7 +275,14 @@ router.post(
     );
 
     const body = req.validatedBody || req.body;
-    const examId = body.exam_id || body.examId || "";
+    const examInput = body.exam_id ?? body.examId ?? "";
+    const resolvedExamId = await resolveExamId(examInput);
+    if (resolvedExamId === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid exam_id: "${examInput}". Must be a valid exam ID, slug, or title.`,
+      });
+    }
 
     if (body.category) {
       const validCategories = await dbHelpers.find("examCategories");
@@ -276,8 +304,8 @@ router.post(
         body.promotionBannerAssetId || body.promotion_banner_asset_id,
       ),
       order: body.order ?? maxOrder + 1,
-      exam_id: String(examId).toLowerCase().replace(/\s+/g, "-") || examId,
-      examId: String(examId).toLowerCase().replace(/\s+/g, "-") || examId,
+      exam_id: resolvedExamId,
+      examId: resolvedExamId,
     };
 
     const newSeries = await dbHelpers.insertOne("testSeries", payload);
@@ -314,7 +342,7 @@ router.put(
       }
     }
 
-    const examId = body.exam_id || body.examId;
+    const examInput = body.exam_id ?? body.examId;
     const payload = {
       ...Object.fromEntries(Object.entries(body).filter(([_, v]) => v != null)),
     };
@@ -331,11 +359,16 @@ router.put(
         req.body.promotionBannerAssetId ?? req.body.promotion_banner_asset_id,
       );
     }
-    if (examId !== undefined) {
-      const normalizedExamId =
-        String(examId).toLowerCase().replace(/\s+/g, "-") || examId;
-      payload.exam_id = normalizedExamId;
-      payload.examId = normalizedExamId;
+    if (examInput !== undefined) {
+      const resolvedExamId = await resolveExamId(examInput);
+      if (resolvedExamId === undefined) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid exam_id: "${examInput}". Must be a valid exam ID, slug, or title.`,
+        });
+      }
+      payload.exam_id = resolvedExamId;
+      payload.examId = resolvedExamId;
     } else {
       delete payload.exam_id;
       delete payload.examId;
@@ -435,6 +468,15 @@ router.post(
           continue;
         }
 
+        const bulkExamId = await resolveExamId(row.examId || row.exam_id || "");
+        if (bulkExamId === undefined) {
+          errors.push({
+            row: i + 2,
+            error: `Invalid exam_id: "${row.examId || row.exam_id}". Must be a valid exam ID, slug, or title.`,
+          });
+          continue;
+        }
+
         const payload = {
           name: row.name.trim(),
           title: row.title?.trim() || row.name.trim(),
@@ -447,8 +489,8 @@ router.post(
           description: row.description?.trim() || "",
           is_pro: row.is_pro === "true" || row.is_pro === true || false,
           category: row.category?.trim() || "",
-          exam_id: (row.examId || row.exam_id)?.trim() || "",
-          examId: (row.examId || row.exam_id)?.trim() || "",
+          exam_id: bulkExamId,
+          examId: bulkExamId,
           price: parseInt(row.price) || 0,
           difficulty: row.difficulty?.trim() || "medium",
           is_active: row.is_active !== "false" && row.is_active !== false,

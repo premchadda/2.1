@@ -1,4 +1,5 @@
 import express from "express";
+import multer from "multer";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { parseAssetId } from "../../shared/utils/parseAssetId.js";
 import { buildAssetUrlMap } from "./admin-assets.js";
@@ -8,6 +9,11 @@ import { asyncHandler } from "../../middleware/asyncHandler.js";
 import { aiRateLimiter } from "../../middleware/aiRateLimiter.js";
 import { callAIWithFallback } from "../../modules/ai/aiClient.js";
 import { sanitizeForPrompt } from "../../modules/ai/aiMentor.service.js";
+import {
+  parseCSVBuffer,
+  parseJSONBuffer,
+  parseSpreadsheetBuffer,
+} from "../../services/import/enhancedImporter.js";
 
 const router = express.Router();
 
@@ -54,8 +60,43 @@ const normalizeQuizPayload = (body = {}) => {
     if (payload[col] === undefined && val !== undefined && val !== null)
       payload[col] = val;
   };
-  set("title", body.title ?? body.name);
-  set("description", body.description);
+  // Case-insensitive header lookup for CSV/Excel imports where column names
+  // vary (e.g. "Question", "Quiz Title", "Option A", "Correct Option").
+  const lowerMap = {};
+  for (const k of Object.keys(body))
+    lowerMap[String(k).toLowerCase().trim()] = body[k];
+  const pick = (...keys) => {
+    for (const k of keys) {
+      if (body[k] !== undefined && body[k] !== null && body[k] !== "")
+        return body[k];
+      const lk = String(k).toLowerCase();
+      if (
+        lowerMap[lk] !== undefined &&
+        lowerMap[lk] !== null &&
+        lowerMap[lk] !== ""
+      )
+        return lowerMap[lk];
+    }
+    return undefined;
+  };
+  set(
+    "title",
+    pick(
+      "title",
+      "name",
+      "question",
+      "q",
+      "quiz title",
+      "quiz_title",
+      "quizTitle",
+      "quiz name",
+      "quiz_name",
+    ),
+  );
+  set(
+    "description",
+    pick("description", "details", "detail", "desc", "explanation"),
+  );
   set("subject", body.subject);
   set("chapter", body.chapter);
   set("topic", body.topic);
@@ -90,6 +131,54 @@ const normalizeQuizPayload = (body = {}) => {
   set("created_by", body.createdBy ?? body.created_by);
   set("metadata", body.metadata);
   set("tags", body.tags);
+  // Options array from common header variants: Option(s) A-D, Option 1-4,
+  // choiceA-D / choice_1-4 (case/space/underscore-insensitive).
+  let quizOptions = body.options ?? lowerMap["options"];
+  if (!Array.isArray(quizOptions)) {
+    const buckets = [];
+    for (const [rawKey, val] of Object.entries(body)) {
+      if (val === undefined || val === null || String(val).trim() === "")
+        continue;
+      const nk = String(rawKey)
+        .toLowerCase()
+        .trim()
+        .replace(/[\s_-]+/g, "");
+      const m = nk.match(/^(options?|choice)([a-d1-4])$/);
+      if (m) {
+        const suffix = m[2];
+        const idx = /[1-4]/.test(suffix)
+          ? parseInt(suffix, 10) - 1
+          : suffix.charCodeAt(0) - 97;
+        buckets[idx] = val;
+      }
+    }
+    if (buckets.filter((v) => v !== undefined).length >= 2) {
+      quizOptions = buckets.filter((v) => v !== undefined);
+    } else if (typeof quizOptions === "string" && quizOptions.trim() !== "") {
+      const parts = String(quizOptions)
+        .split(/\s*[|\n;]+\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (parts.length >= 2) quizOptions = parts;
+    }
+  }
+  if (Array.isArray(quizOptions)) payload.options = quizOptions;
+  set(
+    "correct_answer",
+    pick(
+      "correct_answer",
+      "correctAnswer",
+      "answer",
+      "correct",
+      "correct option",
+      "correct_option",
+      "correctoption",
+      "correct answer",
+      "correctanswer",
+      "ans",
+      "key",
+    ),
+  );
   const questionIds =
     body.questionIds ?? body.question_ids ?? body.questionIdList;
   if (Array.isArray(questionIds)) payload.question_ids = questionIds;
@@ -490,18 +579,82 @@ router.post(
   }),
 );
 
+// Multer for POST /quizzes/bulk: accepts an optional multipart file alongside
+// the legacy JSON body (mirrors the admin-questions bulk upload pattern).
+// The extension is validated in the handler — not in fileFilter — so that
+// unsupported types return a clean 400 JSON error instead of a multer error.
+const quizBulkUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024, files: 1 },
+});
+
 router.post(
   "/quizzes/bulk",
+  quizBulkUpload.single("file"),
   asyncHandler(async (req, res) => {
-    const items = Array.isArray(req.body)
-      ? req.body
-      : req.body.quizzes || (req.body.items ? req.body.items : [req.body]);
+    // Accept BOTH legacy JSON bodies and multipart FormData file uploads.
+    // JSON callers are unaffected: multer passes non-multipart requests through
+    // untouched, and the no-file branch preserves the original body handling.
+    let items;
+    if (req.file?.buffer) {
+      const filename = (req.file.originalname || "").toLowerCase();
+      const ext = filename.slice(filename.lastIndexOf("."));
+      if (ext === ".json") {
+        const parsed = parseJSONBuffer(req.file.buffer);
+        items = Array.isArray(parsed)
+          ? parsed
+          : (parsed?.quizzes ?? parsed?.items ?? parsed?.data ?? []);
+        if (!Array.isArray(items)) items = items ? [items] : [];
+      } else if (ext === ".csv") {
+        items = parseCSVBuffer(req.file.buffer);
+      } else if (ext === ".xlsx" || ext === ".xls") {
+        try {
+          items = await parseSpreadsheetBuffer(req.file.buffer);
+        } catch (parseErr) {
+          return res.status(400).json({
+            success: false,
+            message: `Could not parse spreadsheet upload: ${parseErr.message}`,
+          });
+        }
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `Unsupported bulk upload type "${ext || "unknown"}". Upload .json, .csv, .xlsx/.xls, or send a JSON body.`,
+        });
+      }
+    } else if (Array.isArray(req.body)) {
+      items = req.body;
+    } else {
+      // Legacy JSON shapes, plus multipart text fields (FormData stringifies
+      // arrays, so a "quizzes" JSON string is parsed back here).
+      const raw = req.body?.quizzes ?? req.body?.items ?? req.body;
+      if (typeof raw === "string") {
+        try {
+          const parsed = JSON.parse(raw);
+          items = Array.isArray(parsed) ? parsed : [parsed];
+        } catch {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid JSON in 'quizzes' field",
+          });
+        }
+      } else if (Array.isArray(raw)) {
+        items = raw;
+      } else if (raw && typeof raw === "object") {
+        items = [raw];
+      } else {
+        items = [];
+      }
+    }
     const inserted = [];
     const skipped = [];
     items.forEach((item, index) => {
       const payload = normalizeQuizPayload(item || {});
       if (!payload.title) {
-        skipped.push({ row: index + 1, reason: "Missing title/name" });
+        skipped.push({
+          row: index + 1,
+          reason: `Missing title/name (received: ${Object.keys(item || {}).join(", ")})`,
+        });
         return;
       }
       inserted.push(payload);

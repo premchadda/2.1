@@ -10,8 +10,12 @@ import { responseCache } from "../../middleware/responseCache.middleware.js";
 
 const router = express.Router();
 
-router.use(protect);
-router.use(admin);
+// NOTE: No router-level protect/admin here — this router is mounted inside
+// the canonical admin chain (admin.js), which already applies
+// normalizeFields -> restrictAdminOrigin -> validateAdminApiKey -> protect ->
+// admin -> CSRF -> permissions -> audit upstream. Every route below also
+// carries its own explicit protect + admin, so the router stays protected
+// even if ever mounted elsewhere. Do NOT re-add router.use(protect/admin).
 
 let schemaEnsured = false;
 let schemaEnsuringPromise = null;

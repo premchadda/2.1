@@ -36,9 +36,18 @@ function sanitizeDatabaseUrl(rawUrl) {
   return rawUrl;
 }
 
-const writeConnectionUrl = sanitizeDatabaseUrl(process.env.DATABASE_URL);
+const ownerConnectionUrl = sanitizeDatabaseUrl(process.env.DATABASE_URL);
+// Staged RLS enforcement (migration 147 provisions NOLOGIN trstprep_app; ops
+// activates it with LOGIN + password). When set, runtime pools connect as the
+// least-privilege role so RLS policies actually restrict; otherwise they keep
+// today's owner connection (policies evaluate but do not restrict).
+const appConnectionUrl =
+  sanitizeDatabaseUrl(process.env.DATABASE_APP_URL) || null;
+const writeConnectionUrl = appConnectionUrl || ownerConnectionUrl;
 const readConnectionUrl = sanitizeDatabaseUrl(
-  process.env.DATABASE_READ_URL || process.env.DATABASE_URL,
+  process.env.DATABASE_READ_URL ||
+    process.env.DATABASE_APP_URL ||
+    process.env.DATABASE_URL,
 );
 
 const defaultQueryTimeout = isDev ? 30000 : 15000;
@@ -257,6 +266,13 @@ export const checkPoolsHealth = async () => {
 export const warmPools = async () => {
   let writeWarmed = false;
   let readWarmed = false;
+  console.log(
+    `[DB] runtime pools use ${
+      appConnectionUrl
+        ? "restricted role (DATABASE_APP_URL) — RLS enforced"
+        : "owner role (DATABASE_URL) — RLS evaluates but does not restrict"
+    }.`,
+  );
   try {
     const promises = [
       writePool.query("SELECT 1").then(() => {

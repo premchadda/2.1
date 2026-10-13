@@ -61,6 +61,7 @@ import {
 } from "../../services/SessionCaptureService.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
+import logger from "../../infrastructure/logger/logger.js";
 
 const router = express.Router();
 const seriesEnrollmentLimiter = createRateLimiter("moderate");
@@ -552,12 +553,8 @@ router.post(
   async (req, res) => {
     try {
       const { seriesId } = req.params;
-      console.log(
-        "[Enroll] Request received for seriesId:",
-        seriesId,
-        "userId:",
-        req.user.id,
-      );
+      // PII-safe: log seriesId only, never userId.
+      logger.debug({ seriesId }, "[Enroll] Request received");
 
       const series = await findEntityByIdentifier(
         dbHelpers,
@@ -569,28 +566,21 @@ router.post(
       );
 
       if (!series) {
-        console.log("[Enroll] Series not found:", seriesId);
+        logger.debug({ seriesId }, "[Enroll] Series not found");
         return res.status(404).json({
           success: false,
           message: "Test series not found",
         });
       }
-      console.log(
-        "[Enroll] Series found:",
-        series._id || series.id,
-        series.title,
-      );
+      logger.debug({ seriesId, title: series.title }, "[Enroll] Series found");
 
       // Check if series is Pro and user has Pro access via centralized EntitlementService
       const entitlement = EntitlementService.canEnrollSeries(req.user, series);
       if (!entitlement.allowed) {
-        console.log(
-          "[Enroll] Entitlement check failed:",
-          entitlement.reason,
-          "series:",
-          seriesId,
-          "userId:",
-          req.user.id,
+        // PII-safe: log reason + seriesId only, never userId.
+        logger.debug(
+          { reason: entitlement.reason, seriesId },
+          "[Enroll] Entitlement check failed",
         );
         return res.status(403).json({
           success: false,
@@ -611,7 +601,7 @@ router.post(
       );
 
       if (result.alreadyEnrolled) {
-        console.log("[Enroll] User already enrolled");
+        logger.debug({ seriesId }, "[Enroll] User already enrolled");
         const enrolledSeriesIds = await EnrollmentService.getEnrolledSeriesIds(
           dbHelpers,
           req.user.id,
@@ -628,18 +618,24 @@ router.post(
         });
       }
 
-      console.log("[Enroll] Created enrollment record in enrollments table");
+      logger.debug({ seriesId }, "[Enroll] Created enrollment record");
 
       // AUTO-ENROLLMENT: Enroll user in all exams related to this series
       try {
-        console.log("[Enroll] Starting auto-enrollment in related exams...");
+        logger.debug(
+          { seriesId },
+          "[Enroll] Starting auto-enrollment in related exams...",
+        );
 
         const seriesData = await dbHelpers.findById(
           "testSeries",
           canonicalSeriesId,
         );
         if (seriesData && seriesData.stages && seriesData.stages.length > 0) {
-          console.log("[Enroll] Series has stages:", seriesData.stages);
+          logger.debug(
+            { seriesId, stages: seriesData.stages },
+            "[Enroll] Series has stages",
+          );
 
           const currentEnrolledExamIds =
             await EnrollmentService.getEnrolledExamIds(dbHelpers, req.user.id);
@@ -661,7 +657,10 @@ router.post(
             }
           }
 
-          console.log("[Enroll] Exams to auto-enroll:", examIdsToAdd);
+          logger.debug(
+            { seriesId, examIdsToAdd },
+            "[Enroll] Exams to auto-enroll",
+          );
 
           for (const examId of examIdsToAdd) {
             try {
@@ -670,9 +669,9 @@ router.post(
                 req.user.id,
                 examId,
               );
-              console.log(
-                "[Enroll] Created enrollment record for exam:",
-                examId,
+              logger.debug(
+                { seriesId, examId },
+                "[Enroll] Created enrollment record for exam",
               );
             } catch (err) {
               console.error("[Enroll] Error creating exam enrollment:", err);
@@ -720,12 +719,8 @@ router.post(
 router.delete("/unenroll/:seriesId", protect, async (req, res) => {
   try {
     const { seriesId } = req.params;
-    console.log(
-      "[Unenroll] Request received for seriesId:",
-      seriesId,
-      "userId:",
-      req.user.id,
-    );
+    // PII-safe: log seriesId only, never userId.
+    logger.debug({ seriesId }, "[Unenroll] Request received");
 
     const series = await findEntityByIdentifier(
       dbHelpers,
@@ -737,17 +732,13 @@ router.delete("/unenroll/:seriesId", protect, async (req, res) => {
     );
 
     if (!series) {
-      console.log("[Unenroll] Series not found:", seriesId);
+      logger.debug({ seriesId }, "[Unenroll] Series not found");
       return res.status(404).json({
         success: false,
         message: "Test series not found",
       });
     }
-    console.log(
-      "[Unenroll] Series found:",
-      series._id || series.id,
-      series.title,
-    );
+    logger.debug({ seriesId, title: series.title }, "[Unenroll] Series found");
 
     const canonicalSeriesId = getInternalId(series);
 
@@ -769,7 +760,11 @@ router.delete("/unenroll/:seriesId", protect, async (req, res) => {
             archivedAt: new Date().toISOString(),
           });
         }
-        console.log(`[Unenroll] Archived ${attempts.length} test attempts`);
+        // PII-safe: log counts + seriesId only.
+        logger.debug(
+          { count: attempts.length, seriesId: canonicalSeriesId },
+          "[Unenroll] Archived test attempts",
+        );
       }
 
       const studyHistory = await dbHelpers.find("studyProgress", {
@@ -788,8 +783,9 @@ router.delete("/unenroll/:seriesId", protect, async (req, res) => {
             archivedAt: new Date().toISOString(),
           });
         }
-        console.log(
-          `[Unenroll] Archived ${studyHistory.length} study progress records`,
+        logger.debug(
+          { count: studyHistory.length, seriesId: canonicalSeriesId },
+          "[Unenroll] Archived study progress records",
         );
       }
     } catch (archiveError) {
@@ -818,8 +814,10 @@ router.delete("/unenroll/:seriesId", protect, async (req, res) => {
            AND series_id = $2`,
         [req.user.id, canonicalSeriesId],
       );
-      console.log(
-        `[Unenroll] Deleted all previous attempt history for series ${canonicalSeriesId} and user ${req.user.id}`,
+      // PII-safe: log seriesId only, never userId.
+      logger.debug(
+        { seriesId: canonicalSeriesId },
+        "[Unenroll] Deleted previous attempt history for series",
       );
     } catch (deleteError) {
       console.error("[Unenroll] Error deleting attempts:", deleteError);
@@ -833,14 +831,20 @@ router.delete("/unenroll/:seriesId", protect, async (req, res) => {
     );
 
     if (!unenrolled) {
-      console.log("[Unenroll] User not enrolled in this series");
+      logger.debug(
+        { seriesId: canonicalSeriesId },
+        "[Unenroll] User not enrolled in this series",
+      );
       return res.status(400).json({
         success: false,
         message: "You are not enrolled in this series",
       });
     }
 
-    console.log("[Unenroll] Successfully unenrolled");
+    logger.debug(
+      { seriesId: canonicalSeriesId },
+      "[Unenroll] Successfully unenrolled",
+    );
 
     // 4. Invalidate caches for instant real-time sync
     try {

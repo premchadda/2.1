@@ -43,12 +43,25 @@ export const ragService = {
         [safeName],
       );
 
-      for (let i = 0; i < chunks.length; i++) {
-        await client.query(
-          `INSERT INTO document_chunks (document_name, chunk_index, content)
-           VALUES ($1, $2, $3)`,
-          [safeName, i, chunks[i]],
-        );
+      if (chunks.length > 0) {
+        // Multi-row batch insert to minimize network roundtrips
+        const BATCH_SIZE = 50;
+        for (let b = 0; b < chunks.length; b += BATCH_SIZE) {
+          const slice = chunks.slice(b, b + BATCH_SIZE);
+          const values = [];
+          const params = [];
+          slice.forEach((chunk, idx) => {
+            const chunkIdx = b + idx;
+            const offset = idx * 3;
+            values.push(`($${offset + 1}, $${offset + 2}, $${offset + 3})`);
+            params.push(safeName, chunkIdx, chunk);
+          });
+          await client.query(
+            `INSERT INTO document_chunks (document_name, chunk_index, content)
+             VALUES ${values.join(", ")}`,
+            params,
+          );
+        }
       }
 
       await client.query("COMMIT");

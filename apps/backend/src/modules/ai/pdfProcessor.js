@@ -43,12 +43,21 @@ export const pdfProcessor = {
           });
         };
         try {
+          const pythonBins =
+            process.platform === "win32"
+              ? ["python", "py", "python3"]
+              : ["python3", "python"];
           let stdout;
-          try {
-            ({ stdout } = await runExtract("python3"));
-          } catch {
-            ({ stdout } = await runExtract("python"));
+          let lastErr;
+          for (const bin of pythonBins) {
+            try {
+              ({ stdout } = await runExtract(bin));
+              if (stdout) break;
+            } catch (err) {
+              lastErr = err;
+            }
           }
+          if (!stdout && lastErr) throw lastErr;
           text = stdout;
         } finally {
           // Cleanup

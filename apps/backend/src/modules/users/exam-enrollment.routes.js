@@ -14,6 +14,7 @@ import {
 import EnrollmentService from "../../services/EnrollmentService.js";
 import { invalidateResponseCache } from "../../middleware/responseCache.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import logger from "../../infrastructure/logger/logger.js";
 const router = express.Router();
 const enrollmentLimiter = createRateLimiter("moderate");
 
@@ -24,28 +25,23 @@ router.post(
   async (req, res) => {
     try {
       const { examId } = req.params;
-      console.log(
-        "[Enroll Exam] Request received for examId:",
-        examId,
-        "userId:",
-        req.user.id,
-      );
+      // PII-safe: log examId only, never userId.
+      logger.debug({ examId }, "[Enroll Exam] Request received");
 
       const exam = await findEntityByIdentifier(dbHelpers, "exams", examId, {
         slugFields: ["slug", "exam_id"],
       });
 
       if (!exam) {
-        console.log("[Enroll Exam] Exam not found:", examId);
+        logger.debug({ examId }, "[Enroll Exam] Exam not found");
         return res.status(404).json({
           success: false,
           message: "Exam not found",
         });
       }
-      console.log(
-        "[Enroll Exam] Exam found:",
-        exam._id || exam.id,
-        exam.title || exam.name,
+      logger.debug(
+        { examId, title: exam.title || exam.name },
+        "[Enroll Exam] Exam found",
       );
 
       const canonicalExamId = getInternalId(exam);
@@ -57,7 +53,7 @@ router.post(
       );
 
       if (result.alreadyEnrolled) {
-        console.log("[Enroll Exam] User already enrolled");
+        logger.debug({ examId }, "[Enroll Exam] User already enrolled");
         const enrolledExamIds = await EnrollmentService.getEnrolledExamIds(
           dbHelpers,
           req.user.id,
@@ -77,9 +73,7 @@ router.post(
         });
       }
 
-      console.log(
-        "[Enroll Exam] Created enrollment record in enrollments table",
-      );
+      logger.debug({ examId }, "[Enroll Exam] Created enrollment record");
 
       // /me caches the enrolledExams list — evict so the new enrollment shows up.
       invalidateResponseCache("auth-me").catch(() => {});
@@ -114,28 +108,23 @@ router.post(
 router.delete("/unenroll-exam/:examId", protect, async (req, res) => {
   try {
     const { examId } = req.params;
-    console.log(
-      "[Unenroll Exam] Request received for examId:",
-      examId,
-      "userId:",
-      req.user.id,
-    );
+    // PII-safe: log examId only, never userId.
+    logger.debug({ examId }, "[Unenroll Exam] Request received");
 
     const exam = await findEntityByIdentifier(dbHelpers, "exams", examId, {
       slugFields: ["slug", "exam_id"],
     });
 
     if (!exam) {
-      console.log("[Unenroll Exam] Exam not found:", examId);
+      logger.debug({ examId }, "[Unenroll Exam] Exam not found");
       return res.status(404).json({
         success: false,
         message: "Exam not found",
       });
     }
-    console.log(
-      "[Unenroll Exam] Exam found:",
-      exam._id || exam.id,
-      exam.title || exam.name,
+    logger.debug(
+      { examId, title: exam.title || exam.name },
+      "[Unenroll Exam] Exam found",
     );
 
     const canonicalExamId = getInternalId(exam);
@@ -147,14 +136,17 @@ router.delete("/unenroll-exam/:examId", protect, async (req, res) => {
     );
 
     if (!unenrolled) {
-      console.log("[Unenroll Exam] User not enrolled in this exam");
+      logger.debug(
+        { examId },
+        "[Unenroll Exam] User not enrolled in this exam",
+      );
       return res.status(400).json({
         success: false,
         message: "You are not enrolled in this exam",
       });
     }
 
-    console.log("[Unenroll Exam] Successfully unenrolled");
+    logger.debug({ examId }, "[Unenroll Exam] Successfully unenrolled");
 
     // /me caches the enrolledExams list — evict after unenrollment.
     invalidateResponseCache("auth-me").catch(() => {});
