@@ -64,11 +64,13 @@ import { isSafeImageUrl } from "../lib/sanitizeHtml";
 import { DEV_FALLBACK_URL } from "../lib/apiBase.js";
 import { getAssetUrl } from "@trstprep/shared-config";
 
-// Main site URL - can be changed via environment variable
+// Main site URL - can be changed via environment variable.
+// Fail-closed: null when unset (outside DEV) so "View Site" links hide
+// instead of pointing at a wrong origin.
 const MAIN_SITE_URL =
   import.meta.env.VITE_MAIN_SITE_URL ||
   import.meta.env.VITE_FRONTEND_URL ||
-  (import.meta.env.DEV ? DEV_FALLBACK_URL : "/");
+  (import.meta.env.DEV ? DEV_FALLBACK_URL : null);
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -81,6 +83,9 @@ export default function AdminLayout() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // Avatar load failure keyed by avatar URL (replaces direct DOM mutation
+  // in onError, which breaks under re-renders/StrictMode).
+  const [avatarFailed, setAvatarFailed] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -126,8 +131,13 @@ export default function AdminLayout() {
     );
   };
 
-  // Check if user has a valid avatar URL - now uses isSafeImageUrl
-  const hasValidAvatar = isSafeImageUrl(user?.avatar);
+  // Check if user has a valid avatar URL - now uses isSafeImageUrl.
+  // A previously-failed URL stays failed until the avatar value changes.
+  const hasValidAvatar =
+    isSafeImageUrl(user?.avatar) && avatarFailed !== user?.avatar;
+  useEffect(() => {
+    setAvatarFailed(null);
+  }, [user?.avatar]);
 
   // Resolve avatar URL - resolves relative paths to backend asset URL
   const getAvatarUrl = (avatar) => {
@@ -168,16 +178,18 @@ export default function AdminLayout() {
     };
   }, []);
 
-  // Auto-expand section containing current path
+  // Auto-expand section containing current path (functional setState to
+  // avoid stale expandedSections closure)
   useEffect(() => {
     const currentCategory = adminNavConfig.categories.find((cat) =>
       cat.items.some((item) => isActive(item.path)),
     );
-    if (currentCategory && !expandedSections[currentCategory.id]) {
-      setExpandedSections((prev) => ({
-        ...prev,
-        [currentCategory.id]: true,
-      }));
+    if (currentCategory) {
+      setExpandedSections((prev) =>
+        prev[currentCategory.id]
+          ? prev
+          : { ...prev, [currentCategory.id]: true },
+      );
     }
   }, [location.pathname]);
 
@@ -231,8 +243,11 @@ export default function AdminLayout() {
       .filter((category) => category.items.length > 0);
   }, [searchQuery, canViewItem]);
 
-  // Search results for top bar dropdown - fixed category field (was categoryName mismatch)
+  // Search results for top bar dropdown - fixed category field (was categoryName mismatch).
+  // Gated on searchOpen so the (permission-filtered) ranking only runs when
+  // the dropdown is actually visible.
   const searchResults = useMemo(() => {
+    if (!searchOpen) return [];
     const cleanQuery = searchQuery.trim();
     if (!cleanQuery) return [];
     const allowed = getFlatNavItems().filter((item) => canViewItem(item));
@@ -248,7 +263,7 @@ export default function AdminLayout() {
       ],
       { threshold: 18, maxResults: 8 },
     );
-  }, [searchQuery, canViewItem]);
+  }, [searchOpen, searchQuery, canViewItem]);
 
   const handleLogout = async () => {
     await logout();
@@ -601,14 +616,14 @@ export default function AdminLayout() {
                   </div>
                   {searchResults.length > 0 ? (
                     <div className="p-1.5">
-                      {searchResults.map((item, idx) => {
+                      {searchResults.map((item) => {
                         const nameParts = getHighlightedParts(
                           item.name,
                           searchQuery,
                         );
                         return (
                           <Link
-                            key={idx}
+                            key={item.id || item.path}
                             to={item.path}
                             onClick={() => {
                               setSearchOpen(false);
@@ -678,15 +693,17 @@ export default function AdminLayout() {
               <Search className="w-4 h-4" />
             </button>
 
-            {/* View Site Button - Opens main site in new tab */}
-            <a
-              href={MAIN_SITE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden lg:flex px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 rounded-xl text-xs font-semibold text-white transition-all shadow-md shadow-indigo-500/25 shrink-0 items-center tap-feedback"
-            >
-              View Site
-            </a>
+            {/* View Site Button - hidden when MAIN_SITE_URL is unset (fail closed) */}
+            {MAIN_SITE_URL && (
+              <a
+                href={MAIN_SITE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden lg:flex px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 rounded-xl text-xs font-semibold text-white transition-all shadow-md shadow-indigo-500/25 shrink-0 items-center tap-feedback"
+              >
+                View Site
+              </a>
+            )}
 
             {/* Page Refresh Button */}
             <button
@@ -731,18 +748,8 @@ export default function AdminLayout() {
                       src={getAvatarUrl(user.avatar)}
                       alt={`${user?.name || "User"} profile`}
                       className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.display = "none";
-                        const fallback = e.target.nextElementSibling;
-                        if (fallback) fallback.style.display = "flex";
-                      }}
+                      onError={() => setAvatarFailed(user?.avatar)}
                     />
-                    <div
-                      className="hidden w-full h-full items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 font-bold text-xs text-white"
-                      style={{ display: "none" }}
-                    >
-                      {getUserInitials()}
-                    </div>
                   </div>
                 ) : (
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-xs text-white shadow-sm">
@@ -782,38 +789,42 @@ export default function AdminLayout() {
 
                   {/* Menu Items */}
                   <div className={`py-1.5 bg-white dark:bg-gray-900`}>
-                    <a
-                      href={MAIN_SITE_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex items-center gap-2.5 px-3.5 py-2 transition-colors text-xs sm:text-sm text-gray-700 hover:bg-gray-100 hover:text-indigo-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white`}
-                      onClick={() => setIsProfileOpen(false)}
-                    >
-                      <LayoutDashboard
-                        className={`w-4 h-4 text-gray-400 dark:text-gray-500`}
-                      />
-                      Main Site
-                    </a>
-                    <a
-                      href={`${MAIN_SITE_URL}/profile`}
-                      className={`flex items-center gap-2.5 px-3.5 py-2 transition-colors text-xs sm:text-sm text-gray-700 hover:bg-gray-100 hover:text-indigo-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white`}
-                      onClick={() => setIsProfileOpen(false)}
-                    >
-                      <User
-                        className={`w-4 h-4 text-gray-400 dark:text-gray-500`}
-                      />
-                      My Profile
-                    </a>
-                    <a
-                      href={`${MAIN_SITE_URL}/analysis`}
-                      className={`flex items-center gap-2.5 px-3.5 py-2 transition-colors text-xs sm:text-sm text-gray-700 hover:bg-gray-100 hover:text-indigo-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white`}
-                      onClick={() => setIsProfileOpen(false)}
-                    >
-                      <BarChart3
-                        className={`w-4 h-4 text-gray-400 dark:text-gray-500`}
-                      />
-                      My Analytics
-                    </a>
+                    {MAIN_SITE_URL && (
+                      <>
+                        <a
+                          href={MAIN_SITE_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`flex items-center gap-2.5 px-3.5 py-2 transition-colors text-xs sm:text-sm text-gray-700 hover:bg-gray-100 hover:text-indigo-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white`}
+                          onClick={() => setIsProfileOpen(false)}
+                        >
+                          <LayoutDashboard
+                            className={`w-4 h-4 text-gray-400 dark:text-gray-500`}
+                          />
+                          Main Site
+                        </a>
+                        <a
+                          href={`${MAIN_SITE_URL}/profile`}
+                          className={`flex items-center gap-2.5 px-3.5 py-2 transition-colors text-xs sm:text-sm text-gray-700 hover:bg-gray-100 hover:text-indigo-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white`}
+                          onClick={() => setIsProfileOpen(false)}
+                        >
+                          <User
+                            className={`w-4 h-4 text-gray-400 dark:text-gray-500`}
+                          />
+                          My Profile
+                        </a>
+                        <a
+                          href={`${MAIN_SITE_URL}/analysis`}
+                          className={`flex items-center gap-2.5 px-3.5 py-2 transition-colors text-xs sm:text-sm text-gray-700 hover:bg-gray-100 hover:text-indigo-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white`}
+                          onClick={() => setIsProfileOpen(false)}
+                        >
+                          <BarChart3
+                            className={`w-4 h-4 text-gray-400 dark:text-gray-500`}
+                          />
+                          My Analytics
+                        </a>
+                      </>
+                    )}
                   </div>
 
                   {/* Logout */}

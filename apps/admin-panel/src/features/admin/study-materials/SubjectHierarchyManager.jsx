@@ -898,5 +898,3 @@ export default function SubjectHierarchyManager() {
     </div>
   );
 }
-
-export { SubjectHierarchyManager as SubjectHierarchyView };

@@ -23,6 +23,16 @@ export default function ResultsManager() {
     setCurrentPage(1);
   }, [searchTerm, filter]);
 
+  // Parse "85%"-style strings as well as numbers.
+  const pctOf = (v) => {
+    if (typeof v === "string") {
+      const n = parseFloat(v);
+      return Number.isFinite(n) ? n : 0;
+    }
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+
   useEffect(() => {
     fetchResults();
   }, []);
@@ -42,9 +52,16 @@ export default function ResultsManager() {
     }
   };
 
-  // FIX C6: Export CSV handler
+  // FIX C6: Export CSV handler (exports the FILTERED set, CSV-sanitized)
+  const sanitizeCsvCell = (v) => {
+    // Double inner quotes; prefix formula triggers (=/+/-/@) to block CSV
+    // injection when opened in spreadsheets.
+    const s = String(v ?? "");
+    const escaped = s.replace(/"/g, '""');
+    return /^[=+\-@]/.test(escaped) ? `"'${escaped}"` : `"${escaped}"`;
+  };
   const handleExportCSV = () => {
-    if (results.length === 0) {
+    if (filteredResults.length === 0) {
       toast.error("No results to export");
       return;
     }
@@ -60,15 +77,15 @@ export default function ResultsManager() {
     ];
     const csvContent = [
       headers.join(","),
-      ...results.map((r) =>
+      ...filteredResults.map((r) =>
         [
-          `"${r.userName || ""}"`,
-          `"${r.testName || ""}"`,
+          sanitizeCsvCell(r.userName || ""),
+          sanitizeCsvCell(r.testName || ""),
           r.score || 0,
           r.totalMarks || 0,
-          `${r.percentage || 0}%`,
-          r.rank || "-",
-          r.timeTaken || "-",
+          `${pctOf(r.percentage) || 0}%`,
+          r.rank ? `#${r.rank}` : "-",
+          r.timeTaken ?? 0,
           r.attemptedAt ? new Date(r.attemptedAt).toLocaleDateString() : "-",
         ].join(","),
       ),
@@ -82,9 +99,11 @@ export default function ResultsManager() {
     const link = document.createElement("a");
     link.href = url;
     link.download = `results_export_${Date.now()}.csv`;
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(url);
-    toast.success(`Exported ${results.length} results to CSV`);
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast.success(`Exported ${filteredResults.length} results to CSV`);
   };
 
   // FIX C6: Analytics view handler — fetch per-attempt question-wise detail
@@ -143,26 +162,30 @@ export default function ResultsManager() {
   }, [showAnalytics]);
 
   const filteredResults = results.filter((r) => {
+    const search = searchTerm.toLowerCase();
     const matchesSearch =
-      r.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.testName?.toLowerCase().includes(searchTerm.toLowerCase());
+      (r.userName || "").toLowerCase().includes(search) ||
+      (r.testName || "").toLowerCase().includes(search);
     const matchesFilter =
       filter === "all" ||
-      (filter === "passed" && r.percentage >= 50) ||
-      (filter === "failed" && r.percentage < 50);
+      (filter === "passed" && pctOf(r.percentage) >= 50) ||
+      (filter === "failed" && pctOf(r.percentage) < 50);
     return matchesSearch && matchesFilter;
   });
 
   const totalPages = Math.ceil(filteredResults.length / pageSize);
+  // Clamp currentPage when filtering shrinks the result set.
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
   const paginatedResults = filteredResults.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
 
-  const pct = (r) => {
-    const n = Number(r?.percentage);
-    return Number.isFinite(n) ? n : 0;
-  };
+  const pct = (r) => pctOf(r?.percentage);
   const stats = {
     total: results.length,
     passed: results.filter((r) => pct(r) >= 50).length,
@@ -176,8 +199,9 @@ export default function ResultsManager() {
   };
 
   const getScoreColor = (percentage) => {
-    if (percentage >= 75) return "text-green-600 dark:text-green-400";
-    if (percentage >= 50) return "text-yellow-600";
+    const n = pctOf(percentage);
+    if (n >= 75) return "text-green-600 dark:text-green-400";
+    if (n >= 50) return "text-yellow-600";
     return "text-red-600 dark:text-red-400";
   };
 
@@ -298,7 +322,7 @@ export default function ResultsManager() {
               {paginatedResults.map((result, idx) => (
                 <tr
                   key={
-                    result._id || result.id || result.attemptId || `row-${idx}`
+                    result._id ?? result.id ?? result.attemptId ?? `row-${idx}`
                   }
                   className="hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
                 >
@@ -319,16 +343,16 @@ export default function ResultsManager() {
                     <span
                       className={`font-medium ${getScoreColor(result.percentage)}`}
                     >
-                      {result.percentage}%
+                      {pctOf(result.percentage)}%
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <span className="px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded text-sm font-medium">
-                      #{result.rank}
+                      {result.rank ? `#${result.rank}` : "–"}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
-                    {result.timeTaken} min
+                    {result.timeTaken ?? 0} min
                   </td>
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
                     {result.attemptedAt
@@ -483,7 +507,7 @@ export default function ResultsManager() {
                       Rank
                     </label>
                     <p className="font-bold text-indigo-600 dark:text-indigo-400 text-lg">
-                      #{selectedResult.rank}
+                      {selectedResult.rank ? `#${selectedResult.rank}` : "–"}
                     </p>
                   </div>
                   <div>
@@ -491,7 +515,7 @@ export default function ResultsManager() {
                       Time Taken
                     </label>
                     <p className="font-bold text-gray-900 dark:text-white text-lg">
-                      {selectedResult.timeTaken} min
+                      {selectedResult.timeTaken ?? 0} min
                     </p>
                   </div>
                 </div>
@@ -545,7 +569,7 @@ export default function ResultsManager() {
                     {showAnalytics.testName}
                   </p>
                   <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-3xl font-black mb-2 shadow-inner">
-                    {showAnalytics.percentage}%
+                    {pctOf(showAnalytics.percentage)}%
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     Overall Score: {showAnalytics.score} /{" "}
@@ -558,7 +582,7 @@ export default function ResultsManager() {
                       Time Taken
                     </span>
                     <span className="font-semibold text-gray-900 dark:text-white">
-                      {showAnalytics.timeTaken} min
+                      {showAnalytics.timeTaken ?? 0} min
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -566,7 +590,7 @@ export default function ResultsManager() {
                       Rank
                     </span>
                     <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                      #{showAnalytics.rank}
+                      {showAnalytics.rank ? `#${showAnalytics.rank}` : "–"}
                     </span>
                   </div>
                 </div>
@@ -626,7 +650,7 @@ export default function ResultsManager() {
                                 (String(selected) === String(correct) &&
                                   selected !== "-");
                               return (
-                                <tr key={q._id || q.id || idx}>
+                                <tr key={q._id ?? q.id ?? `row-${idx}`}>
                                   <td className="px-3 py-2 text-gray-500 dark:text-gray-400">
                                     {idx + 1}
                                   </td>

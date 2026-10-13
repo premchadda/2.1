@@ -152,13 +152,16 @@ export default function CommandPalette({ isOpen, onClose }) {
         group: "Actions",
         type: "action",
         keywords: ["portal", "frontend", "student", "site", "live"],
+        // Fail-closed: no hardcoded production fallback — hidden when unset.
+        hidden:
+          !import.meta.env.VITE_STUDENT_PORTAL_URL &&
+          !import.meta.env.VITE_FRONTEND_URL &&
+          !import.meta.env.DEV,
         action: () => {
           const portalUrl =
             import.meta.env.VITE_STUDENT_PORTAL_URL ||
             import.meta.env.VITE_FRONTEND_URL ||
-            (import.meta.env.DEV
-              ? DEV_FALLBACK_URL
-              : "https://trstprep.vercel.app");
+            (import.meta.env.DEV ? DEV_FALLBACK_URL : "/");
           window.open(portalUrl, "_blank", "noopener,noreferrer");
         },
       },
@@ -172,9 +175,27 @@ export default function CommandPalette({ isOpen, onClose }) {
         shortcut: "C",
         keywords: ["clear", "cache", "reset", "storage", "history"],
         action: () => {
-          const theme = localStorage.getItem("theme");
-          localStorage.clear();
-          if (theme) localStorage.setItem("theme", theme);
+          // Preserve auth/session + theme keys — only clear cache/history keys.
+          const keep = {};
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (
+              k &&
+              (k.includes("trstprep_token") ||
+                k.includes("trstprep_refresh_token") ||
+                k.includes("trstprep_auth_token") ||
+                k === "theme")
+            ) {
+              keep[k] = localStorage.getItem(k);
+            }
+          }
+          const cacheKeys = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && !(k in keep)) cacheKeys.push(k);
+          }
+          cacheKeys.forEach((k) => localStorage.removeItem(k));
+          Object.entries(keep).forEach(([k, v]) => localStorage.setItem(k, v));
           setRecentSearches([]);
           toast.success("Local preferences & history reset successfully");
         },
@@ -184,7 +205,8 @@ export default function CommandPalette({ isOpen, onClose }) {
   );
 
   const allItems = useMemo(() => {
-    return [...actions, ...navItems];
+    // Fail-closed actions (hidden when their env is unset) never surface.
+    return [...actions.filter((a) => !a.hidden), ...navItems];
   }, [actions, navItems]);
 
   // Filter and rank based on query and mode prefixes

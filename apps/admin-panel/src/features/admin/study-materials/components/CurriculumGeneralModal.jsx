@@ -17,6 +17,8 @@ export default function CurriculumGeneralModal({
   subtopics,
   selectedSubject,
   getEntityId,
+  slugError = "",
+  onSlugBlur,
 }) {
   if (
     !modalConfig ||
@@ -213,8 +215,14 @@ export default function CurriculumGeneralModal({
                 onChange={(e) =>
                   setFormData((f) => ({ ...f, slug: e.target.value }))
                 }
+                onBlur={(e) => onSlugBlur?.(e.target.value)}
                 className="w-full border rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-900 text-sm"
               />
+              {slugError && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                  {slugError}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

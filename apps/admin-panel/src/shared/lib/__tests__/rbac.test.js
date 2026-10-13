@@ -59,11 +59,25 @@ describe("hasPermission alias matrix", () => {
   });
 });
 
-describe("live-operation resource split", () => {
-  test("live segments map off the broad tests resource", () => {
-    expect(getResourceFromSegment("live-monitor")).toBe("live");
-    expect(getResourceFromSegment("live-proctoring")).toBe("proctoring");
-    expect(getResourceFromPath("/admin/live-monitor")).toBe("live");
-    expect(getResourceFromPath("/admin/live-proctoring")).toBe("proctoring");
+describe("live-operation resource mapping (backend-canonical)", () => {
+  test("live segments map to the tests resource (no phantom live/proctoring)", () => {
+    expect(getResourceFromSegment("live-monitor")).toBe("tests");
+    expect(getResourceFromSegment("live-proctoring")).toBe("tests");
+    expect(getResourceFromSegment("live")).toBe("tests");
+    expect(getResourceFromSegment("live-tests")).toBe("tests");
+    expect(getResourceFromSegment("proctoring")).toBe("tests");
+    expect(getResourceFromSegment("practice-questions")).toBe("tests");
+    expect(getResourceFromPath("/admin/live-monitor")).toBe("tests");
+    expect(getResourceFromPath("/admin/live-proctoring")).toBe("tests");
+  });
+
+  test("manage is a UI-gating-only wildcard for its resource", () => {
+    expect(hasPermission(["tests:manage"], "tests:view")).toBe(true);
+    expect(hasPermission(["tests:view"], "tests:manage")).toBe(true);
+    expect(hasPermission(["tests:read"], "tests:manage")).toBe(true);
+    expect(hasPermission(["tests:create"], "tests:manage")).toBe(true);
+    expect(hasPermission(["tests:write"], "tests:manage")).toBe(true);
+    expect(hasPermission(["tests:*"], "tests:manage")).toBe(true);
+    expect(hasPermission(["content:view"], "tests:manage")).toBe(false);
   });
 });

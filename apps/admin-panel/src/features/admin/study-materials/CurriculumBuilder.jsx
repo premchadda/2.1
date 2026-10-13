@@ -61,7 +61,8 @@ const HIERARCHY_TABS = [
   },
 ];
 
-const getEntityId = (item) => item?.id ?? item?._id;
+const getEntityId = (item, fallback) =>
+  item?.id ?? item?._id ?? item?.slug ?? fallback;
 const normalizeId = (value) =>
   value === null || value === undefined ? "" : String(value);
 const isSameId = (a, b) =>
@@ -215,6 +216,8 @@ function CurriculumBuilder() {
     subtopics: [],
   });
   const [loading, setLoading] = useState(true);
+  // Load failure state — surfaced in an error panel with Retry (not silent).
+  const [loadError, setLoadError] = useState(null);
   const [activeTab, setActiveTab] = useState("chapters");
 
   // Toast via react-hot-toast (CU-03 fix)
@@ -277,16 +280,23 @@ function CurriculumBuilder() {
     }
   });
 
-  // Persist collapsed state to localStorage whenever it changes
+  // Persist collapsed state to localStorage (debounced 300ms).
+  const persistTimerRef = useRef(null);
   useEffect(() => {
-    try {
-      localStorage.setItem(
-        "curriculum-collapsed-groups",
-        JSON.stringify(collapsedGroups),
-      );
-    } catch {
-      // Ignore storage errors
-    }
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          "curriculum-collapsed-groups",
+          JSON.stringify(collapsedGroups),
+        );
+      } catch {
+        // Ignore storage errors
+      }
+    }, 300);
+    return () => {
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    };
   }, [collapsedGroups]);
 
   const [modalConfig, setModalConfig] = useState(null);
@@ -317,30 +327,54 @@ function CurriculumBuilder() {
 
   // silent=true skips the loading spinner — used after mutations so the UI
   // stays stable instead of unmounting/remounting the full content tree.
+  // Per-endpoint failures throw (not silent []) so partial outages surface
+  // via loadError + error panel with Retry.
   const loadData = async (silent = false) => {
-    if (!silent) setLoading(true);
+    if (!silent) {
+      setLoading(true);
+      setLoadError(null);
+    }
     try {
       const fetchApi = async (url) => {
-        try {
-          const res = await apiClient.get(url);
-          return res.data.data;
-        } catch (e) {
-          return [];
+        const res = await apiClient.get(url);
+        const rows = res?.data?.data;
+        if (!Array.isArray(rows)) {
+          throw new Error(`Unexpected response shape from ${url}`);
         }
+        return rows;
       };
 
-      const [subjects, parts, units, chapters, topics, subtopics] =
-        await Promise.all([
-          fetchApi("/admin/subjects"),
-          fetchApi("/admin/subject-parts"),
-          fetchApi("/admin/units"),
-          fetchApi("/admin/chapters"),
-          fetchApi("/admin/topics"),
-          fetchApi("/admin/subtopics"),
-        ]);
-      setData({ subjects, parts, units, chapters, topics, subtopics });
+      const endpoints = [
+        ["/admin/subjects", "subjects"],
+        ["/admin/subject-parts", "parts"],
+        ["/admin/units", "units"],
+        ["/admin/chapters", "chapters"],
+        ["/admin/topics", "topics"],
+        ["/admin/subtopics", "subtopics"],
+      ];
+      const settled = await Promise.allSettled(
+        endpoints.map(([url]) => fetchApi(url)),
+      );
+      const next = {};
+      const failed = [];
+      settled.forEach((r, i) => {
+        const [, key] = endpoints[i];
+        if (r.status === "fulfilled") next[key] = r.value;
+        else {
+          next[key] = [];
+          failed.push(endpoints[i][0]);
+        }
+      });
+      setData(next);
+      if (failed.length > 0) {
+        const msg = `Failed to load: ${failed.join(", ")}`;
+        if (!silent) setLoadError(msg);
+        else showToast(msg, "error");
+      }
     } catch (error) {
       console.error(error);
+      if (!silent) setLoadError(error?.message || "Failed to load curriculum");
+      else showToast("Failed to refresh curriculum data.", "error");
     }
     if (!silent) setLoading(false);
   };
@@ -854,6 +888,29 @@ function CurriculumBuilder() {
     e.preventDefault();
     const { tabId, item } = modalConfig;
 
+    // Block save on duplicate slug (same check as slug-blur validation).
+    if (formData.slug) {
+      const entityMap = {
+        subjects: data.subjects,
+        parts: data.parts,
+        units: data.units,
+        chapters: data.chapters,
+        topics: data.topics,
+        subtopics: data.subtopics,
+      };
+      const siblings = entityMap[tabId] || [];
+      const itemId = getEntityId(item);
+      const duplicate = siblings.find(
+        (c) => c.slug === formData.slug && getEntityId(c) !== itemId,
+      );
+      if (duplicate) {
+        const msg = "This slug already exists. Please choose a different name.";
+        setSlugError(msg);
+        showToast(msg, "error");
+        return;
+      }
+    }
+
     let url = "";
     let payload = {
       slug: formData.slug,
@@ -1205,19 +1262,29 @@ function CurriculumBuilder() {
   };
 
   // Which data is currently active? Sort by orderIndex so list views respect ordering.
-  let activeData = [];
-  if (activeTab === "subjects") activeData = sortByOrderAndId(filteredSubjects);
-  if (activeTab === "parts") activeData = sortByOrderAndId(filteredParts);
-  if (activeTab === "units") activeData = sortByOrderAndId(filteredUnits);
-  if (activeTab === "chapters") activeData = sortByOrderAndId(filteredChapters);
-  if (activeTab === "topics") activeData = sortByOrderAndId(filteredTopics);
-  if (activeTab === "subtopics")
-    activeData = sortByOrderAndId(filteredSubtopics);
+  const activeData = useMemo(() => {
+    if (activeTab === "subjects") return sortByOrderAndId(filteredSubjects);
+    if (activeTab === "parts") return sortByOrderAndId(filteredParts);
+    if (activeTab === "units") return sortByOrderAndId(filteredUnits);
+    if (activeTab === "chapters") return sortByOrderAndId(filteredChapters);
+    if (activeTab === "topics") return sortByOrderAndId(filteredTopics);
+    if (activeTab === "subtopics") return sortByOrderAndId(filteredSubtopics);
+    return [];
+  }, [
+    activeTab,
+    filteredSubjects,
+    filteredParts,
+    filteredUnits,
+    filteredChapters,
+    filteredTopics,
+    filteredSubtopics,
+  ]);
 
   const currentTabConfig = HIERARCHY_TABS.find((t) => t.id === activeTab);
 
-  // Render grouped lists!
-  const groupItemsByParent = () => {
+  // Render grouped lists! Memoized via useCallback (rebuilt only when the
+  // underlying tab data changes) + useMemo at the call site.
+  const groupItemsByParent = useCallback(() => {
     const groups = {};
 
     // Helper: resolve parent entity and its orderIndex for a given tab + parentId
@@ -1328,9 +1395,12 @@ function CurriculumBuilder() {
     });
 
     return groups;
-  };
+  }, [activeTab, activeData, data]);
 
-  const groupedData = activeTab === "hierarchy" ? {} : groupItemsByParent();
+  const groupedData = useMemo(
+    () => (activeTab === "hierarchy" ? {} : groupItemsByParent()),
+    [activeTab, groupItemsByParent],
+  );
 
   // Chapters, topics, and subtopics open with their parent groups collapsed.
   // The scope ref prevents a user expanding a group from being overwritten on
@@ -1413,7 +1483,6 @@ function CurriculumBuilder() {
     chapterView.topics.find((topic) =>
       entityMatchesParentId(topic, chapterView.selectedTopicId),
     ) || null;
-
   const selectedChapterSubtopic =
     (selectedChapterTopic?.subtopics || []).find((subtopic) =>
       entityMatchesParentId(subtopic, chapterView.selectedSubtopicId),
@@ -2022,6 +2091,21 @@ function CurriculumBuilder() {
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+      {/* Load error panel with Retry (partial/full fetch failure) */}
+      {loadError && !loading && (
+        <div className="m-3 sm:m-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3">
+          <p className="flex-1 text-sm text-red-700 dark:text-red-300">
+            {loadError}
+          </p>
+          <button
+            type="button"
+            onClick={() => loadData()}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {/* Global Subject Selector — one row on mobile */}
       <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex flex-row items-center justify-between gap-2 sm:gap-4">
         <div className="min-w-0 flex-1">
@@ -2515,6 +2599,10 @@ function CurriculumBuilder() {
         subtopics={subtopics}
         selectedSubject={selectedSubject}
         getEntityId={getEntityId}
+        slugError={slugError}
+        onSlugBlur={(slug) =>
+          setSlugError(validateSlug(slug, getEntityId(modalConfig?.item)))
+        }
       />
     </div>
   );

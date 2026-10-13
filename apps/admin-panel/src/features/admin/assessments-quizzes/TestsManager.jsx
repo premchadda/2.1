@@ -85,12 +85,17 @@ const getTestQuestionsCount = (test) =>
   test?.total_questions ??
   0;
 import TestFormModal from "./components/TestFormModal";
+import {
+  validateForm,
+  testSchema,
+} from "../../../shared/lib/validationSchemas.js";
 // Heavy JSON import flow (hierarchy tree + preview renderer) loads on demand.
 const FullTestImportModal = lazy(
   () => import("./components/FullTestImportModal"),
 );
 import SECTION_PRESETS from "../../../shared/config/sectionPresets.js";
 import { EmptyState } from "../../../shared/components/ui/EmptyState.jsx";
+import Pagination from "../../../shared/components/common/Pagination.jsx";
 
 const TEST_CATEGORY_TABS = [
   { id: "mock-tests", label: "Mock Tests", icon: CheckSquare },
@@ -629,9 +634,13 @@ const BulkUploadModal = ({
                 </p>
                 {!validationResult.isValid && (
                   <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
-                    {validationResult.errors.slice(0, 5).map((err, idx) => (
+                    {validationResult.errors.slice(0, 5).map((err) => (
                       <p
-                        key={idx}
+                        key={
+                          err.row ??
+                          err.title ??
+                          validationResult.errors.indexOf(err)
+                        }
                         className="text-[11px] text-amber-700 dark:text-amber-400"
                       >
                         Row {err.row}: {err.reason}{" "}
@@ -740,6 +749,8 @@ function TestsManager() {
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [showSelectDropdown, setShowSelectDropdown] = useState(false);
+  const [workspacePage, setWorkspacePage] = useState(1);
+  const [workspacePageSize, setWorkspacePageSize] = useState(20);
 
   const fetchData = async (signal = null) => {
     try {
@@ -1389,6 +1400,36 @@ function TestsManager() {
       testMatchesSubCategory(test, selectedTestSubCategoryId),
     );
   }, [seriesTests, selectedTestSubCategoryId, flatTestCategories]);
+  // Client-side pagination over the already-fetched workspaceTests list
+  // (backend has no server pagination for this manager; server pagination
+  // is still future work). Bulk selection/count logic below intentionally
+  // keeps operating on the full filtered workspaceTests list.
+  const selectedSeriesId = String(getSeriesId(selectedSeries) || "");
+  const workspaceTotalPages = Math.max(
+    1,
+    Math.ceil(workspaceTests.length / workspacePageSize) || 1,
+  );
+  const clampedWorkspacePage = Math.min(workspacePage, workspaceTotalPages);
+  const pagedWorkspaceTests = useMemo(() => {
+    const start = (clampedWorkspacePage - 1) * workspacePageSize;
+    return workspaceTests.slice(start, start + workspacePageSize);
+  }, [workspaceTests, clampedWorkspacePage, workspacePageSize]);
+  // Reset to page 1 when filters/search/series change.
+  useEffect(() => {
+    setWorkspacePage(1);
+  }, [
+    selectedSeriesId,
+    activeTestCategory,
+    activeExamCategoryId,
+    activeExamId,
+    activeStageId,
+    selectedTestSubCategoryId,
+  ]);
+  // Clamp page when the list shrinks (e.g. after delete/filter).
+  useEffect(() => {
+    if (workspacePage > workspaceTotalPages)
+      setWorkspacePage(workspaceTotalPages);
+  }, [workspacePage, workspaceTotalPages]);
   const selectedExamCategoryLabel =
     examCategories.find((category) =>
       idsEqual(
@@ -1887,6 +1928,48 @@ function TestsManager() {
       toast.error("Test title is required");
       return;
     }
+    // Schema validation (blocks submit on failure; surfaces field errors).
+    // NOTE: client pagination added over the workspaceTests display slice;
+    // server pagination is still future work (needs backend support).
+    const schemaCheck = validateForm(testSchema, {
+      title: data.title?.trim(),
+      description: data.description,
+      duration: Number(data.duration),
+      totalQuestions: Number(data.totalQuestions) || 1,
+      totalMarks: Number(data.totalMarks) || 0,
+      passingMarks: Number(data.passingMarks) || 0,
+      negativeMarking: Number(data.negativeMarking) || 0,
+      difficulty: data.difficulty,
+      type: data.type,
+      status: data.status,
+      isPro: Boolean(data.isPro),
+    });
+    if (!schemaCheck.success) {
+      const firstErr = Object.entries(schemaCheck.errors)[0];
+      toast.error(
+        firstErr
+          ? `${firstErr[0]}: ${firstErr[1].join(", ")}`
+          : "Test data failed validation",
+      );
+      return;
+    }
+    // Explicit duration/slug/difficulty checks — never silently coerce to 60.
+    const parsedDuration = Number(data.duration);
+    if (!Number.isFinite(parsedDuration) || parsedDuration <= 0) {
+      toast.error("Duration must be a positive number of minutes");
+      return;
+    }
+    if (data.slug && !/^[a-z0-9-]+$/.test(data.slug)) {
+      toast.error("Slug must be lowercase letters, numbers, and hyphens");
+      return;
+    }
+    if (
+      data.difficulty &&
+      !["easy", "medium", "hard"].includes(data.difficulty)
+    ) {
+      toast.error("Difficulty must be easy, medium, or hard");
+      return;
+    }
     const targetSeriesId =
       data.testSeriesId ||
       (editingTest
@@ -1944,7 +2027,7 @@ function TestsManager() {
                   editingTest.sub_category
                 : null;
 
-      const parsedDuration = Number(data.duration);
+      const parsedDuration = schemaCheck.data.duration;
       const payload = {
         title: data.title.trim(),
         slug:
@@ -1956,10 +2039,7 @@ function TestsManager() {
         testCategoryId: chosenTestCategoryId,
         subCategory: chosenTestCategoryId,
         type: data.isLive ? "live-tests" : data.type || "mock-tests",
-        duration:
-          Number.isFinite(parsedDuration) && parsedDuration > 0
-            ? parsedDuration
-            : 60,
+        duration: parsedDuration,
         negativeMarking: Number(data.negativeMarking) || 0,
         difficulty: data.difficulty,
         hasSectionalTiming: Boolean(data.hasSectionalTiming),
@@ -2405,6 +2485,13 @@ function TestsManager() {
               </li>
             ))}
           </ul>
+          <button
+            type="button"
+            onClick={() => fetchData()}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -2466,21 +2553,29 @@ function TestsManager() {
 
       <ExamHierarchyFilters
         examCategories={examCategories}
-        examsForActiveCategory={examsForActiveCategory}
-        stagesForActiveExam={stagesForActiveExam}
         activeExamCategoryId={activeExamCategoryId}
+        onSelectExamCategory={(categoryValue) => {
+          setActiveExamCategoryId(categoryValue);
+          setActiveExamId("");
+          setActiveStageId("");
+        }}
+        examsForActiveCategory={examsForActiveCategory}
         activeExamId={activeExamId}
+        onSelectExam={(examValue) => {
+          setActiveExamId(examValue);
+          setActiveStageId("");
+        }}
+        stagesForActiveExam={stagesForActiveExam}
         activeStageId={activeStageId}
-        setActiveExamCategoryId={setActiveExamCategoryId}
-        setActiveExamId={setActiveExamId}
-        setActiveStageId={setActiveStageId}
+        onSelectStage={setActiveStageId}
+        examFiltersLoading={false}
         selectedExamCategoryLabel={selectedExamCategoryLabel}
         selectedExamLabel={selectedExamLabel}
-        selectedSeries={selectedSeries}
         selectedStageLabel={selectedStageLabel}
+        selectedSeries={selectedSeries}
         activeCatLabel={activeCatLabel}
-        selectedTestSubCategoryLabel={selectedTestSubCategoryLabel}
-        examFiltersLoading={false}
+        selectedTestSubCategoryId={selectedTestSubCategoryId}
+        selectedTestSubCategoryRecord={{ name: selectedTestSubCategoryLabel }}
       />
 
       {hasNoTests && (
@@ -3074,169 +3169,185 @@ function TestsManager() {
                     description="Create a test or bulk upload tests for this series and selected test subcategory."
                   />
                 ) : (
-                  <div className="flex flex-col gap-3">
-                    {workspaceTests.map((test) => {
-                      const testId = getTestId(test);
-                      const qCount = getTestQuestionsCount(test);
-                      const expectedQuestions =
-                        test.totalQuestions || test.total_questions || 0;
-                      const isQuestionCountBalanced =
-                        expectedQuestions > 0
-                          ? qCount >= expectedQuestions
-                          : qCount > 0;
-                      const isSelected = selectedTestIds.some((id) =>
-                        idsEqual(id, testId),
-                      );
+                  <>
+                    <div className="flex flex-col gap-3">
+                      {pagedWorkspaceTests.map((test) => {
+                        const testId = getTestId(test);
+                        const qCount = getTestQuestionsCount(test);
+                        const expectedQuestions =
+                          test.totalQuestions || test.total_questions || 0;
+                        const isQuestionCountBalanced =
+                          expectedQuestions > 0
+                            ? qCount >= expectedQuestions
+                            : qCount > 0;
+                        const isSelected = selectedTestIds.some((id) =>
+                          idsEqual(id, testId),
+                        );
 
-                      return (
-                        <div
-                          key={testId}
-                          onClick={(e) => {
-                            if (isSelectMode) {
-                              if (
-                                e.target.closest("button") ||
-                                e.target.closest("a")
-                              )
-                                return;
-                              toggleSelectTest(testId);
-                            }
-                          }}
-                          className={`w-full bg-white border rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
-                            isSelected
-                              ? "border-indigo-500 bg-indigo-50/20 ring-2 ring-indigo-400/40 shadow-sm"
-                              : "border-gray-200 hover:border-indigo-200 hover:shadow-sm"
-                          } ${isSelectMode ? "cursor-pointer" : ""}`}
-                        >
-                          <div className="flex items-start gap-3 min-w-0 flex-1">
-                            {/* Checkbox for Card */}
-                            <div
-                              className="pt-0.5 shrink-0"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <input
-                                type="checkbox"
-                                aria-label={`Select test ${test.title || testId}`}
-                                checked={isSelected}
-                                onChange={() => toggleSelectTest(testId)}
-                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
-                              />
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2 mb-2">
-                                <Badge
-                                  tone={
-                                    test.status === "active" ||
-                                    test.status === "published"
-                                      ? "green"
-                                      : "gray"
-                                  }
-                                >
-                                  {test.status === "published"
-                                    ? "● Published"
-                                    : test.status === "active"
-                                      ? "● Active"
-                                      : "○ Draft"}
-                                </Badge>
-                                <Badge tone="indigo">
-                                  {test.type || activeTestCategory}
-                                </Badge>
-                                {test.difficulty && (
-                                  <Badge tone="blue">{test.difficulty}</Badge>
-                                )}
-                              </div>
-                              <h4 className="font-bold text-gray-900 truncate">
-                                {test.title || test.name || "Untitled Test"}
-                              </h4>
-                              <p className="text-xs text-gray-500 mt-1 truncate">
-                                {test.description || "No description"}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-3 text-sm text-gray-600 shrink-0 flex-wrap pl-7 md:pl-0">
-                            <span className="flex items-center gap-1 text-xs text-gray-500">
-                              <Clock className="w-3.5 h-3.5" />
-                              {test.duration || test.time_limit || "--"} min
-                            </span>
-                            <span
-                              className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md border ${isQuestionCountBalanced ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                              {expectedQuestions > 0
-                                ? `${qCount}/${expectedQuestions} Qs`
-                                : `${qCount} Qs`}
-                            </span>
-                            {(test.totalMarks || test.total_marks) && (
-                              <span className="text-xs font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-md">
-                                {test.totalMarks || test.total_marks} Marks
-                              </span>
-                            )}
-                            <Link
-                              to={`/admin/questions?testId=${testId}`}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200 transition-colors"
-                              title="Open Question Bank for this Test"
-                            >
-                              <BookOpen className="w-3.5 h-3.5" />
-                              <span>Questions</span>
-                            </Link>
-                            {(test.isLive ||
-                              activeTestCategory === "live-tests") && (
-                              <Link
-                                to={`/admin/live-monitor?testId=${testId}`}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-xs font-semibold border border-cyan-200 transition-colors"
-                                title="Monitor live candidates for this test"
-                              >
-                                <Radio className="w-3.5 h-3.5 text-cyan-600" />
-                                <span>Monitor</span>
-                              </Link>
-                            )}
-                            {test.status === "published" ? (
-                              <button
-                                type="button"
-                                onClick={() => handleUnpublish(test)}
-                                className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs font-semibold"
-                                title="Unpublish"
-                              >
-                                Unpublish
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handlePublish(test)}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold shadow-sm"
-                                title="Publish"
-                              >
-                                Publish
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => openEditForm(test)}
-                              className="p-2 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600"
-                              title="Edit"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setDeleteTarget({
-                                  id: testId,
-                                  title:
-                                    test.title || test.name || "Untitled Test",
-                                })
+                        return (
+                          <div
+                            key={testId}
+                            onClick={(e) => {
+                              if (isSelectMode) {
+                                if (
+                                  e.target.closest("button") ||
+                                  e.target.closest("a")
+                                )
+                                  return;
+                                toggleSelectTest(testId);
                               }
-                              className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            }}
+                            className={`w-full bg-white border rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
+                              isSelected
+                                ? "border-indigo-500 bg-indigo-50/20 ring-2 ring-indigo-400/40 shadow-sm"
+                                : "border-gray-200 hover:border-indigo-200 hover:shadow-sm"
+                            } ${isSelectMode ? "cursor-pointer" : ""}`}
+                          >
+                            <div className="flex items-start gap-3 min-w-0 flex-1">
+                              {/* Checkbox for Card */}
+                              <div
+                                className="pt-0.5 shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Select test ${test.title || testId}`}
+                                  checked={isSelected}
+                                  onChange={() => toggleSelectTest(testId)}
+                                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                                />
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2 mb-2">
+                                  <Badge
+                                    tone={
+                                      test.status === "active" ||
+                                      test.status === "published"
+                                        ? "green"
+                                        : "gray"
+                                    }
+                                  >
+                                    {test.status === "published"
+                                      ? "● Published"
+                                      : test.status === "active"
+                                        ? "● Active"
+                                        : "○ Draft"}
+                                  </Badge>
+                                  <Badge tone="indigo">
+                                    {test.type || activeTestCategory}
+                                  </Badge>
+                                  {test.difficulty && (
+                                    <Badge tone="blue">{test.difficulty}</Badge>
+                                  )}
+                                </div>
+                                <h4 className="font-bold text-gray-900 truncate">
+                                  {test.title || test.name || "Untitled Test"}
+                                </h4>
+                                <p className="text-xs text-gray-500 mt-1 truncate">
+                                  {test.description || "No description"}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 text-sm text-gray-600 shrink-0 flex-wrap pl-7 md:pl-0">
+                              <span className="flex items-center gap-1 text-xs text-gray-500">
+                                <Clock className="w-3.5 h-3.5" />
+                                {test.duration || test.time_limit || "--"} min
+                              </span>
+                              <span
+                                className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md border ${isQuestionCountBalanced ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                {expectedQuestions > 0
+                                  ? `${qCount}/${expectedQuestions} Qs`
+                                  : `${qCount} Qs`}
+                              </span>
+                              {(test.totalMarks || test.total_marks) && (
+                                <span className="text-xs font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-md">
+                                  {test.totalMarks || test.total_marks} Marks
+                                </span>
+                              )}
+                              <Link
+                                to={`/admin/questions?testId=${testId}`}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200 transition-colors"
+                                title="Open Question Bank for this Test"
+                              >
+                                <BookOpen className="w-3.5 h-3.5" />
+                                <span>Questions</span>
+                              </Link>
+                              {(test.isLive ||
+                                activeTestCategory === "live-tests") && (
+                                <Link
+                                  to={`/admin/live-monitor?testId=${testId}`}
+                                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-xs font-semibold border border-cyan-200 transition-colors"
+                                  title="Monitor live candidates for this test"
+                                >
+                                  <Radio className="w-3.5 h-3.5 text-cyan-600" />
+                                  <span>Monitor</span>
+                                </Link>
+                              )}
+                              {test.status === "published" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUnpublish(test)}
+                                  className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs font-semibold"
+                                  title="Unpublish"
+                                >
+                                  Unpublish
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handlePublish(test)}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold shadow-sm"
+                                  title="Publish"
+                                >
+                                  Publish
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => openEditForm(test)}
+                                className="p-2 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600"
+                                title="Edit"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setDeleteTarget({
+                                    id: testId,
+                                    title:
+                                      test.title ||
+                                      test.name ||
+                                      "Untitled Test",
+                                  })
+                                }
+                                className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                    {workspaceTotalPages > 1 && (
+                      <Pagination
+                        page={clampedWorkspacePage}
+                        limit={workspacePageSize}
+                        total={workspaceTests.length}
+                        onPageChange={setWorkspacePage}
+                        onLimitChange={(next) => {
+                          setWorkspacePageSize(next);
+                          setWorkspacePage(1);
+                        }}
+                      />
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -3351,8 +3462,11 @@ function TestsManager() {
                     selectedTestIds.some((id) => idsEqual(id, getTestId(t))),
                   )
                   .slice(0, 6)
-                  .map((t, idx) => (
-                    <p key={idx} className="truncate">
+                  .map((t) => (
+                    <p
+                      key={getTestId(t) ?? t.id ?? t._id ?? t.title}
+                      className="truncate"
+                    >
                       • {t.title || t.name}
                     </p>
                   ))}

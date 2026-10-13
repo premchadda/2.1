@@ -8,7 +8,7 @@ import {
   Share2,
   Bookmark,
 } from "lucide-react";
-import sanitizeHtml from "../../lib/sanitizeHtml";
+import sanitizeHtml, { isSafeImageUrl } from "../../lib/sanitizeHtml";
 
 export default function ContentReader({ isOpen, onClose, contentData }) {
   if (!isOpen || typeof document === "undefined") return null;
@@ -65,16 +65,17 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Article Header */}
         <article className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          {/* Featured Image */}
-          {contentData?.featuredImage && (
-            <div className="w-full h-80 bg-gray-100">
-              <img
-                src={contentData.featuredImage}
-                alt={contentData.title}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
+          {/* Featured Image (gated: only safe http(s)/relative/image-data URLs render) */}
+          {contentData?.featuredImage &&
+            isSafeImageUrl(contentData.featuredImage) && (
+              <div className="w-full h-80 bg-gray-100">
+                <img
+                  src={contentData.featuredImage}
+                  alt={contentData.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
 
           <div className="p-4 sm:p-6">
             {/* Category Badge */}

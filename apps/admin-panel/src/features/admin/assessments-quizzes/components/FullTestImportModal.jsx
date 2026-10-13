@@ -98,8 +98,34 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
 
   if (!isOpen) return null;
 
+  // Mirror BulkImportModal validation: .json only, 50MB cap, empty check.
+  const validateFile = (f) => {
+    if (!f) return false;
+    const name = String(f.name || "").toLowerCase();
+    if (!name.endsWith(".json")) {
+      toast.error("Invalid file type. Use a .json file");
+      return false;
+    }
+    if (f.size > 50 * 1024 * 1024) {
+      toast.error("File exceeds the maximum size of 50MB");
+      return false;
+    }
+    if (f.size === 0) {
+      toast.error("File is empty");
+      return false;
+    }
+    return true;
+  };
+
   const handleFileChange = (e) => {
     const selected = e.target.files?.[0] || null;
+    if (selected && !validateFile(selected)) {
+      e.target.value = "";
+      setFile(null);
+      setTests([]);
+      setSchemaValidation(null);
+      return;
+    }
     setFile(selected);
     setTests([]);
     setSchemaValidation(null);
@@ -111,6 +137,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
       toast.error("Please select a JSON file first");
       return;
     }
+    if (!validateFile(file)) return;
     setUploading(true);
     try {
       const fd = new FormData();

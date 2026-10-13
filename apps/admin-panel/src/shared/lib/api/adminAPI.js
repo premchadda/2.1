@@ -80,7 +80,15 @@ export const adminAPI = {
   bulkUploadQuizzes: (formData) =>
     apiClient.post("/admin/quizzes/bulk", formData, {
       timeout: 300000,
+      // Backend expects multipart field name "file" for FormData uploads.
     }),
+  // JSON variant (backend also accepts { quizzes: [...] }).
+  bulkUploadQuizzesJson: (data) =>
+    apiClient.post(
+      "/admin/quizzes/bulk",
+      { quizzes: Array.isArray(data) ? data : (data?.quizzes ?? []) },
+      { timeout: 300000 },
+    ),
 
   // Full Test JSON Import
   previewFullTest: (formData) =>
@@ -257,7 +265,7 @@ export const adminAPI = {
   deleteQuestion: (id) =>
     apiClient.delete(`/admin/questions/${requireId(id, "id")}`),
   bulkDeleteQuestions: (ids) =>
-    apiClient.post("/admin/questions/bulk-delete", { ids }),
+    apiClient.delete("/admin/questions/bulk", { data: { ids } }),
   bulkUploadQuestions: (formData) =>
     apiClient.post("/admin/questions/bulk", formData, { timeout: 300000 }),
 
@@ -342,14 +350,10 @@ export const adminAPI = {
   bulkUploadLiveTests: (data) =>
     apiClient.post("/admin/live-tests/bulk", data, { timeout: 300000 }),
 
-  // PYPs (Previous Year Papers)
-  getPYPs: () => apiClient.get("/admin/pyp"),
-  createPYP: (data) => apiClient.post("/admin/pyp", data),
-  updatePYP: (id, data) =>
-    apiClient.put(`/admin/pyp/${requireId(id, "id")}`, data),
-  deletePYP: (id) => apiClient.delete(`/admin/pyp/${requireId(id, "id")}`),
-  bulkUploadPYP: (data) =>
-    apiClient.post("/admin/pyp/bulk", data, { timeout: 300000 }),
+  // NOTE: dead PYP admin methods (getPYPs/createPYP/updatePYP/deletePYP/
+  // bulkUploadPYP) removed — grep confirmed zero in-territory callers.
+  // PYP reads go through the public endpoints (/api/previous-year-papers,
+  // /api/pyps) instead of a non-existent /admin/pyp route.
 
   // Enrollments
   getEnrollments: (params) => apiClient.get("/admin/enrollments", { params }),

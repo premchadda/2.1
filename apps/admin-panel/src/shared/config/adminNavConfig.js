@@ -242,6 +242,14 @@ export const adminNavConfig = {
           badge: null,
         },
         {
+          id: "subject-hierarchy",
+          name: "Subject Hierarchy",
+          path: "/admin/subject-hierarchy",
+          icon: FolderTree,
+          description: "Subject tree explorer (content:view)",
+          badge: null,
+        },
+        {
           id: "current-affairs",
           name: "Current Affairs",
           path: "/admin/current-affairs",

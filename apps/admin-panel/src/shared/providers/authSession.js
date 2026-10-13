@@ -20,20 +20,18 @@ export const getInitialUser = () => {
 };
 
 export const saveUserCache = (frontendUser, rememberMe = false) => {
+  // Session-only cache: never create new localStorage entries (XSS +
+  // stale-identity risk). localStorage reads in getInitialUser remain as a
+  // legacy migration path only.
+  void rememberMe;
   try {
     if (!frontendUser) {
       sessionStorage.removeItem(ADMIN_USER_CACHE_KEY);
       localStorage.removeItem(ADMIN_USER_CACHE_KEY);
       return;
     }
-    const serialized = JSON.stringify(frontendUser);
-    if (rememberMe) {
-      localStorage.setItem(ADMIN_USER_CACHE_KEY, serialized);
-      sessionStorage.removeItem(ADMIN_USER_CACHE_KEY);
-    } else {
-      sessionStorage.setItem(ADMIN_USER_CACHE_KEY, serialized);
-      localStorage.removeItem(ADMIN_USER_CACHE_KEY);
-    }
+    sessionStorage.setItem(ADMIN_USER_CACHE_KEY, JSON.stringify(frontendUser));
+    localStorage.removeItem(ADMIN_USER_CACHE_KEY);
   } catch {
     // storage may throw in private mode
   }
@@ -50,6 +48,13 @@ export const applyAuthSession = ({
   // (Vercel) and backend (Render) are on different origins, cookies with
   // SameSite=None may still be blocked by some browsers. The Bearer
   // fallback in apiClient's request interceptor uses these stored tokens.
+  //
+  // Tokens live in sessionStorage ONLY (tab-scoped). localStorage is read as
+  // a legacy migration path (see apiClient readStoredToken) but this module
+  // never creates new localStorage entries — long-lived XSS-exfiltratable
+  // token copies must not be minted, regardless of rememberMe. Legacy
+  // localStorage entries are removed here on every sign-in/refresh.
+  void rememberMe;
   try {
     if (csrfToken) {
       setCsrfToken(csrfToken);
@@ -57,21 +62,12 @@ export const applyAuthSession = ({
     if (token || refreshToken) {
       if (token) setMemoryToken(token);
       if (refreshToken) setMemoryRefreshToken(refreshToken);
-      if (rememberMe) {
-        if (token) localStorage.setItem("trstprep_token", token);
-        if (refreshToken)
-          localStorage.setItem("trstprep_refresh_token", refreshToken);
-        sessionStorage.removeItem("trstprep_token");
-        sessionStorage.removeItem("trstprep_auth_token");
-        sessionStorage.removeItem("trstprep_refresh_token");
-      } else {
-        if (token) sessionStorage.setItem("trstprep_token", token);
-        if (refreshToken)
-          sessionStorage.setItem("trstprep_refresh_token", refreshToken);
-        localStorage.removeItem("trstprep_token");
-        localStorage.removeItem("trstprep_auth_token");
-        localStorage.removeItem("trstprep_refresh_token");
-      }
+      if (token) sessionStorage.setItem("trstprep_token", token);
+      if (refreshToken)
+        sessionStorage.setItem("trstprep_refresh_token", refreshToken);
+      localStorage.removeItem("trstprep_token");
+      localStorage.removeItem("trstprep_auth_token");
+      localStorage.removeItem("trstprep_refresh_token");
     }
   } catch (error) {
     void error;

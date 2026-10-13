@@ -10,6 +10,15 @@
 
 const REQUIRED_ENV_VARS = ["VITE_API_URL", "VITE_ADMIN_SITE_URL"];
 const OPTIONAL_ENV_VARS_WITH_FALLBACK = ["VITE_BACKEND_URL", "VITE_SOCKET_URL"];
+// Documented-but-optional vars (warn-only when unset, never throw):
+// portal links hide (fail closed) and errorReporter stays no-op.
+const OPTIONAL_DOCUMENTED_VARS = [
+  "VITE_FRONTEND_URL",
+  "VITE_STUDENT_PORTAL_URL",
+  "VITE_SENTRY_DSN",
+  "VITE_APP_VERSION",
+  "VITE_MAIN_SITE_URL",
+];
 
 export function validateEnvVars() {
   const missing = REQUIRED_ENV_VARS.filter((key) => {
@@ -24,6 +33,16 @@ export function validateEnvVars() {
     console.warn(
       "[Admin Env Validation] Optional (fallback exists):",
       missingOptional.join(", "),
+    );
+  }
+  const missingDocumented = OPTIONAL_DOCUMENTED_VARS.filter((key) => {
+    const value = import.meta.env[key];
+    return !value || value === "undefined";
+  });
+  if (missingDocumented.length > 0) {
+    console.warn(
+      "[Admin Env Validation] Optional documented vars unset (warn-only, features degrade gracefully):",
+      missingDocumented.join(", "),
     );
   }
 

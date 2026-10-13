@@ -1,9 +1,10 @@
+import { useState, useEffect } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../providers/AuthContext";
 import { getResourceFromPath, hasPermission } from "../lib/rbac";
 
 function Forbidden({
-  message = "Access denied. You do not have permission to view this page.",
+  message = "You do not have permission to view this admin section.",
 }) {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -30,8 +31,11 @@ function Forbidden({
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={async () => {
-              await logout();
-              navigate("/login", { replace: true });
+              try {
+                await logout();
+              } finally {
+                navigate("/login", { replace: true });
+              }
             }}
             className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 transition-colors shadow-sm"
             aria-label="Sign in with admin account"
@@ -50,8 +54,21 @@ function ProtectedRoute({
   requireAnyPermission,
   requireAllPermissions,
 }) {
-  const { user, loading, authResolved } = useAuth();
+  const { user, loading, authResolved, logout } = useAuth();
   const location = useLocation();
+  const [authTimedOut, setAuthTimedOut] = useState(false);
+
+  // 10s auth timeout: if the auth check hangs (backend down), offer retry +
+  // logout instead of an infinite spinner.
+  useEffect(() => {
+    if (loading || !authResolved) {
+      const t = setTimeout(() => setAuthTimedOut(true), 10000);
+      setAuthTimedOut(false);
+      return () => clearTimeout(t);
+    }
+    setAuthTimedOut(false);
+    return undefined;
+  }, [loading, authResolved]);
 
   if (loading || !authResolved) {
     return (
@@ -59,6 +76,28 @@ function ProtectedRoute({
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-500">Checking authentication...</p>
+          {authTimedOut && (
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700"
+              >
+                Retry
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await logout();
+                  } finally {
+                    window.location.href = "/login";
+                  }
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-100"
+              >
+                Log out
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -88,9 +127,16 @@ function ProtectedRoute({
   if (adminOnly && !isSuper) {
     const resource = getResourceFromPath(location.pathname);
 
+    // Align with AdminLayout canViewItem: view/read/create/edit/write/
+    // manage/* all count as view-equivalent for section gating.
     const hasAccess =
       checkPerm(`${resource}:view`) ||
       checkPerm(`${resource}:read`) ||
+      checkPerm(`${resource}:create`) ||
+      checkPerm(`${resource}:edit`) ||
+      checkPerm(`${resource}:write`) ||
+      checkPerm(`${resource}:manage`) ||
+      checkPerm(`${resource}:*`) ||
       (resource === "content" && checkPerm("content:read"));
     if (!hasAccess) {
       return (

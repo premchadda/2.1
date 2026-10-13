@@ -27,7 +27,6 @@ export { default as PracticeQuestionsManager } from "./assessments-quizzes/Pract
 export { default as StudyMaterialsManager } from "./study-materials/StudyMaterialsManager";
 export { default as SubjectRelationsManager } from "./study-materials/SubjectRelationsManager";
 export { default as SubjectHierarchyManager } from "./study-materials/SubjectHierarchyManager";
-export { default as SubjectHierarchyView } from "./study-materials/SubjectHierarchyManager";
 export { default as TopicsManager } from "./study-materials/TopicsManager";
 
 export { default as ContentManagement } from "./study-materials/ContentManagement";

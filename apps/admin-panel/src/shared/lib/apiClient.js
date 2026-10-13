@@ -229,7 +229,9 @@ apiClient.interceptors.response.use(
         "/auth/refresh",
       ].some((path) => originalRequest?.url?.startsWith(path));
       if (isAuthEndpoint) {
-        window.dispatchEvent(new Event("unauthorized"));
+        typeof window !== "undefined"
+          ? window.dispatchEvent(new Event("unauthorized"))
+          : undefined;
         return Promise.reject(
           new AuthenticationError(
             error.response.data?.message || error.message,
@@ -278,7 +280,9 @@ apiClient.interceptors.response.use(
             processQueue(refreshError);
             const refreshStatus = refreshError?.response?.status;
             if (refreshStatus === 401 || refreshStatus === 419)
-              window.dispatchEvent(new Event("unauthorized"));
+              typeof window !== "undefined"
+                ? window.dispatchEvent(new Event("unauthorized"))
+                : undefined;
             return Promise.reject(refreshError);
           }
         }

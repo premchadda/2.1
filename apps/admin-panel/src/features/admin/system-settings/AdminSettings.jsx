@@ -25,7 +25,7 @@ import {
 import { apiClient } from "../../../shared/lib/dataService.js";
 import { toast } from "react-hot-toast";
 
-export default function SiteSettingsManager() {
+export default function AdminSettings() {
   const [settings, setSettings] = useState({
     siteName: "Trstprep",
     siteDescription:
@@ -75,7 +75,7 @@ export default function SiteSettingsManager() {
         enabled: false,
         title: "Live Tests",
         message: "We're preparing exciting live tests for you!",
-        estimatedTime: "Coming in 2 weeks",
+        estimatedTime: "",
         icon: "Radio",
         type: "page",
       },
@@ -83,7 +83,7 @@ export default function SiteSettingsManager() {
         enabled: false,
         title: "Practice Questions",
         message: "Our question bank is being updated with latest patterns.",
-        estimatedTime: "Available soon",
+        estimatedTime: "",
         icon: "Target",
         type: "page",
       },
@@ -91,7 +91,7 @@ export default function SiteSettingsManager() {
         enabled: false,
         title: "Video Lectures",
         message: "High-quality video lectures are being recorded.",
-        estimatedTime: "Coming in 1 month",
+        estimatedTime: "",
         icon: "Video",
         type: "page",
       },
@@ -99,15 +99,15 @@ export default function SiteSettingsManager() {
         enabled: false,
         title: "Current Affairs",
         message: "Daily current affairs will be available here.",
-        estimatedTime: "Available daily at 8 AM",
+        estimatedTime: "",
         icon: "Newspaper",
         type: "page",
       },
       doubtForum: {
         enabled: false,
         title: "Doubt Forum",
-        message: "Community doubt resolution feature coming soon!",
-        estimatedTime: "Coming in 3 weeks",
+        message: "",
+        estimatedTime: "",
         icon: "MessageCircle",
         type: "page",
       },
@@ -115,7 +115,7 @@ export default function SiteSettingsManager() {
         enabled: false,
         title: "Study Groups",
         message: "Join study groups and learn together.",
-        estimatedTime: "Coming in 1 month",
+        estimatedTime: "",
         icon: "Users",
         type: "page",
       },
@@ -123,7 +123,7 @@ export default function SiteSettingsManager() {
         enabled: false,
         title: "Achievements & Badges",
         message: "Earn badges for your accomplishments!",
-        estimatedTime: "Available now",
+        estimatedTime: "",
         icon: "Award",
         type: "page",
       },
@@ -131,7 +131,7 @@ export default function SiteSettingsManager() {
         enabled: false,
         title: "Refer & Earn",
         message: "Invite friends and earn rewards.",
-        estimatedTime: "Coming soon",
+        estimatedTime: "",
         icon: "Gift",
         type: "page",
       },
@@ -140,7 +140,7 @@ export default function SiteSettingsManager() {
         enabled: false,
         title: "Performance Rankings",
         message: "Performance rankings are being calculated.",
-        estimatedTime: "Available soon",
+        estimatedTime: "",
         icon: "Trophy",
         type: "section",
       },
@@ -148,15 +148,15 @@ export default function SiteSettingsManager() {
         enabled: false,
         title: "Difficulty Analysis",
         message: "Difficulty breakdown is being analyzed.",
-        estimatedTime: "Available soon",
+        estimatedTime: "",
         icon: "Gauge",
         type: "section",
       },
       "analysis:speedMatrix": {
         enabled: false,
         title: "Speed Matrix",
-        message: "Speed vs accuracy matrix coming soon.",
-        estimatedTime: "Available soon",
+        message: "",
+        estimatedTime: "",
         icon: "Wind",
         type: "section",
       },
@@ -164,7 +164,7 @@ export default function SiteSettingsManager() {
         enabled: false,
         title: "Group Discussions",
         message: "Discussions feature is being built.",
-        estimatedTime: "Coming soon",
+        estimatedTime: "",
         icon: "FileText",
         type: "section",
       },
@@ -172,15 +172,15 @@ export default function SiteSettingsManager() {
         enabled: false,
         title: "AI Study Planner",
         message: "AI-powered study planner is being configured.",
-        estimatedTime: "Coming soon",
+        estimatedTime: "",
         icon: "Brain",
         type: "section",
       },
       "profile:customTests": {
         enabled: false,
         title: "Custom Test Builder",
-        message: "Create your own tests — coming soon.",
-        estimatedTime: "Coming soon",
+        message: "",
+        estimatedTime: "",
         icon: "PieChart",
         type: "section",
       },
@@ -1322,7 +1322,7 @@ export default function SiteSettingsManager() {
                                   estimatedTime: e.target.value,
                                 }))
                               }
-                              placeholder="e.g. Coming in 2 weeks"
+                              placeholder="Optional message"
                               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
                             />
                           </div>
@@ -1364,11 +1364,9 @@ export default function SiteSettingsManager() {
                                 [k]: {
                                   enabled: false,
                                   title: newPage.title.trim(),
-                                  message:
-                                    newPage.message.trim() || "Coming soon!",
+                                  message: newPage.message.trim() || "",
                                   estimatedTime:
-                                    newPage.estimatedTime.trim() ||
-                                    "Available soon",
+                                    newPage.estimatedTime.trim() || "",
                                   icon: newPage.icon.trim() || "Clock",
                                   type: "page",
                                 },

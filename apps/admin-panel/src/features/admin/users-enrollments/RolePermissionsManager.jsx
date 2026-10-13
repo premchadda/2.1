@@ -17,16 +17,31 @@ import {
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 import { useAuth } from "../../../shared/providers/AuthContext";
 
+// Backend canonical RBAC vocab: resources
+// users|tests|content|settings|monetization|communications|moderation|audit|
+// analytics x actions view|create|edit|delete (+ read/write/update aliases,
+// resource:* wildcards). Backend has NO admin/manage/live/proctoring/export
+// action or questions/media/roles/audit_logs resource — UI "export" below
+// maps to view for gating (backend enforces canonical).
 const ALL_PERMISSIONS = [
-  { resource: "users", actions: ["read", "write", "delete", "export"] },
-  { resource: "tests", actions: ["read", "write", "delete", "export"] },
-  { resource: "questions", actions: ["read", "write", "delete", "export"] },
-  { resource: "content", actions: ["read", "write", "delete", "export"] },
-  { resource: "media", actions: ["read", "write", "delete"] },
-  { resource: "analytics", actions: ["read", "export"] },
-  { resource: "settings", actions: ["read", "write"] },
-  { resource: "roles", actions: ["read", "write", "delete"] },
-  { resource: "audit_logs", actions: ["read", "export"] },
+  { resource: "users", actions: ["view", "create", "edit", "delete"] },
+  { resource: "tests", actions: ["view", "create", "edit", "delete"] },
+  { resource: "content", actions: ["view", "create", "edit", "delete"] },
+  { resource: "settings", actions: ["view", "create", "edit", "delete"] },
+  {
+    resource: "monetization",
+    actions: ["view", "create", "edit", "delete"],
+  },
+  {
+    resource: "communications",
+    actions: ["view", "create", "edit", "delete"],
+  },
+  {
+    resource: "moderation",
+    actions: ["view", "create", "edit", "delete"],
+  },
+  { resource: "audit", actions: ["view", "create", "edit", "delete"] },
+  { resource: "analytics", actions: ["view", "create", "edit", "delete"] },
 ];
 
 export default function RolePermissionsManager({
@@ -50,7 +65,13 @@ export default function RolePermissionsManager({
   const userPerms = user?.permissions || [];
   const isSuperPerms = userPerms.includes("*");
   const isAdminRole = user?.role === "admin" || user?.isAdmin === true;
-  const canManage = isSuperPerms || userPerms.includes("roles:write");
+  // Role management is gated on users:* (canonical) — backend has no
+  // roles:write permission.
+  const canManage =
+    isSuperPerms ||
+    userPerms.includes("users:edit") ||
+    userPerms.includes("users:*") ||
+    userPerms.includes("*");
 
   const fetchData = useCallback(async (signal) => {
     try {
@@ -101,7 +122,7 @@ export default function RolePermissionsManager({
 
   const handleCreate = () => {
     if (!canManage) {
-      toast.error("Only admins with roles:write can manage roles");
+      toast.error("Only admins with users:edit can manage roles");
       return;
     }
     setEditingId("new");
@@ -116,7 +137,7 @@ export default function RolePermissionsManager({
 
   const handleEdit = (role) => {
     if (!canManage) {
-      toast.error("Only admins with roles:write can manage roles");
+      toast.error("Only admins with users:edit can manage roles");
       return;
     }
     const roleId = role.id || role._id;
@@ -177,7 +198,7 @@ export default function RolePermissionsManager({
         return;
       }
       if (!canManage) {
-        toast.error("Only admins with roles:write can manage roles");
+        toast.error("Only admins with users:edit can manage roles");
         return;
       }
       const payload = {
@@ -326,7 +347,7 @@ export default function RolePermissionsManager({
 
   const handleDelete = async (id) => {
     if (!canManage) {
-      toast.error("Only admins with roles:write can manage roles");
+      toast.error("Only admins with users:edit can manage roles");
       return;
     }
     const confirmed = await confirmOnce({

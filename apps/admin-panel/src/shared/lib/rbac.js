@@ -66,15 +66,17 @@ export const SEGMENT_TO_RESOURCE = {
   "content-management": "content",
   "current-affairs": "content",
   // Practice + live assessment segments.
-  // Least-privilege split: live operations get dedicated resources ("live",
-  // "proctoring") instead of inheriting broad "tests" access. Route guards
-  // in App.jsx additionally require "tests:admin" for these paths, so a
-  // tests:view-only user can manage questions but cannot proctor live rooms.
+  // Backend canonical RBAC vocab has NO "live"/"proctoring" resource — all
+  // live operations are enforced as "tests" server-side. These segments map
+  // to "tests" here so UI gating matches backend enforcement (least-privilege
+  // splits for live rooms, if needed, must be done with tests:* scoping or
+  // backend vocab extension, not phantom resources).
   "practice-questions": "tests",
-  "live-monitor": "live",
-  live: "live",
-  "live-tests": "live",
-  "live-proctoring": "proctoring",
+  "live-monitor": "tests",
+  live: "tests",
+  "live-tests": "tests",
+  "live-proctoring": "tests",
+  proctoring: "tests",
 };
 
 export function getResourceFromSegment(segment = "content") {
@@ -96,6 +98,24 @@ export function hasPermission(userPerms = [], requiredPerm, isSuper = false) {
   if (userPerms.includes("*") || userPerms.includes(requiredPerm)) return true;
   const [resource, action] = String(requiredPerm).split(":");
   if (!resource || !action) return false;
+  // "manage" is UI-gating-only wildcard for a resource (view+create+edit+
+  // delete). Backend has no "manage" action — it enforces canonical
+  // view|create|edit|delete (+ read/write/update aliases, resource:*).
+  if (action === "manage") {
+    return (
+      userPerms.includes(`${resource}:view`) ||
+      userPerms.includes(`${resource}:read`) ||
+      userPerms.includes(`${resource}:create`) ||
+      userPerms.includes(`${resource}:edit`) ||
+      userPerms.includes(`${resource}:write`) ||
+      userPerms.includes(`${resource}:*`)
+    );
+  }
+  if (
+    userPerms.includes(`${resource}:manage`) ||
+    userPerms.includes(`${resource}:*`)
+  )
+    return true;
   const aliasActions =
     action === "view"
       ? ["read"]
@@ -108,7 +128,6 @@ export function hasPermission(userPerms = [], requiredPerm, isSuper = false) {
             : [];
   if (aliasActions.some((act) => userPerms.includes(`${resource}:${act}`)))
     return true;
-  if (userPerms.includes(`${resource}:*`)) return true;
   if (resource === "system" || resource === "settings") {
     const alt = resource === "system" ? "settings" : "system";
     if (

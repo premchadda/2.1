@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Edit,
   Trash2,
@@ -38,29 +38,41 @@ export const AdminTable = ({
   const [isMobileView, setIsMobileView] = useState(false);
   const [internalSearchQuery, setInternalSearchQuery] = useState("");
 
+  // Default compact view on small screens (mount-only).
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setIsMobileView((v) => v || false);
+    }
+  }, []);
+
+  // Normalize possibly-null props: data null→[], searchQuery null→"".
+  const safeData = Array.isArray(data) ? data : [];
+  const safeColumns = Array.isArray(columns) ? columns : [];
+
   const viewMode = controlledViewMode || internalViewMode;
   const setViewMode = onViewModeChange || setInternalViewMode;
 
-  const searchQuery =
+  const rawQuery =
     controlledSearchQuery !== undefined
       ? controlledSearchQuery
       : internalSearchQuery;
+  const searchQuery = String(rawQuery || "");
   const setSearchQuery = controlledOnSearchChange || setInternalSearchQuery;
 
   // Filter table data with multi-token fuzzy matching
   const filteredData = useMemo(() => {
-    if (!searchable || !searchQuery.trim()) return data;
+    if (!searchable || !searchQuery.trim()) return safeData;
     return filterAndRank(
-      data,
+      safeData,
       searchQuery,
       (item) =>
-        columns.map((col) => {
-          const val = item[col.key];
+        safeColumns.map((col) => {
+          const val = item?.[col.key];
           return typeof val === "object" ? JSON.stringify(val) : val;
         }),
       { threshold: 18 },
     );
-  }, [data, searchable, searchQuery, columns]);
+  }, [safeData, searchable, searchQuery, safeColumns]);
 
   const handleSort = (key) => {
     if (!sortable || !onSort) return;
@@ -73,7 +85,7 @@ export const AdminTable = ({
 
   const renderCell = (item, column) => {
     if (column.render) return column.render(item);
-    const value = item[column.key];
+    const value = item?.[column.key];
     if (column.type === "boolean") return value ? "Yes" : "No";
     if (column.type === "date" && value)
       return new Date(value).toLocaleDateString();
@@ -85,7 +97,7 @@ export const AdminTable = ({
   };
 
   const getSortIcon = (key) => {
-    if (!sortable || sortConfig?.key !== key) return null;
+    if (!sortable || !onSort || sortConfig?.key !== key) return null;
     return sortConfig.direction === "asc" ? (
       <ChevronUp className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
     ) : (
@@ -94,10 +106,10 @@ export const AdminTable = ({
   };
 
   const visibleColumns = isMobileView
-    ? columns.filter(
+    ? safeColumns.filter(
         (col) => responsiveColumns.includes(col.key) || col.alwaysVisible,
       )
-    : columns;
+    : safeColumns;
 
   if (loading) {
     return (
@@ -110,7 +122,8 @@ export const AdminTable = ({
     );
   }
 
-  const displayData = searchable ? filteredData : data;
+  const displayData = searchable ? filteredData : safeData;
+  const hasActions = Boolean(onView || onEdit || onToggleActive || onDelete);
 
   return (
     <div
@@ -139,7 +152,7 @@ export const AdminTable = ({
         <div className="flex items-center justify-between sm:justify-end gap-1.5 w-full sm:w-auto">
           {searchable && (
             <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-              {displayData.length} of {data.length}
+              {displayData.length} of {safeData.length}
             </span>
           )}
           <button
@@ -181,13 +194,13 @@ export const AdminTable = ({
                 : emptyMessage}
             </div>
           ) : (
-            displayData.map((item) => (
+            displayData.map((item, rowIndex) => (
               <div
-                key={item._id || item.id}
+                key={item?._id ?? item?.id ?? `row-${rowIndex}`}
                 className="bg-gray-50/50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800/80 p-3 hover:shadow-md transition-all card-hover-transitive flex flex-col justify-between"
               >
                 <div className="space-y-1.5">
-                  {columns.map((column, idx) => (
+                  {safeColumns.map((column, idx) => (
                     <div
                       key={column.key || idx}
                       className="flex items-start justify-between gap-2 text-xs"
@@ -224,10 +237,10 @@ export const AdminTable = ({
                   {onToggleActive && (
                     <button
                       onClick={() => onToggleActive(item)}
-                      className={`p-1.5 rounded-lg tap-feedback ${item.isActive ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" : "text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"}`}
-                      title={item.isActive ? "Deactivate" : "Activate"}
+                      className={`p-1.5 rounded-lg tap-feedback ${item?.isActive ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" : "text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"}`}
+                      title={item?.isActive ? "Deactivate" : "Activate"}
                     >
-                      {item.isActive ? (
+                      {item?.isActive ? (
                         <Eye className="w-3.5 h-3.5" />
                       ) : (
                         <EyeOff className="w-3.5 h-3.5" />
@@ -236,7 +249,7 @@ export const AdminTable = ({
                   )}
                   {onDelete && (
                     <button
-                      onClick={() => onDelete(item._id || item.id)}
+                      onClick={() => onDelete(item?._id ?? item?.id)}
                       className="p-1.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 tap-feedback"
                       title="Delete"
                     >
@@ -258,11 +271,16 @@ export const AdminTable = ({
                   <th
                     key={column.key || index}
                     className={`px-3 sm:px-4 py-2.5 text-[11px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${
-                      column.sortable && sortable
+                      column.sortable && sortable && onSort
                         ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 select-none"
                         : ""
                     }`}
-                    onClick={() => column.sortable && handleSort(column.key)}
+                    onClick={() =>
+                      column.sortable &&
+                      sortable &&
+                      onSort &&
+                      handleSort(column.key)
+                    }
                   >
                     <div className="flex items-center gap-1.5">
                       <span>{column.header}</span>
@@ -281,7 +299,7 @@ export const AdminTable = ({
               {displayData.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={visibleColumns.length + 1}
+                    colSpan={visibleColumns.length + (hasActions ? 1 : 0)}
                     className="px-4 py-10 text-center text-xs text-gray-500 dark:text-gray-400 font-medium"
                   >
                     {searchQuery
@@ -290,9 +308,9 @@ export const AdminTable = ({
                   </td>
                 </tr>
               ) : (
-                displayData.map((item) => (
+                displayData.map((item, rowIndex) => (
                   <tr
-                    key={item._id || item.id}
+                    key={item?._id ?? item?.id ?? `row-${rowIndex}`}
                     className="hover:bg-gray-50/60 dark:hover:bg-gray-800/50 transition-colors"
                   >
                     {visibleColumns.map((column, index) => (
@@ -327,10 +345,10 @@ export const AdminTable = ({
                           {onToggleActive && (
                             <button
                               onClick={() => onToggleActive(item)}
-                              className={`p-1 rounded-md tap-feedback ${item.isActive ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" : "text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"}`}
-                              title={item.isActive ? "Deactivate" : "Activate"}
+                              className={`p-1 rounded-md tap-feedback ${item?.isActive ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" : "text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"}`}
+                              title={item?.isActive ? "Deactivate" : "Activate"}
                             >
-                              {item.isActive ? (
+                              {item?.isActive ? (
                                 <Eye className="w-3.5 h-3.5" />
                               ) : (
                                 <EyeOff className="w-3.5 h-3.5" />
@@ -339,7 +357,7 @@ export const AdminTable = ({
                           )}
                           {onDelete && (
                             <button
-                              onClick={() => onDelete(item._id || item.id)}
+                              onClick={() => onDelete(item?._id ?? item?.id)}
                               className="p-1 rounded-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 tap-feedback"
                               title="Delete"
                             >

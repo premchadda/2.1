@@ -24,6 +24,10 @@ export function AuthProvider({ children }) {
   const [authResolved, setAuthResolved] = useState(false);
   const authSequenceRef = useRef(0);
   const currentSessionIdRef = useRef(null);
+  // Fail-closed counter for repeated non-401 /me failures (network/5xx):
+  // after 2 consecutive failures without a successful validation, drop the
+  // cached identity instead of trusting it indefinitely.
+  const meFailCountRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,6 +41,7 @@ export function AuthProvider({ children }) {
       try {
         const response = await authAPI.getMe();
         if (cancelled || authSequenceRef.current !== sequenceAtStart) return;
+        meFailCountRef.current = 0;
         const userData = response.data.data;
         if (userData) {
           const frontendUser = mapUserToFrontend(userData);
@@ -69,13 +74,26 @@ export function AuthProvider({ children }) {
           return;
         }
         if (isAuthError || status === 401) {
+          meFailCountRef.current = 0;
           clearAuthTokens();
           saveUserCache(null);
           setUser(null);
         } else {
           // Keep an existing cached identity during a temporary service outage;
           // protected routes remain available rather than falsely logging out.
-          logger.error("Auth check failed:", err);
+          // Fail closed after 2 consecutive non-401 failures, and never log
+          // the whole Axios error (message/code/status only — no tokens).
+          meFailCountRef.current += 1;
+          logger.error("Auth check failed:", {
+            message: err?.message,
+            code: err?.code,
+            status,
+          });
+          if (meFailCountRef.current >= 2) {
+            clearAuthTokens();
+            saveUserCache(null);
+            setUser(null);
+          }
         }
         setLoading(false);
         setAuthResolved(true);
@@ -145,7 +163,11 @@ export function AuthProvider({ children }) {
       });
       return { success: true };
     } catch (err) {
-      logger.error("Token refresh failed:", err);
+      logger.error("Token refresh failed:", {
+        message: err?.message,
+        code: err?.code,
+        status: err?.response?.status ?? err?.status,
+      });
       const status = err?.response?.status ?? err?.status;
       if (status === 401 || status === 419) {
         authSequenceRef.current += 1;
@@ -166,7 +188,11 @@ export function AuthProvider({ children }) {
       saveUserCache(frontendUser);
       return { success: true, user: frontendUser };
     } catch (err) {
-      logger.error("Fetch current user failed:", err);
+      logger.error("Fetch current user failed:", {
+        message: err?.message,
+        code: err?.code,
+        status: err?.response?.status ?? err?.status,
+      });
       return { success: false, error: err.message };
     }
   }, []);
@@ -213,7 +239,11 @@ export function AuthProvider({ children }) {
         otherSessions: response.data.data.otherSessions || [],
       };
     } catch (err) {
-      logger.error("Login failed:", err);
+      logger.error("Login failed:", {
+        message: err?.message,
+        code: err?.code,
+        status: err?.response?.status ?? err?.status,
+      });
       const message =
         err.response?.data?.message || err.message || "Login failed";
       setError(message);
@@ -269,7 +299,11 @@ export function AuthProvider({ children }) {
         message: "Registration successful. Please verify your email.",
       };
     } catch (err) {
-      logger.error("Signup failed:", err);
+      logger.error("Signup failed:", {
+        message: err?.message,
+        code: err?.code,
+        status: err?.response?.status ?? err?.status,
+      });
       const message =
         err.response?.data?.message || err.message || "Registration failed";
       setError(message);
@@ -284,7 +318,11 @@ export function AuthProvider({ children }) {
     try {
       await authAPI.logout();
     } catch (err) {
-      logger.error("Logout API call failed:", err);
+      logger.error("Logout API call failed:", {
+        message: err?.message,
+        code: err?.code,
+        status: err?.response?.status ?? err?.status,
+      });
     } finally {
       clearAuthTokens();
       saveUserCache(null);
@@ -370,7 +408,11 @@ export function AuthProvider({ children }) {
         message: response.data?.message || "Revoked other sessions",
       };
     } catch (err) {
-      logger.error("Revoke other sessions failed:", err);
+      logger.error("Revoke other sessions failed:", {
+        message: err?.message,
+        code: err?.code,
+        status: err?.response?.status ?? err?.status,
+      });
       return {
         success: false,
         error:
