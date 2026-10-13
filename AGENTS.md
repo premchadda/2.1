@@ -90,8 +90,12 @@ These are real, graph-surfaced landmines. Check them every session:
      `withTransaction()` apply `app.current_user_id`/`app.is_admin` with
      SET LOCAL (`config/database-replicas.js`, `applyIdentityGucs`). No
      identity (workers, boot, public traffic) keeps the service-role path.
-     Enforcement still needs a non-bypass DB role — the owner role bypasses
-     RLS today, so policies evaluate but do not yet restrict.
+   - Staged enforcement: migration 147 provisions NOLOGIN `trstprep_app` +
+     grants (additive, safe). Activation is ops-gated: `ALTER ROLE ...
+LOGIN PASSWORD`, set `DATABASE_APP_URL` (pools prefer it over
+     `DATABASE_URL`; unset = today's owner path), verify live with
+     `scripts/run-database-audit.js`, then deploy. Unset = RLS evaluates
+     but does not restrict.
 
 3. **Core abstractions you will likely touch (god nodes)**
    `PostgresHelpers` (283 edges), `DataService` (186), `pool` (143),
