@@ -343,7 +343,7 @@ export default function ExamYear() {
               <div className="flex flex-wrap gap-3">
                 {examData?.importantTopics?.map((topic, idx) => (
                   <span
-                    key={idx}
+                    key={topic}
                     className="px-5 py-2.5 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 rounded-lg text-sm font-bold shadow-sm border border-blue-100 dark:border-blue-800/50 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md transition-all cursor-default animate-slide-in-up"
                     style={{ animationDelay: `${idx * 0.1}s` }}
                   >
@@ -361,7 +361,7 @@ export default function ExamYear() {
               <div className="space-y-4 relative before:absolute before:left-[15px] before:top-4 before:bottom-4 before:w-0.5 before:bg-indigo-100 dark:before:bg-indigo-900/50">
                 {examData?.preparationStrategy?.map((strategy, idx) => (
                   <div
-                    key={idx}
+                    key={strategy}
                     className="flex items-start gap-5 relative group animate-slide-in-right"
                     style={{ animationDelay: `${idx * 0.1}s` }}
                   >

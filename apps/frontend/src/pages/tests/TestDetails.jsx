@@ -1415,7 +1415,23 @@ function TestDetails() {
           // Resolve series for 'my' route or examSlug
           allSeries = await getTestSeries();
           let matched = null;
-          if (examSlug) {
+          // 1. A concrete series id/slug in the URL always wins.
+          // /test-series/30/my must resolve to series 30 — never to the first
+          // enrolled series (often CGL when several series share one exam
+          // category slug like "ssc").
+          if (lookupId && lookupId !== "my") {
+            const idLower = String(lookupId).toLowerCase();
+            matched =
+              allSeries.find((s) =>
+                [s.slug, s._id, s.id, s.public_id, s.publicId, s.dbId].some(
+                  (v) =>
+                    v !== undefined &&
+                    v !== null &&
+                    String(v).toLowerCase() === idLower,
+                ),
+              ) || null;
+          }
+          if (!matched && examSlug) {
             const slugLower = String(examSlug).toLowerCase();
             matched = allSeries.find(
               (s) =>
@@ -1435,14 +1451,20 @@ function TestDetails() {
               );
             }
           }
-          if (!matched && user) {
+          // Enrolled fallback applies only when there is no exam scope: on an
+          // exam-scoped /my URL a non-matching fallback would silently render
+          // the wrong exam's series (usually CGL). Leaving matched as null
+          // shows the empty/not-enrolled state instead.
+          if (!matched && user && !examSlug) {
             matched = allSeries.find((s) =>
               isSeriesEnrolled(user, s, [s._id, s.id]),
             );
           }
-          if (!matched && allSeries.length > 0) {
-            matched = allSeries[0];
-          }
+          // Do NOT fall back to allSeries[0] here — the first series in the
+          // list is often CGL, so a non-matching examSlug would silently render
+          // the CGL series instead of the requested Selection Phase series.
+          // Leaving matched as null shows an empty/not-found state instead of
+          // the wrong exam.
           seriesData = matched;
           lookupId = matched
             ? matched.slug || matched._id || matched.id
@@ -1572,9 +1594,15 @@ function TestDetails() {
     return () => controller.abort();
   }, [seriesId, examSlug, location.pathname, user?.id]);
 
-  // Normalize URL to /:examSlug/test-series/my when logged-in enrolled user views series
+  // Normalize canonical /test-series/:id URLs to the pretty exam-scoped form
+  // /:examSlug/test-series/:seriesSlug when the viewer is enrolled.
+  // Never normalize to /:examSlug/test-series/my: exam-category slugs are
+  // shared by several series ("ssc" covers both CGL and Selection Post), so a
+  // /my URL can resolve to the wrong series. Series-specific URLs are
+  // unambiguous. /my URLs are left alone.
   useEffect(() => {
     if (!series || loading) return;
+    if (location.pathname.endsWith("/my")) return;
     const enrolledSeries = user?.enrolledSeries || [];
     const isEnrolled = isSeriesEnrolled(enrolledSeries, series);
     if (user && isEnrolled) {
@@ -1583,15 +1611,15 @@ function TestDetails() {
         series.examSlug ||
         series.exam_slug ||
         series.examCategory ||
+        series.exam_category ||
         series.category ||
-        (series.examId ? String(series.examId) : "") ||
-        "ssc-cgl";
+        null;
+      // Never fabricate an exam slug — without one, stay on the canonical URL.
+      if (!rawExamSlug || !String(rawExamSlug).trim()) return;
       const catSlug = String(rawExamSlug).toLowerCase().replace(/\s+/g, "-");
-      const expectedPath = `/${catSlug}/test-series/my`;
-      if (
-        location.pathname !== expectedPath &&
-        !location.pathname.endsWith("/my")
-      ) {
+      const seriesSlug = series.slug || series._id || series.id;
+      const expectedPath = `/${catSlug}/test-series/${seriesSlug}`;
+      if (location.pathname !== expectedPath) {
         navigate(expectedPath, { replace: true });
       }
     }

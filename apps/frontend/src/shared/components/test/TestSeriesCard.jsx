@@ -100,17 +100,31 @@ function TestSeriesCard({
   const mainCategories = categoryRows.slice(0, categoriesToShow);
   const extraCategories = categoryRows.slice(categoriesToShow);
 
+  // Exam slug for pretty /:examSlug/test-series/:seriesId URLs. Never fabricate
+  // a default (the old "ssc-cgl" fallback sent Selection Phase cards to the
+  // CGL series). examId is intentionally NOT used here — it is numeric, not a
+  // URL slug. When the exam is unknown, fall back to the canonical
+  // /test-series/:seriesId routes (App.jsx), which resolve by series ID alone.
   const rawCatSlug =
     series.examSlug ||
     series.exam_slug ||
     series.examCategory ||
+    series.exam_category ||
     series.category ||
-    (series.examId ? String(series.examId) : "") ||
-    "ssc-cgl";
-  const catSlug = String(rawCatSlug).toLowerCase().replace(/\s+/g, "-");
-  const targetUrl = isEnrolled
-    ? `/${catSlug}/test-series/my`
-    : `/${catSlug}/test-series/${seriesId}`;
+    null;
+  const hasExamSlug = Boolean(rawCatSlug && String(rawCatSlug).trim());
+  const catSlug = hasExamSlug
+    ? String(rawCatSlug).toLowerCase().replace(/\s+/g, "-")
+    : null;
+  const targetUrl = catSlug
+    ? // Series-specific exam-scoped URL. Never link enrolled users to
+      // /:examSlug/test-series/my — the exam slug is shared by every series in
+      // the category (e.g. "ssc" covers both CGL and Selection Post), so /my
+      // resolves to whichever series matches first (usually CGL).
+      `/${catSlug}/test-series/${series.slug || seriesId}`
+    : isEnrolled
+      ? `/test-series/${seriesId}/my`
+      : `/test-series/${seriesId}`;
 
   const handleEnrollClick = (e) => {
     e.preventDefault();

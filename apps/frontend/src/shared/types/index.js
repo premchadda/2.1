@@ -213,6 +213,24 @@ export function mapTestSeriesToFrontend(backendSeries) {
     category: backendSeries.category,
     examId: backendSeries.examId || backendSeries.exam_id || null,
     exam_id: backendSeries.examId || backendSeries.exam_id || null,
+    examSlug:
+      backendSeries.examSlug ||
+      backendSeries.exam_slug ||
+      backendSeries.examCategory ||
+      backendSeries.exam_category ||
+      null,
+    exam_slug:
+      backendSeries.exam_slug ||
+      backendSeries.examSlug ||
+      backendSeries.examCategory ||
+      backendSeries.exam_category ||
+      null,
+    examCategory:
+      backendSeries.examCategory ||
+      backendSeries.exam_category ||
+      backendSeries.examSlug ||
+      backendSeries.exam_slug ||
+      null,
     // Provide labels separately if they exist in the backend response
     categoryName:
       backendSeries.category_name || backendSeries.categoryName || null,

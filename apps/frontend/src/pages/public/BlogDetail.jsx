@@ -139,9 +139,9 @@ export default function BlogDetail() {
             {/* Category Tags */}
             {blog.tags && blog.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
-                {blog.tags.map((tag, index) => (
+                {blog.tags.map((tag) => (
                   <span
-                    key={index}
+                    key={tag}
                     className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm"
                   >
                     {tag}
