@@ -46,9 +46,43 @@ router.get(
 
       const isoStart = startDate.toISOString();
 
-      // PERF: Single consolidated query replaces separate COUNT(*) queries.
-      // Uses cross-table aggregation to get all counts in one round-trip.
-      const statsResult = await dbHelpers.pool
+      // PERF: Four parallel query groups instead of one sequential mega-query.
+      // The old single statement ran ~24 COUNT sub-scans sequentially (the
+      // questions table alone scans a 139MB heap, ~600ms) which could exceed
+      // its 10s query_timeout under dashboard load, triggering an expensive
+      // fallback pass and 15s+ total latency. Wall time is now bounded by the
+      // slowest group (~700ms) instead of the sum of all scans.
+      const zeroStats = {
+        rows: [
+          {
+            total_users: 0,
+            active_users: 0,
+            pro_users: 0,
+            admin_users: 0,
+            test_series: 0,
+            tests: 0,
+            questions: 0,
+            topics: 0,
+            study_materials: 0,
+            videos: 0,
+            pdfs: 0,
+            exams: 0,
+            media: 0,
+            test_attempts: 0,
+            avg_time_minutes: 0,
+            error_count: 0,
+            new_users: 0,
+            new_tests: 0,
+            new_questions: 0,
+            new_media: 0,
+            new_topics: 0,
+            new_videos: 0,
+            new_pdfs: 0,
+          },
+        ],
+      };
+
+      const usersGroup = dbHelpers.pool
         .query({
           text: `
         SELECT
@@ -56,6 +90,30 @@ router.get(
           (SELECT COUNT(*)::int FROM users WHERE is_active = true) as active_users,
           (SELECT COUNT(*)::int FROM users WHERE is_pro_user = true) as pro_users,
           (SELECT COUNT(*)::int FROM users WHERE role = 'admin') as admin_users, -- single-admin model
+          (SELECT COUNT(*)::int FROM users WHERE created_at >= $1) as new_users
+      `,
+          values: [isoStart],
+          query_timeout: 5000,
+        })
+        .catch((err) => {
+          logger.warn("[ADMIN-STATS] Users group failed:", err.message);
+          return {
+            rows: [
+              {
+                total_users: 0,
+                active_users: 0,
+                pro_users: 0,
+                admin_users: 0,
+                new_users: 0,
+              },
+            ],
+          };
+        });
+
+      const contentGroup = dbHelpers.pool
+        .query({
+          text: `
+        SELECT
           (SELECT COUNT(*)::int FROM test_series) as test_series,
           (SELECT COUNT(*)::int FROM tests) as tests,
           (SELECT COUNT(*)::int FROM questions) as questions,
@@ -64,11 +122,33 @@ router.get(
           (SELECT COUNT(*)::int FROM subject_videos) as videos,
           (SELECT COUNT(*)::int FROM subject_pdfs) as pdfs,
           (SELECT COUNT(*)::int FROM exams) as exams,
-          (SELECT COUNT(*)::int FROM assets) as media,
-          (SELECT COUNT(*)::int FROM attempts) as test_attempts,
-          (SELECT COALESCE(ROUND(AVG(total_time_spent) / 60, 0), 0)::int FROM attempts WHERE total_time_spent IS NOT NULL AND total_time_spent > 0) as avg_time_minutes,
-          (SELECT COUNT(*)::int FROM audit_logs WHERE action LIKE '%FAIL%' OR action LIKE '%ERROR%' OR status = 'failed' OR status = 'error') as error_count,
-          (SELECT COUNT(*)::int FROM users WHERE created_at >= $1) as new_users,
+          (SELECT COUNT(*)::int FROM assets) as media
+      `,
+          query_timeout: 5000,
+        })
+        .catch((err) => {
+          logger.warn("[ADMIN-STATS] Content group failed:", err.message);
+          return {
+            rows: [
+              {
+                test_series: 0,
+                tests: 0,
+                questions: 0,
+                topics: 0,
+                study_materials: 0,
+                videos: 0,
+                pdfs: 0,
+                exams: 0,
+                media: 0,
+              },
+            ],
+          };
+        });
+
+      const contentNewGroup = dbHelpers.pool
+        .query({
+          text: `
+        SELECT
           (SELECT COUNT(*)::int FROM tests WHERE created_at >= $1) as new_tests,
           (SELECT COUNT(*)::int FROM questions WHERE created_at >= $1) as new_questions,
           (SELECT COUNT(*)::int FROM assets WHERE created_at >= $1) as new_media,
@@ -77,45 +157,48 @@ router.get(
           (SELECT COUNT(*)::int FROM subject_pdfs WHERE created_at >= $1) as new_pdfs
       `,
           values: [isoStart],
-          query_timeout: 10000,
+          query_timeout: 5000,
         })
-        .catch(async (err) => {
-          // Fallback query if attempts or audit_logs schema differs
-          logger.warn(
-            "[ADMIN-STATS] Extended query failed, using baseline query:",
-            err.message,
-          );
-          return dbHelpers.pool.query({
-            text: `
-          SELECT
-            (SELECT COUNT(*)::int FROM users) as total_users,
-            (SELECT COUNT(*)::int FROM users WHERE is_active = true) as active_users,
-            (SELECT COUNT(*)::int FROM users WHERE is_pro_user = true) as pro_users,
-            (SELECT COUNT(*)::int FROM users WHERE role = 'admin') as admin_users, -- single-admin model
-            (SELECT COUNT(*)::int FROM test_series) as test_series,
-            (SELECT COUNT(*)::int FROM tests) as tests,
-            (SELECT COUNT(*)::int FROM questions) as questions,
-            (SELECT COUNT(*)::int FROM subject_topics) as topics,
-            (SELECT COUNT(*)::int FROM study_materials) as study_materials,
-            (SELECT COUNT(*)::int FROM subject_videos) as videos,
-            (SELECT COUNT(*)::int FROM subject_pdfs) as pdfs,
-            (SELECT COUNT(*)::int FROM exams) as exams,
-            (SELECT COUNT(*)::int FROM assets) as media,
-            COALESCE((SELECT COUNT(*)::int FROM attempts), 0) as test_attempts,
-            COALESCE((SELECT ROUND(AVG(total_time_spent) / 60, 0)::int FROM attempts WHERE total_time_spent IS NOT NULL AND total_time_spent > 0), 0) as avg_time_minutes,
-            0 as error_count,
-            (SELECT COUNT(*)::int FROM users WHERE created_at >= $1) as new_users,
-            (SELECT COUNT(*)::int FROM tests WHERE created_at >= $1) as new_tests,
-            (SELECT COUNT(*)::int FROM questions WHERE created_at >= $1) as new_questions,
-            (SELECT COUNT(*)::int FROM assets WHERE created_at >= $1) as new_media,
-            (SELECT COUNT(*)::int FROM subject_topics WHERE created_at >= $1) as new_topics,
-            (SELECT COUNT(*)::int FROM subject_videos WHERE created_at >= $1) as new_videos,
-            (SELECT COUNT(*)::int FROM subject_pdfs WHERE created_at >= $1) as new_pdfs
-        `,
-            values: [isoStart],
-            query_timeout: 10000,
-          });
+        .catch((err) => {
+          logger.warn("[ADMIN-STATS] New-content group failed:", err.message);
+          return {
+            rows: [
+              {
+                new_tests: 0,
+                new_questions: 0,
+                new_media: 0,
+                new_topics: 0,
+                new_videos: 0,
+                new_pdfs: 0,
+              },
+            ],
+          };
         });
+
+      const attemptGroup = dbHelpers.pool
+        .query({
+          text: `
+        SELECT
+          (SELECT COUNT(*)::int FROM attempts) as test_attempts,
+          (SELECT COALESCE(ROUND(AVG(total_time_spent) / 60, 0), 0)::int FROM attempts WHERE total_time_spent IS NOT NULL AND total_time_spent > 0) as avg_time_minutes,
+          (SELECT COUNT(*)::int FROM audit_logs WHERE action LIKE '%FAIL%' OR action LIKE '%ERROR%' OR status = 'failed' OR status = 'error') as error_count
+      `,
+          query_timeout: 5000,
+        })
+        .catch((err) => {
+          logger.warn("[ADMIN-STATS] Attempt/audit group failed:", err.message);
+          return {
+            rows: [{ test_attempts: 0, avg_time_minutes: 0, error_count: 0 }],
+          };
+        });
+
+      const [statsResult] = await Promise.all([
+        Promise.all([usersGroup, contentGroup, contentNewGroup, attemptGroup])
+          .then(([u, c, cn, a]) => ({
+            rows: [{ ...u.rows[0], ...c.rows[0], ...cn.rows[0], ...a.rows[0] }],
+          }))
+          .catch(() => zeroStats),
+      ]);
 
       const s = statsResult.rows[0];
       const proPassPrice = await getProPassPrice().catch(() => 499);

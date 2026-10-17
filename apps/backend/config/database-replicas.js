@@ -26,7 +26,12 @@ const sslConfig =
 
 function sanitizeDatabaseUrl(rawUrl) {
   if (!rawUrl) return rawUrl;
-  if (rawUrl.includes(".supabase.co") && rawUrl.includes("db.")) {
+  // Supabase direct connections use db.<ref>.supabase.co (legacy) or
+  // db.<ref>.supabase.com (current) — both are IPv6-only per Supabase docs.
+  if (
+    (rawUrl.includes(".supabase.co") || rawUrl.includes(".supabase.com")) &&
+    rawUrl.includes("db.")
+  ) {
     console.warn(
       "⚠️ Notice: Supabase Direct Connection (db.<ref>.supabase.co) is IPv6-only. " +
         "If you see connect ENETUNREACH, switch DATABASE_URL to Supabase Connection Pooler: " +
@@ -53,10 +58,17 @@ const readConnectionUrl = sanitizeDatabaseUrl(
 const defaultQueryTimeout = isDev ? 30000 : 15000;
 const defaultStatementTimeout = isDev ? 30000 : 15000;
 
+// pgvector HNSW recall: default ef_search=40 degrades recall at higher K.
+// Migration 093 tries ALTER DATABASE ... SET but that needs superuser, so the
+// session default is applied here via the connection startup packet (accepted
+// as a placeholder GUC even when pgvector is absent on self-hosted DBs).
+const vectorSessionOptions = "-c hnsw.ef_search=100";
+
 // Primary pool (read/write) - max 8 connections to stay within Supabase session pool limit (15)
 const writePool = new Pool({
   connectionString: writeConnectionUrl,
   ssl: sslConfig,
+  options: vectorSessionOptions,
   connectionTimeoutMillis: parsePositiveInt(
     process.env.PG_CONNECTION_TIMEOUT_MS,
     20000,
@@ -66,7 +78,7 @@ const writePool = new Pool({
     process.env.PG_QUERY_TIMEOUT_MS,
     defaultQueryTimeout,
   ),
-  max: parsePositiveInt(process.env.PG_POOL_MAX, 12),
+  max: parsePositiveInt(process.env.PG_POOL_MAX, 20),
   keepAlive: true,
   application_name: "trstprep-backend-write",
   statement_timeout: parsePositiveInt(
@@ -81,6 +93,7 @@ const readPool = process.env.DATABASE_READ_URL
   ? new Pool({
       connectionString: readConnectionUrl,
       ssl: sslConfig,
+      options: vectorSessionOptions,
       connectionTimeoutMillis: parsePositiveInt(
         process.env.PG_CONNECTION_TIMEOUT_MS,
         20000,
@@ -93,7 +106,7 @@ const readPool = process.env.DATABASE_READ_URL
         process.env.PG_QUERY_TIMEOUT_MS,
         defaultQueryTimeout,
       ),
-      max: parsePositiveInt(process.env.PG_READ_POOL_MAX, 6),
+      max: parsePositiveInt(process.env.PG_READ_POOL_MAX, 12),
       keepAlive: true,
       application_name: "trstprep-backend-read",
       statement_timeout: parsePositiveInt(

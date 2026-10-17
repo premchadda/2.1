@@ -204,7 +204,7 @@ async function storePrevCsrfToken(authTokenHash) {
         );
       }
     }
-  } catch (err) {
+  } catch {
     // Ignore duplicate or cleanup errors
   }
 
@@ -219,7 +219,7 @@ async function storePrevCsrfToken(authTokenHash) {
         }
       }
       await redis.expire(`csrf:prev:${authTokenHash}`, ttlSeconds);
-    } catch (err) {
+    } catch {
       // Ignore
     }
   }
@@ -312,10 +312,13 @@ export const cleanupExpiredCsrfTokens = async () => {
 
 // Run cleanup periodically — unref() so it doesn't block process.exit in tests
 // LOW-02 FIX: Export so it can be cleared on graceful shutdown
-export const csrfCleanupInterval = setInterval(
-  cleanupCsrfTokens,
-  CSRF_TOKEN_CLEANUP_INTERVAL_MS,
-);
+// PERF FIX: previously this interval only purged the in-memory map, so expired
+// rows accumulated in csrf_tokens forever (3,162/3,166 zombie rows observed).
+// cleanupExpiredCsrfTokens uses the expires_at index, so the DB purge is cheap.
+export const csrfCleanupInterval = setInterval(async () => {
+  cleanupCsrfTokens();
+  await cleanupExpiredCsrfTokens();
+}, CSRF_TOKEN_CLEANUP_INTERVAL_MS);
 csrfCleanupInterval.unref();
 
 // CSRF validation middleware
@@ -381,7 +384,7 @@ export const setCsrfCookie = (res, token) => {
       httpOnly: false, // Accessible by JavaScript so getCsrfToken() can read it
       maxAge: CSRF_TOKEN_EXPIRY_MS,
     });
-  } catch (_) {
+  } catch {
     // ignore cookie serialization errors
   }
 };

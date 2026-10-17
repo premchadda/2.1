@@ -5,34 +5,36 @@ import {
 } from "../../infrastructure/database/postgres-helpers.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import { validateStats } from "../../shared/utils/stats-validation.js";
 
 const router = express.Router();
 
 // @route   GET /api/public-stats
-router.get("/", responseCache("public-stats", 120), async (req, res) => {
+router.get("/", responseCache("public-stats", 600), async (req, res) => {
   try {
-    const [
-      userCount,
-      testSeriesCount,
-      testCount,
-      questionCount,
-      examCatCount,
-      attemptRes,
-      settingsList,
-    ] = await Promise.all([
-      dbHelpers.count("users"),
-      dbHelpers.count("testSeries"),
-      dbHelpers.count("tests"),
-      dbHelpers.count("questions"),
-      dbHelpers.count("examCategories"),
+    const [countsRes, settingsList] = await Promise.all([
       pool.query(
-        "SELECT COALESCE(SUM(total_attempts), 0) as count, COALESCE(SUM(total_tests), 0) as series_tests FROM test_series WHERE is_active = true AND is_deleted = false",
+        `SELECT
+           (SELECT COUNT(*)::int FROM users) AS users,
+           (SELECT COUNT(*)::int FROM test_series) AS test_series,
+           (SELECT COUNT(*)::int FROM tests) AS tests,
+           (SELECT COUNT(*)::int FROM questions) AS questions,
+           (SELECT COUNT(*)::int FROM exam_categories) AS exam_categories,
+           (SELECT COALESCE(SUM(total_attempts), 0)::bigint FROM test_series WHERE is_active = true AND is_deleted = false) AS total_attempts,
+           (SELECT COALESCE(SUM(total_tests), 0)::bigint FROM test_series WHERE is_active = true AND is_deleted = false) AS series_tests`,
       ),
       dbHelpers.find("appSettings"),
     ]);
 
-    const totalAttempts = parseInt(attemptRes.rows[0]?.count) || 0;
-    const seriesTests = parseInt(attemptRes.rows[0]?.series_tests) || 0;
+    const counts = countsRes.rows[0] || {};
+    const userCount = Number(counts.users) || 0;
+    const testSeriesCount = Number(counts.test_series) || 0;
+    const testCount = Number(counts.tests) || 0;
+    const questionCount = Number(counts.questions) || 0;
+    const examCatCount = Number(counts.exam_categories) || 0;
+
+    const totalAttempts = Number(counts.total_attempts) || 0;
+    const seriesTests = Number(counts.series_tests) || 0;
 
     const activeLearners = userCount + totalAttempts;
     const successStories = Math.floor(activeLearners / 50);
@@ -55,9 +57,7 @@ router.get("/", responseCache("public-stats", 120), async (req, res) => {
         ? Number(statsOverride.satisfaction)
         : null;
 
-    // Import validation utility
-    const { validateStats } =
-      await import("../../shared/utils/stats-validation.js");
+    // Import validation utility (statically imported at top)
 
     const validatedStats = validateStats({
       users: userCount,
