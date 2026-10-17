@@ -66,6 +66,9 @@ apps/backend/src/data/*
 *.sqlite
 ssc_cgl_prevyear_full.json
 RRB_NTPC_*.json
+Phase 14
+books/
+SSC_CGL_Maths_Portal.html
 
 # Ad-hoc dev scripts — ROOT ONLY.
 # These patterns previously matched at ANY depth, which silently swallowed real

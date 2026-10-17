@@ -59,9 +59,12 @@ async function waitForBackendReady() {
 
 const processes = []
 
-function spawnProcess(name, command, args) {
+function spawnProcess(name, shellCommand) {
   console.log(`[dev:seq] 🚀 Starting ${name}...`)
-  const child = spawn(command, args, {
+  // Command strings are our own constants (workspace filter names), never
+  // user input, so spawning via shell without a separate args array avoids
+  // Node's DEP0190 (args + shell:true) deprecation warning.
+  const child = spawn(shellCommand, {
     cwd: process.cwd(),
     stdio: 'inherit',
     shell: true,
@@ -83,21 +86,21 @@ const pkgMgr = (process.env.npm_config_user_agent?.includes('pnpm') || process.e
 
 async function main() {
   // Step 1: Start backend
-  spawnProcess('trstprep-backend', 'pnpm', ['--filter', 'trstprep-backend', 'run', 'dev'])
+  spawnProcess('trstprep-backend', `${pkgMgr} --filter trstprep-backend run dev`)
 
   // Step 2: Wait for backend health check
   await waitForBackendReady()
 
   // Step 3: Start frontend
   console.log(`[dev:seq] ⏳ Step 2/3: Launching frontend...`)
-  spawnProcess('trstprep-frontend', 'pnpm', ['--filter', 'trstprep-frontend', 'run', 'dev'])
+  spawnProcess('trstprep-frontend', `${pkgMgr} --filter trstprep-frontend run dev`)
   
   // Wait 2 seconds before launching admin panel
   await new Promise((r) => setTimeout(r, 2000))
 
   // Step 4: Start admin panel
   console.log(`[dev:seq] ⏳ Step 3/3: Launching admin panel...`)
-  spawnProcess('trstprep-admin', 'pnpm', ['--filter', 'trstprep-admin', 'run', 'dev'])
+  spawnProcess('trstprep-admin', `${pkgMgr} --filter trstprep-admin run dev`)
 }
 
 function cleanup() {
