@@ -51,13 +51,16 @@ function TestSeriesCard({
     (user?.passType && user.passType !== "free"),
   );
   const hasFreeTests = freeTests > 0;
-  const isSeriesPro = Boolean(
-    isPro === true ||
-    series.is_pro === true ||
-    (freeTests === 0 && totalTests > 0),
-  );
+  // Series pro-ness comes from the series' own flag. It used to also infer
+  // `freeTests === 0 && totalTests > 0` from the denormalised test counters,
+  // which derived a series property from test-level data: one stale or live
+  // test row would flip the card between "Pro" and "mixed" and change the
+  // CTA. `requiresPro` keeps that fallback only as a display heuristic for
+  // series payloads that predate the isPro flag.
+  const isSeriesPro = Boolean(isPro === true || series.is_pro === true);
   const requiresPro =
-    (isSeriesPro && !hasFreeTests) || (freeTests === 0 && totalTests > 0);
+    isSeriesPro ||
+    (!isPro && !series.is_pro && !hasFreeTests && totalTests > 0);
 
   const [expanded, setExpanded] = useState(false);
   const progressPercentage =

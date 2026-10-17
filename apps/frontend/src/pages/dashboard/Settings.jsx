@@ -976,10 +976,14 @@ export default function Settings() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* Full Name */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                        <label
+                          htmlFor="full-name"
+                          className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider"
+                        >
                           Full Name
                         </label>
                         <input
+                          id="full-name"
                           type="text"
                           value={profileForm.name}
                           onChange={(e) =>
@@ -1034,10 +1038,14 @@ export default function Settings() {
 
                       {/* Date of Birth */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                        <label
+                          htmlFor="date-of-birth"
+                          className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider"
+                        >
                           Date of Birth
                         </label>
                         <input
+                          id="date-of-birth"
                           type="date"
                           value={profileForm.dob}
                           onChange={(e) =>
@@ -1049,10 +1057,14 @@ export default function Settings() {
 
                       {/* Location / State */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                        <label
+                          htmlFor="location-state"
+                          className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider"
+                        >
                           Location / State
                         </label>
                         <input
+                          id="location-state"
                           type="text"
                           value={profileForm.location}
                           onChange={(e) =>
@@ -1065,10 +1077,14 @@ export default function Settings() {
 
                       {/* Highest Education */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                        <label
+                          htmlFor="highest-education"
+                          className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider"
+                        >
                           Highest Education
                         </label>
                         <input
+                          id="highest-education"
                           type="text"
                           value={profileForm.education}
                           onChange={(e) =>
@@ -1086,7 +1102,10 @@ export default function Settings() {
                     {/* Bio */}
                     <div className="space-y-1.5 pt-2">
                       <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                        <label
+                          htmlFor="target-exam-and-bio"
+                          className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider"
+                        >
                           Target Exam & Bio
                         </label>
                         <span className="text-[10px] text-slate-400">
@@ -1094,6 +1113,7 @@ export default function Settings() {
                         </span>
                       </div>
                       <textarea
+                        id="target-exam-and-bio"
                         rows={3}
                         maxLength={250}
                         value={profileForm.bio}
@@ -1258,10 +1278,14 @@ export default function Settings() {
 
                     {/* Confirm New Password */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                      <label
+                        htmlFor="confirm-new-password"
+                        className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider"
+                      >
                         Confirm New Password
                       </label>
                       <input
+                        id="confirm-new-password"
                         type={showNewPw ? "text" : "password"}
                         value={passwordForm.confirm}
                         onChange={(e) =>
@@ -1813,10 +1837,14 @@ export default function Settings() {
 
                   <div className="space-y-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                      <label
+                        htmlFor="profile-visibility"
+                        className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider"
+                      >
                         Profile Visibility
                       </label>
                       <select
+                        id="profile-visibility"
                         value={privacy.profileVisibility}
                         onChange={(e) =>
                           handlePrivacyChange({

@@ -1935,6 +1935,7 @@ export default function CategoriesManager() {
                 <Upload className="w-4 h-4 text-purple-600" /> Import JSON
               </h4>
               <textarea
+                aria-label="Import json text"
                 value={importJsonText}
                 onChange={(e) => setImportJsonText(e.target.value)}
                 placeholder="Paste JSON categories hierarchy here..."
@@ -2072,10 +2073,14 @@ export default function CategoriesManager() {
                 className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 sm:space-y-4"
               >
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="name"
+                    className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Name <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="name"
                     type="text"
                     required
                     value={formData.name}
@@ -2102,10 +2107,14 @@ export default function CategoriesManager() {
                 </div>
 
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="slug"
+                    className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Slug <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="slug"
                     type="text"
                     required
                     value={formData.slug}
@@ -2136,10 +2145,14 @@ export default function CategoriesManager() {
 
                 {/* Parent Category Selection */}
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="parent-category"
+                    className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Parent Category
                   </label>
                   <select
+                    id="parent-category"
                     value={
                       parentCategory
                         ? parentCategory._id || parentCategory.id
@@ -2171,13 +2184,17 @@ export default function CategoriesManager() {
 
                 {/* Exam Category dropdown */}
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="exam-category-optional"
+                    className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Exam Category{" "}
                     <span className="text-xs text-gray-400 font-normal">
                       (Optional)
                     </span>
                   </label>
                   <select
+                    id="exam-category-optional"
                     value={formData.examCategoryId || ""}
                     onChange={(e) =>
                       setFormData({
@@ -2276,10 +2293,14 @@ export default function CategoriesManager() {
                 {/* Order, Icon & Active (Responsive Grid: 1 col on mobile, 3 cols on tablet/desktop) */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="display-order"
+                      className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Display Order
                     </label>
                     <input
+                      id="display-order"
                       type="number"
                       value={formData.displayOrder}
                       onChange={(e) =>
@@ -2293,10 +2314,14 @@ export default function CategoriesManager() {
                   </div>
 
                   <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="icon-emoji"
+                      className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Icon (Emoji)
                     </label>
                     <input
+                      id="icon-emoji"
                       type="text"
                       value={formData.icon}
                       onChange={(e) =>
@@ -2329,13 +2354,17 @@ export default function CategoriesManager() {
 
                 {/* Description */}
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="description-optional"
+                    className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Description{" "}
                     <span className="text-xs text-gray-400 font-normal">
                       (Optional)
                     </span>
                   </label>
                   <textarea
+                    id="description-optional"
                     value={formData.description}
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })

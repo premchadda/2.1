@@ -724,6 +724,7 @@ export default function LeaderboardResultsUnified() {
               {/* Test Filter Dropdown */}
               <div className="flex items-center gap-2 overflow-x-auto scrollbar-none flex-1 min-w-0">
                 <select
+                  aria-label="Test filter"
                   value={selectedTestFilter}
                   onChange={(e) => setSelectedTestFilter(e.target.value)}
                   className="px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-800 dark:text-white focus:ring-2 focus:ring-indigo-500"
@@ -1205,10 +1206,14 @@ export default function LeaderboardResultsUnified() {
 
               <div className="space-y-3 text-xs">
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                  <label
+                    htmlFor="leaderboard-name"
+                    className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1"
+                  >
                     Leaderboard Name
                   </label>
                   <input
+                    id="leaderboard-name"
                     type="text"
                     value={newLeaderboardName}
                     onChange={(e) => setNewLeaderboardName(e.target.value)}
@@ -1219,10 +1224,14 @@ export default function LeaderboardResultsUnified() {
 
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                    <label
+                      htmlFor="leaderboard-type"
+                      className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1"
+                    >
                       Leaderboard Type
                     </label>
                     <select
+                      id="leaderboard-type"
                       value={newLeaderboardType}
                       onChange={(e) => setNewLeaderboardType(e.target.value)}
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-800 dark:text-white"
@@ -1235,10 +1244,14 @@ export default function LeaderboardResultsUnified() {
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                    <label
+                      htmlFor="time-period"
+                      className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1"
+                    >
                       Time Period
                     </label>
                     <select
+                      id="time-period"
                       value={newLeaderboardPeriod}
                       onChange={(e) => setNewLeaderboardPeriod(e.target.value)}
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-800 dark:text-white"

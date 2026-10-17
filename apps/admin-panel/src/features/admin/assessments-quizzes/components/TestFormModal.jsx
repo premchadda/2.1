@@ -26,6 +26,7 @@ import {
   getCategoryLabel,
   getCategoryPath,
   getCategoryPathLabel,
+  resolveTestCategoryTabId,
 } from "../../../../shared/utils/categoryHelpers.js";
 
 const parseIdList = (value) =>
@@ -106,6 +107,7 @@ export const CascadingCategorySelect = ({
     <div className="space-y-2">
       <div>
         <select
+          aria-label="Levels"
           value={levels[0]}
           onChange={(e) => handleSelect(0, e.target.value)}
           className={selectCls}
@@ -122,6 +124,7 @@ export const CascadingCategorySelect = ({
       {levels[0] && opts2.length > 0 && (
         <div className="pl-3 border-l-2 border-indigo-200 dark:border-indigo-800 space-y-1.5">
           <select
+            aria-label="Levels"
             value={levels[1]}
             onChange={(e) => handleSelect(1, e.target.value)}
             className={selectCls}
@@ -139,6 +142,7 @@ export const CascadingCategorySelect = ({
       {levels[1] && opts3.length > 0 && (
         <div className="pl-6 border-l-2 border-indigo-300 dark:border-indigo-700 space-y-1.5">
           <select
+            aria-label="Levels"
             value={levels[2]}
             onChange={(e) => handleSelect(2, e.target.value)}
             className={selectCls}
@@ -156,6 +160,7 @@ export const CascadingCategorySelect = ({
       {levels[2] && opts4.length > 0 && (
         <div className="pl-9 border-l-2 border-indigo-400 dark:border-indigo-600 space-y-1.5">
           <select
+            aria-label="Levels"
             value={levels[3]}
             onChange={(e) => handleSelect(3, e.target.value)}
             className={selectCls}
@@ -473,6 +478,26 @@ export default function TestFormModal({
   seriesList = [],
   selectedSeries = null,
 }) {
+  // `tests.type` holds an access tier ("Pro"/"Free") on most rows, so the group
+  // is resolved from isLive -> a valid `type` -> the linked category root.
+  const selectedTabId = useMemo(
+    () =>
+      resolveTestCategoryTabId(
+        {
+          type: formData?.type,
+          isLive: formData?.isLive,
+          categoryId: formData?.testCategoryId,
+        },
+        flatTestCategories,
+      ),
+    [
+      formData?.type,
+      formData?.isLive,
+      formData?.testCategoryId,
+      flatTestCategories,
+    ],
+  );
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
@@ -540,10 +565,14 @@ export default function TestFormModal({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   {seriesList.length > 0 && (
                     <div className="sm:col-span-2">
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="test-series"
+                        className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Test Series *
                       </label>
                       <select
+                        id="test-series"
                         required
                         value={
                           formData.testSeriesId ||
@@ -570,17 +599,76 @@ export default function TestFormModal({
                   )}
 
                   <div className="sm:col-span-2">
+                    <label
+                      htmlFor="title"
+                      className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
+                      Title *
+                    </label>
+                    <input
+                      id="title"
+                      required
+                      value={formData.title}
+                      onChange={(e) => {
+                        const newTitle = e.target.value;
+                        setFormData((prev) => {
+                          const autoSlug = normalizeKey(newTitle);
+                          const isAutoSlug =
+                            !prev.isCustomSlug ||
+                            !prev.slug ||
+                            prev.slug === normalizeKey(prev.title);
+                          return {
+                            ...prev,
+                            title: newTitle,
+                            slug: isAutoSlug ? autoSlug : prev.slug,
+                          };
+                        });
+                      }}
+                      className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-xs sm:text-sm bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
+                      placeholder="e.g. SSC CGL Tier-I Full Mock Test 1"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label
+                      htmlFor="slug-url"
+                      className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
+                      Slug (URL)
+                    </label>
+                    <input
+                      id="slug-url"
+                      value={formData.slug}
+                      onChange={(e) => {
+                        const val = e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9-]+/g, "-");
+                        setFormData((prev) => ({
+                          ...prev,
+                          slug: val,
+                          isCustomSlug: true,
+                        }));
+                      }}
+                      className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-xs sm:text-sm bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
+                      placeholder="auto-generated-from-title"
+                    />
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 break-all">
+                      URL Slug:{" "}
+                      <span className="font-mono font-semibold text-indigo-600 dark:text-indigo-400">
+                        {formData.slug ||
+                          normalizeKey(formData.title) ||
+                          "auto-generated-slug"}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="sm:col-span-2">
                     <label className="block text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">
                       Test Category *
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {TEST_CATEGORY_TABS.map((tab) => {
-                        const isSelected =
-                          formData.type === tab.id ||
-                          (tab.id === "live-tests" && formData.isLive) ||
-                          (!formData.type &&
-                            tab.id === "mock-tests" &&
-                            !formData.isLive);
+                        const isSelected = selectedTabId === tab.id;
                         const TabIcon = tab.icon;
                         return (
                           <button
@@ -613,62 +701,12 @@ export default function TestFormModal({
                         );
                       })}
                     </div>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Title *
-                    </label>
-                    <input
-                      required
-                      value={formData.title}
-                      onChange={(e) => {
-                        const newTitle = e.target.value;
-                        setFormData((prev) => {
-                          const autoSlug = normalizeKey(newTitle);
-                          const isAutoSlug =
-                            !prev.isCustomSlug ||
-                            !prev.slug ||
-                            prev.slug === normalizeKey(prev.title);
-                          return {
-                            ...prev,
-                            title: newTitle,
-                            slug: isAutoSlug ? autoSlug : prev.slug,
-                          };
-                        });
-                      }}
-                      className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-xs sm:text-sm bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
-                      placeholder="e.g. SSC CGL Tier-I Full Mock Test 1"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Slug (URL)
-                    </label>
-                    <input
-                      value={formData.slug}
-                      onChange={(e) => {
-                        const val = e.target.value
-                          .toLowerCase()
-                          .replace(/[^a-z0-9-]+/g, "-");
-                        setFormData((prev) => ({
-                          ...prev,
-                          slug: val,
-                          isCustomSlug: true,
-                        }));
-                      }}
-                      className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-xs sm:text-sm bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
-                      placeholder="auto-generated-from-title"
-                    />
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 break-all">
-                      URL Slug:{" "}
-                      <span className="font-mono font-semibold text-indigo-600 dark:text-indigo-400">
-                        {formData.slug ||
-                          normalizeKey(formData.title) ||
-                          "auto-generated-slug"}
-                      </span>
-                    </p>
+                    {editingId && !selectedTabId && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                        No category group resolved from this test — pick one to
+                        set it.
+                      </p>
+                    )}
                   </div>
 
                   <div className="sm:col-span-2">
@@ -733,11 +771,15 @@ export default function TestFormModal({
                     />
                     {editingId && (
                       <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200 dark:border-gray-700">
-                        <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                        <label
+                          htmlFor="exam-scheme"
+                          className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5"
+                        >
                           Exam Scheme:
                         </label>
                         <div className="flex flex-col sm:flex-row gap-2">
                           <select
+                            id="exam-scheme"
                             value={selectedPresetId}
                             onChange={(e) =>
                               setSelectedPresetId(e.target.value)
@@ -776,6 +818,7 @@ export default function TestFormModal({
                         {label}
                       </label>
                       <input
+                        aria-label="Datakey"
                         type="number"
                         min={min}
                         step={step}
@@ -791,20 +834,28 @@ export default function TestFormModal({
                   {editingId && (
                     <>
                       <div>
-                        <label className="block text-xs sm:text-sm font-medium text-gray-400 dark:text-gray-500 mb-1">
+                        <label
+                          htmlFor="total-questions-auto"
+                          className="block text-xs sm:text-sm font-medium text-gray-400 dark:text-gray-500 mb-1"
+                        >
                           Total Questions (Auto)
                         </label>
                         <input
+                          id="total-questions-auto"
                           readOnly
                           value={formData.totalQuestions || 0}
                           className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/60 rounded-lg outline-none text-gray-500 cursor-not-allowed text-xs sm:text-sm min-h-[40px] sm:min-h-0"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs sm:text-sm font-medium text-gray-400 dark:text-gray-500 mb-1">
+                        <label
+                          htmlFor="total-marks-auto"
+                          className="block text-xs sm:text-sm font-medium text-gray-400 dark:text-gray-500 mb-1"
+                        >
                           Total Marks (Auto)
                         </label>
                         <input
+                          id="total-marks-auto"
                           readOnly
                           value={formData.totalMarks || 0}
                           className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/60 rounded-lg outline-none text-gray-500 cursor-not-allowed text-xs sm:text-sm min-h-[40px] sm:min-h-0"
@@ -814,10 +865,14 @@ export default function TestFormModal({
                   )}
 
                   <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="difficulty"
+                      className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Difficulty
                     </label>
                     <select
+                      id="difficulty"
                       value={formData.difficulty}
                       onChange={(e) =>
                         setFormData({ ...formData, difficulty: e.target.value })
@@ -841,10 +896,14 @@ export default function TestFormModal({
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                          <label
+                            htmlFor="live-start-time-available-from"
+                            className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1"
+                          >
                             Live Start Time (Available From) *
                           </label>
                           <input
+                            id="live-start-time-available-from"
                             type="datetime-local"
                             value={
                               formData.scheduledAt
@@ -864,10 +923,14 @@ export default function TestFormModal({
                           </p>
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                          <label
+                            htmlFor="live-end-time-available-until"
+                            className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1"
+                          >
                             Live End Time (Available Until) *
                           </label>
                           <input
+                            id="live-end-time-available-until"
                             type="datetime-local"
                             value={
                               formData.scheduledEnd
@@ -891,10 +954,14 @@ export default function TestFormModal({
                   )}
 
                   <div className="sm:col-span-2">
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="tags"
+                      className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Tags
                     </label>
                     <input
+                      id="tags"
                       value={formData.tags}
                       onChange={(e) =>
                         setFormData({ ...formData, tags: e.target.value })

@@ -521,10 +521,14 @@ export default function LiveProctoringConsole() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
+              <label
+                htmlFor="intervention-reason-proctor-note"
+                className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5"
+              >
                 Intervention Reason / Proctor Note
               </label>
               <textarea
+                id="intervention-reason-proctor-note"
                 rows={3}
                 value={interventionReason}
                 onChange={(e) => setInterventionReason(e.target.value)}

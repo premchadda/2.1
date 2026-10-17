@@ -59,6 +59,7 @@ export default function PypSubcategoryCollection({
             <div className="mt-3 relative">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               <input
+                aria-label="Filter text"
                 type="text"
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}

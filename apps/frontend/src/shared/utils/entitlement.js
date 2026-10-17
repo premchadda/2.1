@@ -5,9 +5,14 @@
  *
  * Core Architectural Rules:
  * 1. Series visibility/access ≠ individual Test access.
- * 2. A FREE series can contain PRO tests (which require Pro Pass).
- * 3. A PRO series can contain FREE tests (which any user can attempt for free).
- * 4. Never derive Test attempt access from Series access.
+ * 2. A FREE (non-Pro) series can contain a MIX of free and PRO tests — the
+ *    per-test access type decides whether Pro Pass is required.
+ * 3. A PRO series contains ONLY PRO tests (enforced at the data layer by
+ *    migration 151 and at import time by fullTestImporter, so a Pro series
+ *    never advertises free tests).
+ * 4. Test attempt access is never *widened* by series access: deriving access
+ *    from the series alone is what previously let a Pro series render free
+ *    tests and hand them to free users.
  * 5. A test's attempt entitlement is determined strictly by the individual test's
  *    access type and the user's subscription status.
  */
@@ -115,7 +120,7 @@ export const getSeriesAccessType = (series) => {
 /**
  * Evaluates canonical entitlement for an individual test.
  * Test attempt entitlement is strictly decoupled from Series classification.
- * 
+ *
  * @param {Object} params
  * @param {Object} params.test - The test object
  * @param {Object|null} [params.user] - The authenticated user object
@@ -127,23 +132,8 @@ export const getSeriesAccessType = (series) => {
  *   requiresPro: boolean,
  *   requiresLogin: boolean,
  *   isLocked: boolean,
-/**
- * Evaluates if a Pro Pass is required for a user to access a series or test.
- *
- * @param {Object} opts
- * @param {boolean} [opts.userIsPro]
- * @param {boolean} [opts.seriesIsPro]
- * @param {boolean} [opts.testIsPro]
- * @returns {boolean}
+ * }}
  */
-export const needsProPass = ({
-  userIsPro = false,
-  seriesIsPro = false,
-  testIsPro = false,
-} = {}) => {
-  if (userIsPro) return false;
-  return Boolean(seriesIsPro || testIsPro);
-};
 
 export const getTestEntitlement = ({ test, user, series = null }) => {
   // `series` is accepted for call-site symmetry (badges/CTA resolvers pass the

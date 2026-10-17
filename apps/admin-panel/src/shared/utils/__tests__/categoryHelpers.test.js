@@ -3,6 +3,7 @@ import {
   getCategoryLabel,
   getCategoryPath,
   getCategoryPathLabel,
+  resolveTestCategoryTabId,
 } from "../categoryHelpers.js";
 
 describe("categoryHelpers", () => {
@@ -51,6 +52,67 @@ describe("categoryHelpers", () => {
 
     it("returns 'Not linked' for non-existent category", () => {
       expect(getCategoryPathLabel("999", flatCats)).toBe("Not linked");
+    });
+  });
+
+  describe("resolveTestCategoryTabId", () => {
+    // Mirrors the live test_categories roots + a PYP sectional leaf.
+    const flatCats = [
+      { id: "1", name: "Mock Tests", slug: "mock-tests", parent_id: null },
+      {
+        id: "23",
+        name: "Sectional Tests",
+        slug: "sectional-tests",
+        parent_id: "1",
+      },
+      { id: "6", name: "PYPs", slug: "pyps", parent_id: null },
+      {
+        id: "8",
+        name: "Sectional",
+        slug: "sectional",
+        parent_id: "6",
+      },
+      {
+        id: "63",
+        name: "English Language",
+        slug: "pyp-english-sectional",
+        parent_id: "8",
+      },
+      { id: "20", name: "Live Tests", slug: "live-tests", parent_id: null },
+    ];
+
+    it("honours an explicit group id stored in type", () => {
+      expect(resolveTestCategoryTabId({ type: "mock-tests" }, flatCats)).toBe(
+        "mock-tests",
+      );
+      expect(resolveTestCategoryTabId({ type: "pyp" }, flatCats)).toBe("pyp");
+      expect(resolveTestCategoryTabId({ type: "live-tests" }, flatCats)).toBe(
+        "live-tests",
+      );
+    });
+
+    it("ignores a legacy access-tier value in type and uses the linked root", () => {
+      expect(
+        resolveTestCategoryTabId({ type: "Pro", categoryId: "63" }, flatCats),
+      ).toBe("pyp");
+      expect(
+        resolveTestCategoryTabId({ type: "Pro", categoryId: "23" }, flatCats),
+      ).toBe("mock-tests");
+    });
+
+    it("lets isLive win over type and category", () => {
+      expect(
+        resolveTestCategoryTabId(
+          { type: "Pro", isLive: true, categoryId: "23" },
+          flatCats,
+        ),
+      ).toBe("live-tests");
+    });
+
+    it("returns null when nothing resolves instead of guessing", () => {
+      expect(resolveTestCategoryTabId({ type: "Pro" }, flatCats)).toBeNull();
+      expect(resolveTestCategoryTabId(undefined, flatCats)).toBeNull();
+      expect(resolveTestCategoryTabId({ categoryId: "" }, flatCats)).toBeNull();
     });
   });
 });

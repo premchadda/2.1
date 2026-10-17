@@ -562,10 +562,14 @@ export default function ExamInfoManager() {
                       </h3>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <label
+                            htmlFor="exam-id"
+                            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                          >
                             Exam ID *
                           </label>
                           <input
+                            id="exam-id"
                             type="text"
                             value={formData.examId}
                             onChange={(e) =>
@@ -579,10 +583,14 @@ export default function ExamInfoManager() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <label
+                            htmlFor="category"
+                            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                          >
                             Category *
                           </label>
                           <select
+                            id="category"
                             value={formData.categoryId}
                             onChange={(e) =>
                               setFormData({
@@ -604,10 +612,14 @@ export default function ExamInfoManager() {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <label
+                            htmlFor="title"
+                            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                          >
                             Title *
                           </label>
                           <input
+                            id="title"
                             type="text"
                             value={formData.title}
                             onChange={(e) =>
@@ -621,10 +633,14 @@ export default function ExamInfoManager() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <label
+                            htmlFor="test-series-id"
+                            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                          >
                             Test Series ID
                           </label>
                           <input
+                            id="test-series-id"
                             type="text"
                             value={formData.seriesId}
                             onChange={(e) =>
@@ -638,10 +654,14 @@ export default function ExamInfoManager() {
                           />
                         </div>
                         <div className="col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <label
+                            htmlFor="full-name"
+                            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                          >
                             Full Name
                           </label>
                           <input
+                            id="full-name"
                             type="text"
                             value={formData.fullName}
                             onChange={(e) =>
@@ -655,10 +675,14 @@ export default function ExamInfoManager() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <label
+                            htmlFor="display-order"
+                            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                          >
                             Display Order
                           </label>
                           <input
+                            id="display-order"
                             type="number"
                             value={formData.displayOrder}
                             onChange={(e) =>
@@ -671,10 +695,14 @@ export default function ExamInfoManager() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <label
+                            htmlFor="year"
+                            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                          >
                             Year
                           </label>
                           <input
+                            id="year"
                             type="number"
                             value={formData.year}
                             onChange={(e) =>
@@ -718,10 +746,14 @@ export default function ExamInfoManager() {
                         Exam Details
                       </h3>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label
+                          htmlFor="description"
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
                           Description
                         </label>
                         <textarea
+                          id="description"
                           value={formData.description}
                           onChange={(e) =>
                             setFormData({
@@ -735,10 +767,14 @@ export default function ExamInfoManager() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label
+                          htmlFor="notification-details"
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
                           Notification Details
                         </label>
                         <textarea
+                          id="notification-details"
                           value={formData.notification}
                           onChange={(e) =>
                             setFormData({
@@ -761,10 +797,14 @@ export default function ExamInfoManager() {
                         Eligibility Criteria
                       </h3>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label
+                          htmlFor="educational-qualification"
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
                           Educational Qualification
                         </label>
                         <textarea
+                          id="educational-qualification"
                           value={formData.eligibility}
                           onChange={(e) =>
                             setFormData({
@@ -778,10 +818,14 @@ export default function ExamInfoManager() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label
+                          htmlFor="age-limit"
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
                           Age Limit
                         </label>
                         <textarea
+                          id="age-limit"
                           value={formData.ageLimit}
                           onChange={(e) =>
                             setFormData({
@@ -804,10 +848,14 @@ export default function ExamInfoManager() {
                         Important Dates
                       </h3>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label
+                          htmlFor="all-important-dates"
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
                           All Important Dates
                         </label>
                         <textarea
+                          id="all-important-dates"
                           value={formData.notification}
                           onChange={(e) =>
                             setFormData({
@@ -833,10 +881,14 @@ export default function ExamInfoManager() {
                         Selection Process & Syllabus
                       </h3>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label
+                          htmlFor="syllabus-exam-pattern"
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
                           Syllabus / Exam Pattern
                         </label>
                         <textarea
+                          id="syllabus-exam-pattern"
                           value={formData.syllabus}
                           onChange={(e) =>
                             setFormData({

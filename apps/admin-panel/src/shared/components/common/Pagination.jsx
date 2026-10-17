@@ -39,6 +39,7 @@ function Pagination({
       <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
         <span>Rows per page:</span>
         <select
+          aria-label="Limit"
           value={limit}
           onChange={(e) => onLimitChange?.(Number(e.target.value))}
           className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"

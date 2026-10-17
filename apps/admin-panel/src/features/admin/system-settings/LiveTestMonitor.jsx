@@ -320,6 +320,7 @@ export default function LiveTestMonitor() {
               <div className="flex items-center gap-2">
                 <Filter className="w-3.5 h-3.5 text-gray-400" />
                 <select
+                  aria-label="Status filter"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="text-xs sm:text-sm px-2.5 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"

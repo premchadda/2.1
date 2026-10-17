@@ -172,7 +172,10 @@ export default function QuestionForm({
               <div className="space-y-6">
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label
+                      htmlFor="question-text"
+                      className="block text-sm font-medium text-gray-700"
+                    >
                       Question Text <span className="text-red-500">*</span>
                     </label>
                     <span className="text-xs text-gray-400 flex items-center gap-1">
@@ -181,6 +184,7 @@ export default function QuestionForm({
                     </span>
                   </div>
                   <textarea
+                    id="question-text"
                     required
                     value={formData.questionText}
                     onChange={(e) =>
@@ -208,7 +212,10 @@ export default function QuestionForm({
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label
+                      htmlFor="question-text-hindi"
+                      className="block text-sm font-medium text-gray-700"
+                    >
                       Question Text (Hindi)
                     </label>
                     {formData.questionText && !formData.questionTextHi && (
@@ -227,6 +234,7 @@ export default function QuestionForm({
                     )}
                   </div>
                   <textarea
+                    id="question-text-hindi"
                     value={formData.questionTextHi || ""}
                     onChange={(e) =>
                       setFormData({
@@ -280,10 +288,14 @@ export default function QuestionForm({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label
+                      htmlFor="subject"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
                       Subject <span className="text-red-500">*</span>
                     </label>
                     <select
+                      id="subject"
                       required
                       value={formData.subject}
                       onChange={(e) =>
@@ -306,10 +318,14 @@ export default function QuestionForm({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label
+                      htmlFor="question-type"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
                       Question Type
                     </label>
                     <select
+                      id="question-type"
                       value={formData.type}
                       onChange={(e) => {
                         const nt = e.target.value;
@@ -366,10 +382,14 @@ export default function QuestionForm({
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label
+                      htmlFor="section"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
                       Section
                     </label>
                     <select
+                      id="section"
                       value={selectedSectionValue}
                       onChange={(e) =>
                         setFormData({ ...formData, section: e.target.value })
@@ -396,10 +416,14 @@ export default function QuestionForm({
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label
+                      htmlFor="question-number"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
                       Question Number
                     </label>
                     <input
+                      id="question-number"
                       type="number"
                       min="1"
                       value={formData.questionNumber || ""}
@@ -419,10 +443,14 @@ export default function QuestionForm({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label
+                      htmlFor="chapter"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
                       Chapter
                     </label>
                     <select
+                      id="chapter"
                       value={formData.chapter}
                       onChange={(e) =>
                         setFormData({
@@ -452,10 +480,14 @@ export default function QuestionForm({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label
+                      htmlFor="topic"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
                       Topic
                     </label>
                     <select
+                      id="topic"
                       value={formData.topic}
                       onChange={(e) =>
                         setFormData({ ...formData, topic: e.target.value })
@@ -524,7 +556,10 @@ export default function QuestionForm({
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label
+                      htmlFor="explanation"
+                      className="block text-sm font-medium text-gray-700"
+                    >
                       Explanation
                     </label>
                     <span className="text-xs text-gray-400 flex items-center gap-1">
@@ -533,6 +568,7 @@ export default function QuestionForm({
                     </span>
                   </div>
                   <textarea
+                    id="explanation"
                     value={formData.explanation}
                     onChange={(e) =>
                       setFormData({ ...formData, explanation: e.target.value })
@@ -562,10 +598,14 @@ export default function QuestionForm({
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label
+                      htmlFor="difficulty"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
                       Difficulty
                     </label>
                     <select
+                      id="difficulty"
                       value={formData.difficulty}
                       onChange={(e) =>
                         setFormData({ ...formData, difficulty: e.target.value })
@@ -581,10 +621,14 @@ export default function QuestionForm({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label
+                      htmlFor="marks"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
                       Marks (+)
                     </label>
                     <input
+                      id="marks"
                       type="number"
                       step="0.5"
                       min="0"
@@ -600,10 +644,14 @@ export default function QuestionForm({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label
+                      htmlFor="negative-marks"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
                       Negative Marks (-)
                     </label>
                     <input
+                      id="negative-marks"
                       type="number"
                       step="0.25"
                       min="0"
@@ -621,10 +669,14 @@ export default function QuestionForm({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label
+                      htmlFor="status"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
                       Status
                     </label>
                     <select
+                      id="status"
                       value={formData.status}
                       onChange={(e) =>
                         setFormData({ ...formData, status: e.target.value })
@@ -640,10 +692,14 @@ export default function QuestionForm({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label
+                      htmlFor="tags"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
                       Tags
                     </label>
                     <input
+                      id="tags"
                       type="text"
                       value={formData.tags?.join(", ") || ""}
                       onChange={(e) =>
@@ -666,10 +722,14 @@ export default function QuestionForm({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label
+                      htmlFor="image-url"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
                       Image URL
                     </label>
                     <input
+                      id="image-url"
                       type="url"
                       value={formData.imageUrl || ""}
                       onChange={(e) => {
@@ -712,10 +772,14 @@ export default function QuestionForm({
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label
+                      htmlFor="passage"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
                       Passage
                     </label>
                     <select
+                      id="passage"
                       value={formData.passageId || ""}
                       onChange={(e) => {
                         const raw = e.target.value;

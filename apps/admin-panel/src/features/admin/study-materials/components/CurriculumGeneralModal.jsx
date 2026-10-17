@@ -51,10 +51,14 @@ export default function CurriculumGeneralModal({
 
           {modalConfig.tabId === "parts" && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="assign-to-subject"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Assign to Subject *
               </label>
               <select
+                id="assign-to-subject"
                 required
                 value={formData.parentId}
                 onChange={(e) =>
@@ -76,10 +80,14 @@ export default function CurriculumGeneralModal({
 
           {modalConfig.tabId === "units" && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="assign-to-subject-2"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Assign to Subject *
               </label>
               <select
+                id="assign-to-subject-2"
                 required
                 value={formData.parentId}
                 onChange={(e) =>
@@ -101,10 +109,14 @@ export default function CurriculumGeneralModal({
 
           {modalConfig.tabId === "chapters" && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="assign-to-subject-or-unit"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Assign to (Subject or Unit) *
               </label>
               <select
+                id="assign-to-subject-or-unit"
                 required
                 value={formData.parentId}
                 onChange={(e) =>
@@ -135,10 +147,14 @@ export default function CurriculumGeneralModal({
 
           {modalConfig.tabId === "topics" && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="assign-to-chapter"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Assign to Chapter *
               </label>
               <select
+                id="assign-to-chapter"
                 required
                 value={formData.parentId}
                 onChange={(e) =>
@@ -160,10 +176,14 @@ export default function CurriculumGeneralModal({
 
           {modalConfig.tabId === "subtopics" && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="assign-to-topic"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Assign to Topic *
               </label>
               <select
+                id="assign-to-topic"
                 required
                 value={formData.parentId}
                 onChange={(e) =>
@@ -182,10 +202,14 @@ export default function CurriculumGeneralModal({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label
+              htmlFor="name-title"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
               Name / Title *
             </label>
             <input
+              id="name-title"
               required
               type="text"
               value={formData.name}
@@ -205,10 +229,14 @@ export default function CurriculumGeneralModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="slug"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Slug *
               </label>
               <input
+                id="slug"
                 required
                 type="text"
                 value={formData.slug}
@@ -225,10 +253,14 @@ export default function CurriculumGeneralModal({
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="icon-thumbnail-url"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Icon / Thumbnail URL
               </label>
               <input
+                id="icon-thumbnail-url"
                 type="text"
                 value={formData.icon}
                 onChange={(e) =>
@@ -241,10 +273,14 @@ export default function CurriculumGeneralModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label
+              htmlFor="description"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
               Description
             </label>
             <textarea
+              id="description"
               value={formData.description}
               onChange={(e) =>
                 setFormData((f) => ({

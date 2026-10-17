@@ -734,10 +734,14 @@ export default function AdminSettings() {
                 <div className="h-px bg-gray-100 dark:bg-gray-800 mb-4" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="site-name"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Site Name
                     </label>
                     <input
+                      id="site-name"
                       type="text"
                       value={settings.siteName}
                       onChange={(e) =>
@@ -747,10 +751,14 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="site-url"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Site URL
                     </label>
                     <input
+                      id="site-url"
                       type="url"
                       value={settings.siteUrl}
                       onChange={(e) =>
@@ -760,10 +768,14 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="site-description"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Site Description
                     </label>
                     <textarea
+                      id="site-description"
                       value={settings.siteDescription}
                       onChange={(e) =>
                         handleInputChange("siteDescription", e.target.value)
@@ -773,10 +785,14 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="contact-email"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Contact Email
                     </label>
                     <input
+                      id="contact-email"
                       type="email"
                       value={settings.contactEmail}
                       onChange={(e) =>
@@ -786,10 +802,14 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="contact-phone"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Contact Phone
                     </label>
                     <input
+                      id="contact-phone"
                       type="tel"
                       value={settings.contactPhone}
                       onChange={(e) =>
@@ -823,10 +843,14 @@ export default function AdminSettings() {
                 <div className="h-px bg-gray-100 dark:bg-gray-800 mb-4" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="meta-title"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Meta Title
                     </label>
                     <input
+                      id="meta-title"
                       type="text"
                       value={settings.metaTitle}
                       onChange={(e) =>
@@ -836,10 +860,14 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="meta-description"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Meta Description
                     </label>
                     <textarea
+                      id="meta-description"
                       value={settings.metaDescription}
                       onChange={(e) =>
                         handleInputChange("metaDescription", e.target.value)
@@ -849,10 +877,14 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="keywords-comma-separated"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Keywords (comma separated)
                     </label>
                     <input
+                      id="keywords-comma-separated"
                       type="text"
                       value={settings.keywords}
                       onChange={(e) =>
@@ -887,10 +919,14 @@ export default function AdminSettings() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {Object.keys(settings.socialLinks).map((platform) => (
                     <div key={platform}>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 capitalize">
+                      <label
+                        htmlFor="url"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 capitalize"
+                      >
                         {platform} URL
                       </label>
                       <input
+                        id="url"
                         type="url"
                         value={settings.socialLinks[platform]}
                         onChange={(e) =>
@@ -1069,10 +1105,14 @@ export default function AdminSettings() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="maintenance-message"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Maintenance Message
                       </label>
                       <textarea
+                        id="maintenance-message"
                         value={settings.maintenance.message}
                         onChange={(e) =>
                           handleInputChange(
@@ -1085,10 +1125,14 @@ export default function AdminSettings() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="estimated-downtime"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Estimated Downtime
                       </label>
                       <input
+                        id="estimated-downtime"
                         type="text"
                         value={settings.maintenance.estimatedDowntime}
                         onChange={(e) =>
@@ -1102,10 +1146,14 @@ export default function AdminSettings() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="expected-end-time"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Expected End Time
                       </label>
                       <input
+                        id="expected-end-time"
                         type="datetime-local"
                         value={
                           settings.maintenance.endTime
@@ -1259,10 +1307,14 @@ export default function AdminSettings() {
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                            <label
+                              htmlFor="key-unique-no-spaces"
+                              className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1"
+                            >
                               Key (unique, no spaces) *
                             </label>
                             <input
+                              id="key-unique-no-spaces"
                               type="text"
                               value={newPage.key}
                               onChange={(e) =>
@@ -1276,10 +1328,14 @@ export default function AdminSettings() {
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                            <label
+                              htmlFor="title"
+                              className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1"
+                            >
                               Title *
                             </label>
                             <input
+                              id="title"
                               type="text"
                               value={newPage.title}
                               onChange={(e) =>
@@ -1293,10 +1349,14 @@ export default function AdminSettings() {
                             />
                           </div>
                           <div className="sm:col-span-2">
-                            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                            <label
+                              htmlFor="message"
+                              className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1"
+                            >
                               Message
                             </label>
                             <input
+                              id="message"
                               type="text"
                               value={newPage.message}
                               onChange={(e) =>
@@ -1310,10 +1370,14 @@ export default function AdminSettings() {
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                            <label
+                              htmlFor="estimated-time"
+                              className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1"
+                            >
                               Estimated Time
                             </label>
                             <input
+                              id="estimated-time"
                               type="text"
                               value={newPage.estimatedTime}
                               onChange={(e) =>
@@ -1327,10 +1391,14 @@ export default function AdminSettings() {
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                            <label
+                              htmlFor="icon-lucide"
+                              className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1"
+                            >
                               Icon (Lucide)
                             </label>
                             <input
+                              id="icon-lucide"
                               type="text"
                               value={newPage.icon}
                               onChange={(e) =>
@@ -1405,11 +1473,15 @@ export default function AdminSettings() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="primary-color"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Primary Color
                     </label>
                     <div className="flex items-center gap-3">
                       <input
+                        id="primary-color"
                         type="color"
                         value={settings.appearance.primaryColor}
                         onChange={(e) =>
@@ -1435,11 +1507,15 @@ export default function AdminSettings() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="secondary-color"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Secondary Color
                     </label>
                     <div className="flex items-center gap-3">
                       <input
+                        id="secondary-color"
                         type="color"
                         value={settings.appearance.secondaryColor}
                         onChange={(e) =>
@@ -1473,10 +1549,14 @@ export default function AdminSettings() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="theme"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Theme
                     </label>
                     <select
+                      id="theme"
                       value={settings.appearance.theme}
                       onChange={(e) =>
                         handleInputChange("appearance.theme", e.target.value)
@@ -1489,10 +1569,14 @@ export default function AdminSettings() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="font-family"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Font Family
                     </label>
                     <select
+                      id="font-family"
                       value={settings.appearance.fontFamily}
                       onChange={(e) =>
                         handleInputChange(
@@ -1522,10 +1606,14 @@ export default function AdminSettings() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="minimum-password-length"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Minimum Password Length
                     </label>
                     <input
+                      id="minimum-password-length"
                       type="number"
                       value={settings.security.passwordMinLength}
                       onChange={(e) =>
@@ -1573,10 +1661,14 @@ export default function AdminSettings() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="max-login-attempts"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Max Login Attempts
                     </label>
                     <input
+                      id="max-login-attempts"
                       type="number"
                       value={settings.security.maxLoginAttempts}
                       onChange={(e) =>
@@ -1591,13 +1683,17 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="session-timeout-seconds-0-server-default"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Session Timeout (seconds)
                       <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                         0 = server default (3 days)
                       </span>
                     </label>
                     <input
+                      id="session-timeout-seconds-0-server-default"
                       type="number"
                       value={settings.security.sessionTimeout}
                       onChange={(e) =>
@@ -1669,6 +1765,7 @@ export default function AdminSettings() {
                 </p>
                 <textarea
                   rows={4}
+                  aria-label="Allowed email domains"
                   value={settings.security.allowedEmailDomains || ""}
                   onChange={(e) =>
                     handleInputChange(
@@ -1723,10 +1820,14 @@ export default function AdminSettings() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="smtp-host"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       SMTP Host
                     </label>
                     <input
+                      id="smtp-host"
                       type="text"
                       value={settings.email.smtpHost}
                       onChange={(e) =>
@@ -1736,10 +1837,14 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="smtp-port"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       SMTP Port
                     </label>
                     <input
+                      id="smtp-port"
                       type="number"
                       value={settings.email.smtpPort}
                       onChange={(e) =>
@@ -1752,10 +1857,14 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="username"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Username
                     </label>
                     <input
+                      id="username"
                       type="text"
                       value={settings.email.smtpUsername}
                       onChange={(e) =>
@@ -1765,11 +1874,15 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="password"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Password
                     </label>
                     <div className="relative">
                       <input
+                        id="password"
                         type={showPassword.smtpPassword ? "text" : "password"}
                         value={settings.email.smtpPassword}
                         onChange={(e) =>
@@ -1794,10 +1907,14 @@ export default function AdminSettings() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="encryption"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Encryption
                     </label>
                     <select
+                      id="encryption"
                       value={settings.email.encryption}
                       onChange={(e) =>
                         handleInputChange("email.encryption", e.target.value)
@@ -1818,10 +1935,14 @@ export default function AdminSettings() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="from-email"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       From Email
                     </label>
                     <input
+                      id="from-email"
                       type="email"
                       value={settings.email.fromEmail}
                       onChange={(e) =>
@@ -1831,10 +1952,14 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="from-name"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       From Name
                     </label>
                     <input
+                      id="from-name"
                       type="text"
                       value={settings.email.fromName}
                       onChange={(e) =>
@@ -1856,10 +1981,14 @@ export default function AdminSettings() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="public-key"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Public Key
                     </label>
                     <input
+                      id="public-key"
                       type="text"
                       value={settings.payment.stripePublicKey}
                       onChange={(e) =>
@@ -1872,11 +2001,15 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="secret-key"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Secret Key
                     </label>
                     <div className="relative">
                       <input
+                        id="secret-key"
                         type={
                           showPassword.stripeSecretKey ? "text" : "password"
                         }
@@ -1913,10 +2046,14 @@ export default function AdminSettings() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="key-id"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Key ID
                     </label>
                     <input
+                      id="key-id"
                       type="text"
                       value={settings.payment.razorpayKeyId}
                       onChange={(e) =>
@@ -1929,11 +2066,15 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="key-secret"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Key Secret
                     </label>
                     <div className="relative">
                       <input
+                        id="key-secret"
                         type={
                           showPassword.razorpayKeySecret ? "text" : "password"
                         }
@@ -1970,10 +2111,14 @@ export default function AdminSettings() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="client-id"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Client ID
                     </label>
                     <input
+                      id="client-id"
                       type="text"
                       value={settings.payment.paypalClientId}
                       onChange={(e) =>
@@ -1986,11 +2131,15 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="client-secret"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Client Secret
                     </label>
                     <div className="relative">
                       <input
+                        id="client-secret"
                         type={showPassword.paypalSecret ? "text" : "password"}
                         value={settings.payment.paypalClientSecret}
                         onChange={(e) =>
@@ -2023,10 +2172,14 @@ export default function AdminSettings() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="currency"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Currency
                     </label>
                     <select
+                      id="currency"
                       value={settings.payment.currency}
                       onChange={(e) =>
                         handleInputChange("payment.currency", e.target.value)
@@ -2066,10 +2219,14 @@ export default function AdminSettings() {
                   </div>
                   {settings.payment.taxEnabled && (
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <label
+                        htmlFor="tax-rate"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                      >
                         Tax Rate (%)
                       </label>
                       <input
+                        id="tax-rate"
                         type="number"
                         value={settings.payment.taxRate}
                         onChange={(e) =>
@@ -2138,10 +2295,14 @@ export default function AdminSettings() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label
+                      htmlFor="frequency"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    >
                       Frequency
                     </label>
                     <select
+                      id="frequency"
                       value={settings.notifications.notificationFrequency}
                       onChange={(e) =>
                         handleInputChange(
@@ -2256,10 +2417,14 @@ function ComingSoonCard({ keyName, config, onToggle, onChange, showPageHint }) {
       {config.enabled && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
           <div className="md:col-span-2">
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+            <label
+              htmlFor="message-2"
+              className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1"
+            >
               Message
             </label>
             <input
+              id="message-2"
               type="text"
               value={config.message}
               onChange={(e) => onChange("message", e.target.value)}
@@ -2267,10 +2432,14 @@ function ComingSoonCard({ keyName, config, onToggle, onChange, showPageHint }) {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+            <label
+              htmlFor="estimated-time-2"
+              className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1"
+            >
               Estimated Time
             </label>
             <input
+              id="estimated-time-2"
               type="text"
               value={config.estimatedTime}
               onChange={(e) => onChange("estimatedTime", e.target.value)}
@@ -2278,10 +2447,14 @@ function ComingSoonCard({ keyName, config, onToggle, onChange, showPageHint }) {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+            <label
+              htmlFor="icon-lucide-name"
+              className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1"
+            >
               Icon (Lucide name)
             </label>
             <input
+              id="icon-lucide-name"
               type="text"
               value={config.icon}
               onChange={(e) => onChange("icon", e.target.value)}

@@ -447,6 +447,7 @@ export default function QuestionDetailModal({
               </span>
             </div>
             <textarea
+              aria-label="Note text"
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
               className="w-full bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg p-2 text-gray-900 dark:text-gray-100 text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none placeholder-gray-400"

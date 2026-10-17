@@ -318,6 +318,7 @@ export default function AuditTrailManager() {
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
             <Filter className="w-4 h-4 text-gray-400 shrink-0" />
             <select
+              aria-label="Action"
               value={filterAction}
               onChange={(e) => {
                 setFilterAction(e.target.value);
@@ -333,6 +334,7 @@ export default function AuditTrailManager() {
               ))}
             </select>
             <select
+              aria-label="Table"
               value={filterTable}
               onChange={(e) => {
                 setFilterTable(e.target.value);

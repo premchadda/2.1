@@ -65,6 +65,7 @@ const CompactFilterBar = ({
             .filter((f) => !f.expandable)
             .map((filter, idx) => (
               <select
+                aria-label="Value"
                 key={filter.key || idx}
                 value={filter.value}
                 onChange={(e) => onFilterChange?.(filter.key, e.target.value)}
@@ -127,6 +128,7 @@ const CompactFilterBar = ({
               .filter((f) => f.expandable)
               .map((filter, idx) => (
                 <select
+                  aria-label="Value"
                   key={filter.key || idx}
                   value={filter.value}
                   onChange={(e) => onFilterChange?.(filter.key, e.target.value)}
@@ -225,6 +227,7 @@ export const CompactSelect = ({
   className = "",
 }) => (
   <select
+    aria-label="Value"
     value={value}
     onChange={(e) => onChange?.(e.target.value)}
     className={`px-2.5 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500/30 transition-all ${className}`}

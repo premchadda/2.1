@@ -950,10 +950,14 @@ export default function TagConfigsManager() {
 
               <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                  <label
+                    htmlFor="tag-label"
+                    className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1"
+                  >
                     Tag Label *
                   </label>
                   <input
+                    id="tag-label"
                     type="text"
                     value={formData.label}
                     onChange={(e) =>
@@ -966,10 +970,14 @@ export default function TagConfigsManager() {
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                  <label
+                    htmlFor="description"
+                    className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1"
+                  >
                     Description
                   </label>
                   <textarea
+                    id="description"
                     value={formData.description}
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
@@ -983,10 +991,14 @@ export default function TagConfigsManager() {
                 {/* Icon & Color Picker */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                    <label
+                      htmlFor="lucide-icon-name"
+                      className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1"
+                    >
                       Lucide Icon Name
                     </label>
                     <input
+                      id="lucide-icon-name"
                       type="text"
                       value={formData.icon}
                       onChange={(e) =>
@@ -1043,10 +1055,14 @@ export default function TagConfigsManager() {
                 {/* Route & Filter Binding */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                    <label
+                      htmlFor="target-route-optional"
+                      className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1"
+                    >
                       Target Route (Optional)
                     </label>
                     <input
+                      id="target-route-optional"
                       type="text"
                       value={formData.route}
                       onChange={(e) =>
@@ -1058,10 +1074,14 @@ export default function TagConfigsManager() {
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                    <label
+                      htmlFor="display-order"
+                      className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1"
+                    >
                       Display Order
                     </label>
                     <input
+                      id="display-order"
                       type="number"
                       value={formData.displayOrder}
                       onChange={(e) =>
@@ -1077,10 +1097,14 @@ export default function TagConfigsManager() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                    <label
+                      htmlFor="filter-key"
+                      className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1"
+                    >
                       Filter Key
                     </label>
                     <input
+                      id="filter-key"
                       type="text"
                       value={formData.filterKey}
                       onChange={(e) =>
@@ -1091,10 +1115,14 @@ export default function TagConfigsManager() {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                    <label
+                      htmlFor="filter-value"
+                      className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1"
+                    >
                       Filter Value
                     </label>
                     <input
+                      id="filter-value"
                       type="text"
                       value={formData.filterValue}
                       onChange={(e) =>

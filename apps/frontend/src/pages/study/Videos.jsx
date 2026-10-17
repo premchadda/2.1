@@ -758,6 +758,7 @@ function Videos() {
                   </label>
 
                   <select
+                    aria-label="Sort by"
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
                     className="px-3 py-2 text-xs font-medium border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none shrink-0"

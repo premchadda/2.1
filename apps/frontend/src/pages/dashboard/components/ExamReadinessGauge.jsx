@@ -169,6 +169,7 @@ export default function ExamReadinessGauge({ className = "" }) {
         {/* Dropdowns */}
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <select
+            aria-label="Exam"
             value={selectedExam}
             onChange={(e) => setSelectedExam(e.target.value)}
             className="text-xs font-bold px-2.5 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none cursor-pointer"
@@ -181,6 +182,7 @@ export default function ExamReadinessGauge({ className = "" }) {
           </select>
 
           <select
+            aria-label="Category"
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="text-xs font-bold px-2.5 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none cursor-pointer"

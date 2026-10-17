@@ -391,6 +391,7 @@ function Login() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {/* Invisible Honeypot Trap (Completely hidden to users) */}
                   <input
+                    aria-label="Honeypot"
                     type="text"
                     name="_hp_website_trap"
                     value={honeypot}

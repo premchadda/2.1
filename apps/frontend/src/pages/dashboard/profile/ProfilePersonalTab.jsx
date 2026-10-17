@@ -67,10 +67,14 @@ function ProfilePersonalTab({
           </div>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="full-name"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Full Name <span className="text-red-500">*</span>
               </label>
               <input
+                id="full-name"
                 type="text"
                 value={editForm.name}
                 onChange={(e) => handleEditChange("name", e.target.value)}
@@ -81,10 +85,14 @@ function ProfilePersonalTab({
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="phone-number"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Phone Number
               </label>
               <input
+                id="phone-number"
                 type="tel"
                 value={editForm.phone}
                 onChange={(e) => handleEditChange("phone", e.target.value)}
@@ -95,10 +103,14 @@ function ProfilePersonalTab({
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="date-of-birth"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Date of Birth
               </label>
               <input
+                id="date-of-birth"
                 type="date"
                 value={
                   editForm.dateOfBirth
@@ -133,10 +145,14 @@ function ProfilePersonalTab({
               </button>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="exam-reservation-category"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Exam Reservation Category
               </label>
               <select
+                id="exam-reservation-category"
                 value={editForm.category || "UR"}
                 onChange={(e) => handleEditChange("category", e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-medium"
@@ -153,10 +169,14 @@ function ProfilePersonalTab({
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="education"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Education
               </label>
               <input
+                id="education"
                 type="text"
                 value={editForm.education}
                 onChange={(e) => handleEditChange("education", e.target.value)}
@@ -164,10 +184,14 @@ function ProfilePersonalTab({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="bio"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Bio
               </label>
               <textarea
+                id="bio"
                 value={editForm.bio}
                 onChange={(e) => handleEditChange("bio", e.target.value)}
                 rows={3}

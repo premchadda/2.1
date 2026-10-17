@@ -409,6 +409,7 @@ export default function SubjectRelationsManager() {
           <div className="flex items-center gap-2 md:w-56">
             <Filter className="w-4 h-4 text-gray-400 dark:text-gray-500" />
             <select
+              aria-label="Type"
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
               className="w-full min-h-10 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"

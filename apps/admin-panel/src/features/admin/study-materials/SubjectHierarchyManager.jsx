@@ -735,10 +735,14 @@ export default function SubjectHierarchyManager() {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="name"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Name *
                     </label>
                     <input
+                      id="name"
                       type="text"
                       required
                       value={formData.name}
@@ -756,10 +760,14 @@ export default function SubjectHierarchyManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="slug"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Slug
                     </label>
                     <input
+                      id="slug"
                       type="text"
                       value={formData.slug}
                       onChange={(e) =>
@@ -775,10 +783,14 @@ export default function SubjectHierarchyManager() {
 
                   {formLevel !== "subject" && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="parent"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Parent {formLevel === "subtopic" ? "Topic" : "Subject"}
                       </label>
                       <select
+                        id="parent"
                         value={formParentId || formData.parentId || ""}
                         onChange={(e) => {
                           const val = e.target.value || null;
@@ -799,10 +811,14 @@ export default function SubjectHierarchyManager() {
                   )}
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="description"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Description
                     </label>
                     <textarea
+                      id="description"
                       value={formData.description}
                       onChange={(e) =>
                         setFormData((prev) => ({
@@ -818,10 +834,14 @@ export default function SubjectHierarchyManager() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="icon-lucide-name"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Icon (Lucide name)
                       </label>
                       <input
+                        id="icon-lucide-name"
                         type="text"
                         value={formData.icon}
                         onChange={(e) =>
@@ -835,10 +855,14 @@ export default function SubjectHierarchyManager() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="display-order"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Display Order
                       </label>
                       <input
+                        id="display-order"
                         type="number"
                         value={formData.displayOrder}
                         onChange={(e) =>

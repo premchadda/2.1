@@ -309,6 +309,7 @@ function TagPage({ tagProp }) {
 
             {/* Series Filter */}
             <select
+              aria-label="Series"
               value={selectedSeries}
               onChange={(e) => setSelectedSeries(e.target.value)}
               className="px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-brand-start flex-shrink-0"
@@ -324,6 +325,7 @@ function TagPage({ tagProp }) {
 
             {/* Type Filter */}
             <select
+              aria-label="Type"
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
               className="px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-brand-start flex-shrink-0 hidden sm:block"

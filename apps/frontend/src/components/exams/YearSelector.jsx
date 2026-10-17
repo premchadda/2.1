@@ -31,6 +31,7 @@ export default function YearSelector({ years, selectedYear, onSelect }) {
         <div className="flex items-center gap-2">
           <Calendar className="w-5 h-5 text-indigo-600 dark:text-indigo-300" />
           <select
+            aria-label="Year"
             value={selectedYear}
             onChange={(e) => onSelect(Number(e.target.value))}
             className="text-2xl font-bold text-gray-900 dark:text-white bg-transparent border-none focus:ring-0 cursor-pointer"

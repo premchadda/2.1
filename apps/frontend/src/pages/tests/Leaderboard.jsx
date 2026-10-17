@@ -1330,6 +1330,7 @@ export default function Leaderboard() {
             {activeCategory === "test" && (
               <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-3 shadow-sm">
                 <select
+                  aria-label="Test"
                   value={selectedTestId || ""}
                   onChange={(e) => setSelectedTestId(e.target.value || null)}
                   className="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1350,6 +1351,7 @@ export default function Leaderboard() {
             {activeCategory === "series" && (
               <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-3 shadow-sm">
                 <select
+                  aria-label="Series"
                   value={selectedSeriesId || ""}
                   onChange={(e) => setSelectedSeriesId(e.target.value || null)}
                   className="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"

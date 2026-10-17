@@ -480,6 +480,7 @@ export default function NavigationManager() {
           <div className="relative">
             <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
             <select
+              aria-label="Category"
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
               className="pl-8 pr-8 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 appearance-none cursor-pointer min-w-[150px]"
@@ -827,10 +828,14 @@ export default function NavigationManager() {
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div className="sm:col-span-1">
-                    <label className="block text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-400 mb-1.5">
+                    <label
+                      htmlFor="id"
+                      className="block text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-400 mb-1.5"
+                    >
                       ID <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="id"
                       type="text"
                       value={formData.id}
                       onChange={(e) =>
@@ -848,10 +853,14 @@ export default function NavigationManager() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-400 mb-1.5">
+                    <label
+                      htmlFor="label"
+                      className="block text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-400 mb-1.5"
+                    >
                       Label <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="label"
                       type="text"
                       value={formData.label}
                       onChange={(e) =>
@@ -863,10 +872,14 @@ export default function NavigationManager() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-400 mb-1.5">
+                    <label
+                      htmlFor="route"
+                      className="block text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-400 mb-1.5"
+                    >
                       Route <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="route"
                       type="text"
                       value={formData.route}
                       onChange={(e) =>
@@ -901,11 +914,15 @@ export default function NavigationManager() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-400 mb-1.5">
+                    <label
+                      htmlFor="section"
+                      className="block text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-400 mb-1.5"
+                    >
                       Section
                     </label>
                     <div className="relative">
                       <select
+                        id="section"
                         value={formData.section}
                         onChange={(e) =>
                           setFormData({ ...formData, section: e.target.value })
@@ -930,10 +947,14 @@ export default function NavigationManager() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-400 mb-1.5">
+                    <label
+                      htmlFor="order"
+                      className="block text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-400 mb-1.5"
+                    >
                       Order
                     </label>
                     <input
+                      id="order"
                       type="number"
                       value={formData.order}
                       onChange={(e) =>
@@ -946,13 +967,17 @@ export default function NavigationManager() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-400 mb-1.5">
+                    <label
+                      htmlFor="badge-optional"
+                      className="block text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-400 mb-1.5"
+                    >
                       Badge{" "}
                       <span className="font-normal normal-case text-[11px] text-gray-400">
                         (optional)
                       </span>
                     </label>
                     <input
+                      id="badge-optional"
                       type="text"
                       value={formData.badge || ""}
                       onChange={(e) =>
@@ -963,11 +988,15 @@ export default function NavigationManager() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-400 mb-1.5">
+                    <label
+                      htmlFor="badge-color"
+                      className="block text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-400 mb-1.5"
+                    >
                       Badge Color
                     </label>
                     <div className="relative">
                       <select
+                        id="badge-color"
                         value={formData.badgeColor || "red"}
                         onChange={(e) =>
                           setFormData({

@@ -79,9 +79,19 @@ export const categorizeTestsList = (tests = []) => {
     const type = String(t.type || "");
     const isLive = Boolean(t.isLive || t.is_live);
 
-    if (cat.toLowerCase() === "pyps" || /^\d{4}$/.test(sub.trim())) {
+    // A previous-year paper is identified by an explicit signal — the PYPs
+    // category or an isPyq flag. It used to ALSO be inferred from a bare
+    // 4-digit `sub_category`, which misclassifies any test whose sub-category
+    // happens to be a year (`tests.year` is populated on non-PYP rows too,
+    // which is how mock tests were being counted as PYPs). The year itself now
+    // comes from the dedicated year fields rather than a parsed name.
+    const isPyq =
+      cat.toLowerCase() === "pyps" || t.isPyq === true || t.is_pyq === true;
+    const rawYear = t.pyqYear ?? t.pyq_year ?? t.year ?? null;
+    const year = Number.isFinite(Number(rawYear)) ? Number(rawYear) : null;
+
+    if (isPyq) {
       pypCount++;
-      const year = parseInt(sub.trim(), 10);
       if (year && !isNaN(year)) pypYears.push(year);
     } else if (
       type.toLowerCase() === "quiz" ||

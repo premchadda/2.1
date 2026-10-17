@@ -733,6 +733,7 @@ export default function DeepAnalytics() {
                 Granularity:
               </span>
               <select
+                aria-label="Engagement granularity"
                 value={engagementGranularity}
                 onChange={(e) => setEngagementGranularity(e.target.value)}
                 className="px-3 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold"

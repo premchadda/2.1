@@ -1005,7 +1005,10 @@ export default function ContentManagement() {
 
             {/* Study Material — enhanced dropdown, no search bar */}
             <div className="mb-2.5">
-              <label className="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+              <label
+                htmlFor="1-subject"
+                className="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1 flex items-center justify-between"
+              >
                 <span>1. Subject</span>
                 <span className="text-[10px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-800">
                   {studyMaterials.length}
@@ -1013,6 +1016,7 @@ export default function ContentManagement() {
               </label>
               <div className="relative">
                 <select
+                  id="1-subject"
                   value={selectedMaterialId}
                   onChange={(e) => setSelectedMaterialId(e.target.value)}
                   className="w-full appearance-none pl-3 pr-8 py-2.5 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 truncate shadow-sm hover:border-indigo-300 dark:hover:border-indigo-600 transition"
@@ -1032,7 +1036,10 @@ export default function ContentManagement() {
 
             {/* Chapter */}
             <div className="mb-2.5">
-              <label className="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+              <label
+                htmlFor="2-chapter"
+                className="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1"
+              >
                 2. Chapter
                 {!selectedMaterialId && (
                   <span className="ml-1 text-gray-300 font-normal normal-case hidden sm:inline">
@@ -1041,6 +1048,7 @@ export default function ContentManagement() {
                 )}
               </label>
               <select
+                id="2-chapter"
                 value={selectedChapterId}
                 onChange={(e) => setSelectedChapterId(e.target.value)}
                 disabled={!selectedMaterialId}
@@ -1062,7 +1070,10 @@ export default function ContentManagement() {
 
             {/* Topic */}
             <div>
-              <label className="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+              <label
+                htmlFor="3-topic"
+                className="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1"
+              >
                 3. Topic
                 {sidebarTopicsLoading && (
                   <span className="ml-1 text-indigo-400 font-normal normal-case">
@@ -1076,6 +1087,7 @@ export default function ContentManagement() {
                 )}
               </label>
               <select
+                id="3-topic"
                 value={selectedTopicId}
                 onChange={(e) => setSelectedTopicId(e.target.value)}
                 disabled={!selectedChapterId || sidebarTopicsLoading}
@@ -1220,6 +1232,7 @@ export default function ContentManagement() {
                   </div>
                   <div className="hidden sm:flex items-center gap-1.5">
                     <select
+                      aria-label="Pro"
                       value={filterPro}
                       onChange={(e) => setFilterPro(e.target.value)}
                       className="px-3 py-2.5 text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-xl focus:ring-2 focus:ring-indigo-500"
@@ -1229,6 +1242,7 @@ export default function ContentManagement() {
                       <option value="free">Free only</option>
                     </select>
                     <select
+                      aria-label="Sort by"
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value)}
                       className="px-3 py-2.5 text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-xl focus:ring-2 focus:ring-indigo-500"
@@ -1284,6 +1298,7 @@ export default function ContentManagement() {
               {/* Mobile filters */}
               <div className="flex sm:hidden items-center gap-2">
                 <select
+                  aria-label="Pro"
                   value={filterPro}
                   onChange={(e) => setFilterPro(e.target.value)}
                   className="flex-1 px-3 py-2 text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-xl"
@@ -1293,6 +1308,7 @@ export default function ContentManagement() {
                   <option value="free">Free</option>
                 </select>
                 <select
+                  aria-label="Sort by"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="flex-1 px-3 py-2 text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-xl"
@@ -1809,10 +1825,14 @@ export default function ContentManagement() {
                   </h3>
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="title"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Title
                       </label>
                       <input
+                        id="title"
                         type="text"
                         value={editForm.title}
                         onChange={(e) =>
@@ -1825,10 +1845,14 @@ export default function ContentManagement() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="description"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Description
                       </label>
                       <textarea
+                        id="description"
                         value={editForm.description}
                         onChange={(e) =>
                           setEditForm((prev) => ({
@@ -1869,10 +1893,14 @@ export default function ContentManagement() {
                       {editForm.isEncrypted && (
                         <>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label
+                              htmlFor="fortspy-video-id"
+                              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                            >
                               FortSpy Video ID
                             </label>
                             <input
+                              id="fortspy-video-id"
                               type="text"
                               value={editForm.fortspyId || ""}
                               onChange={(e) =>
@@ -1886,13 +1914,17 @@ export default function ContentManagement() {
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label
+                              htmlFor="decryption-key-leave-blank-to-keep-store"
+                              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                            >
                               Decryption Key{" "}
                               <span className="text-xs font-normal text-gray-400">
                                 (leave blank to keep stored key)
                               </span>
                             </label>
                             <input
+                              id="decryption-key-leave-blank-to-keep-store"
                               type="password"
                               autoComplete="new-password"
                               value={editForm.fortspyKey || ""}
@@ -1921,7 +1953,10 @@ export default function ContentManagement() {
                     <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 rounded-xl p-4 space-y-3">
                       {/* Subject — enhanced dropdown, no search bar */}
                       <div>
-                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 flex items-center justify-between">
+                        <label
+                          htmlFor="subject"
+                          className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 flex items-center justify-between"
+                        >
                           <span>Subject</span>
                           <span className="text-[10px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 px-1.5 py-0.5 rounded-full border">
                             {studyMaterials.length}
@@ -1929,6 +1964,7 @@ export default function ContentManagement() {
                         </label>
                         <div className="relative">
                           <select
+                            id="subject"
                             value={editForm.studyMaterialId || ""}
                             onChange={(e) =>
                               setEditForm((prev) => ({
@@ -1958,7 +1994,10 @@ export default function ContentManagement() {
 
                       {/* Chapter */}
                       <div>
-                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                        <label
+                          htmlFor="chapter"
+                          className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1"
+                        >
                           Chapter
                           {editChaptersLoading && (
                             <span className="ml-1 text-indigo-400 dark:text-indigo-500 font-normal">
@@ -1967,6 +2006,7 @@ export default function ContentManagement() {
                           )}
                         </label>
                         <select
+                          id="chapter"
                           value={editForm.chapterId || ""}
                           onChange={(e) =>
                             setEditForm((prev) => ({
@@ -2001,7 +2041,10 @@ export default function ContentManagement() {
 
                       {/* Topic */}
                       <div>
-                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                        <label
+                          htmlFor="topic"
+                          className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1"
+                        >
                           Topic
                           {editTopicsLoading && (
                             <span className="ml-1 text-indigo-400 dark:text-indigo-500 font-normal">
@@ -2010,6 +2053,7 @@ export default function ContentManagement() {
                           )}
                         </label>
                         <select
+                          id="topic"
                           value={editForm.topicId || ""}
                           onChange={(e) =>
                             setEditForm((prev) => ({
@@ -2172,7 +2216,10 @@ export default function ContentManagement() {
                   <div className="space-y-3">
                     {/* Row 1: Study Material — enhanced dropdown, no search bar */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between">
+                      <label
+                        htmlFor="study-material"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between"
+                      >
                         <span>
                           Study Material <span className="text-red-500">*</span>
                         </span>
@@ -2182,6 +2229,7 @@ export default function ContentManagement() {
                       </label>
                       <div className="relative">
                         <select
+                          id="study-material"
                           value={addForm.studyMaterialId || ""}
                           onChange={(e) =>
                             setAdd("studyMaterialId", e.target.value)
@@ -2207,7 +2255,10 @@ export default function ContentManagement() {
                     {/* Row 2: Chapter + Topic */}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label
+                          htmlFor="chapter-2"
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
                           Chapter
                           {modalChaptersLoading && (
                             <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
@@ -2216,6 +2267,7 @@ export default function ContentManagement() {
                           )}
                         </label>
                         <select
+                          id="chapter-2"
                           value={addForm.chapterId || ""}
                           onChange={(e) => setAdd("chapterId", e.target.value)}
                           disabled={
@@ -2242,7 +2294,10 @@ export default function ContentManagement() {
                           )}
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label
+                          htmlFor="topic-2"
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
                           Topic
                           {modalTopicsLoading && (
                             <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
@@ -2251,6 +2306,7 @@ export default function ContentManagement() {
                           )}
                         </label>
                         <select
+                          id="topic-2"
                           value={addForm.topicId || ""}
                           onChange={(e) => setAdd("topicId", e.target.value)}
                           disabled={!addForm.chapterId || modalTopicsLoading}
@@ -2284,10 +2340,14 @@ export default function ContentManagement() {
                   activeTab === "notes") && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="title-2"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Title <span className="text-red-500">*</span>
                       </label>
                       <input
+                        id="title-2"
                         type="text"
                         value={addForm.title}
                         onChange={(e) => {
@@ -2299,10 +2359,14 @@ export default function ContentManagement() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="slug-auto-filled"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Slug (auto-filled)
                       </label>
                       <input
+                        id="slug-auto-filled"
                         type="text"
                         value={addForm.slug}
                         onChange={(e) => setAdd("slug", e.target.value)}
@@ -2311,10 +2375,14 @@ export default function ContentManagement() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="description-2"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Description
                       </label>
                       <textarea
+                        id="description-2"
                         value={addForm.description}
                         onChange={(e) => setAdd("description", e.target.value)}
                         rows={2}
@@ -2457,10 +2525,14 @@ export default function ContentManagement() {
                         />
                       </div>
                       <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label
+                          htmlFor="duration-seconds"
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
                           Duration (seconds)
                         </label>
                         <input
+                          id="duration-seconds"
                           type="number"
                           min="0"
                           value={addForm.duration}
@@ -2500,10 +2572,14 @@ export default function ContentManagement() {
                       {addForm.isEncrypted && (
                         <>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label
+                              htmlFor="fortspy-video-id-2"
+                              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                            >
                               FortSpy Video ID
                             </label>
                             <input
+                              id="fortspy-video-id-2"
                               type="text"
                               value={addForm.fortspyId}
                               onChange={(e) =>
@@ -2514,13 +2590,17 @@ export default function ContentManagement() {
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label
+                              htmlFor="decryption-key-stored-server-side-never-"
+                              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                            >
                               Decryption Key{" "}
                               <span className="text-xs font-normal text-gray-400">
                                 (stored server-side, never sent to clients)
                               </span>
                             </label>
                             <input
+                              id="decryption-key-stored-server-side-never-"
                               type="password"
                               autoComplete="new-password"
                               value={addForm.fortspyKey}
@@ -2604,10 +2684,14 @@ export default function ContentManagement() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label
+                          htmlFor="file-size-kb"
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
                           File Size (KB)
                         </label>
                         <input
+                          id="file-size-kb"
                           type="number"
                           min="0"
                           value={addForm.fileSize}
@@ -2617,10 +2701,14 @@ export default function ContentManagement() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label
+                          htmlFor="pages"
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
                           Pages
                         </label>
                         <input
+                          id="pages"
                           type="number"
                           min="0"
                           value={addForm.pages}
@@ -2648,7 +2736,10 @@ export default function ContentManagement() {
                 {activeTab === "tests" && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="link-test"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Link Test <span className="text-red-500">*</span>
                       </label>
                       {testsLoading ? (
@@ -2658,6 +2749,7 @@ export default function ContentManagement() {
                         </div>
                       ) : (
                         <select
+                          id="link-test"
                           value={addForm.testId}
                           onChange={(e) => setAdd("testId", e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
@@ -2675,10 +2767,14 @@ export default function ContentManagement() {
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="test-type"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Test Type
                       </label>
                       <select
+                        id="test-type"
                         value={addForm.testType}
                         onChange={(e) => setAdd("testType", e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
@@ -2696,10 +2792,14 @@ export default function ContentManagement() {
                 {activeTab === "notes" && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="icon"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Icon
                       </label>
                       <input
+                        id="icon"
                         type="text"
                         value={addForm.icon}
                         onChange={(e) => setAdd("icon", e.target.value)}
@@ -2708,10 +2808,14 @@ export default function ContentManagement() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="display-order"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Display Order
                       </label>
                       <input
+                        id="display-order"
                         type="number"
                         min="0"
                         value={addForm.order}

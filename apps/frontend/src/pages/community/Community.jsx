@@ -502,6 +502,7 @@ function CommunityHubView() {
 
               {/* Category Dropdown */}
               <select
+                aria-label="Category"
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer max-w-[200px] truncate"
@@ -997,10 +998,14 @@ function CommunityHubView() {
         >
           <form onSubmit={handleAskDoubt} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+              <label
+                htmlFor="question-title"
+                className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
+              >
                 Question Title <span className="text-rose-500">*</span>
               </label>
               <input
+                id="question-title"
                 type="text"
                 value={newDoubt.title}
                 onChange={(e) =>
@@ -1014,10 +1019,14 @@ function CommunityHubView() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                <label
+                  htmlFor="subject-category"
+                  className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
+                >
                   Subject Category <span className="text-rose-500">*</span>
                 </label>
                 <select
+                  id="subject-category"
                   value={newDoubt.category}
                   onChange={(e) =>
                     setNewDoubt({ ...newDoubt, category: e.target.value })
@@ -1034,10 +1043,14 @@ function CommunityHubView() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                <label
+                  htmlFor="tags-comma-separated"
+                  className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
+                >
                   Tags (Comma separated)
                 </label>
                 <input
+                  id="tags-comma-separated"
                   type="text"
                   value={newDoubt.tags}
                   onChange={(e) =>
@@ -1050,11 +1063,15 @@ function CommunityHubView() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+              <label
+                htmlFor="detailed-problem-description"
+                className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
+              >
                 Detailed Problem Description{" "}
                 <span className="text-rose-500">*</span>
               </label>
               <textarea
+                id="detailed-problem-description"
                 value={newDoubt.description}
                 onChange={(e) =>
                   setNewDoubt({ ...newDoubt, description: e.target.value })
@@ -1094,10 +1111,14 @@ function CommunityHubView() {
         >
           <form onSubmit={handleCreateGroup} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+              <label
+                htmlFor="circle-name"
+                className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
+              >
                 Circle Name <span className="text-rose-500">*</span>
               </label>
               <input
+                id="circle-name"
                 type="text"
                 value={newGroup.name}
                 onChange={(e) =>
@@ -1110,10 +1131,14 @@ function CommunityHubView() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+              <label
+                htmlFor="target-category"
+                className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
+              >
                 Target Category <span className="text-rose-500">*</span>
               </label>
               <select
+                id="target-category"
                 value={newGroup.category}
                 onChange={(e) =>
                   setNewGroup({ ...newGroup, category: e.target.value })
@@ -1130,10 +1155,14 @@ function CommunityHubView() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+              <label
+                htmlFor="description-and-goal"
+                className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
+              >
                 Description & Goal
               </label>
               <textarea
+                id="description-and-goal"
                 value={newGroup.description}
                 onChange={(e) =>
                   setNewGroup({ ...newGroup, description: e.target.value })
@@ -1440,6 +1469,7 @@ function DoubtDetailModal({ doubt, onClose, categories }) {
           {user ? (
             <form onSubmit={handlePostReply} className="space-y-2">
               <textarea
+                aria-label="Reply text"
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
                 placeholder="Write your step-by-step solution or helpful hint..."
@@ -2232,6 +2262,7 @@ function DiscussionsTab({ groupId, user, isAdmin }) {
               required
             />
             <textarea
+              aria-label="Content"
               value={newPost.content}
               onChange={(e) =>
                 setNewPost({ ...newPost, content: e.target.value })

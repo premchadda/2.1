@@ -815,6 +815,7 @@ export default function ServerLogsManager() {
             <div className="relative shrink-0">
               <Sliders className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               <select
+                aria-label="Level"
                 value={selectedLevel}
                 onChange={(e) => setSelectedLevel(e.target.value)}
                 className="pl-6 pr-7 py-1.5 text-xs font-bold bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 whitespace-nowrap"
@@ -1161,10 +1162,14 @@ export default function ServerLogsManager() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="custom-message-optional"
+                className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Custom Message (Optional)
               </label>
               <textarea
+                id="custom-message-optional"
                 rows={3}
                 placeholder="Enter log message to emit..."
                 value={customTestMsg}

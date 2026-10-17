@@ -1551,10 +1551,14 @@ export default function TestSeriesManager() {
                 className="p-6 space-y-4 overflow-y-auto flex-1"
               >
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="title"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Title *
                   </label>
                   <input
+                    id="title"
                     type="text"
                     required
                     value={formData.title}
@@ -1576,10 +1580,14 @@ export default function TestSeriesManager() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="slug"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Slug *
                   </label>
                   <input
+                    id="slug"
                     type="text"
                     required
                     value={formData.slug}
@@ -1596,10 +1604,14 @@ export default function TestSeriesManager() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="category"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Category *
                     </label>
                     <select
+                      id="category"
                       required
                       value={formData.category}
                       onChange={(e) =>
@@ -1624,10 +1636,14 @@ export default function TestSeriesManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="exam"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Exam
                     </label>
                     <select
+                      id="exam"
                       value={formData.examId}
                       onChange={(e) =>
                         setFormData({
@@ -1649,10 +1665,14 @@ export default function TestSeriesManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="difficulty"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Difficulty
                     </label>
                     <select
+                      id="difficulty"
                       value={formData.difficulty}
                       onChange={(e) =>
                         setFormData({ ...formData, difficulty: e.target.value })
@@ -1666,10 +1686,14 @@ export default function TestSeriesManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="price"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Price (₹)
                     </label>
                     <input
+                      id="price"
                       type="number"
                       min="0"
                       step="0.01"
@@ -1724,10 +1748,14 @@ export default function TestSeriesManager() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="description"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Description
                   </label>
                   <textarea
+                    id="description"
                     value={formData.description}
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
@@ -1738,10 +1766,14 @@ export default function TestSeriesManager() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="tags-comma-separated"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Tags (comma separated)
                   </label>
                   <input
+                    id="tags-comma-separated"
                     type="text"
                     value={formData.tags}
                     onChange={(e) =>
@@ -1875,6 +1907,7 @@ export default function TestSeriesManager() {
 
                       <div className="flex items-center gap-2 w-full md:w-auto">
                         <select
+                          aria-label={`Reassign test to series${test.title ? `: ${test.title}` : ""}`}
                           value={reassignSelections[test.id || test._id] || ""}
                           onChange={(e) =>
                             setReassignSelections((prev) => ({

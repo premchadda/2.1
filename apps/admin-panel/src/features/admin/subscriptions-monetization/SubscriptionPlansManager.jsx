@@ -337,10 +337,14 @@ export default function SubscriptionPlansManager() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="plan-id"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Plan ID *
                       </label>
                       <input
+                        id="plan-id"
                         type="text"
                         required
                         value={formData.id}
@@ -353,10 +357,14 @@ export default function SubscriptionPlansManager() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="plan-name"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Plan Name *
                       </label>
                       <input
+                        id="plan-name"
                         type="text"
                         required
                         value={formData.name}
@@ -371,10 +379,14 @@ export default function SubscriptionPlansManager() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="price"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Price (₹) *
                       </label>
                       <input
+                        id="price"
                         type="number"
                         required
                         min="0"
@@ -389,10 +401,14 @@ export default function SubscriptionPlansManager() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="original-price"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Original Price (₹)
                       </label>
                       <input
+                        id="original-price"
                         type="number"
                         min="0"
                         value={formData.originalPrice || ""}
@@ -409,10 +425,14 @@ export default function SubscriptionPlansManager() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="billing-period"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Billing Period
                       </label>
                       <select
+                        id="billing-period"
                         value={formData.period}
                         onChange={(e) =>
                           setFormData({ ...formData, period: e.target.value })
@@ -429,10 +449,14 @@ export default function SubscriptionPlansManager() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="badge-text-optional"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Badge Text (Optional)
                       </label>
                       <input
+                        id="badge-text-optional"
                         type="text"
                         value={formData.badge || ""}
                         onChange={(e) =>
@@ -443,10 +467,14 @@ export default function SubscriptionPlansManager() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="savings-text-optional"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Savings Text (Optional)
                       </label>
                       <input
+                        id="savings-text-optional"
                         type="text"
                         value={formData.savings || ""}
                         onChange={(e) =>

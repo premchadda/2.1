@@ -1923,6 +1923,7 @@ export default function StudyMaterialChapter() {
                   </div>
                   <div className="flex-1 relative">
                     <textarea
+                      aria-label="Discussion"
                       value={newDiscussion}
                       onChange={(e) => setNewDiscussion(e.target.value)}
                       placeholder="Share your thoughts or ask a question about this chapter..."
@@ -2028,6 +2029,7 @@ export default function StudyMaterialChapter() {
                             {editingId === (item.id || item._id) ? (
                               <div className="space-y-3">
                                 <textarea
+                                  aria-label="Edit content"
                                   value={editContent}
                                   onChange={(e) =>
                                     setEditContent(e.target.value)

@@ -495,6 +495,7 @@ export default function RecycleBin() {
             <div className="relative shrink-0">
               <Filter className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               <select
+                aria-label="Type"
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
                 className="pl-7 pr-7 py-2 text-xs font-bold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 truncate max-w-[130px] sm:max-w-none"

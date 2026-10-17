@@ -718,6 +718,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
           {/* Mobile only: User Type dropdown — right side, one row with Search */}
           <div className="w-28 sm:hidden shrink-0">
             <select
+              aria-label="Filter value"
               value={filterValue}
               onChange={(e) => {
                 const v = e.target.value;
@@ -1383,6 +1384,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
                         onClick={(e) => e.stopPropagation()}
                       >
                         <select
+                          aria-label="User"
                           value={user.role || "user"}
                           onChange={async (e) => {
                             const newRole = e.target.value;
@@ -1812,6 +1814,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
                         Session Limit
                       </span>
                       <select
+                        aria-label="Concurrent session limit"
                         value={viewingUser?.sessionLimit || ""}
                         onChange={(e) =>
                           updateSessionLimit(
@@ -1930,10 +1933,14 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
 
               {proPassModal.action === "grant" && (
                 <div>
-                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">
+                  <label
+                    htmlFor="select-subscription-plan"
+                    className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5"
+                  >
                     Select Subscription Plan
                   </label>
                   <select
+                    id="select-subscription-plan"
                     value={proPassType}
                     onChange={(e) => setProPassType(e.target.value)}
                     className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-800 dark:text-white focus:ring-2 focus:ring-indigo-500"

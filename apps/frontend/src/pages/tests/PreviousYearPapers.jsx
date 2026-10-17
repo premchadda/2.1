@@ -156,6 +156,7 @@ export default function PreviousYearPapers() {
 
             {/* Exam Filter */}
             <select
+              aria-label="Exam filter"
               value={examFilter}
               onChange={(e) => setExamFilter(e.target.value)}
               className="px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-brand-start flex-shrink-0"
@@ -169,6 +170,7 @@ export default function PreviousYearPapers() {
 
             {/* Year Filter */}
             <select
+              aria-label="Year filter"
               value={yearFilter}
               onChange={(e) => setYearFilter(e.target.value)}
               className="px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-brand-start flex-shrink-0 hidden sm:block"

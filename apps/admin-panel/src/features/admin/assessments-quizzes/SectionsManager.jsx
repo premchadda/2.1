@@ -1253,10 +1253,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                    <label
+                      htmlFor="exam-category"
+                      className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1"
+                    >
                       Exam Category
                     </label>
                     <select
+                      id="exam-category"
                       value={linkingExamCategoryId}
                       onChange={(e) => {
                         setLinkingExamCategoryId(e.target.value);
@@ -1278,10 +1282,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                    <label
+                      htmlFor="exam"
+                      className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1"
+                    >
                       Exam
                     </label>
                     <select
+                      id="exam"
                       value={linkingExamId}
                       onChange={(e) => {
                         setLinkingExamId(e.target.value);
@@ -1303,10 +1311,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                    <label
+                      htmlFor="test-series"
+                      className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1"
+                    >
                       Test Series
                     </label>
                     <select
+                      id="test-series"
                       value={linkingSeriesId}
                       onChange={(e) => {
                         setLinkingSeriesId(e.target.value);
@@ -1327,10 +1339,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                    <label
+                      htmlFor="stage"
+                      className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1"
+                    >
                       Stage
                     </label>
                     <select
+                      id="stage"
                       value={linkingStageId}
                       onChange={(e) => {
                         setLinkingStageId(e.target.value);
@@ -1419,6 +1435,7 @@ function SectionsManager({ testId: propTestId } = {}) {
                       Apply Scheme:
                     </span>
                     <select
+                      aria-label="Preset id"
                       value={selectedPresetId}
                       onChange={(e) => setSelectedPresetId(e.target.value)}
                       className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg"
@@ -2106,11 +2123,15 @@ function SectionsManager({ testId: propTestId } = {}) {
                 <>
                   {/* Section Name */}
                   <div>
-                    <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                    <label
+                      htmlFor="section-name"
+                      className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5"
+                    >
                       <FileText className="w-3.5 h-3.5 text-slate-400" />
                       Section Name <span className="text-rose-500">*</span>
                     </label>
                     <input
+                      id="section-name"
                       type="text"
                       value={formData.name}
                       onChange={(e) => {
@@ -2140,10 +2161,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                        <label
+                          htmlFor="time-sec"
+                          className="block text-xs font-medium text-slate-600 mb-1"
+                        >
                           Time (sec)
                         </label>
                         <input
+                          id="time-sec"
                           type="number"
                           value={formData.time_limit}
                           onChange={(e) => {
@@ -2172,10 +2197,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                         )}
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                        <label
+                          htmlFor="planned-qs"
+                          className="block text-xs font-medium text-slate-600 mb-1"
+                        >
                           Planned Qs
                         </label>
                         <input
+                          id="planned-qs"
                           type="number"
                           value={formData.expected_questions}
                           onChange={(e) =>
@@ -2189,10 +2218,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                        <label
+                          htmlFor="total-marks"
+                          className="block text-xs font-medium text-slate-600 mb-1"
+                        >
                           Total Marks
                         </label>
                         <input
+                          id="total-marks"
                           type="number"
                           value={formData.total_marks}
                           onChange={(e) =>
@@ -2207,10 +2240,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                        <label
+                          htmlFor="marks-q"
+                          className="block text-xs font-medium text-slate-600 mb-1"
+                        >
                           Marks/Q
                         </label>
                         <input
+                          id="marks-q"
                           type="number"
                           value={formData.marks_per_question}
                           onChange={(e) => {
@@ -2236,10 +2273,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                         )}
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                        <label
+                          htmlFor="negative"
+                          className="block text-xs font-medium text-slate-600 mb-1"
+                        >
                           Negative
                         </label>
                         <input
+                          id="negative"
                           type="number"
                           value={formData.negative_marks}
                           onChange={(e) => {
@@ -2319,10 +2360,14 @@ function SectionsManager({ testId: propTestId } = {}) {
 
                       <div className="mt-4 pt-4 border-t border-slate-200/80 space-y-3 flex-1 flex flex-col">
                         <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">
+                          <label
+                            htmlFor="display-order"
+                            className="block text-xs font-medium text-slate-600 mb-1"
+                          >
                             Display Order
                           </label>
                           <input
+                            id="display-order"
                             type="number"
                             value={formData.display_order}
                             onChange={(e) =>
@@ -2444,7 +2489,10 @@ function SectionsManager({ testId: propTestId } = {}) {
 
                   {/* Instructions */}
                   <div>
-                    <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                    <label
+                      htmlFor="instructions-shown-before-section-starts"
+                      className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5"
+                    >
                       <FileText className="w-3.5 h-3.5 text-slate-400" />
                       Instructions{" "}
                       <span className="text-xs font-normal text-slate-500">
@@ -2452,6 +2500,7 @@ function SectionsManager({ testId: propTestId } = {}) {
                       </span>
                     </label>
                     <textarea
+                      id="instructions-shown-before-section-starts"
                       value={formData.instructions}
                       onChange={(e) =>
                         setFormData({
@@ -2481,10 +2530,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                        <label
+                          htmlFor="stage-2"
+                          className="block text-xs font-medium text-slate-600 mb-1"
+                        >
                           Stage
                         </label>
                         <input
+                          id="stage-2"
                           type="text"
                           value={formData.exam_stage}
                           onChange={(e) =>
@@ -2498,10 +2551,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                        <label
+                          htmlFor="paper"
+                          className="block text-xs font-medium text-slate-600 mb-1"
+                        >
                           Paper
                         </label>
                         <input
+                          id="paper"
                           type="text"
                           value={formData.paper}
                           onChange={(e) =>
@@ -2512,10 +2569,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                        <label
+                          htmlFor="session"
+                          className="block text-xs font-medium text-slate-600 mb-1"
+                        >
                           Session
                         </label>
                         <input
+                          id="session"
                           type="text"
                           value={formData.session}
                           onChange={(e) =>
@@ -2529,10 +2590,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                        <label
+                          htmlFor="code"
+                          className="block text-xs font-medium text-slate-600 mb-1"
+                        >
                           Code
                         </label>
                         <input
+                          id="code"
                           type="text"
                           value={formData.section_code}
                           onChange={(e) =>
@@ -2566,10 +2631,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                        <label
+                          htmlFor="exam-category-2"
+                          className="block text-xs font-medium text-slate-600 mb-1"
+                        >
                           Exam Category
                         </label>
                         <select
+                          id="exam-category-2"
                           value={formData.exam_category_id || ""}
                           onChange={(e) =>
                             setFormData({
@@ -2591,10 +2660,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                        <label
+                          htmlFor="test-series-2"
+                          className="block text-xs font-medium text-slate-600 mb-1"
+                        >
                           Test Series
                         </label>
                         <select
+                          id="test-series-2"
                           value={formData.test_series_id}
                           onChange={(e) =>
                             setFormData({
@@ -2616,10 +2689,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                        <label
+                          htmlFor="stage-3"
+                          className="block text-xs font-medium text-slate-600 mb-1"
+                        >
                           Stage
                         </label>
                         <select
+                          id="stage-3"
                           value={formData.stage_id}
                           onChange={(e) =>
                             setFormData({
@@ -2639,10 +2716,14 @@ function SectionsManager({ testId: propTestId } = {}) {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                        <label
+                          htmlFor="specific-test-override"
+                          className="block text-xs font-medium text-slate-600 mb-1"
+                        >
                           Specific Test (override)
                         </label>
                         <select
+                          id="specific-test-override"
                           value={formData.test_id}
                           onChange={(e) =>
                             setFormData({

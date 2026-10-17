@@ -786,6 +786,7 @@ export default function QuizzesManager() {
           {/* Difficulty Filter */}
           <div>
             <select
+              aria-label="Difficulty"
               value={selectedDifficulty}
               onChange={(e) => {
                 setSelectedDifficulty(e.target.value);
@@ -805,6 +806,7 @@ export default function QuizzesManager() {
           {/* Status Filter */}
           <div>
             <select
+              aria-label="Status"
               value={selectedStatus}
               onChange={(e) => {
                 setSelectedStatus(e.target.value);
@@ -1153,6 +1155,7 @@ export default function QuizzesManager() {
 
             <div className="flex items-center gap-2">
               <select
+                aria-label="Page size"
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
@@ -1254,10 +1257,14 @@ export default function QuizzesManager() {
                 <div className="space-y-4">
                   {/* Title */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="quiz-title"
+                      className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Quiz Title <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="quiz-title"
                       type="text"
                       value={formData.title}
                       onChange={(e) =>
@@ -1273,10 +1280,14 @@ export default function QuizzesManager() {
 
                   {/* Description */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="description-overview"
+                      className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Description / Overview
                     </label>
                     <textarea
+                      id="description-overview"
                       rows={2}
                       value={formData.description}
                       onChange={(e) =>
@@ -1293,10 +1304,14 @@ export default function QuizzesManager() {
                   {/* Subject, Chapter & Topic Hierarchy */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="subject"
+                        className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Subject
                       </label>
                       <select
+                        id="subject"
                         value={formData.subject}
                         onChange={(e) =>
                           setFormData((prev) => ({
@@ -1321,10 +1336,14 @@ export default function QuizzesManager() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="chapter"
+                        className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Chapter
                       </label>
                       <select
+                        id="chapter"
                         value={formData.chapter}
                         onChange={(e) =>
                           setFormData((prev) => ({
@@ -1347,10 +1366,14 @@ export default function QuizzesManager() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="topic-name"
+                        className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Topic Name
                       </label>
                       <input
+                        id="topic-name"
                         type="text"
                         value={formData.topic}
                         onChange={(e) =>
@@ -1368,10 +1391,14 @@ export default function QuizzesManager() {
                   {/* Timing, Scoring & Difficulty */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="duration-minutes"
+                        className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Duration (Minutes)
                       </label>
                       <input
+                        id="duration-minutes"
                         type="number"
                         min={1}
                         max={180}
@@ -1387,10 +1414,14 @@ export default function QuizzesManager() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="total-marks"
+                        className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Total Marks
                       </label>
                       <input
+                        id="total-marks"
                         type="number"
                         value={formData.totalMarks}
                         onChange={(e) =>
@@ -1404,10 +1435,14 @@ export default function QuizzesManager() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="negative-marking"
+                        className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Negative Marking (-)
                       </label>
                       <input
+                        id="negative-marking"
                         type="number"
                         step="0.25"
                         value={formData.negativeMarking}
@@ -1422,10 +1457,14 @@ export default function QuizzesManager() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="difficulty"
+                        className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Difficulty
                       </label>
                       <select
+                        id="difficulty"
                         value={formData.difficulty}
                         onChange={(e) =>
                           setFormData((prev) => ({
@@ -1652,10 +1691,14 @@ export default function QuizzesManager() {
                 <div className="space-y-4">
                   {/* Instructions */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="quiz-instructions"
+                      className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Quiz Instructions
                     </label>
                     <textarea
+                      id="quiz-instructions"
                       rows={4}
                       value={formData.instructions}
                       onChange={(e) =>
@@ -1789,11 +1832,15 @@ export default function QuizzesManager() {
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="quiz-topic-focus-area"
+                  className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Quiz Topic / Focus Area{" "}
                   <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="quiz-topic-focus-area"
                   type="text"
                   value={aiTopic}
                   onChange={(e) => setAiTopic(e.target.value)}
@@ -1804,10 +1851,14 @@ export default function QuizzesManager() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="subject-2"
+                    className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Subject
                   </label>
                   <select
+                    id="subject-2"
                     value={aiSubject}
                     onChange={(e) => setAiSubject(e.target.value)}
                     className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-xs outline-none"
@@ -1822,10 +1873,14 @@ export default function QuizzesManager() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="number-of-questions"
+                    className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Number of Questions
                   </label>
                   <select
+                    id="number-of-questions"
                     value={aiCount}
                     onChange={(e) => setAiCount(Number(e.target.value))}
                     className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-xs outline-none"

@@ -380,8 +380,10 @@ function TestCard({
     ? formatDateRangeShared(startTimeVal, endTimeVal, test.duration)
     : null;
 
-  // Pass-matrix cross-check (mirrors gateTests in pass-helpers): surfaces the
-  // catalog feature level for this card's test type alongside entitlement.
+  // Pass-matrix cross-check: surfaces the catalog feature level for this card's
+  // test type alongside entitlement, via checkFeatureAccess in pass-helpers.
+  // This is independent of the PRO/FREE badge above — it reports what the
+  // user's pass unlocks for that whole feature, not this test's access level.
   // legacyCtaType exposes the shared classifier output for analytics/E2E.
   const featureKey = isLive || isLiveTest ? "live_tests" : "mock_tests";
   const featureAccess = checkFeatureAccess(

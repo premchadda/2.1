@@ -2644,10 +2644,14 @@ function PracticeSetupWizard({ initialConfig, onBack, onStart }) {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">
+            <label
+              htmlFor="subject"
+              className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5"
+            >
               Subject
             </label>
             <select
+              id="subject"
               value={subjectId}
               onChange={(e) => {
                 setSubjectId(e.target.value);
@@ -2666,10 +2670,14 @@ function PracticeSetupWizard({ initialConfig, onBack, onStart }) {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">
+            <label
+              htmlFor="chapter"
+              className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5"
+            >
               Chapter
             </label>
             <select
+              id="chapter"
               value={chapterId}
               onChange={(e) => {
                 setChapterId(e.target.value);
@@ -2687,10 +2695,14 @@ function PracticeSetupWizard({ initialConfig, onBack, onStart }) {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">
+            <label
+              htmlFor="topic-and-concept"
+              className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5"
+            >
               Topic & Concept
             </label>
             <select
+              id="topic-and-concept"
               value={topicId}
               onChange={(e) => setTopicId(e.target.value)}
               disabled={!topics.length}

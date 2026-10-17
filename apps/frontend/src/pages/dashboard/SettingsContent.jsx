@@ -427,10 +427,14 @@ function SettingsContent({
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
             <SectionLabel>Account Privacy</SectionLabel>
             <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">
+              <label
+                htmlFor="profile-visibility"
+                className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block"
+              >
                 Profile Visibility
               </label>
               <select
+                id="profile-visibility"
                 value={privacy.profileVisibility}
                 onChange={(e) =>
                   handlePrivacyChange({ profileVisibility: e.target.value })

@@ -1997,10 +1997,14 @@ export default function StagesManager() {
                 >
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                      <label
+                        htmlFor="stage-name"
+                        className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1"
+                      >
                         Stage Name *
                       </label>
                       <input
+                        id="stage-name"
                         type="text"
                         value={formData.name}
                         onChange={(e) => {
@@ -2029,10 +2033,14 @@ export default function StagesManager() {
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                      <label
+                        htmlFor="stage-slug"
+                        className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1"
+                      >
                         Stage Slug *
                       </label>
                       <input
+                        id="stage-slug"
                         type="text"
                         value={formData.slug}
                         onChange={(e) =>
@@ -2046,10 +2054,14 @@ export default function StagesManager() {
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                    <label
+                      htmlFor="description"
+                      className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1"
+                    >
                       Description
                     </label>
                     <textarea
+                      id="description"
                       value={formData.description}
                       onChange={(e) =>
                         setFormData({
@@ -2065,11 +2077,15 @@ export default function StagesManager() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                      <label
+                        htmlFor="stage-icon"
+                        className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1"
+                      >
                         Stage Icon
                       </label>
                       <div className="flex gap-2">
                         <input
+                          id="stage-icon"
                           type="text"
                           value={formData.icon}
                           onChange={(e) =>
@@ -2096,10 +2112,14 @@ export default function StagesManager() {
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                      <label
+                        htmlFor="display-order"
+                        className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1"
+                      >
                         Display Order
                       </label>
                       <input
+                        id="display-order"
                         type="number"
                         value={formData.order}
                         onChange={(e) =>

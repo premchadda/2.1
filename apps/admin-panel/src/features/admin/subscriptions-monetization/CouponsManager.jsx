@@ -429,10 +429,14 @@ export default function CouponsManager() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="coupon-code"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Coupon Code *
                       </label>
                       <input
+                        id="coupon-code"
                         type="text"
                         required
                         value={formData.code}
@@ -458,10 +462,14 @@ export default function CouponsManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="description"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Description
                     </label>
                     <input
+                      id="description"
                       type="text"
                       value={formData.description}
                       onChange={(e) =>
@@ -477,10 +485,14 @@ export default function CouponsManager() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="discount-type"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Discount Type *
                       </label>
                       <select
+                        id="discount-type"
                         required
                         value={formData.discountType}
                         onChange={(e) =>
@@ -499,10 +511,14 @@ export default function CouponsManager() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="discount-value"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Discount Value *
                       </label>
                       <input
+                        id="discount-value"
                         type="number"
                         required
                         min="0"
@@ -520,10 +536,14 @@ export default function CouponsManager() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="max-discount"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Max Discount (₹)
                       </label>
                       <input
+                        id="max-discount"
                         type="number"
                         min="0"
                         value={formData.maxDiscount || ""}
@@ -540,10 +560,14 @@ export default function CouponsManager() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="min-order-value"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Min Order Value (₹)
                       </label>
                       <input
+                        id="min-order-value"
                         type="number"
                         min="0"
                         value={formData.minOrderValue}
@@ -560,10 +584,14 @@ export default function CouponsManager() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="valid-from"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Valid From *
                       </label>
                       <input
+                        id="valid-from"
                         type="date"
                         required
                         value={formData.validFrom}
@@ -577,10 +605,14 @@ export default function CouponsManager() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="valid-until"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Valid Until *
                       </label>
                       <input
+                        id="valid-until"
                         type="date"
                         required
                         value={formData.validUntil}
@@ -597,10 +629,14 @@ export default function CouponsManager() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="total-usage-limit"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Total Usage Limit
                       </label>
                       <input
+                        id="total-usage-limit"
                         type="number"
                         min="1"
                         value={formData.usageLimit || ""}
@@ -617,10 +653,14 @@ export default function CouponsManager() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="per-user-limit"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Per User Limit
                       </label>
                       <input
+                        id="per-user-limit"
                         type="number"
                         min="1"
                         value={formData.userUsageLimit}

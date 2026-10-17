@@ -460,6 +460,7 @@ export default function AdminDashboard() {
             Refresh
           </button>
           <select
+            aria-label="Time range"
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
             className="border border-gray-200 dark:border-gray-700 rounded-xl px-1.5 sm:px-2.5 py-1.5 text-[11px] sm:text-xs font-bold bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs whitespace-nowrap shrink-0 max-w-[105px] sm:max-w-none"

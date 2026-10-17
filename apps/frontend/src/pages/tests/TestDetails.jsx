@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 
-import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
+import { useState, useEffect, useRef, useMemo, memo } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -58,6 +58,12 @@ import {
   checkIsQuiz,
   checkIsPermanentTest,
 } from "../../shared/utils/testClassification";
+import {
+  buildCategoryTree,
+  createMembershipMatcher,
+  resolveSelectedNode,
+} from "../../shared/utils/testCategoryMembership";
+import { getTestAccessType } from "../../shared/utils/entitlement";
 
 const identifierKeys = (...values) =>
   values
@@ -574,8 +580,12 @@ function TestDetails() {
     return visibleTests.filter((t) => !checkIsPermanentTest(t)).length;
   }, [visibleTests]);
 
+  // Resolved through getTestAccessType so the count agrees with the PRO/FREE
+  // badge the card renders. Reading `t.type === "Free" || !t.isPro` instead
+  // labelled every `type: "Pro"` row free whenever tests.is_pro was stale,
+  // which is how a fully-pro series ended up advertising "179 Free Tests".
   const permanentFreeTestsCount = useMemo(() => {
-    return permanentTests.filter((t) => t.type === "Free" || !t.isPro).length;
+    return permanentTests.filter((t) => getTestAccessType(t) === "FREE").length;
   }, [permanentTests]);
 
   const totalPermanentTests =
@@ -595,302 +605,44 @@ function TestDetails() {
     return total > 0 ? Math.round((done / total) * 100) : 0;
   }, [series, user, totalPermanentTests]);
 
-  // Dynamic categories computed from stage-filtered tests and metadata
-  const computedCategories = useMemo(() => {
-    if (!allTestCategories.length) return {};
-
-    // 1. Build the recursive tree
-    const buildNode = (parentId, currentLevel = 1) => {
-      if (currentLevel > 4) return [];
-
-      return allTestCategories
-        .filter((cat) => {
-          const pid = cat.parentId || cat.parent_id;
-          return parentId === null ? !pid : String(pid) === String(parentId);
-        })
-        .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
-        .map((cat) => ({
-          id: String(cat._id || cat.id),
-          key: cat.slug || String(cat._id || cat.id),
-          label: cat.name,
-          level: currentLevel,
-          children: buildNode(cat._id || cat.id, currentLevel + 1),
-          count: 0,
-          free: 0,
-          live:
-            cat.slug?.includes("live") ||
-            cat.name?.toLowerCase().includes("live"),
-        }));
-    };
-
-    const tree = buildNode(null);
-    const categoryMap = {};
-
-    // Add "All" to children if they have at least one child
-    const addAllOption = (nodes) => {
-      nodes.forEach((node) => {
-        if (node.children && node.children.length > 0) {
-          node.children.unshift({
-            id: "all",
-            key: "all",
-            label: "All",
-            level: node.level + 1,
-            children: [],
-            count: 0,
-            free: 0,
-          });
-          addAllOption(node.children.slice(1));
-        }
-      });
-    };
-
-    addAllOption(tree);
-
-    // 2. Count tests in categories (using stage-filtered tests)
-    // Helper to find all parent IDs for a category
-    const getPath = (catId) => {
-      const path = [];
-      let currentId = catId;
-      while (currentId) {
-        const cat = allTestCategories.find(
-          (c) => String(c._id || c.id) === String(currentId),
-        );
-        if (cat) {
-          path.push(String(cat._id || cat.id));
-          currentId = cat.parentId || cat.parent_id;
-        } else {
-          currentId = null;
-        }
-      }
-      return path;
-    };
-
-    // Helper to increment counts in the tree
-    const incrementCount = (nodes, path, isFree, isLiveItem) => {
-      nodes.forEach((node) => {
-        // If node.id is 'all', only count permanent tests (excludes transient Live Tests / Live Quizzes)
-        if (node.id === "all") {
-          if (!isLiveItem) {
-            node.count++;
-            if (isFree) node.free++;
-          }
-          if (node.children.length > 0) {
-            incrementCount(node.children, path, isFree, isLiveItem);
-          }
-        } else if (path.includes(node.id)) {
-          node.count++;
-          if (isFree) node.free++;
-          if (isLiveItem) node.live = true;
-          if (node.children.length > 0) {
-            incrementCount(node.children, path, isFree, isLiveItem);
-          }
-        }
-      });
-    };
-
-    // Use stageFilteredTests instead of all tests
-    stageFilteredTests.forEach((test) => {
-      const isFree = test.type === "Free" || !test.isPro;
-      const isLiveItem = !checkIsPermanentTest(test);
-
-      // Collect all IDs, Slugs, and Names the test belongs to
-      const testCategoryIds = new Set();
-      const addField = (val) => {
-        if (val !== undefined && val !== null && val !== "") {
-          testCategoryIds.add(String(val).toLowerCase());
-        }
-      };
-
-      addField(test.category);
-      addField(test.subCategory);
-      addField(test.subcategory);
-      addField(test.sub_category);
-      addField(test.testCategoryId);
-      addField(test.test_category_id);
-      addField(test.categoryId);
-      addField(test.category_id);
-      addField(test.subCategoryId);
-      addField(test.sub_category_id);
-      addField(test.categorySlug);
-      addField(test.category_slug);
-      addField(test.subCategorySlug);
-      addField(test.sub_category_slug);
-
-      addField(test.year);
-      addField(test.pyqYear);
-      addField(test.pyq_year);
-
-      if (Array.isArray(test.tags)) test.tags.forEach(addField);
-      if (Array.isArray(test.categoryPathIds))
-        test.categoryPathIds.forEach(addField);
-      if (Array.isArray(test.category_path_ids))
-        test.category_path_ids.forEach(addField);
-      if (Array.isArray(test.categoryPathNames))
-        test.categoryPathNames.forEach(addField);
-      if (Array.isArray(test.category_path_names))
-        test.category_path_names.forEach(addField);
-
-      // Extract 4-digit years from title/slug for year-based matching ONLY for PYP tests
-      const isPypTest =
-        test.category === "PYPs" ||
-        test.isPyq ||
-        test.is_pyq ||
-        (Array.isArray(test.tags) &&
-          test.tags.some((t) => /pyp|previous/i.test(String(t))));
-      if (isPypTest) {
-        const titleYears = String(test.title || "").match(
-          /\b(19\d\d|20\d\d)\b/g,
-        );
-        if (titleYears) titleYears.forEach(addField);
-        const slugYears = String(test.slug || "").match(/\b(19\d\d|20\d\d)\b/g);
-        if (slugYears) slugYears.forEach(addField);
-      }
-
-      // Find all categories in allTestCategories that match any of these IDs/Slugs/Names or year numbers
-      const matchedCats = allTestCategories.filter((c) => {
-        const catIdStr = String(c._id || c.id).toLowerCase();
-        const catSlugStr = String(c.slug || "").toLowerCase();
-        const catNameStr = String(c.name || "").toLowerCase();
-
-        if (
-          testCategoryIds.has(catIdStr) ||
-          testCategoryIds.has(catSlugStr) ||
-          testCategoryIds.has(catNameStr)
-        ) {
-          return true;
-        }
-
-        // Fuzzy/partial match for year category names/slugs (e.g., catName "2025" or "2024" or slug "year-2025")
-        for (const tid of testCategoryIds) {
-          if (/\b(19\d\d|20\d\d)\b/.test(tid)) {
-            if (
-              catNameStr === tid ||
-              catSlugStr === tid ||
-              catNameStr.includes(tid) ||
-              catSlugStr.includes(tid)
-            ) {
-              return true;
-            }
-          }
-        }
-        return false;
-      });
-
-      const matchedCatIds = new Set(
-        matchedCats.map((c) => String(c._id || c.id)),
-      );
-      const matchedCatList = Array.from(matchedCatIds);
-
-      const leafMatchIds = matchedCatList.filter((id) => {
-        return !matchedCatList.some((otherId) => {
-          if (id === otherId) return false;
-          const otherPath = getPath(otherId);
-          return otherPath.includes(id);
-        });
-      });
-
-      // Count each test at most ONCE per root category.
-      // A single test can match several leaves inside the SAME root (e.g. a
-      // 2026 PYP matching both "Year Based/2026" and "Sectional"), which would
-      // inflate that root's count. We pick the single most relevant leaf per
-      // root.
-      if (leafMatchIds.length > 0) {
-        const rootOfLeaf = (leafId) => {
-          const path = getPath(leafId);
-          const rootId = path.length ? path[path.length - 1] : null;
-          return tree.find((r) => String(r.id) === String(rootId)) || null;
-        };
-        const directCatId = String(
-          test.testCategoryId ??
-            test.test_category_id ??
-            test.categoryId ??
-            test.category_id ??
-            "",
-        );
-
-        // Group matched leaves by root, preserving the order roots appeared.
-        const leavesByRoot = new Map();
-        leafMatchIds.forEach((leafId) => {
-          const root = rootOfLeaf(leafId);
-          const key = root ? String(root.key) : "__no_root__";
-          if (!leavesByRoot.has(key)) leavesByRoot.set(key, []);
-          leavesByRoot.get(key).push(leafId);
-        });
-
-        // A PYP whose admin-assigned category happens to live under a
-        // non-PYP root (e.g. "Mock Tests/Sectional Tests") is counted twice —
-        // once there and once under PYPs. The canonical root is the one that
-        // matches the test's own category, so prefer it whenever it has a
-        // match; otherwise fall back to counting every matched root so real
-        // categories (e.g. "Mock Tests") keep their own tests.
-        const isPypTest =
-          test.category === "PYPs" ||
-          test.isPyq ||
-          test.is_pyq ||
-          (Array.isArray(test.tags) &&
-            test.tags.some((t) => /pyp|previous/i.test(String(t))));
-        const hintRootKey = (() => {
-          if (!isPypTest) return null;
-          const normalize = (s) =>
-            s
-              .replace(/[^a-z0-9]/g, "")
-              .replace(/previousyearpapers|pyq|pyp/g, "pyps");
-          const hintNorm = normalize(
-            String(test.category || "PYPs").toLowerCase(),
-          );
-          const match = tree.find((r) => {
-            const rootNorm = normalize(
-              String(r.key || "").toLowerCase() +
-                String(r.label || "").toLowerCase(),
-            );
-            return rootNorm.includes(hintNorm) || hintNorm.includes(rootNorm);
-          });
-          return match ? String(match.key) : null;
-        })();
-
-        const rootsToCount =
-          hintRootKey && leavesByRoot.has(hintRootKey)
-            ? [hintRootKey]
-            : Array.from(leavesByRoot.keys());
-
-        rootsToCount.forEach((rootKey) => {
-          const leaves = leavesByRoot.get(rootKey);
-          if (!leaves || leaves.length === 0) return;
-          // Prefer the admin-assigned category, else the deepest (most
-          // specific) leaf, so the count lands on the narrowest bucket.
-          const chosenLeaf =
-            leaves.find((id) => String(id) === directCatId) ||
-            leaves.reduce((best, id) => {
-              if (!best) return id;
-              return getPath(id).length > getPath(best).length ? id : best;
-            }, null);
-          if (chosenLeaf) {
-            incrementCount(tree, getPath(chosenLeaf), isFree, isLiveItem);
-          }
-        });
-      }
+  // Category tree for the active series.
+  //
+  // Membership is ID-exact: a test belongs to its `test_category_id` leaf and
+  // to every ancestor of that leaf, nothing else. The previous implementation
+  // fuzzy-matched ids/slugs/names/year substrings across ~20 test fields, which
+  // let non-PYP rows carrying `tests.year` (all 30 Full Mock Tests of
+  // rrb-ntpc-2026 have year = 2026) leak into PYPs / Year Based / 2026 and
+  // inflate those tabs to 179 instead of 149. Counts and the visible list are
+  // both derived from this one closure so a tab can never disagree with the
+  // rows under it. See shared/utils/testCategoryMembership.js.
+  const categoryTreeState = useMemo(() => {
+    if (!allTestCategories.length) return { roots: [], index: null };
+    return buildCategoryTree({
+      categories: allTestCategories,
+      tests: stageFilteredTests,
+      isLiveItem: (t) => !checkIsPermanentTest(t),
+      isFreeTest: (t) => getTestAccessType(t) === "FREE",
     });
-
-    // Convert back to requested Map-like structure for the UI
-    tree.forEach((root) => {
-      categoryMap[root.key] = root;
-    });
-
-    return categoryMap;
   }, [stageFilteredTests, allTestCategories]);
+
+  // Roots keyed by slug for the existing lookup/tab APIs.
+  const computedCategories = useMemo(() => {
+    const map = {};
+    for (const root of categoryTreeState.roots) map[root.key] = root;
+    return map;
+  }, [categoryTreeState]);
 
   // Get available 3rd-level subcategories ONLY when a specific 2nd-level subcategory is selected
   const availableThirdCategories = useMemo(() => {
     if (
       !activeMainCategory ||
-      !computedCategories[activeMainCategory] ||
       activeSubCategory === "all" ||
       !activeSubCategory
     ) {
       return [];
     }
     const mainNode = computedCategories[activeMainCategory];
-    const subChildren = mainNode.children || [];
+    const subChildren = mainNode?.children || [];
     const selectedSub = subChildren.find((s) => s.key === activeSubCategory);
     return selectedSub?.children || [];
   }, [computedCategories, activeMainCategory, activeSubCategory]);
@@ -899,7 +651,6 @@ function TestDetails() {
   const availableFourthCategories = useMemo(() => {
     if (
       !activeMainCategory ||
-      !computedCategories[activeMainCategory] ||
       activeSubCategory === "all" ||
       activeThirdCategory === "all" ||
       !activeThirdCategory
@@ -907,7 +658,7 @@ function TestDetails() {
       return [];
     }
     const mainNode = computedCategories[activeMainCategory];
-    const subChildren = mainNode.children || [];
+    const subChildren = mainNode?.children || [];
     const selectedSub = subChildren.find((s) => s.key === activeSubCategory);
     if (!selectedSub?.children) return [];
     const selectedThird = selectedSub.children.find(
@@ -921,179 +672,38 @@ function TestDetails() {
     activeThirdCategory,
   ]);
 
-  // Helper to resolve all allowed category IDs recursively under the active navigation path
-  const activeAllowedCategoryIds = useMemo(() => {
-    if (!activeMainCategory || !computedCategories[activeMainCategory])
-      return [];
-
-    let currentNode = computedCategories[activeMainCategory];
-    const path = [activeSubCategory, activeThirdCategory, activeFourthCategory];
-
-    for (const key of path) {
-      if (!key || key === "all") break;
-      const next = currentNode.children?.find((c) => c.key === key);
-      if (next) currentNode = next;
-      else break;
-    }
-
-    const getAllIdsRecursive = (node) => {
-      const ids = [
-        String(node.id || "").toLowerCase(),
-        String(node.key || "").toLowerCase(),
-        String(node.label || "").toLowerCase(),
-      ].filter(Boolean);
-
-      if (node.children) {
-        node.children.forEach((child) => {
-          if (child.key !== "all") {
-            ids.push(...getAllIdsRecursive(child));
-          }
-        });
-      }
-      return ids;
-    };
-
-    return getAllIdsRecursive(currentNode);
+  // The deepest node selected in the category navigation, resolved against the
+  // tree that produced the tab counts — so the filtered list and the counts
+  // always come from the same closure.
+  //
+  // A selection that no longer resolves falls back to the first root. It must
+  // NOT degrade to "match everything": the previous `activeAllowedCategoryIds`
+  // returned `[]` in that situation and `testBelongsToActiveCategory` treated an
+  // empty allow-list as "allow all", silently disabling the filter and dumping
+  // the entire series into whichever tab was highlighted.
+  const activeCategoryNode = useMemo(() => {
+    return resolveSelectedNode({
+      roots: categoryTreeState.roots,
+      activeMainCategory,
+      activeSubCategory,
+      activeThirdCategory,
+      activeFourthCategory,
+    });
   }, [
-    computedCategories,
+    categoryTreeState.roots,
     activeMainCategory,
     activeSubCategory,
     activeThirdCategory,
     activeFourthCategory,
   ]);
 
-  // Canonical root key for the "PYPs" (previous year papers) top-level tab.
-  const pypRootKey = useMemo(() => {
-    const normalize = (s) =>
-      String(s)
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "")
-        .replace(/previousyearpapers|pyq|pyp/g, "pyps");
-    const hintNorm = normalize("pyps");
-    const match = Object.values(computedCategories || {}).find((r) => {
-      const rootNorm = normalize(String(r.key || "") + String(r.label || ""));
-      return rootNorm.includes(hintNorm) || hintNorm.includes(rootNorm);
+  const testBelongsToActiveCategory = useMemo(() => {
+    if (!categoryTreeState.index) return () => false;
+    return createMembershipMatcher({
+      index: categoryTreeState.index,
+      node: activeCategoryNode,
     });
-    return match ? match.key : null;
-  }, [computedCategories]);
-
-  const testBelongsToActiveCategory = useCallback(
-    (test) => {
-      if (!test) return false;
-      if (!activeAllowedCategoryIds || activeAllowedCategoryIds.length === 0)
-        return true;
-
-      const testCategoryIds = new Set();
-      const addField = (val) => {
-        if (val !== undefined && val !== null && val !== "") {
-          testCategoryIds.add(String(val).toLowerCase());
-        }
-      };
-
-      addField(test.category);
-      addField(test.subCategory);
-      addField(test.subcategory);
-      addField(test.sub_category);
-      addField(test.testCategoryId);
-      addField(test.test_category_id);
-      addField(test.categoryId);
-      addField(test.category_id);
-      addField(test.subCategoryId);
-      addField(test.sub_category_id);
-      addField(test.categorySlug);
-      addField(test.category_slug);
-      addField(test.subCategorySlug);
-      addField(test.sub_category_slug);
-      addField(test.type);
-      addField(test.testType);
-      addField(test.test_type);
-
-      addField(test.year);
-      addField(test.pyqYear);
-      addField(test.pyq_year);
-
-      if (Array.isArray(test.tags)) test.tags.forEach(addField);
-      if (Array.isArray(test.categoryPathIds))
-        test.categoryPathIds.forEach(addField);
-      if (Array.isArray(test.category_path_ids))
-        test.category_path_ids.forEach(addField);
-      if (Array.isArray(test.categoryPathNames))
-        test.categoryPathNames.forEach(addField);
-      if (Array.isArray(test.category_path_names))
-        test.category_path_names.forEach(addField);
-
-      const isPypTest =
-        test.category === "PYPs" ||
-        test.isPyq ||
-        test.is_pyq ||
-        (Array.isArray(test.tags) &&
-          test.tags.some((t) => /pyp|previous/i.test(String(t))));
-
-      // A PYP's admin-assigned category can sit under a non-PYP root (e.g.
-      // "Mock Tests/Sectional Tests"). When browsing a non-PYP root, never
-      // surface PYPs there — they belong to the PYPs root only.
-      if (isPypTest && pypRootKey && activeMainCategory !== pypRootKey) {
-        return false;
-      }
-
-      if (isPypTest) {
-        addField("pyp");
-        addField("pyps");
-        addField("previous-year-papers");
-        addField("previous year papers");
-        const titleYears = String(test.title || "").match(
-          /\b(19\d\d|20\d\d)\b/g,
-        );
-        if (titleYears) titleYears.forEach(addField);
-        const slugYears = String(test.slug || "").match(/\b(19\d\d|20\d\d)\b/g);
-        if (slugYears) slugYears.forEach(addField);
-      }
-
-      // Climb up parent hierarchy for any matched category in allTestCategories
-      if (Array.isArray(allTestCategories) && allTestCategories.length > 0) {
-        const directCatId =
-          test.testCategoryId ??
-          test.test_category_id ??
-          test.categoryId ??
-          test.category_id;
-        if (directCatId) {
-          let curId = String(directCatId);
-          while (curId) {
-            const found = allTestCategories.find(
-              (c) => String(c._id || c.id) === curId,
-            );
-            if (found) {
-              addField(found._id || found.id);
-              addField(found.slug);
-              addField(found.name);
-              curId =
-                found.parentId || found.parent_id
-                  ? String(found.parentId || found.parent_id)
-                  : null;
-            } else {
-              curId = null;
-            }
-          }
-        }
-      }
-
-      return Array.from(testCategoryIds).some((id) => {
-        if (activeAllowedCategoryIds.includes(id)) return true;
-        if (/\b(19\d\d|20\d\d)\b/.test(id)) {
-          return activeAllowedCategoryIds.some((allowed) =>
-            allowed.includes(id),
-          );
-        }
-        return false;
-      });
-    },
-    [
-      activeAllowedCategoryIds,
-      allTestCategories,
-      pypRootKey,
-      activeMainCategory,
-    ],
-  );
+  }, [categoryTreeState.index, activeCategoryNode]);
 
   // Most recently active paused / in-progress attempt for THIS specific series and active category
   const categoryResumeTest = useMemo(() => {
@@ -1400,85 +1010,21 @@ function TestDetails() {
         }
       }
 
-      // Update category counts for the header pills using exclusive per-root counts.
-      // Each test is counted in exactly ONE root based on its testCategoryId/categoryId,
-      // preventing PYPs from also inflating Mock Tests counts.
-      const rootKeys = Object.keys(computedCategories);
-      const exclusiveCounts = {};
-      rootKeys.forEach((k) => {
-        exclusiveCounts[k] = 0;
-      });
-
-      stageFilteredTests.forEach((test) => {
-        const rawCatId =
-          test.testCategoryId ??
-          test.test_category_id ??
-          test.categoryId ??
-          test.category_id ??
-          "";
-        let matchedCat = null;
-        if (rawCatId) {
-          const catIdStr = String(rawCatId).toLowerCase();
-          matchedCat = allTestCategories.find(
-            (c) =>
-              String(c._id || c.id).toLowerCase() === catIdStr ||
-              (c.slug || "").toLowerCase() === catIdStr,
-          );
-        }
-        if (!matchedCat && test.category) {
-          const catNameStr = String(test.category).toLowerCase();
-          matchedCat = allTestCategories.find(
-            (c) =>
-              (c.name || "").toLowerCase() === catNameStr ||
-              (c.slug || "").toLowerCase() === catNameStr,
-          );
-        }
-        if (!matchedCat) return;
-        // Walk up ancestors to find the root this test belongs to
-        let currentId = String(matchedCat._id || matchedCat.id);
-        let foundRoot = null;
-        while (currentId) {
-          const rk = rootKeys.find(
-            (k) =>
-              String(computedCategories[k]?.id) === currentId ||
-              k === currentId,
-          );
-          if (rk) {
-            foundRoot = rk;
-            break;
-          }
-          const ancestor = allTestCategories.find(
-            (c) => String(c._id || c.id) === currentId,
-          );
-          currentId = ancestor
-            ? String(ancestor.parentId || ancestor.parent_id || "")
-            : "";
-        }
-        if (foundRoot) exclusiveCounts[foundRoot]++;
-      });
-
-      const counts = rootKeys
-        .map((key) => ({
-          name: computedCategories[key].label,
-          count: exclusiveCounts[key] || 0,
-          displayOrder:
-            allTestCategories.find(
-              (c) => c.slug === key || String(c._id || c.id) === key,
-            )?.displayOrder || 0,
+      // Header "Types" chips are read straight off the same tree the tabs and the
+      // filtered list use. The previous implementation re-derived exclusive
+      // per-root counts with its own name/slug fallback, so the chips could
+      // disagree with both the tab labels and the rows underneath them.
+      const counts = Object.values(computedCategories)
+        .map((node) => ({
+          name: node.label,
+          count: node.count || 0,
+          displayOrder: node.displayOrder ?? 0,
         }))
         .filter((cat) => cat.count > 0)
         .sort((a, b) => a.displayOrder - b.displayOrder);
       setCategoryCounts(counts);
     }
-  }, [
-    computedCategories,
-    stageFilteredTests,
-    allTestCategories,
-    activeMainCategory,
-    activeSubCategory,
-    activeThirdCategory,
-    activeFourthCategory,
-  ]);
+  }, [computedCategories]);
 
   // Fetch series, tests, and metadata from API
   useEffect(() => {
@@ -2054,10 +1600,12 @@ function TestDetails() {
                   </span>
                 </div>
                 <span className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30 px-2.5 py-0.5 rounded-full text-xs font-semibold">
-                  {permanentFreeTestsCount ||
-                    series.free_tests ||
-                    series.freeTests ||
-                    0}{" "}
+                  {/* The client count is authoritative once the tests are loaded —
+                      a `||` fallback silently replaced a legitimate 0 with the
+                      server's count (which includes transient live tests). */}
+                  {tests.length > 0
+                    ? permanentFreeTestsCount
+                    : (series.free_tests ?? series.freeTests ?? 0)}{" "}
                   Free Tests
                 </span>
                 {hasProPass && (
@@ -2124,6 +1672,7 @@ function TestDetails() {
                 <div className="block md:hidden flex-shrink-0 w-[100px]">
                   <div className="relative mt-1">
                     <select
+                      aria-label="Active stage"
                       value={activeStage}
                       onChange={(e) => setActiveStage(e.target.value)}
                       className="w-full appearance-none bg-white border border-slate-200 text-slate-700 dark:bg-white/10 dark:border-white/10 dark:text-white rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-transparent cursor-pointer shadow-sm"
@@ -2195,11 +1744,15 @@ function TestDetails() {
 
               {/* Desktop: Stage Selection */}
               <div className="hidden md:block mb-3 mt-6">
-                <label className="block text-[10px] font-black text-slate-500 dark:text-indigo-200/60 uppercase tracking-widest mb-1.5 md:text-left">
+                <label
+                  htmlFor="stage"
+                  className="block text-[10px] font-black text-slate-500 dark:text-indigo-200/60 uppercase tracking-widest mb-1.5 md:text-left"
+                >
                   Stage
                 </label>
                 <div className="relative inline-block min-w-[160px]">
                   <select
+                    id="stage"
                     value={activeStage}
                     onChange={(e) => setActiveStage(e.target.value)}
                     className="w-full appearance-none bg-white border border-slate-200 text-slate-700 dark:bg-white/10 dark:border-white/20 dark:text-white rounded-xl px-4 py-2.5 pr-10 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent cursor-pointer transition-all hover:border-indigo-450 dark:hover:border-indigo-400 shadow-sm"

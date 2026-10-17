@@ -1321,6 +1321,7 @@ export default function PracticeWorkspace({
                   {showSubmitApproach && (
                     <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700 mb-4 space-y-3">
                       <select
+                        aria-label="Approach type"
                         value={newApproachType}
                         onChange={(e) => setNewApproachType(e.target.value)}
                         className="w-full text-xs font-semibold px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
@@ -1333,6 +1334,7 @@ export default function PracticeWorkspace({
                         <option value="exam_shortcut">🎯 Exam Shortcut</option>
                       </select>
                       <textarea
+                        aria-label="Approach text"
                         rows={3}
                         value={newApproachText}
                         onChange={(e) => setNewApproachText(e.target.value)}

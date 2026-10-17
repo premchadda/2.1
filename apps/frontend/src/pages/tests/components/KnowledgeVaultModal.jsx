@@ -155,11 +155,15 @@ export default function KnowledgeVaultModal({ questionId, isOpen, onClose }) {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center">
+            <label
+              htmlFor="personal-notes-optional"
+              className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center"
+            >
               <FileText className="w-3.5 h-3.5 mr-1 text-slate-400" /> Personal
               Notes (Optional)
             </label>
             <textarea
+              id="personal-notes-optional"
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

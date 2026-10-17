@@ -227,9 +227,18 @@ export default function FaqManager() {
                         <div className="flex items-center gap-2">
                           <span
                             role="button"
+                            tabIndex={0}
+                            aria-label={`Edit FAQ: ${faq.question}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleEdit(faq);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleEdit(faq);
+                              }
                             }}
                             className="p-1 text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
                             title="Edit FAQ"
@@ -238,9 +247,18 @@ export default function FaqManager() {
                           </span>
                           <span
                             role="button"
+                            tabIndex={0}
+                            aria-label={`Delete FAQ: ${faq.question}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleDelete(faqId);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleDelete(faqId);
+                              }
                             }}
                             className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:text-red-400 transition-colors cursor-pointer"
                             title="Delete FAQ"
@@ -297,10 +315,14 @@ export default function FaqManager() {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="question"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Question *
                     </label>
                     <input
+                      id="question"
                       type="text"
                       required
                       value={formData.question}
@@ -313,10 +335,14 @@ export default function FaqManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="category"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Category
                     </label>
                     <select
+                      id="category"
                       value={formData.category}
                       onChange={(e) =>
                         setFormData({ ...formData, category: e.target.value })
@@ -332,10 +358,14 @@ export default function FaqManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="answer"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Answer *
                     </label>
                     <textarea
+                      id="answer"
                       required
                       rows={4}
                       value={formData.answer}
@@ -348,10 +378,14 @@ export default function FaqManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="display-order"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Display Order
                     </label>
                     <input
+                      id="display-order"
                       type="number"
                       value={formData.order}
                       onChange={(e) =>

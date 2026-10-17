@@ -45,6 +45,7 @@ import {
   getCategoryLabel,
   getCategoryPath,
   getCategoryPathLabel,
+  resolveTestCategoryTabId,
 } from "../../../shared/utils/categoryHelpers.js";
 import {
   getSeriesId,
@@ -602,10 +603,14 @@ const BulkUploadModal = ({
             )}
 
             <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label
+                htmlFor="upload-file"
+                className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+              >
                 Upload File
               </label>
               <input
+                id="upload-file"
                 type="file"
                 accept=".csv,.xlsx,.xls,.json"
                 onChange={handleFileChange}
@@ -955,9 +960,15 @@ function TestsManager() {
   }, [activeTestCategoryRecord, flatTestCategories]);
 
   const modalSubCategories = useMemo(() => {
-    const targetType = formData.isLive
-      ? "live-tests"
-      : formData.type || activeTestCategory;
+    const targetType =
+      resolveTestCategoryTabId(
+        {
+          type: formData.type,
+          isLive: formData.isLive,
+          categoryId: formData.testCategoryId,
+        },
+        flatTestCategories,
+      ) || activeTestCategory;
     const targetRecord = buildRootTestCategoryRecord(
       targetType,
       flatTestCategories,
@@ -993,6 +1004,7 @@ function TestsManager() {
   }, [
     formData.isLive,
     formData.type,
+    formData.testCategoryId,
     activeTestCategory,
     flatTestCategories,
     activeTestSubCategories,

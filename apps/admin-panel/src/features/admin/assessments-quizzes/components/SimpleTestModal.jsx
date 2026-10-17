@@ -45,10 +45,14 @@ export default function SimpleTestModal({
           className="p-6 overflow-y-auto space-y-4"
         >
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="title"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Title *
             </label>
             <input
+              id="title"
               required
               value={testFormData.title}
               onChange={(e) =>
@@ -61,10 +65,14 @@ export default function SimpleTestModal({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="description"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Description
             </label>
             <textarea
+              id="description"
               rows={3}
               value={testFormData.description}
               onChange={(e) =>
@@ -78,10 +86,14 @@ export default function SimpleTestModal({
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="duration"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Duration
               </label>
               <input
+                id="duration"
                 type="number"
                 value={testFormData.duration}
                 onChange={(e) =>
@@ -94,10 +106,14 @@ export default function SimpleTestModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="questions"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Questions
               </label>
               <input
+                id="questions"
                 type="number"
                 value={testFormData.totalQuestions}
                 onChange={(e) =>
@@ -110,10 +126,14 @@ export default function SimpleTestModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="marks"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Marks
               </label>
               <input
+                id="marks"
                 type="number"
                 value={testFormData.totalMarks}
                 onChange={(e) =>
@@ -126,10 +146,14 @@ export default function SimpleTestModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="negative"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Negative
               </label>
               <input
+                id="negative"
                 type="number"
                 step="0.25"
                 value={testFormData.negativeMarking}
@@ -145,10 +169,14 @@ export default function SimpleTestModal({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="type"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Type
               </label>
               <input
+                id="type"
                 value={testFormData.type}
                 onChange={(e) =>
                   setTestFormData({
@@ -160,10 +188,14 @@ export default function SimpleTestModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="difficulty"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Difficulty
               </label>
               <select
+                id="difficulty"
                 value={testFormData.difficulty}
                 onChange={(e) =>
                   setTestFormData({
@@ -179,10 +211,14 @@ export default function SimpleTestModal({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="passing-marks"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Passing Marks
               </label>
               <input
+                id="passing-marks"
                 type="number"
                 value={testFormData.passingMarks}
                 onChange={(e) =>
@@ -196,10 +232,14 @@ export default function SimpleTestModal({
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="tags"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Tags
             </label>
             <input
+              id="tags"
               value={testFormData.tags}
               onChange={(e) =>
                 setTestFormData({

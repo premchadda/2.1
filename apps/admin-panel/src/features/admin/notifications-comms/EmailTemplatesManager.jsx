@@ -277,6 +277,7 @@ export default function EmailTemplatesManager() {
                           className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                         />
                         <select
+                          aria-label="Type"
                           value={formData.type}
                           onChange={(e) =>
                             setFormData((prev) => ({
@@ -310,6 +311,7 @@ export default function EmailTemplatesManager() {
                         />
                       </div>
                       <textarea
+                        aria-label="Email content (HTML supported)"
                         placeholder="Email content (HTML supported)"
                         value={formData.content}
                         onChange={(e) =>

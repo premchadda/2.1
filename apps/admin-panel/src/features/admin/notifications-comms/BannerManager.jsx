@@ -347,10 +347,14 @@ export default function BannerManager() {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="title"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Title *
                     </label>
                     <input
+                      id="title"
                       type="text"
                       required
                       value={formData.title}
@@ -362,10 +366,14 @@ export default function BannerManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="image-url"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Image URL *
                     </label>
                     <input
+                      id="image-url"
                       type="url"
                       required
                       value={formData.imageUrl}
@@ -378,10 +386,14 @@ export default function BannerManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="link-url"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Link URL
                     </label>
                     <input
+                      id="link-url"
                       type="text"
                       value={formData.linkUrl}
                       onChange={(e) =>
@@ -394,10 +406,14 @@ export default function BannerManager() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="position"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Position
                       </label>
                       <select
+                        id="position"
                         value={formData.position}
                         onChange={(e) =>
                           setFormData({ ...formData, position: e.target.value })
@@ -411,10 +427,14 @@ export default function BannerManager() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="order"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Order
                       </label>
                       <input
+                        id="order"
                         type="number"
                         value={formData.sortOrder}
                         onChange={(e) =>
@@ -430,10 +450,14 @@ export default function BannerManager() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="start-date"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Start Date
                       </label>
                       <input
+                        id="start-date"
                         type="date"
                         value={formData.startDate}
                         onChange={(e) =>
@@ -446,10 +470,14 @@ export default function BannerManager() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="end-date"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         End Date
                       </label>
                       <input
+                        id="end-date"
                         type="date"
                         value={formData.endDate}
                         onChange={(e) =>

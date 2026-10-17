@@ -223,6 +223,7 @@ function PlaylistSidebar({
           <div className="mt-3 relative">
             <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
+              aria-label="Query"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -1387,6 +1388,7 @@ export default function VideoDetail() {
                       watching. Notes are automatically saved in your browser.
                     </p>
                     <textarea
+                      aria-label="Notes"
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder="e.g. 04:30 - Key formula for divisibility by 7...&#10;08:15 - Shortcut for remainder theorem..."

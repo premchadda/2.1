@@ -206,10 +206,14 @@ export default function ExamCategoriesManager() {
               <form onSubmit={handleCategorySubmit} className="p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="id"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       ID {editingCategoryId ? "" : "*"}
                     </label>
                     <input
+                      id="id"
                       type="text"
                       required={!editingCategoryId}
                       disabled={editingCategoryId}
@@ -226,10 +230,14 @@ export default function ExamCategoriesManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="label"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Label *
                     </label>
                     <input
+                      id="label"
                       type="text"
                       required
                       value={categoryFormData.label}
@@ -247,10 +255,14 @@ export default function ExamCategoriesManager() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="icon-emoji-or-url"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Icon (Emoji or URL)
                     </label>
                     <input
+                      id="icon-emoji-or-url"
                       type="text"
                       value={categoryFormData.icon}
                       onChange={(e) =>
@@ -265,10 +277,14 @@ export default function ExamCategoriesManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="slug"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Slug
                     </label>
                     <input
+                      id="slug"
                       type="text"
                       value={categoryFormData.slug}
                       onChange={(e) =>
@@ -284,10 +300,14 @@ export default function ExamCategoriesManager() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="display-order"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Display Order
                   </label>
                   <input
+                    id="display-order"
                     type="number"
                     value={categoryFormData.displayOrder}
                     onChange={(e) =>

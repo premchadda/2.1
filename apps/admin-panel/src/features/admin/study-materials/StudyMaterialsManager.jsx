@@ -666,7 +666,10 @@ function SubjectsPanel() {
 
                 {/* Description */}
                 <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-[11px] font-black tracking-[0.1em] uppercase text-gray-500 dark:text-gray-400">
+                  <label
+                    htmlFor="description-optional"
+                    className="flex items-center gap-1.5 text-[11px] font-black tracking-[0.1em] uppercase text-gray-500 dark:text-gray-400"
+                  >
                     <AlignLeft className="w-3 h-3 text-indigo-500" />{" "}
                     Description
                     <span className="ml-auto text-[10px] font-medium normal-case tracking-normal text-gray-400">
@@ -674,6 +677,7 @@ function SubjectsPanel() {
                     </span>
                   </label>
                   <textarea
+                    id="description-optional"
                     value={formData.description}
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })

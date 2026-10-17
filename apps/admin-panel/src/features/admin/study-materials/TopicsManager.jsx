@@ -210,6 +210,7 @@ export default function TopicsManager() {
             />
           </div>
           <select
+            aria-label="Chapter"
             value={selectedChapter}
             onChange={(e) => setSelectedChapter(e.target.value)}
             className="w-full md:w-64 min-h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -408,10 +409,14 @@ export default function TopicsManager() {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="topic-name"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Topic Name *
                     </label>
                     <input
+                      id="topic-name"
                       type="text"
                       required
                       value={formData.name}
@@ -424,10 +429,14 @@ export default function TopicsManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="chapter"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Chapter *
                     </label>
                     <select
+                      id="chapter"
                       required
                       value={formData.chapterId}
                       onChange={(e) =>
@@ -448,10 +457,14 @@ export default function TopicsManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="description"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Description
                     </label>
                     <textarea
+                      id="description"
                       value={formData.description}
                       onChange={(e) =>
                         setFormData({
@@ -467,10 +480,14 @@ export default function TopicsManager() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="icon"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Icon
                       </label>
                       <input
+                        id="icon"
                         type="text"
                         value={formData.icon}
                         onChange={(e) =>
@@ -480,10 +497,14 @@ export default function TopicsManager() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="order"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Order
                       </label>
                       <input
+                        id="order"
                         type="number"
                         value={formData.order}
                         onChange={(e) =>

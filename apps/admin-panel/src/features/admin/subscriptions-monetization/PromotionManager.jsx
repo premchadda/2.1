@@ -264,6 +264,7 @@ export default function PromotionManager() {
             />
           </div>
           <select
+            aria-label="Type"
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
             className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:border-indigo-500"
@@ -274,6 +275,7 @@ export default function PromotionManager() {
             <option value="credits">Credits Bonus</option>
           </select>
           <select
+            aria-label="Status"
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
             className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:border-indigo-500"
@@ -612,10 +614,14 @@ function PromotionFormModal({ promotion, onClose, onSave }) {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="title"
+                className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Title *
               </label>
               <input
+                id="title"
                 type="text"
                 required
                 value={formData.title}
@@ -628,10 +634,14 @@ function PromotionFormModal({ promotion, onClose, onSave }) {
             </div>
 
             <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="description"
+                className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Description
               </label>
               <textarea
+                id="description"
                 value={formData.description}
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
@@ -644,10 +654,14 @@ function PromotionFormModal({ promotion, onClose, onSave }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="type"
+                  className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Type *
                 </label>
                 <select
+                  id="type"
                   value={formData.type}
                   onChange={(e) =>
                     setFormData({ ...formData, type: e.target.value })
@@ -662,11 +676,15 @@ function PromotionFormModal({ promotion, onClose, onSave }) {
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="promo-code"
+                  className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Promo Code *
                 </label>
                 <div className="flex gap-2">
                   <input
+                    id="promo-code"
                     type="text"
                     required
                     value={formData.code}
@@ -693,10 +711,14 @@ function PromotionFormModal({ promotion, onClose, onSave }) {
             {formData.type === "discount" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="discount"
+                    className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Discount %
                   </label>
                   <input
+                    id="discount"
                     type="number"
                     min="1"
                     max="100"
@@ -711,10 +733,14 @@ function PromotionFormModal({ promotion, onClose, onSave }) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="max-discount"
+                    className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Max Discount (₹)
                   </label>
                   <input
+                    id="max-discount"
                     type="number"
                     min="0"
                     value={formData.maxDiscount}
@@ -733,10 +759,14 @@ function PromotionFormModal({ promotion, onClose, onSave }) {
 
             {formData.type === "trial" && (
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="trial-days"
+                  className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Trial Days
                 </label>
                 <input
+                  id="trial-days"
                   type="number"
                   min="1"
                   max="365"
@@ -754,10 +784,14 @@ function PromotionFormModal({ promotion, onClose, onSave }) {
 
             {formData.type === "credits" && (
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="free-credits"
+                  className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Free Credits
                 </label>
                 <input
+                  id="free-credits"
                   type="number"
                   min="1"
                   value={formData.credits}
@@ -774,10 +808,14 @@ function PromotionFormModal({ promotion, onClose, onSave }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="valid-from"
+                  className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Valid From *
                 </label>
                 <input
+                  id="valid-from"
                   type="date"
                   required
                   value={formData.validFrom}
@@ -788,10 +826,14 @@ function PromotionFormModal({ promotion, onClose, onSave }) {
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="valid-until"
+                  className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Valid Until
                 </label>
                 <input
+                  id="valid-until"
                   type="date"
                   value={formData.validUntil}
                   onChange={(e) =>
@@ -804,10 +846,14 @@ function PromotionFormModal({ promotion, onClose, onSave }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="usage-limit"
+                  className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Usage Limit
                 </label>
                 <input
+                  id="usage-limit"
                   type="number"
                   min="1"
                   value={formData.usageLimit}
@@ -821,10 +867,14 @@ function PromotionFormModal({ promotion, onClose, onSave }) {
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="min-purchase"
+                  className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Min Purchase (₹)
                 </label>
                 <input
+                  id="min-purchase"
                   type="number"
                   min="0"
                   value={formData.minPurchase}

@@ -269,10 +269,14 @@ export default function BackupsManager() {
           <h2 className="text-lg font-semibold mb-4">Create New Backup</h2>
           <form onSubmit={handleCreateBackup} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="backup-name"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Backup Name
               </label>
               <input
+                id="backup-name"
                 type="text"
                 value={formData.name}
                 onChange={(e) =>
@@ -283,10 +287,14 @@ export default function BackupsManager() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="backup-type"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Backup Type
               </label>
               <select
+                id="backup-type"
                 value={formData.type}
                 onChange={(e) =>
                   setFormData({ ...formData, type: e.target.value })

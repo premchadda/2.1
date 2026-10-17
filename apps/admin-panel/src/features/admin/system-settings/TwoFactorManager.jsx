@@ -554,11 +554,15 @@ export default function TwoFactorManager() {
               </div>
 
               <form onSubmit={handleVerify} className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label
+                  htmlFor="enter-verification-code"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
                   Enter verification code
                 </label>
                 <div className="flex gap-2">
                   <input
+                    id="enter-verification-code"
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"

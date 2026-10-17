@@ -13,10 +13,14 @@ export const OptionEditor = ({
   if (type === "numeric") {
     return (
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label
+          htmlFor="correct-answer-numerical"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+        >
           Correct Answer (Numerical)
         </label>
         <input
+          id="correct-answer-numerical"
           type="number"
           step="any"
           value={correctOption || ""}
@@ -31,10 +35,14 @@ export const OptionEditor = ({
   if (type === "descriptive") {
     return (
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label
+          htmlFor="model-answer"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+        >
           Model Answer
         </label>
         <textarea
+          id="model-answer"
           value={correctOption || ""}
           onChange={(e) => onCorrectChange(e.target.value)}
           rows={4}

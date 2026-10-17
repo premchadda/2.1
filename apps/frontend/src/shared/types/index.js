@@ -314,15 +314,19 @@ export function mapTestToFrontend(backendTest) {
     backendTest.subCategory ||
     backendTest.sub_category ||
     null;
+  // `tests.test_category_id` is the only category FK on the tests table. The
+  // backend DTO also emits `categoryId`/`category_id`, but it sources them from
+  // a `tests.category_id` column that no longer exists in the live schema, so
+  // they always arrive null. Reading them as a fallback just made an id-shaped
+  // field look populated on reconstructions that still carry the old column.
   const testCatId =
-    backendTest.test_category_id ||
-    backendTest.testCategoryId ||
-    backendTest.category_id ||
-    backendTest.categoryId ||
-    null;
+    backendTest.test_category_id ?? backendTest.testCategoryId ?? null;
   const subCatId =
     backendTest.sub_category_id || backendTest.subCategoryId || null;
-  const examId = backendTest.exam_id || backendTest.examId || subCat || null;
+  // exam_id is an integer FK on tests. It must NOT fall back to `subCat`, which
+  // is a free-text category NAME — that put strings like "Full Mock Tests"
+  // into the examId field for any test imported without an exam.
+  const examId = backendTest.exam_id ?? backendTest.examId ?? null;
 
   return {
     id: resolvedId,
@@ -339,8 +343,6 @@ export function mapTestToFrontend(backendTest) {
     exam_id: examId,
     testCategoryId: testCatId,
     test_category_id: testCatId,
-    categoryId: testCatId,
-    category_id: testCatId,
     subCategoryId: subCatId,
     sub_category_id: subCatId,
     testCategoryName:

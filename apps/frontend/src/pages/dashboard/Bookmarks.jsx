@@ -540,6 +540,7 @@ export default function Bookmarks() {
                 {/* Subject Selector */}
                 {availableSubjects.length > 0 && (
                   <select
+                    aria-label="Subject"
                     value={selectedSubject}
                     onChange={(e) => setSelectedSubject(e.target.value)}
                     className="shrink-0 w-auto max-w-[85px] sm:max-w-[170px] truncate bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-1.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs text-gray-800 dark:text-gray-200 font-semibold focus:outline-none focus:border-indigo-500 cursor-pointer"
@@ -558,6 +559,7 @@ export default function Bookmarks() {
 
                 {/* Difficulty Selector */}
                 <select
+                  aria-label="Difficulty"
                   value={selectedDifficulty}
                   onChange={(e) => setSelectedDifficulty(e.target.value)}
                   className="shrink-0 w-auto max-w-[75px] sm:max-w-[130px] truncate bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-1.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs text-gray-800 dark:text-gray-200 font-semibold focus:outline-none focus:border-indigo-500 cursor-pointer"

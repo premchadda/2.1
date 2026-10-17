@@ -678,11 +678,15 @@ export default function NotificationsManager() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {sendMode === "single" ? (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="recipient-user"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Recipient User *
                       </label>
                       <div className="relative">
                         <input
+                          id="recipient-user"
                           type="text"
                           required
                           value={formData.userId}
@@ -719,6 +723,10 @@ export default function NotificationsManager() {
                                 }}
                                 className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between"
                                 role="option"
+                                aria-selected={
+                                  String(formData.userId) ===
+                                  String(user.id ?? user._id)
+                                }
                               >
                                 <span className="font-medium">{user.name}</span>
                                 <span className="text-sm text-gray-500">
@@ -790,10 +798,14 @@ export default function NotificationsManager() {
                   )}
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="notification-type"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Notification Type
                     </label>
                     <select
+                      id="notification-type"
                       value={formData.type}
                       onChange={(e) =>
                         setFormData({ ...formData, type: e.target.value })
@@ -810,10 +822,14 @@ export default function NotificationsManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="title"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Title *
                     </label>
                     <input
+                      id="title"
                       type="text"
                       required
                       value={formData.title}
@@ -826,10 +842,14 @@ export default function NotificationsManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="message"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Message *
                     </label>
                     <textarea
+                      id="message"
                       required
                       rows={4}
                       value={formData.message}
@@ -843,10 +863,14 @@ export default function NotificationsManager() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="action-url-optional"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Action URL (Optional)
                       </label>
                       <input
+                        id="action-url-optional"
                         type="text"
                         value={formData.actionUrl}
                         onChange={(e) =>
@@ -860,10 +884,14 @@ export default function NotificationsManager() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="action-button-text"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Action Button Text
                       </label>
                       <input
+                        id="action-button-text"
                         type="text"
                         value={formData.actionText}
                         onChange={(e) =>
@@ -917,10 +945,14 @@ export default function NotificationsManager() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="schedule-optional"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Schedule (Optional)
                     </label>
                     <input
+                      id="schedule-optional"
                       type="datetime-local"
                       value={formData.scheduledAt}
                       onChange={(e) =>

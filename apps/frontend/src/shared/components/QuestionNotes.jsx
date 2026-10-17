@@ -204,6 +204,7 @@ function QuestionNotes({
         <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-amber-50/50 dark:bg-amber-950/10 shrink-0">
           <div className="relative">
             <textarea
+              aria-label="Draft"
               ref={textareaRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -249,6 +250,7 @@ function QuestionNotes({
                 {editingId === note.id ? (
                   <div className="space-y-2">
                     <textarea
+                      aria-label="Draft"
                       ref={editRef}
                       value={editDraft}
                       onChange={(e) => setEditDraft(e.target.value)}

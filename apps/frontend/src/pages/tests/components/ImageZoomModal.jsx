@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 export default function ImageZoomModal({
@@ -7,29 +7,33 @@ export default function ImageZoomModal({
   questionNumber,
   onClose,
 }) {
+  const overlayRef = useRef(null);
+
+  // Focus the overlay on open. The previous implementation registered a
+  // keydown listener on `document` from inside a ref callback and never removed
+  // it, so every open leaked a listener that cancelled Tab for the whole page.
+  // Escape/Tab handling now lives on the overlay itself, scoped to this modal.
+  useEffect(() => {
+    if (!isOpen || !imageUrl) return;
+    overlayRef.current?.focus();
+  }, [isOpen, imageUrl]);
+
   if (!isOpen || !imageUrl || typeof document === "undefined") return null;
 
   return createPortal(
     <React.Fragment>
       <div
+        ref={overlayRef}
         onClick={onClose}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             onClose();
           } else if (e.key === "Tab") {
+            // Single close button: keep focus inside the dialog.
             e.preventDefault();
           }
         }}
         tabIndex={0}
-        ref={(el) => {
-          if (el) {
-            el.focus();
-            el._trapFocus = (ev) => {
-              if (ev.key === "Tab") ev.preventDefault();
-            };
-            document.addEventListener("keydown", el._trapFocus);
-          }
-        }}
         className="fixed inset-0 z-[99999] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out outline-none animate-fade-in"
         role="dialog"
         aria-modal="true"

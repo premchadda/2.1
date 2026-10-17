@@ -1060,6 +1060,7 @@ export default function PracticeQuestionsManager() {
           {/* Chapter Filter */}
           <div>
             <select
+              aria-label="Chapter"
               value={selectedChapter}
               onChange={(e) => {
                 setSelectedChapter(e.target.value);
@@ -1083,6 +1084,7 @@ export default function PracticeQuestionsManager() {
           {/* Topic Filter */}
           <div>
             <select
+              aria-label="Topic"
               value={selectedTopic}
               onChange={(e) => {
                 setSelectedTopic(e.target.value);
@@ -1112,6 +1114,7 @@ export default function PracticeQuestionsManager() {
 
             {/* Difficulty */}
             <select
+              aria-label="Difficulty filter"
               value={difficultyFilter}
               onChange={(e) => {
                 setDifficultyFilter(e.target.value);
@@ -1129,6 +1132,7 @@ export default function PracticeQuestionsManager() {
 
             {/* Type */}
             <select
+              aria-label="Type filter"
               value={typeFilter}
               onChange={(e) => {
                 setTypeFilter(e.target.value);
@@ -1145,6 +1149,7 @@ export default function PracticeQuestionsManager() {
 
             {/* Status */}
             <select
+              aria-label="Status filter"
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
@@ -1160,6 +1165,7 @@ export default function PracticeQuestionsManager() {
 
             {/* Language */}
             <select
+              aria-label="Lang filter"
               value={langFilter}
               onChange={(e) => {
                 setLangFilter(e.target.value);
@@ -1527,6 +1533,7 @@ export default function PracticeQuestionsManager() {
 
             <div className="flex items-center gap-2">
               <select
+                aria-label="Page size"
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
@@ -1594,10 +1601,14 @@ export default function PracticeQuestionsManager() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {/* Subject */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="subject"
+                      className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Subject <span className="text-red-500">*</span>
                     </label>
                     <select
+                      id="subject"
                       value={formData.subject}
                       onChange={(e) =>
                         setFormData((prev) => ({
@@ -1623,10 +1634,14 @@ export default function PracticeQuestionsManager() {
 
                   {/* Chapter */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="chapter"
+                      className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Chapter
                     </label>
                     <select
+                      id="chapter"
                       value={formData.chapter}
                       onChange={(e) =>
                         setFormData((prev) => ({
@@ -1659,10 +1674,14 @@ export default function PracticeQuestionsManager() {
 
                   {/* Topic */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="topic"
+                      className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Topic
                     </label>
                     <select
+                      id="topic"
                       value={formData.topic}
                       onChange={(e) =>
                         setFormData((prev) => ({
@@ -1735,11 +1754,15 @@ export default function PracticeQuestionsManager() {
                 <div className="space-y-4">
                   {/* Question Text */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="question-text-english"
+                      className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Question Text (English){" "}
                       <span className="text-red-500">*</span>
                     </label>
                     <textarea
+                      id="question-text-english"
                       rows={4}
                       value={formData.questionText}
                       onChange={(e) =>
@@ -1755,10 +1778,14 @@ export default function PracticeQuestionsManager() {
 
                   {/* Image URL */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="attached-image-url-optional"
+                      className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Attached Image URL (Optional)
                     </label>
                     <input
+                      id="attached-image-url-optional"
                       type="text"
                       value={formData.imageUrl}
                       onChange={(e) =>
@@ -1903,10 +1930,14 @@ export default function PracticeQuestionsManager() {
 
                   {/* Explanation */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="explanation-and-amp-detailed-solution-en"
+                      className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Explanation &amp; Detailed Solution (English)
                     </label>
                     <textarea
+                      id="explanation-and-amp-detailed-solution-en"
                       rows={3}
                       value={formData.explanation}
                       onChange={(e) =>
@@ -1927,10 +1958,14 @@ export default function PracticeQuestionsManager() {
                 <div className="space-y-4">
                   {/* Hindi Question Text */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="hindi-question-text"
+                      className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       प्रश्न (हिंदी में - Hindi Question Text)
                     </label>
                     <textarea
+                      id="hindi-question-text"
                       rows={4}
                       value={formData.questionTextHi}
                       onChange={(e) =>
@@ -1977,10 +2012,14 @@ export default function PracticeQuestionsManager() {
 
                   {/* Hindi Explanation */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="hindi-solution"
+                      className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       व्याख्या / हल (हिंदी में - Hindi Solution)
                     </label>
                     <textarea
+                      id="hindi-solution"
                       rows={3}
                       value={formData.explanationHi}
                       onChange={(e) =>
@@ -2002,10 +2041,14 @@ export default function PracticeQuestionsManager() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Difficulty */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="difficulty"
+                        className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Difficulty
                       </label>
                       <select
+                        id="difficulty"
                         value={formData.difficulty}
                         onChange={(e) =>
                           setFormData((prev) => ({
@@ -2025,10 +2068,14 @@ export default function PracticeQuestionsManager() {
 
                     {/* Question Type */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="question-type"
+                        className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Question Type
                       </label>
                       <select
+                        id="question-type"
                         value={formData.type}
                         onChange={(e) =>
                           setFormData((prev) => ({
@@ -2048,10 +2095,14 @@ export default function PracticeQuestionsManager() {
 
                     {/* Marks */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="marks"
+                        className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Marks (+)
                       </label>
                       <input
+                        id="marks"
                         type="number"
                         step="0.5"
                         value={formData.marks}
@@ -2067,10 +2118,14 @@ export default function PracticeQuestionsManager() {
 
                     {/* Negative Marks */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      <label
+                        htmlFor="negative-marks"
+                        className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                      >
                         Negative Marks (-)
                       </label>
                       <input
+                        id="negative-marks"
                         type="number"
                         step="any"
                         value={formData.negativeMarks}
@@ -2087,12 +2142,16 @@ export default function PracticeQuestionsManager() {
 
                   {/* Socratic Hint */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
+                    <label
+                      htmlFor="socratic-ai-hint-given-to-students-when-"
+                      className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"
+                    >
                       <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
                       Socratic AI Hint (Given to students when stuck in Practice
                       Lab)
                     </label>
                     <input
+                      id="socratic-ai-hint-given-to-students-when-"
                       type="text"
                       value={formData.hint}
                       onChange={(e) =>
@@ -2108,10 +2167,14 @@ export default function PracticeQuestionsManager() {
 
                   {/* Tags */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      htmlFor="tags-comma-separated"
+                      className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+                    >
                       Tags (Comma-separated)
                     </label>
                     <input
+                      id="tags-comma-separated"
                       type="text"
                       value={
                         Array.isArray(formData.tags)
@@ -2356,10 +2419,14 @@ export default function PracticeQuestionsManager() {
             </p>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="topic-or-concept-prompt"
+                className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Topic or Concept Prompt <span className="text-red-500">*</span>
               </label>
               <input
+                id="topic-or-concept-prompt"
                 type="text"
                 value={aiPromptTopic}
                 onChange={(e) => setAiPromptTopic(e.target.value)}

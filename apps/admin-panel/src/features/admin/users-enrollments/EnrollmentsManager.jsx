@@ -532,6 +532,7 @@ export default function EnrollmentsManager() {
         {/* Dropdown Filters */}
         <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100 dark:border-gray-800">
           <select
+            aria-label="User status"
             value={filterUserStatus}
             onChange={(e) => setFilterUserStatus(e.target.value)}
             className="px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500"
@@ -543,6 +544,7 @@ export default function EnrollmentsManager() {
           </select>
 
           <select
+            aria-label="Pass"
             value={filterPass}
             onChange={(e) => setFilterPass(e.target.value)}
             className="px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500"
@@ -557,6 +559,7 @@ export default function EnrollmentsManager() {
 
           {allSeriesNames.length > 0 && (
             <select
+              aria-label="Series"
               value={filterSeries}
               onChange={(e) => setFilterSeries(e.target.value)}
               className="px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
@@ -572,6 +575,7 @@ export default function EnrollmentsManager() {
 
           {allMaterialNames.length > 0 && (
             <select
+              aria-label="Material"
               value={filterMaterial}
               onChange={(e) => setFilterMaterial(e.target.value)}
               className="px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate"
