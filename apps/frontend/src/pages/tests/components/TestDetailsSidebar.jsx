@@ -24,7 +24,7 @@ export default function TestDetailsSidebar({
   liveTestsCount = 0,
   permanentFreeTestsCount = 0,
   series = {},
-  permanentTests = [],
+  _permanentTests = [],
 }) {
   return (
     <React.Fragment>

@@ -30,7 +30,11 @@ const queryClient = new QueryClient({
       staleTime: 1000 * 60 * 5,
       gcTime: 1000 * 60 * 30,
       retry: 1,
-      refetchOnWindowFocus: true,
+      // PERF: global window-focus refetch caused a burst of API calls every
+      // time the admin alt-tabs back (observed as repeated 304/200 rounds on
+      // returning to the panel). Managers already expose explicit refresh
+      // controls, so opt-in page focus refresh is unnecessary.
+      refetchOnWindowFocus: false,
     },
   },
 });

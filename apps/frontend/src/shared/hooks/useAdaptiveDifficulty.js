@@ -63,19 +63,14 @@ export function useAdaptiveDifficulty(topicId) {
       if (topicId == null) return Promise.resolve(null);
       return submitMutation.mutateAsync({ correct, timeSpent });
     },
-    // eslint-disable-next-line -- submitMutation identity is stable per topicId; topicId drives the guard
     [submitMutation, topicId],
   );
 
-  const resetDifficulty = useCallback(
-    () => {
-      // Guard: nothing to reset when no topic is selected.
-      if (topicId == null) return Promise.resolve(null);
-      return resetMutation.mutateAsync();
-    },
-    // eslint-disable-next-line -- resetMutation identity is stable per topicId; topicId drives the guard
-    [resetMutation, topicId],
-  );
+  const resetDifficulty = useCallback(() => {
+    // Guard: nothing to reset when no topic is selected.
+    if (topicId == null) return Promise.resolve(null);
+    return resetMutation.mutateAsync();
+  }, [resetMutation, topicId]);
 
   return {
     score: data?.score ?? null,

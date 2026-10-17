@@ -13,25 +13,14 @@
  * - sameSite='none' allows cross-origin Vercel ↔ Render requests
  */
 
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-  useMemo,
-} from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import api from "../lib/api";
 import { setSessionActive } from "../lib/apiClient";
 import { clearDashboardCache } from "../lib/dashboardCache";
 import { mapUserToFrontend } from "../types";
 import { useWebSocket } from "../hooks/useWebSocket";
 import { toast } from "react-hot-toast";
-import {
-  getCsrfToken,
-  setCsrfToken,
-  clearCsrfToken,
-  logger,
-} from "@trstprep/shared-config";
+import { getCsrfToken, logger } from "@trstprep/shared-config";
 import { AuthContext } from "./AuthContextCore";
 import {
   getInitialUser,

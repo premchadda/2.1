@@ -15,8 +15,6 @@ import {
   XCircle,
   ArrowRight,
   ArrowLeft,
-  ChevronDown,
-  ChevronUp,
   Flag,
   Lightbulb,
   PieChart,
@@ -30,7 +28,6 @@ import {
   Layers,
   Menu,
   Globe,
-  HelpCircle,
   Sparkles,
 } from "lucide-react";
 import Confetti from "react-confetti";
@@ -707,14 +704,7 @@ function TestResult() {
 
   const questions = result.questions || [];
   const subjectBreakdown = getSubjectBreakdown();
-  const subjectBarClasses = [
-    "bg-blue-500",
-    "bg-purple-500",
-    "bg-green-500",
-    "bg-orange-500",
-  ];
 
-  const markedCount = questions.filter((q) => q.isMarked || q.is_marked).length;
   const calculatedCorrect = questions.filter((q) =>
     isCorrectQuestion(q),
   ).length;
@@ -744,10 +734,6 @@ function TestResult() {
       : correctCount + wrongCount > 0
         ? (correctCount / (correctCount + wrongCount)) * 100
         : 0;
-  const attemptRate =
-    totalQuestions > 0
-      ? ((correctCount + wrongCount) / totalQuestions) * 100
-      : 0;
 
   const strongestSubject = Object.entries(subjectBreakdown)
     .map(([subject, data]) => {

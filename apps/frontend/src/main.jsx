@@ -48,7 +48,10 @@ const queryClient = new QueryClient({
       // the intended 30 minutes.
       gcTime: 1000 * 60 * 30, // 30 minutes
       retry: 1,
-      refetchOnWindowFocus: true,
+      // PERF: See admin-panel main.jsx — global focus refetch caused a burst of
+      // API calls every time the learner alt-tabs back. Dashboard pages use
+      // cached data (staleTime 5m) with explicit refresh affordances.
+      refetchOnWindowFocus: false,
     },
   },
 });

@@ -21,10 +21,7 @@ import {
 import { sendAutosaveBeacon } from "../../shared/lib/autosaveBeacon.js";
 import { clearDashboardCache } from "../../shared/lib/dashboardCache";
 import Telemetry from "../../shared/lib/telemetry";
-import sanitizeHtml from "../../shared/lib/sanitizeHtml";
-import { getLocalizedField } from "../../shared/lib/language";
 import { formatTime } from "../../shared/lib/format.js";
-import MathRenderer from "../../shared/components/MathRenderer";
 import { useAuth } from "../../shared/providers/AuthContext";
 // M25: code-split the heavy, conditionally-shown panels out of the main
 // TestInterface chunk so they're only fetched when the user actually opens
@@ -36,7 +33,6 @@ const QuestionDiscussions = lazy(
   () => import("../../shared/components/QuestionDiscussions"),
 );
 import { useAdaptiveDifficulty } from "../../shared/hooks/useAdaptiveDifficulty";
-import DifficultyBadge from "../../shared/components/common/DifficultyBadge";
 import QuestionPalette from "./QuestionPalette";
 import SubmitSummaryModal from "./components/SubmitSummaryModal";
 import ImageZoomModal from "./components/ImageZoomModal";

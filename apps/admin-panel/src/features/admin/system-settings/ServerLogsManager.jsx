@@ -162,10 +162,12 @@ export default function ServerLogsManager() {
     }
   };
 
-  // Initial Fetch of recent logs — pull up to 10k to honour new limit
+  // Initial Fetch of recent logs: 1000 is plenty of look-back context — the SSE
+  // stream (below) hydrates everything newer in real time, so pulling the full
+  // 10k buffer on every mount just burns payload parse/render time.
   const fetchInitialLogs = useCallback(async () => {
     try {
-      const res = await api.get("/admin/logs?limit=10000");
+      const res = await api.get("/admin/logs?limit=1000");
       if (res.data?.success) {
         setLogs(res.data.data || []);
         if (res.data.stats) {

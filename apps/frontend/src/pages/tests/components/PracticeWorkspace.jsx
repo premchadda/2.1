@@ -18,7 +18,6 @@ import {
   ArrowRight,
   Play,
   ArrowLeft,
-  Languages,
   Globe,
   Menu,
   Tag,
@@ -212,7 +211,6 @@ export default function PracticeWorkspace({
   });
   const [loading, setLoading] = useState(false);
   const [finishing, setFinishing] = useState(false);
-  const [skipping, setSkipping] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const loadIdRef = useRef(0);
 
@@ -683,11 +681,6 @@ export default function PracticeWorkspace({
     }
   };
 
-  const handleCheckAnswer = async () => {
-    if (selectedOption === null || selectedOption === undefined) return;
-    await handleSelectOption(selectedOption);
-  };
-
   const handleAskAiTutor = async (promptType) => {
     try {
       setAiLoading(true);
@@ -810,39 +803,6 @@ export default function PracticeWorkspace({
       setCurrentIdx((prev) => prev + 1);
     } else {
       await handleFinishSession();
-    }
-  };
-
-  const handleSkipQuestion = async () => {
-    if (skipping || finishing) return;
-
-    try {
-      if (
-        activeSessionId === undefined ||
-        activeSessionId === null ||
-        activeSessionId === ""
-      )
-        throw new Error("Practice session ID is missing");
-      setSkipping(true);
-      await practiceAPI.skipQuestion(activeSessionId, currentIdx);
-      setUserSelections((prev) => ({
-        ...prev,
-        [currentIdx]: {
-          selectedOption: null,
-          isChecked: false,
-          checkResult: null,
-          isSkipped: true,
-        },
-      }));
-      if (currentIdx + 1 < totalQuestions) {
-        setCurrentIdx((prev) => prev + 1);
-      } else {
-        await handleFinishSession();
-      }
-    } catch {
-      toast.error("Failed to skip question. Please try again.");
-    } finally {
-      setSkipping(false);
     }
   };
 
@@ -1501,7 +1461,7 @@ export default function PracticeWorkspace({
                   <button
                     type="button"
                     onClick={handleNextQuestion}
-                    disabled={finishing || skipping || loading}
+                    disabled={finishing || loading}
                     className="px-8 py-3 bg-slate-900 dark:bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-slate-800 dark:hover:bg-indigo-700 transition inline-flex items-center gap-1.5 cursor-pointer"
                   >
                     {currentIdx + 1 >= totalQuestions

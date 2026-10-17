@@ -140,7 +140,7 @@ function TestInstructions() {
             : Math.round((test.totalMarks || 200) / test.sections.length));
 
         // Resolve section duration in minutes
-        let secDurationMinutes = null;
+        let secDurationMinutes;
         const d = Number(s.duration ?? s.durationMinutes);
         if (d > 0 && d <= totalDuration) {
           secDurationMinutes = d;
