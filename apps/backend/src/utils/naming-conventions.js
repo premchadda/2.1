@@ -120,7 +120,10 @@ export function addSnakeCaseAliases(row, fields) {
 export const COMMON_FIELD_MAPPINGS = {
   userId: "user_id",
   testId: "test_id",
-  // seriesId is the legacy tests/questions link; testSeriesId maps to test_categories.test_series_id.
+  // seriesId is the tests/questions link. testSeriesId maps to the
+  // test_category_series junction column and the import APIs' testSeriesId
+  // input — the old test_categories.test_series_id array was dropped in
+  // migration 153.
   seriesId: "series_id",
   testSeriesId: "test_series_id",
   examId: "exam_id",

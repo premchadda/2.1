@@ -241,6 +241,21 @@ async function resolveStageId(client, slug, examId, strict = false) {
   return id;
 }
 
+/**
+ * Resolve a test_categories slug to an id, scoped to the taxonomy that actually
+ * applies to this import.
+ *
+ * The old version matched `slug` or `name` with no scope at all, so an import
+ * for one exam could bind to another exam's identically-named node — the
+ * taxonomy intentionally shares names like "Quantitative Aptitude" and "2026"
+ * across branches, and a bare `WHERE slug = $1 LIMIT 1` cannot tell them apart.
+ * It also hardcoded `|| 7` as the "year-based" parent id, which silently pointed
+ * at whatever row happened to hold id 7 on that database.
+ *
+ * A year category must sit under a "Year Based" node; that node is now located
+ * by slug and its id is used, and if it cannot be found the import refuses to
+ * invent a parent.
+ */
 async function resolveTestCategoryId(client, slug, strict = false) {
   if (!slug) return null;
   const CATEGORY_ALIASES = {
@@ -250,8 +265,16 @@ async function resolveTestCategoryId(client, slug, strict = false) {
   const resolved = CATEGORY_ALIASES[slug.toLowerCase()] || slug;
 
   if (/^\d{4}$/.test(resolved)) {
-    const parentId =
-      (await findSlug(client, "test_categories", "year-based")) || 7;
+    const parentId = await findSlug(client, "test_categories", "year-based");
+    if (!parentId) {
+      // No Year Based root on this database — creating a year node with a null
+      // parent would hide it from every series page. Refuse instead.
+      throw new Error(
+        `Cannot resolve year test category "${resolved}": no active ` +
+          `"year-based" test_categories row exists on this database. ` +
+          `Create it before importing.`,
+      );
+    }
     const extra = { parent_id: parentId };
     return strict
       ? findSlug(client, "test_categories", resolved)
@@ -276,6 +299,25 @@ async function resolveTestSeriesId(
   return strict
     ? findSlug(client, "test_series", slug)
     : upsertSlug(client, "test_series", slug, extra);
+}
+
+/**
+ * Is the target series a Pro Pass series? Enforces the product rule that a Pro
+ * series contains only Pro tests — checked at import time rather than trusting
+ * the per-test `is_pro` flag the importer used to leave unset.
+ */
+async function isProTestSeries(client, seriesId) {
+  const id = Number(seriesId);
+  if (!Number.isFinite(id) || id <= 0) return false;
+  try {
+    const res = await client.query(
+      "SELECT is_pro FROM test_series WHERE id = $1 LIMIT 1",
+      [id],
+    );
+    return res.rows[0]?.is_pro === true;
+  } catch {
+    return false;
+  }
 }
 
 const SUBJECT_ALIASES = {
@@ -582,15 +624,24 @@ export async function importFullTest(json, config = {}) {
     const subCatSlug =
       json.subCategoryId || json.subCategory || json.subcategory;
     if (subCatSlug) {
-      // Try to extract a year from slugs like "pyqs-year-based-2019"
-      const yearMatch = String(subCatSlug).match(/(\d{4})/);
-      const resolvedSub = await resolveTestCategoryId(
-        client,
-        yearMatch ? yearMatch[1] : subCatSlug,
-        strict,
-      );
-      if (resolvedSub) {
-        testCategoryId = resolvedSub;
+      // A sub-category may only REPLACE the category when no category was
+      // declared. Previously it overwrote unconditionally, so a payload that
+      // said categoryId "mock-tests" + subCategoryId "sectional" was filed
+      // under Sectional with the declared category silently discarded.
+      if (testCategoryId) {
+        result.warnings.push(
+          `Both categoryId ("${json.categoryId}") and subCategoryId ` +
+            `("${subCatSlug}") provided — keeping categoryId and ignoring ` +
+            `the sub-category.`,
+        );
+      } else {
+        // Try to extract a year from slugs like "pyqs-year-based-2019"
+        const yearMatch = String(subCatSlug).match(/(\d{4})/);
+        testCategoryId = await resolveTestCategoryId(
+          client,
+          yearMatch ? yearMatch[1] : subCatSlug,
+          strict,
+        );
       }
     }
 
@@ -624,6 +675,18 @@ export async function importFullTest(json, config = {}) {
         `testSeriesId "${json.testSeriesId}" not found${strict ? " — create it first" : " — proceeding without it"}`,
       );
     }
+
+    // Access level for the row below. `tests.type` has a column default of
+    // 'Pro' while `tests.is_pro` defaults to false, and this importer set
+    // neither — which is how every imported row ended up with is_pro = false
+    // and a series header advertising free tests for a fully-Pro series.
+    // Rule (agreed 2026-10-17): a Pro test series contains only Pro tests; a
+    // non-Pro series may hold a mix of free and Pro tests.
+    const seriesIsPro = seriesId
+      ? await isProTestSeries(client, seriesId)
+      : false;
+    const rowType = String(json.type || json.accessType || "Pro");
+    const rowIsPro = seriesIsPro || rowType.toLowerCase() === "pro";
 
     // ── 1b. Pre-commit validation ─────────────────────────────────────────
 
@@ -683,6 +746,8 @@ export async function importFullTest(json, config = {}) {
         safeYear(json.pyqYear, json.title) ||
         safeYear(json.year, json.title),
       is_live: json.isLive ?? false,
+      type: rowType,
+      is_pro: rowIsPro,
       is_coming_soon: json.isComingSoon ?? false,
       is_featured: json.isFeatured ?? false,
       passing_marks: safeInt(json.passingMarks, 0),

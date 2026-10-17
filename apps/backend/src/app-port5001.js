@@ -30,7 +30,10 @@ import {
   dbHelpers,
   testConnection,
 } from "./infrastructure/database/postgres-helpers.js";
-import { runMigrations } from "./infrastructure/database/migrationRunner.js";
+import {
+  runMigrations,
+  previewMigrations,
+} from "./infrastructure/database/migrationRunner.js";
 import { warmPools } from "../config/database-replicas.js";
 import {
   errorHandler,
@@ -1248,6 +1251,26 @@ const primeHotTables = async () => {
   }
 };
 
+/**
+ * Should this process apply pending migrations at boot?
+ *
+ * Development is the default-skip case because `npm run dev` watches
+ * src/infrastructure (which contains the migrations directory) and restarts on
+ * any file change there. Unconditional boot-time migration turned "save a new
+ * .sql file" into "run it against production", with no review step.
+ *
+ * Production keeps migrating at boot so the existing deploy path (Docker,
+ * `pnpm start`, rolling-deploy.sh) is unchanged.
+ */
+const resolveMigrateAtBoot = () => {
+  const raw = String(process.env.RUN_MIGRATIONS_AT_BOOT ?? "")
+    .trim()
+    .toLowerCase();
+  if (raw === "true" || raw === "1" || raw === "yes") return true;
+  if (raw === "false" || raw === "0" || raw === "no") return false;
+  return !isDevelopment;
+};
+
 const startServer = async () => {
   try {
     if (!isDevelopment && existsSync(READY_FILE)) unlinkSync(READY_FILE);
@@ -1256,10 +1279,36 @@ const startServer = async () => {
       logger.error("Failed to connect to database after multiple attempts");
       process.exit(1);
     }
-    logger.info("Verifying and applying database migrations...");
-    await runMigrations(pool, {
-      afterMigrations: () => dbHelpers.clearColumnExistsCache(),
-    });
+    // Migration policy (see MIGRATION_BOOT_POLICY below).
+    //
+    // `npm run dev` runs Node --watch with `--watch-path src/infrastructure`,
+    // which is recursive and has no extension filter — so it includes
+    // src/infrastructure/database/migrations. Creating or editing any .sql file
+    // therefore restarted the process, and the restart ran runMigrations() with
+    // no gate, applying unreviewed DDL to whatever DATABASE_URL pointed at. Both
+    // 151 and 152 were applied to production that way.
+    //
+    // The watch loop is a development-only concern, so the policy is:
+    //   RUN_MIGRATIONS_AT_BOOT unset  -> apply in production, SKIP in development
+    //   RUN_MIGRATIONS_AT_BOOT=true   -> always apply
+    //   RUN_MIGRATIONS_AT_BOOT=false  -> never apply (preview only)
+    const migrateAtBoot = resolveMigrateAtBoot();
+    if (migrateAtBoot) {
+      logger.info("Verifying and applying database migrations...");
+      await runMigrations(pool, {
+        afterMigrations: () => dbHelpers.clearColumnExistsCache(),
+      });
+    } else {
+      const preview = await previewMigrations(pool);
+      logger.warn(
+        `Migrations NOT applied at boot (development default). ` +
+          (preview.pending.length
+            ? `${preview.pending.length} pending: ${preview.pending.join(", ")}. ` +
+              "Apply explicitly with RUN_MIGRATIONS_AT_BOOT=true npm run dev, " +
+              "or: node scripts/run-migrations.mjs"
+            : "Schema is up to date."),
+      );
+    }
 
     logger.info("Warming database connection pools...");
     try {

@@ -62,6 +62,7 @@ data/
 supabase_data/
 !apps/backend/src/data/
 apps/backend/src/data/*
+!apps/backend/src/data/models/
 *.db
 *.sqlite
 ssc_cgl_prevyear_full.json
@@ -69,6 +70,7 @@ RRB_NTPC_*.json
 Phase 14
 books/
 SSC_CGL_Maths_Portal.html
+apps/backend/scripts/_run-backend.cmd
 
 # Ad-hoc dev scripts — ROOT ONLY.
 # These patterns previously matched at ANY depth, which silently swallowed real

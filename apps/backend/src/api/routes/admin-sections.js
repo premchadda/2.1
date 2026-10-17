@@ -5,6 +5,7 @@ import {
   dbHelpers,
 } from "../../infrastructure/database/postgres-helpers.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
+import { buildScopedSections } from "../../shared/utils/sectionScope.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
 
@@ -468,38 +469,53 @@ router.get("/for-test", protect, admin, async (req, res) => {
       }
     }
 
-    // 1) Test-specific sections (highest priority).
-    let scoped = [];
-    if (testId) {
-      const { rows } = await pool.query(
-        `SELECT ts.*, 'test'::text as source
-         FROM test_sections ts
-         WHERE ts.test_id = $1`,
-        [testId],
-      );
-      scoped = rows;
-    }
-
-    // 2) Series+stage sections (default template for that scope).
-    if (seriesId) {
-      const { rows } = await pool.query(
-        `SELECT ts.*, 'series_stage'::text as source
-         FROM test_sections ts
-         WHERE ts.test_series_id = $1
-           AND (ts.stage_id = $2 OR ts.stage_id IS NULL)
-           AND ts.test_id IS NULL`,
-        [seriesId, stage],
-      );
-      scoped = scoped.concat(rows);
-    }
-
-    // 3) Pure defaults (no linkage at all) — always included as last fallback.
-    const { rows: defaults } = await pool.query(
-      `SELECT ts.*, 'default'::text as source
-       FROM test_sections ts
-       WHERE ts.test_id IS NULL AND ts.test_series_id IS NULL AND ts.stage_id IS NULL`,
+    // Resolved as ONE alias-aware, de-duplicated set.
+    //
+    // Tiers, highest priority first:
+    //   1) sections already owned by this test
+    //   2) series + stage template sections
+    //   3) fully unlinked template pool (the fallback library)
+    //
+    // De-duplication is by CANONICAL name via section_aliases, so both exact
+    // repeats and alias variants ("Logical Reasoning" /
+    // "English Language" vs their canonical names) collapse into one row.
+    // The old implementation concatenated the three tiers verbatim, which
+    // surfaced every duplicate row in the unlinked pool — 267 rows for a test
+    // with 1 section. GET /admin/sections already de-dupes this way; this
+    // endpoint now matches it.
+    const { rows: ranked } = await pool.query(
+      `WITH scoped AS (
+         SELECT ts.*, 'test'::text AS source, 0 AS src_prio
+           FROM test_sections ts
+          WHERE ts.test_id = $1
+         UNION ALL
+         SELECT ts.*, 'series_stage'::text AS source, 1 AS src_prio
+           FROM test_sections ts
+          WHERE ts.test_series_id = $2
+            AND ts.test_id IS NULL
+            AND (ts.stage_id = $3 OR ts.stage_id IS NULL)
+         UNION ALL
+         SELECT ts.*, 'default'::text AS source, 2 AS src_prio
+           FROM test_sections ts
+          WHERE ts.test_id IS NULL AND ts.test_series_id IS NULL AND ts.stage_id IS NULL
+       ),
+       keyed AS (
+         SELECT s.*,
+                COALESCE(sa.canonical_name, LOWER(s.name)) AS canonical_key
+           FROM scoped s
+           LEFT JOIN section_aliases sa
+             ON LOWER(sa.alias_name) = LOWER(s.name)
+            AND COALESCE(sa.is_active, true) = true
+       )
+       SELECT k.*,
+              ROW_NUMBER() OVER (
+                PARTITION BY k.canonical_key ORDER BY k.src_prio, k.id
+              ) AS rn
+         FROM keyed k`,
+      [testId, seriesId, stage],
     );
-    scoped = scoped.concat(defaults);
+
+    const scoped = buildScopedSections(ranked);
 
     res.json({ success: true, data: scoped });
   } catch (error) {

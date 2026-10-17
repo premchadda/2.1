@@ -9,6 +9,18 @@ const __dirname = path.dirname(__filename);
 // every instance uses the same one. Chosen arbitrarily but kept constant.
 const MIGRATION_ADVISORY_LOCK_KEY = 727274266; // "trstprep-migrations"
 
+/**
+ * Canonical identity for a migration, used for the "already applied?" check.
+ * Lowercases and strips every non-alphanumeric character, so separator and case
+ * variants of the same filename collapse to one key. The leading numeric prefix
+ * survives, keeping genuinely different migrations distinct.
+ */
+function migrationIdentity(name) {
+  return String(name ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
 // Returns only the executable SQL: strips `--` line comments, `/* */`
 // block comments, and string/identifier/dollar-quoted literals before sniff
 // tests run. Without this, a comment mentioning an index build (or a string
@@ -167,7 +179,14 @@ async function runMigrationsLocked(
   const { rows } = await client.query(
     "SELECT migration_name FROM schema_migrations;",
   );
-  const applied = new Set(rows.map((r) => r.migration_name));
+  // Migration identity is punctuation-insensitive. The ledger accumulated rows
+  // that differ only by separator/case — e.g. 018-fix-all-remaining-schema-
+  // issues.sql alongside 018_fix_all_remaining_schema_issues.sql — so an exact
+  // string match could re-apply a migration that had already run under its
+  // other spelling, or skip a renamed one. The numeric prefix is always kept,
+  // so distinct migrations (038_ / 046_ / 060_ create_remaining_missing_tables)
+  // remain distinct.
+  const applied = new Set(rows.map((r) => migrationIdentity(r.migration_name)));
 
   console.log(
     `[Migrations] Found ${files.length} migration files. ${applied.size} already applied.`,
@@ -175,7 +194,7 @@ async function runMigrationsLocked(
 
   // 4. Run pending migrations sequentially
   for (const file of files) {
-    if (applied.has(file)) {
+    if (applied.has(migrationIdentity(file))) {
       continue;
     }
 
@@ -249,4 +268,49 @@ async function runMigrationsLocked(
   if (typeof afterMigrations === "function") {
     afterMigrations();
   }
+}
+
+/**
+ * Report which migrations are pending without applying any of them.
+ *
+ * Read-only: it only lists files and reads schema_migrations. Used at boot when
+ * migrations are gated off, so a developer editing a .sql file sees the pending
+ * list instead of having it silently applied to whatever DATABASE_URL resolves
+ * to. Takes no advisory lock and writes nothing.
+ *
+ * @returns {Promise<{pending: string[], applied: number, total: number}>}
+ */
+export async function previewMigrations(pool) {
+  const migrationsDir = path.join(__dirname, "migrations");
+  if (!fs.existsSync(migrationsDir)) {
+    return { pending: [], applied: 0, total: 0 };
+  }
+
+  const files = fs
+    .readdirSync(migrationsDir)
+    .filter((file) => file.endsWith(".sql"))
+    .sort((a, b) =>
+      a.localeCompare(b, "en", { numeric: true, sensitivity: "base" }),
+    );
+
+  let appliedNames = new Set();
+  try {
+    const { rows } = await pool.query(
+      "SELECT migration_name FROM schema_migrations;",
+    );
+    appliedNames = new Set(
+      rows.map((r) => migrationIdentity(r.migration_name)),
+    );
+  } catch (error) {
+    // Never let a preview failure stop the server from booting.
+    console.warn(
+      `[Migrations] Preview could not read schema_migrations: ${error.message}`,
+    );
+    return { pending: files, applied: 0, total: files.length };
+  }
+
+  const pending = files.filter(
+    (file) => !appliedNames.has(migrationIdentity(file)),
+  );
+  return { pending, applied: appliedNames.size, total: files.length };
 }
