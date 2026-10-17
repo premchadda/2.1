@@ -31,7 +31,7 @@ async function getPromptTemplate(name, defaultSystem, defaultUser) {
             : name,
         };
       }
-    } catch (innerErr) {
+    } catch {
       // Guard: prompt_templates may lack the updated_at column — retry
       // without it and fall back to the template name as the version.
       const result = await pool.query(

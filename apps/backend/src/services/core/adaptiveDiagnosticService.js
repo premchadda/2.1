@@ -23,7 +23,7 @@ export const DEFAULT_DIAGNOSTIC_DURATION_MINS = 30;
 /**
  * Shuffles an array randomly.
  */
-function shuffleArray(arr) {
+export function shuffleArray(arr) {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -60,7 +60,7 @@ export async function generateAdaptiveDiagnosticTest(
     if (analytics?.topicMasteryRadar) {
       masteryRadar = analytics.topicMasteryRadar;
     }
-  } catch (err) {
+  } catch {
     // Fall back to empty radar (cold start)
   }
 

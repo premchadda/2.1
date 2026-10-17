@@ -99,7 +99,7 @@ export const decryptValue = (encryptedText) => {
       return decrypted;
     }
     return encryptedText;
-  } catch (err) {
+  } catch {
     return encryptedText;
   }
 };
@@ -1960,7 +1960,7 @@ class PostgresHelpers {
             originalCollection: collection,
             deletedAt: item.updatedAt || item.updated_at,
           }));
-        } catch (e) {
+        } catch {
           return [];
         }
       }),
@@ -2015,7 +2015,7 @@ class PostgresHelpers {
           });
           return { ...restored, originalCollection: collection };
         }
-      } catch (e) {
+      } catch {
         // Continue to next collection
       }
     }
@@ -2055,7 +2055,7 @@ class PostgresHelpers {
           await this.deleteById(collection, id);
           return true;
         }
-      } catch (e) {
+      } catch {
         // Continue to next collection
       }
     }
@@ -2094,7 +2094,7 @@ class PostgresHelpers {
         if (!table || !/^[a-zA-Z0-9_]+$/.test(table)) continue;
         const purgeSql = `DELETE FROM ${quoteIdentifier(table)} WHERE is_active = false`;
         await this.pool.query(purgeSql);
-      } catch (e) {
+      } catch {
         // Collection might not exist, skip
       }
     }
@@ -2169,7 +2169,7 @@ class PostgresHelpers {
           }
         }
       }
-    } catch (_) {
+    } catch {
       // ignore — non-fatal; returns null below
     }
     return null;

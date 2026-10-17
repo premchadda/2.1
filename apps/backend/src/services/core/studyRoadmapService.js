@@ -270,7 +270,7 @@ export async function generatePersonalizedRoadmap(userId, options = {}) {
 /**
  * Simulates milestone time machine projections for custom daily study commitments
  */
-export function simulateMilestoneTimeMachine(roadmap, options = {}) {
+export function simulateMilestoneTimeMachine(roadmap, _options = {}) {
   const dailyPlans = [30, 45, 60, 90];
   const daysRemaining = roadmap.daysRemaining || 90;
   const remainingHours = roadmap.remainingHours || 100;

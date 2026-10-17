@@ -79,7 +79,7 @@ router.post(
       }
     }
 
-    let name = (req.body.name || "").trim();
+    const name = (req.body.name || "").trim();
     let slug = (req.body.slug || "").trim();
     if (!slug && name) {
       slug = name

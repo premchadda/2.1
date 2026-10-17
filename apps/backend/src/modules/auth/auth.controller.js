@@ -1909,7 +1909,7 @@ export const authController = {
             algorithms: ["HS256"],
           },
         );
-      } catch (err) {
+      } catch {
         return res.status(400).json({
           success: false,
           message: "Invalid or expired verification token",
@@ -2433,7 +2433,7 @@ export const authController = {
           process.env.JWT_2FA_SECRET || process.env.JWT_SECRET,
           { algorithms: ["HS256"] },
         );
-      } catch (jwtErr) {
+      } catch {
         return res.status(401).json({
           success: false,
           message: "Temporary token expired or invalid",

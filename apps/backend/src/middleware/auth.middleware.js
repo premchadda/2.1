@@ -201,7 +201,7 @@ export function clearAuthCaches(includeRedis = false) {
                 await redis.del(...keys);
               }
             } while (cursor !== "0");
-          } catch (_) {
+          } catch {
             // best-effort; ignore scan errors in test cleanup
           }
         }
@@ -303,7 +303,7 @@ async function enforceSessionExpiry(decoded, user) {
 
   const key = getIdleActivityKey(sessionId);
   const now = Date.now();
-  let entry = idleActivityCache.get(key);
+  const entry = idleActivityCache.get(key);
   const needRefresh = !entry || now - entry.lastOp > IDLE_WRITE_THROTTLE_MS;
 
   if (!needRefresh) {
@@ -405,7 +405,7 @@ export const isUserAdminRequest = (req) => {
     if (req.user.isAdmin === true || req.user.role === ROLES.ADMIN) {
       return true;
     }
-  } catch (_) {
+  } catch {
     // fail closed
   }
   return false;
@@ -599,7 +599,7 @@ export const protect = async (req, res, next) => {
       }
     }
 
-    let user = await userPromise;
+    const user = await userPromise;
     if (userLookupError) {
       if (isTransientDbError(userLookupError)) {
         // Transient infra failure — keep the session alive, ask client to retry.
@@ -799,7 +799,7 @@ export const requireImageAuth = async (req, res, next) => {
       if (redis) {
         try {
           cached = await redis.get(`session:${decoded.sessionId}`);
-        } catch (_) {
+        } catch {
           /* fall through to DB */
         }
       }
@@ -899,7 +899,7 @@ export const requireImageAuth = async (req, res, next) => {
       { userId: req.user.id, isAdmin: req.user.isAdmin === true },
       () => next(),
     );
-  } catch (error) {
+  } catch {
     return res.status(401).json({
       success: false,
       message: "Authentication required to view this asset",

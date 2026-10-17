@@ -132,7 +132,7 @@ router.post("/:id/view", async (req, res) => {
       .catch(() => {});
 
     res.json({ success: true, message: "View recorded" });
-  } catch (error) {
+  } catch {
     res.json({ success: true, message: "View ignored" });
   }
 });

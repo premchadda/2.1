@@ -1,7 +1,4 @@
-import {
-  dbHelpers,
-  pool,
-} from "../../infrastructure/database/postgres-helpers.js";
+import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import analyticsService from "./analyticsService.js";
 import { safeNumber } from "./common.js";
 
@@ -123,7 +120,7 @@ const loadActiveTests = async (client = null) => {
 };
 
 const safeParseTags = (raw) => {
-  if (raw == null) return [];
+  if (raw === null || raw === undefined) return [];
   if (Array.isArray(raw)) return raw;
   if (typeof raw === "string") {
     try {

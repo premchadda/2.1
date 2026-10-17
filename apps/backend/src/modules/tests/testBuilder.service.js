@@ -10,10 +10,7 @@
  * - Clone existing tests
  */
 
-import {
-  pool,
-  dbHelpers,
-} from "../../infrastructure/database/postgres-helpers.js";
+import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import Test from "../../data/models/test/Test.js";
 import TestTemplate from "../../data/models/test/TestTemplate.js";
 

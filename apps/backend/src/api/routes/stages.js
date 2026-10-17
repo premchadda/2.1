@@ -3,6 +3,7 @@ import { protect, admin } from "../../middleware/auth.middleware.js";
 import Stage from "../../data/models/Stage.js";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import { responseCache } from "../../middleware/responseCache.middleware.js";
 
 // FIX BUG-018: Use JSON arrays instead of PostgreSQL array format
 const parseExamIds = (value) => {
@@ -31,16 +32,20 @@ const router = express.Router();
 // @route   GET /api/stages
 // @desc    Get all active stages
 // @access  Public
-router.get("/", async (req, res) => {
-  try {
-    const stages = await Stage.findActive();
-    res.json({ success: true, data: stages });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+router.get(
+  "/",
+  responseCache("stages-list", 300, { userScoped: false }),
+  async (req, res) => {
+    try {
+      const stages = await Stage.findActive();
+      res.json({ success: true, data: stages });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 // @route   GET /api/stages/with-categories
 // @desc    Get stages with their associated categories

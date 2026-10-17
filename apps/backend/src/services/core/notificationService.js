@@ -1,6 +1,5 @@
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import emailService from "../EmailService.js";
-import { idsMatch } from "./common.js";
 import { isNotificationEnabled, getFullSettings } from "../SettingsService.js";
 
 export const createInAppNotification = async (

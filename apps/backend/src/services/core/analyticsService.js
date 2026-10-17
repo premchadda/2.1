@@ -742,7 +742,7 @@ export const getStudyStreak = async (userId) => {
   };
 };
 
-export const calculateUserRank = async (userId, userAvgScore) => {
+export const calculateUserRank = async (userId, _userAvgScore) => {
   try {
     const result = await pool.query(
       `

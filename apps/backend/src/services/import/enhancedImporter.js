@@ -14,13 +14,9 @@
  */
 
 import { pool } from "../../infrastructure/database/postgres-helpers.js";
-import {
-  importClassXQuestions,
-  importClassXTestsWithQuestions,
-  mapClassXToQuestion,
-} from "./classxImporter.js";
+import { mapClassXToQuestion } from "./classxImporter.js";
 
-const SOURCE_NAMES = {
+export const SOURCE_NAMES = {
   classx: "classx",
   excel: "excel",
   csv: "csv",
@@ -61,7 +57,7 @@ export function validateQuestion(question, index = 0) {
  * Parse Excel buffer into question objects.
  * Expects columns: question, option_1, option_2, option_3, option_4, answer, explanation
  */
-export async function parseExcelData(buffer, filename) {
+export async function parseExcelData(buffer, _filename) {
   const XLSX = await import("xlsx-js-style");
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const sheetName = workbook.SheetNames[0];

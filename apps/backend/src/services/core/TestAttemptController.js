@@ -1,11 +1,10 @@
 import { pool } from "../../infrastructure/database/postgres-helpers.js";
-import { idsMatch } from "./common.js";
 import {
   resolveQuestionMarks,
   scoreMcqAnswer,
 } from "../../shared/utils/scoreAttempt.js";
 
-const VALID_ATTEMPT_STATUSES = [
+export const VALID_ATTEMPT_STATUSES = [
   "not_started",
   "in_progress",
   "paused",
@@ -20,7 +19,7 @@ export class TestAttemptController {
   }
 
   async createAttempt(userId, testId, options = {}) {
-    const { testSeriesId, source } = options;
+    const { testSeriesId } = options;
     const client = await this.db.connect();
 
     try {
@@ -173,15 +172,9 @@ export class TestAttemptController {
   }
 
   async saveAnswer(attemptId, userId, data) {
-    const {
-      questionId,
-      selectedOption,
-      timeSpent,
-      currentSection,
-      markedForReview,
-    } = data;
+    const { questionId, selectedOption, timeSpent, markedForReview } = data;
 
-    const attempt = await this.validateActiveAttempt(attemptId, userId);
+    await this.validateActiveAttempt(attemptId, userId);
 
     await this.updateQuestionState(attemptId, questionId, {
       selectedOption,
@@ -272,7 +265,7 @@ export class TestAttemptController {
     return res.rows[0] || null;
   }
 
-  async submitAttempt(attemptId, userId, finalData = {}) {
+  async submitAttempt(attemptId, userId, _finalData = {}) {
     const client = await this.db.connect();
 
     try {
@@ -312,11 +305,6 @@ export class TestAttemptController {
       `,
         [attemptId],
       );
-
-      const answered = questionStates.rows.filter(
-        (q) => q.selected_option !== null,
-      );
-      const marked = questionStates.rows.filter((q) => q.is_marked_for_review);
 
       let correct = 0,
         wrong = 0,

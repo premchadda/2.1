@@ -73,7 +73,7 @@ const incrementRedisCounter = async (key, amount = 1) => {
   if (!redis) return;
   try {
     await redis.incrby(key, amount);
-  } catch (err) {
+  } catch {
     // Silent fail for metrics - don't break the request
   }
 };
@@ -104,7 +104,7 @@ const recordResponseTime = async (duration) => {
       0,
       -(MAX_RESPONSE_SAMPLES + 1),
     );
-  } catch (err) {
+  } catch {
     // Silent fail
   }
 };

@@ -408,7 +408,7 @@ router.get("/leaderboards", async (req, res) => {
           try {
             const user = await dbHelpers.findById("users", result.userId);
             isProUser = user?.isProUser || user?.isPro || false;
-          } catch (e) {
+          } catch {
             // User lookup failed, default to false
           }
 
@@ -655,7 +655,7 @@ router.get("/previous-year-papers", async (req, res) => {
     const { exam, year, limit = 20, page = 1 } = req.query;
 
     // Get tests tagged as PYPs
-    let allTests = await dbHelpers.find("tests", { isActive: true });
+    const allTests = await dbHelpers.find("tests", { isActive: true });
     let pypTests = allTests.filter(
       (test) =>
         test.tags?.includes("pyp") ||
@@ -807,7 +807,7 @@ router.get("/testimonials", async (req, res) => {
       success: true,
       data: testimonials || [],
     });
-  } catch (error) {
+  } catch {
     // Return empty array if table doesn't exist yet
     res.json({
       success: true,
@@ -823,7 +823,7 @@ router.get("/practice-questions", async (req, res) => {
     const { category, subject, topic, limit = 50, page = 1 } = req.query;
 
     // Get questions tagged for practice
-    let allQuestions = await dbHelpers.find("questions", { isActive: true });
+    const allQuestions = await dbHelpers.find("questions", { isActive: true });
     let practiceQuestions = allQuestions.filter(
       (q) =>
         q.tags?.includes("practice") ||

@@ -739,7 +739,7 @@ export const getRankAndPercentile = async (
       score: Number(row.score || 0),
       timeSpent: row.time_spent || row.time_spent_seconds,
     }));
-  } catch (err) {
+  } catch {
     // Fallback to dbHelpers.find scoped to this test if direct pool query fails
     const scopedAttempts = await dbHelpers.find("attempts", { testId });
     testAttempts = (scopedAttempts || []).filter(
@@ -765,11 +765,13 @@ export const getRankAndPercentile = async (
       const curScore = Number(current.score ?? 0);
       const newScore = Number(a.score ?? 0);
       const curTime =
-        current.timeSpent != null && !isNaN(current.timeSpent)
+        current.timeSpent !== null &&
+        current.timeSpent !== undefined &&
+        !isNaN(current.timeSpent)
           ? Number(current.timeSpent)
           : 999999;
       const newTime =
-        a.timeSpent != null && !isNaN(a.timeSpent)
+        a.timeSpent !== null && a.timeSpent !== undefined && !isNaN(a.timeSpent)
           ? Number(a.timeSpent)
           : 999999;
       if (newScore > curScore || (newScore === curScore && newTime < curTime)) {
@@ -794,9 +796,13 @@ export const getRankAndPercentile = async (
     const scoreDiff = Number(b.score ?? 0) - Number(a.score ?? 0);
     if (scoreDiff !== 0) return scoreDiff;
     const timeA =
-      a.timeSpent != null && !isNaN(a.timeSpent) ? Number(a.timeSpent) : 999999;
+      a.timeSpent !== null && a.timeSpent !== undefined && !isNaN(a.timeSpent)
+        ? Number(a.timeSpent)
+        : 999999;
     const timeB =
-      b.timeSpent != null && !isNaN(b.timeSpent) ? Number(b.timeSpent) : 999999;
+      b.timeSpent !== null && b.timeSpent !== undefined && !isNaN(b.timeSpent)
+        ? Number(b.timeSpent)
+        : 999999;
     return timeA - timeB;
   });
 
@@ -804,7 +810,9 @@ export const getRankAndPercentile = async (
   let rank = 1;
   const targetScore = Number(attempt.score ?? 0);
   const targetTime =
-    attempt.timeSpent != null && !isNaN(attempt.timeSpent)
+    attempt.timeSpent !== null &&
+    attempt.timeSpent !== undefined &&
+    !isNaN(attempt.timeSpent)
       ? Number(attempt.timeSpent)
       : 999999;
 
@@ -813,7 +821,9 @@ export const getRankAndPercentile = async (
     if (idsMatch(other._id || other.id, attempt._id || attempt.id)) continue;
     const otherScore = Number(other.score ?? 0);
     const otherTime =
-      other.timeSpent != null && !isNaN(other.timeSpent)
+      other.timeSpent !== null &&
+      other.timeSpent !== undefined &&
+      !isNaN(other.timeSpent)
         ? Number(other.timeSpent)
         : 999999;
     if (
@@ -834,7 +844,9 @@ export const getRankAndPercentile = async (
     if (idsMatch(other._id || other.id, attempt._id || attempt.id)) continue;
     const otherScore = Number(other.score ?? 0);
     const otherTime =
-      other.timeSpent != null && !isNaN(other.timeSpent)
+      other.timeSpent !== null &&
+      other.timeSpent !== undefined &&
+      !isNaN(other.timeSpent)
         ? Number(other.timeSpent)
         : 999999;
     if (

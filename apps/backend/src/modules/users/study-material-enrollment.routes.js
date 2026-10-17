@@ -2,7 +2,7 @@ import express from "express";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { protect } from "../../middleware/auth.middleware.js";
 import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
-import { idsMatch } from "../../shared/utils/db-utils.js";
+
 import {
   findEntityByIdentifier,
   getInternalId,

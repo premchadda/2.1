@@ -157,7 +157,7 @@ class AiGenerationLog {
     // that passes 0) would make cost dashboards under-report. Fall back to a
     // chars/4 estimate from the prompt / text length metadata.
     let inputTokens = data.tokensInput || 0
-    let outputTokens = data.tokensOutput || 0
+    const outputTokens = data.tokensOutput || 0
     if (inputTokens === 0 && outputTokens === 0) {
       try {
         const { default: usageLogger } = await import('../../../infrastructure/logger/logger.js')

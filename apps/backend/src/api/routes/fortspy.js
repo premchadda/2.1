@@ -208,7 +208,7 @@ const verifyStreamToken = async (req, res, next) => {
     }
     req.streamToken = { ...decoded, key: entry.key };
     next();
-  } catch (error) {
+  } catch {
     return res.status(401).json({
       success: false,
       message: "Stream token is invalid or expired",

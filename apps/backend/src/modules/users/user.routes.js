@@ -24,7 +24,6 @@ import {
   validateBody,
 } from "../../middleware/validation/inputValidation.js";
 import { analyticsService } from "../../services/core/index.js";
-import { idsMatch, parseNumericId } from "../../shared/utils/db-utils.js";
 import {
   findEntityByIdentifier,
   getInternalId,
@@ -36,11 +35,8 @@ import {
 } from "../../shared/utils/public-id-response.js";
 import {
   sanitizeUser,
-  parseEnrolledSeries,
   getSubjectIcon,
   mapEnrolledSeriesIdsForResponse,
-  populateEnrolledSeries,
-  isProUser,
 } from "../../shared/utils/user-utils.js";
 import {
   encryptPii,
@@ -50,7 +46,6 @@ import {
 import {
   getUserAttempts,
   isCompletedAttempt,
-  formatAttemptResponse,
   getAttemptedTestsPayload,
 } from "../../shared/utils/attempt-utils.js";
 import EnrollmentService from "../../services/EnrollmentService.js";
@@ -342,7 +337,6 @@ router.put(
         category,
         notificationPreferences,
         privacy,
-        isActive,
       } = req.body;
 
       // Sanitize inputs (Issue #33)
@@ -929,7 +923,6 @@ router.get(
   async (req, res) => {
     try {
       const userAttempts = await getUserAttempts(req.user.id, dbHelpers);
-      const userId = String(req.user.id);
 
       // Sort all user attempts by date (newest first)
       const allAttempts = [...userAttempts].sort(
@@ -1249,285 +1242,296 @@ router.get(
 // @route   GET /api/users/attempts/incomplete
 // @desc    Get user's in-progress / paused (resumable) test attempts
 // @access  Private
-router.get("/attempts/incomplete", protect, async (req, res) => {
-  try {
-    const userId = Number(req.user.id);
+router.get(
+  "/attempts/incomplete",
+  protect,
+  responseCache("user-incomplete-attempts", 30, {
+    userScoped: true,
+    excludePaths: [],
+  }),
+  async (req, res) => {
+    try {
+      const userId = Number(req.user.id);
 
-    const userAttempts = await dbHelpers.find("attempts", { userId });
+      const userAttempts = await dbHelpers.find("attempts", { userId });
 
-    // Set of test IDs that the user has already completed
-    const completedTestIds = new Set(
-      userAttempts
-        .filter((a) => {
-          const st = String(a.status || "").toUpperCase();
-          return st === "COMPLETED" || a.isCompleted || a.is_completed;
-        })
-        .flatMap((a) =>
-          recordIdentifierValues(a, [
-            "testId",
-            "test_id",
-            "testPublicId",
-            "test_public_id",
-            "testUuid",
-            "test_uuid",
-            "testSlug",
-            "test_slug",
-          ]),
-        ),
-    );
+      // Set of test IDs that the user has already completed
+      const completedTestIds = new Set(
+        userAttempts
+          .filter((a) => {
+            const st = String(a.status || "").toUpperCase();
+            return st === "COMPLETED" || a.isCompleted || a.is_completed;
+          })
+          .flatMap((a) =>
+            recordIdentifierValues(a, [
+              "testId",
+              "test_id",
+              "testPublicId",
+              "test_public_id",
+              "testUuid",
+              "test_uuid",
+              "testSlug",
+              "test_slug",
+            ]),
+          ),
+      );
 
-    const incompleteAttempts = userAttempts.filter((a) => {
-      const status = String(a.status || "").toUpperCase();
-      const isPausedOrInProgress =
-        status === "IN_PROGRESS" || status === "PAUSED";
-      if (!isPausedOrInProgress) return false;
+      const incompleteAttempts = userAttempts.filter((a) => {
+        const status = String(a.status || "").toUpperCase();
+        const isPausedOrInProgress =
+          status === "IN_PROGRESS" || status === "PAUSED";
+        if (!isPausedOrInProgress) return false;
 
-      const testId = String(a.testId || a.test_id);
-      let answersArr = [];
-      if (Array.isArray(a.answers)) {
-        answersArr = a.answers;
-      } else if (typeof a.answers === "string" && a.answers.trim()) {
-        try {
-          const parsed = JSON.parse(a.answers);
-          answersArr = Array.isArray(parsed) ? parsed : [];
-        } catch {
-          answersArr = [];
+        const testId = String(a.testId || a.test_id);
+        let answersArr = [];
+        if (Array.isArray(a.answers)) {
+          answersArr = a.answers;
+        } else if (typeof a.answers === "string" && a.answers.trim()) {
+          try {
+            const parsed = JSON.parse(a.answers);
+            answersArr = Array.isArray(parsed) ? parsed : [];
+          } catch {
+            answersArr = [];
+          }
         }
+
+        // If the test has already been completed and this incomplete attempt has 0 answers, ignore it
+        if (
+          completedTestIds.has(testId) &&
+          (!answersArr || answersArr.length === 0)
+        ) {
+          return false;
+        }
+        return true;
+      });
+
+      if (incompleteAttempts.length === 0) {
+        return res.json({ success: true, data: [] });
       }
 
-      // If the test has already been completed and this incomplete attempt has 0 answers, ignore it
-      if (
-        completedTestIds.has(testId) &&
-        (!answersArr || answersArr.length === 0)
-      ) {
-        return false;
-      }
-      return true;
-    });
+      // Most recently active first
+      incompleteAttempts.sort(
+        (a, b) =>
+          new Date(b.lastActivityAt || b.updatedAt || b.createdAt || 0) -
+          new Date(a.lastActivityAt || a.updatedAt || a.createdAt || 0),
+      );
 
-    if (incompleteAttempts.length === 0) {
-      return res.json({ success: true, data: [] });
-    }
+      const testIds = [
+        ...new Set(
+          incompleteAttempts.map((a) => a.testId || a.test_id).filter(Boolean),
+        ),
+      ];
+      const seriesIds = [
+        ...new Set(
+          incompleteAttempts
+            .map((a) => a.seriesId || a.series_id)
+            .filter(Boolean),
+        ),
+      ];
 
-    // Most recently active first
-    incompleteAttempts.sort(
-      (a, b) =>
-        new Date(b.lastActivityAt || b.updatedAt || b.createdAt || 0) -
-        new Date(a.lastActivityAt || a.updatedAt || a.createdAt || 0),
-    );
+      const [tests, series] = await Promise.all([
+        testIds.length > 0
+          ? dbHelpers.find("tests", { id: { $in: testIds } })
+          : Promise.resolve([]),
+        seriesIds.length > 0
+          ? dbHelpers.find("testSeries", { id: { $in: seriesIds } })
+          : Promise.resolve([]),
+      ]);
 
-    const testIds = [
-      ...new Set(
-        incompleteAttempts.map((a) => a.testId || a.test_id).filter(Boolean),
-      ),
-    ];
-    const seriesIds = [
-      ...new Set(
-        incompleteAttempts
-          .map((a) => a.seriesId || a.series_id)
-          .filter(Boolean),
-      ),
-    ];
+      const testMap = {};
+      tests.forEach((test) =>
+        addLookupAliases(testMap, test, [
+          "_id",
+          "id",
+          "publicId",
+          "public_id",
+          "publicIdUuid",
+          "public_id_uuid",
+          "uuid",
+          "slug",
+        ]),
+      );
 
-    const [tests, series] = await Promise.all([
-      testIds.length > 0
-        ? dbHelpers.find("tests", { id: { $in: testIds } })
-        : Promise.resolve([]),
-      seriesIds.length > 0
-        ? dbHelpers.find("testSeries", { id: { $in: seriesIds } })
-        : Promise.resolve([]),
-    ]);
+      const seriesMap = {};
+      series.forEach((entry) =>
+        addLookupAliases(seriesMap, entry, [
+          "_id",
+          "id",
+          "publicId",
+          "public_id",
+          "publicIdUuid",
+          "public_id_uuid",
+          "uuid",
+          "slug",
+        ]),
+      );
 
-    const testMap = {};
-    tests.forEach((test) =>
-      addLookupAliases(testMap, test, [
-        "_id",
-        "id",
-        "publicId",
-        "public_id",
-        "publicIdUuid",
-        "public_id_uuid",
-        "uuid",
-        "slug",
-      ]),
-    );
+      // Some test rows don't carry total_questions (legacy imports) — derive the
+      // count from active questions so the resume card shows "0/100 Qs Answered"
+      // instead of "0/0". dbHelpers rows are camelCased, so `total_questions`
+      // must be read as `totalQuestions`.
+      const missingCountTestIds = tests
+        .filter(
+          (t) =>
+            !Number(t.totalQuestions || t.total_questions || 0) &&
+            Number(t.id || t._id),
+        )
+        .map((t) => Number(t.id || t._id));
 
-    const seriesMap = {};
-    series.forEach((entry) =>
-      addLookupAliases(seriesMap, entry, [
-        "_id",
-        "id",
-        "publicId",
-        "public_id",
-        "publicIdUuid",
-        "public_id_uuid",
-        "uuid",
-        "slug",
-      ]),
-    );
-
-    // Some test rows don't carry total_questions (legacy imports) — derive the
-    // count from active questions so the resume card shows "0/100 Qs Answered"
-    // instead of "0/0". dbHelpers rows are camelCased, so `total_questions`
-    // must be read as `totalQuestions`.
-    const missingCountTestIds = tests
-      .filter(
-        (t) =>
-          !Number(t.totalQuestions || t.total_questions || 0) &&
-          Number(t.id || t._id),
-      )
-      .map((t) => Number(t.id || t._id));
-
-    const questionCountMap = {};
-    if (missingCountTestIds.length > 0) {
-      try {
-        const { rows: countRows } = await dbHelpers.pool.query(
-          `SELECT test_id, COUNT(*)::int AS question_count
+      const questionCountMap = {};
+      if (missingCountTestIds.length > 0) {
+        try {
+          const { rows: countRows } = await dbHelpers.pool.query(
+            `SELECT test_id, COUNT(*)::int AS question_count
            FROM questions
            WHERE test_id = ANY($1::int[]) AND is_active = true
            GROUP BY test_id`,
-          [missingCountTestIds],
-        );
-        countRows.forEach((r) => {
-          questionCountMap[Number(r.test_id)] = Number(r.question_count);
-        });
-      } catch (countErr) {
-        console.warn(
-          "[incomplete-attempts] Failed to count test questions:",
-          countErr.message,
-        );
-      }
-    }
-
-    const formatted = incompleteAttempts.map((attempt) => {
-      const test =
-        findLookupRecord(
-          testMap,
-          recordIdentifierValues(attempt, [
-            "testId",
-            "test_id",
-            "testPublicId",
-            "test_public_id",
-            "testUuid",
-            "test_uuid",
-            "testSlug",
-            "test_slug",
-          ]),
-        ) || {};
-      const resolvedSeriesId =
-        attempt.seriesId ||
-        attempt.series_id ||
-        attempt.seriesPublicId ||
-        attempt.series_public_id ||
-        test.seriesId ||
-        test.series_id;
-      const testSeries =
-        findLookupRecord(
-          seriesMap,
-          recordIdentifierValues(test, ["seriesId", "series_id"]).concat(
-            recordIdentifierValues(attempt, [
-              "seriesId",
-              "series_id",
-              "seriesPublicId",
-              "series_public_id",
-              "seriesSlug",
-              "series_slug",
-            ]),
-          ),
-        ) || {};
-
-      const totalDuration = test.duration
-        ? test.duration * 60
-        : attempt.remainingTimeSeconds || 0;
-      const timeSpent = attempt.totalTimeSpent || 0;
-      const progressPct =
-        totalDuration > 0
-          ? Math.min(100, Math.round((timeSpent / totalDuration) * 100))
-          : 0;
-
-      // answers can be an array, a JSON string, or a JSONB object keyed by
-      // question id — normalize before counting.
-      let answersArr = [];
-      if (Array.isArray(attempt.answers)) {
-        answersArr = attempt.answers;
-      } else if (
-        typeof attempt.answers === "string" &&
-        attempt.answers.trim()
-      ) {
-        try {
-          const parsed = JSON.parse(attempt.answers);
-          if (Array.isArray(parsed)) answersArr = parsed;
-          else if (parsed && typeof parsed === "object")
-            answersArr = Object.values(parsed);
-        } catch {
-          answersArr = [];
+            [missingCountTestIds],
+          );
+          countRows.forEach((r) => {
+            questionCountMap[Number(r.test_id)] = Number(r.question_count);
+          });
+        } catch (countErr) {
+          console.warn(
+            "[incomplete-attempts] Failed to count test questions:",
+            countErr.message,
+          );
         }
-      } else if (attempt.answers && typeof attempt.answers === "object") {
-        answersArr = Object.values(attempt.answers);
       }
 
-      // Count entries with an actual selection; fall back to raw length for
-      // legacy entries that don't carry a selection field.
-      const withSelection = answersArr.filter((a) => {
-        const sel = a?.selectedOption ?? a?.selected_option;
-        return sel !== null && sel !== undefined && sel !== -1 && sel !== "";
-      }).length;
-      const answeredCount =
-        withSelection > 0 ? withSelection : answersArr.length;
+      const formatted = incompleteAttempts.map((attempt) => {
+        const test =
+          findLookupRecord(
+            testMap,
+            recordIdentifierValues(attempt, [
+              "testId",
+              "test_id",
+              "testPublicId",
+              "test_public_id",
+              "testUuid",
+              "test_uuid",
+              "testSlug",
+              "test_slug",
+            ]),
+          ) || {};
+        const resolvedSeriesId =
+          attempt.seriesId ||
+          attempt.series_id ||
+          attempt.seriesPublicId ||
+          attempt.series_public_id ||
+          test.seriesId ||
+          test.series_id;
+        const testSeries =
+          findLookupRecord(
+            seriesMap,
+            recordIdentifierValues(test, ["seriesId", "series_id"]).concat(
+              recordIdentifierValues(attempt, [
+                "seriesId",
+                "series_id",
+                "seriesPublicId",
+                "series_public_id",
+                "seriesSlug",
+                "series_slug",
+              ]),
+            ),
+          ) || {};
 
-      const resolvedTotalQuestions =
-        Number(
-          attempt.totalQuestions ||
-            test.totalQuestions ||
-            test.total_questions ||
-            0,
-        ) ||
-        questionCountMap[Number(test.id || test._id)] ||
-        0;
+        const totalDuration = test.duration
+          ? test.duration * 60
+          : attempt.remainingTimeSeconds || 0;
+        const timeSpent = attempt.totalTimeSpent || 0;
+        const progressPct =
+          totalDuration > 0
+            ? Math.min(100, Math.round((timeSpent / totalDuration) * 100))
+            : 0;
 
-      return {
-        attemptId: getPublicResponseId(
-          dbHelpers,
-          "attempts",
-          attempt,
-          attempt._id || attempt.id,
-        ),
-        testId: getPublicResponseId(
-          dbHelpers,
-          "tests",
-          test,
-          attempt.testId || attempt.test_id || test.id || test._id,
-        ),
-        testSlug: test.slug || attempt.testSlug || attempt.test_slug || null,
-        seriesId: getPublicResponseId(
-          dbHelpers,
-          "testSeries",
-          testSeries,
-          resolvedSeriesId,
-        ),
-        seriesSlug:
-          testSeries.slug || attempt.seriesSlug || attempt.series_slug || null,
-        title: attempt.testTitle || test.title || "Unknown Test",
-        seriesTitle: testSeries.title || "Unknown Series",
-        status: attempt.status,
-        totalQuestions: resolvedTotalQuestions,
-        answeredQuestions: answeredCount,
-        timeSpentSeconds: timeSpent,
-        remainingTimeSeconds: attempt.remainingTimeSeconds || 0,
-        totalDurationSeconds: totalDuration,
-        progressPct,
-        lastQuestionIndex: attempt.lastQuestionIndex || 0,
-      };
-    });
+        // answers can be an array, a JSON string, or a JSONB object keyed by
+        // question id — normalize before counting.
+        let answersArr = [];
+        if (Array.isArray(attempt.answers)) {
+          answersArr = attempt.answers;
+        } else if (
+          typeof attempt.answers === "string" &&
+          attempt.answers.trim()
+        ) {
+          try {
+            const parsed = JSON.parse(attempt.answers);
+            if (Array.isArray(parsed)) answersArr = parsed;
+            else if (parsed && typeof parsed === "object")
+              answersArr = Object.values(parsed);
+          } catch {
+            answersArr = [];
+          }
+        } else if (attempt.answers && typeof attempt.answers === "object") {
+          answersArr = Object.values(attempt.answers);
+        }
 
-    res.json({ success: true, data: formatted });
-  } catch (error) {
-    console.error("Get incomplete attempts error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+        // Count entries with an actual selection; fall back to raw length for
+        // legacy entries that don't carry a selection field.
+        const withSelection = answersArr.filter((a) => {
+          const sel = a?.selectedOption ?? a?.selected_option;
+          return sel !== null && sel !== undefined && sel !== -1 && sel !== "";
+        }).length;
+        const answeredCount =
+          withSelection > 0 ? withSelection : answersArr.length;
+
+        const resolvedTotalQuestions =
+          Number(
+            attempt.totalQuestions ||
+              test.totalQuestions ||
+              test.total_questions ||
+              0,
+          ) ||
+          questionCountMap[Number(test.id || test._id)] ||
+          0;
+
+        return {
+          attemptId: getPublicResponseId(
+            dbHelpers,
+            "attempts",
+            attempt,
+            attempt._id || attempt.id,
+          ),
+          testId: getPublicResponseId(
+            dbHelpers,
+            "tests",
+            test,
+            attempt.testId || attempt.test_id || test.id || test._id,
+          ),
+          testSlug: test.slug || attempt.testSlug || attempt.test_slug || null,
+          seriesId: getPublicResponseId(
+            dbHelpers,
+            "testSeries",
+            testSeries,
+            resolvedSeriesId,
+          ),
+          seriesSlug:
+            testSeries.slug ||
+            attempt.seriesSlug ||
+            attempt.series_slug ||
+            null,
+          title: attempt.testTitle || test.title || "Unknown Test",
+          seriesTitle: testSeries.title || "Unknown Series",
+          status: attempt.status,
+          totalQuestions: resolvedTotalQuestions,
+          answeredQuestions: answeredCount,
+          timeSpentSeconds: timeSpent,
+          remainingTimeSeconds: attempt.remainingTimeSeconds || 0,
+          totalDurationSeconds: totalDuration,
+          progressPct,
+          lastQuestionIndex: attempt.lastQuestionIndex || 0,
+        };
+      });
+
+      res.json({ success: true, data: formatted });
+    } catch (error) {
+      console.error("Get incomplete attempts error:", error);
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 // @route   GET /api/users/attempts
 // @desc    Get user's test attempts (completed only)
@@ -1667,7 +1671,6 @@ router.get(
 
       // Format attempts with test and series details
       const formattedAttempts = completedAttempts.map((attempt) => {
-        const attemptTestId = attempt.testId || attempt.test_id;
         const test =
           findLookupRecord(
             testMap,

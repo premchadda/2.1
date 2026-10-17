@@ -92,7 +92,7 @@ router.get("/:id", async (req, res, next) => {
     const { id } = req.params;
     if (id === "my" || id === "categories") return next();
 
-    let group = await dbHelpers.findById("studyGroups", id);
+    const group = await dbHelpers.findById("studyGroups", id);
 
     if (!group) {
       return res

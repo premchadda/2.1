@@ -79,7 +79,7 @@ export function normalizeProctoringEvent(event) {
  */
 export function calculateProctoringRisk(
   events = [],
-  testDurationSeconds = 3600,
+  _testDurationSeconds = 3600,
 ) {
   if (!Array.isArray(events)) {
     throw new Error("Events must be an array");
@@ -212,7 +212,7 @@ export async function ingestProctoringTelemetry(
           }),
           eventTimestamp: evt.timestamp,
         });
-      } catch (err) {
+      } catch {
         // Silently swallow DB transient errors; telemetry is preserved in cache
       }
     }

@@ -1,7 +1,4 @@
-import {
-  pool,
-  dbHelpers,
-} from "../infrastructure/database/postgres-helpers.js";
+import { pool } from "../infrastructure/database/postgres-helpers.js";
 import logger from "../infrastructure/logger/logger.js";
 
 const DEFAULT_SETTINGS = {

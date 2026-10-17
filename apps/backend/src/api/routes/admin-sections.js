@@ -259,11 +259,13 @@ router.get(
         return rows[0]?.id || null;
       };
 
-      let resolvedTestSeriesId = testSeriesId
+      const resolvedTestSeriesId = testSeriesId
         ? await resolveId("test_series", testSeriesId)
         : null;
-      let resolvedStageId = stageId ? await resolveId("stages", stageId) : null;
-      let resolvedTestId = testId ? await resolveId("tests", testId) : null;
+      const resolvedStageId = stageId
+        ? await resolveId("stages", stageId)
+        : null;
+      const resolvedTestId = testId ? await resolveId("tests", testId) : null;
 
       const batchData = await Promise.allSettled([
         dbHelpers.find("testCategories"),

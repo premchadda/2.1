@@ -7,41 +7,23 @@ import {
   invalidateResponseCache,
 } from "../../middleware/responseCache.middleware.js";
 import { checkAttemptLimit } from "../../shared/utils/attempt-limits.js";
-import { emitDomainEvent } from "../../infrastructure/events/eventBus.js";
 import { isQueueEnabled } from "../../infrastructure/queue/queueManager.js";
-import { resolveAssetAccessUrl } from "../../infrastructure/storage/storageProvider.js";
-import { nullIfEmpty } from "../../services/core/common.js";
 import {
   analyticsService,
   leaderboardService,
   notificationService,
   recommendationService,
-  rankPredictionService,
 } from "../../services/core/index.js";
-import { idsMatch, parseNumericId } from "../../shared/utils/db-utils.js";
-import {
-  findEntityByIdentifier,
-  getInternalId,
-} from "../../shared/utils/identifier-utils.js";
+import { idsMatch } from "../../shared/utils/db-utils.js";
+import { getInternalId } from "../../shared/utils/identifier-utils.js";
 import { getPublicResponseId } from "../../shared/utils/public-id-response.js";
-import {
-  isProUser,
-  isProRestrictedTest,
-} from "../../shared/utils/user-utils.js";
 import { EntitlementService } from "../../services/EntitlementService.js";
 import {
   TestPolicyEngine,
   POLICY_ERROR_CODES,
 } from "../../services/core/TestPolicyEngine.js";
-import {
-  findTestByIdentifier,
-  filterQuestionsByTestId,
-} from "../../shared/utils/test-utils.js";
+import { findTestByIdentifier } from "../../shared/utils/test-utils.js";
 import { isPypSlug } from "../../utils/slug-helpers.js";
-import {
-  readTestContent,
-  readTestContentByPath,
-} from "../../services/import/testContentStorage.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 import testControllerRouter from "./test.controller.js";
 import {
@@ -51,31 +33,21 @@ import {
 import {
   SECTION_TIME_TOLERANCE,
   SUBJECT_TO_SECTION,
-  buildSectionTimeLimits,
   fetchTestSectionLimits,
-  fetchQuestionsByTestId,
-  fetchQuestionsFromJsonFile,
   fetchTestQuestions,
   fetchAttemptSnapshotQuestions,
   saveAttemptQuestionSnapshots,
   findAttemptByIdentifier,
   findSeriesByIdentifier,
-  findQuestionByIdentifier,
   getTestSeriesId,
   normalizeSubmittedAnswers,
-  sanitizeOptions,
   publishEvent,
-  parseAssetId,
-  buildAssetMap,
   enrichTestsWithBannerAssets,
   enrichQuestionsWithImageAssets,
   sanitizeQuestionForAttempt,
   normalizeOptionIndex,
   getQuestionId,
-  getQuestionText,
-  getQuestionOptions,
   getCorrectOption,
-  getUserAnswerForQuestion,
   fetchTestCommunityQuestionStats,
   getRankAndPercentile,
   buildResultPayload,
@@ -297,7 +269,11 @@ router.get("/tag/:tag", responseCache("tests-tag-v2", 60), async (req, res) => {
     // Only hydrate series referenced by this page instead of loading the full
     // series catalog for every tag request.
     const seriesIds = Array.from(
-      new Set(filteredTests.map(getTestSeriesId).filter((id) => id != null)),
+      new Set(
+        filteredTests
+          .map(getTestSeriesId)
+          .filter((id) => id !== null && id !== undefined),
+      ),
     );
     const testSeries = seriesIds.length
       ? await dbHelpers.find("testSeries", { id: { $in: seriesIds } })

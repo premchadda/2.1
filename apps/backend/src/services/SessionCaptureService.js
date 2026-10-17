@@ -537,7 +537,7 @@ export const invalidateSession = async (sessionId, revokedBy = null) => {
       if (redis && redis.status === "ready") {
         await redis.del(`session:${sessionId}`);
       }
-    } catch (e) {
+    } catch {
       // Redis invalidation is best-effort
     }
 

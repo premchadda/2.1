@@ -2,7 +2,7 @@
  * Logic for checking attempt limits based on user pass type
  */
 
-const PASS_TYPES = {
+export const PASS_TYPES = {
   FREE: "free",
   TEST_SERIES: "test_series",
   PRO_MONTHLY: "pro_monthly",
@@ -10,7 +10,7 @@ const PASS_TYPES = {
   PRO: "pro",
 };
 
-const LIMITS = {
+export const LIMITS = {
   [PASS_TYPES.FREE]: {
     total_attempts: 3,
     mock_tests: "limited",
@@ -60,8 +60,6 @@ export function checkAttemptLimit(user, attempts, test) {
         "Live Tests are only available for Pro Monthly and Pro Yearly subscribers. Please upgrade to access.",
     };
   }
-
-  const limits = LIMITS[passType] || LIMITS[PASS_TYPES.FREE];
 
   // 2. Check total attempts cap for free users (Per Test)
   if (passType === "free") {

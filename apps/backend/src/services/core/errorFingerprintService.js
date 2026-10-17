@@ -79,7 +79,7 @@ export function classifyErrorCategory(message = "", stack = "", name = "") {
  * to produce canonical strings for fingerprinting
  */
 export function sanitizeTraceAndMessage(message = "", stack = "") {
-  let normalizedMsg = String(message || "")
+  const normalizedMsg = String(message || "")
     .replace(
       /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g,
       "<UUID>",
@@ -91,7 +91,7 @@ export function sanitizeTraceAndMessage(message = "", stack = "") {
     .replace(/\b\d{4,}\b/g, "<NUM>")
     .trim();
 
-  let normalizedStack = String(stack || "")
+  const normalizedStack = String(stack || "")
     .replace(/:\d+:\d+/g, ":<LINE>:<COL>")
     .replace(
       /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g,

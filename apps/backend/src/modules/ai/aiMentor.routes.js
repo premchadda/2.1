@@ -425,7 +425,7 @@ router.post("/chat/stream", protect, aiRateLimiter, async (req, res) => {
               `data: ${JSON.stringify({ content, conversationId })}\n\n`,
             );
           }
-        } catch (e) {
+        } catch {
           // Skip malformed chunks
         }
       }

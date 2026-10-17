@@ -13,7 +13,7 @@
 // - Client disconnect detection via req.on('close')
 // ============================================================
 
-import { createHash } from 'crypto';
+import { createHash } from "crypto";
 
 const MAX_INFLIGHT = 10000;
 const TTL_MS = 30000; // 30 seconds
@@ -27,11 +27,11 @@ const inflightRequests = new Map();
 // endpoints (e.g. /api/users/*, /api/auth/me) are keyed per user. Anonymous
 // requests share the 'anon' bucket (public data is identical for everyone).
 const authFingerprint = (req) => {
-  const authHeader = req.headers?.authorization || '';
-  const tokenCookie = req.cookies?.token || req.cookies?.refreshToken || '';
+  const authHeader = req.headers?.authorization || "";
+  const tokenCookie = req.cookies?.token || req.cookies?.refreshToken || "";
   const credential = authHeader || tokenCookie;
-  if (!credential) return 'anon';
-  return createHash('sha256').update(credential).digest('hex').slice(0, 16);
+  if (!credential) return "anon";
+  return createHash("sha256").update(credential).digest("hex").slice(0, 16);
 };
 
 // Periodic cleanup of orphaned/stale entries
@@ -44,9 +44,13 @@ const cleanupInterval = setInterval(() => {
         entry.subscribers.forEach(({ res: subRes }) => {
           try {
             if (!subRes.headersSent) {
-              subRes.status(504).json({ error: 'Deduplicated request timed out' });
+              subRes
+                .status(504)
+                .json({ error: "Deduplicated request timed out" });
             }
-          } catch (_) { /* subscriber already disconnected */ }
+          } catch {
+            /* subscriber already disconnected */
+          }
         });
       }
       inflightRequests.delete(key);
@@ -58,7 +62,7 @@ const cleanupInterval = setInterval(() => {
 if (cleanupInterval.unref) cleanupInterval.unref();
 
 const requestDedup = (req, res, next) => {
-  if (req.method !== 'GET') return next();
+  if (req.method !== "GET") return next();
 
   const key = `${req.method}:${req.originalUrl}:${authFingerprint(req)}`;
   const existing = inflightRequests.get(key);
@@ -66,14 +70,16 @@ const requestDedup = (req, res, next) => {
   if (existing) {
     // Size check on subscriber list
     if (existing.subscribers.length >= 100) {
-      return res.status(503).json({ error: 'Too many concurrent duplicate requests' });
+      return res
+        .status(503)
+        .json({ error: "Too many concurrent duplicate requests" });
     }
     existing.subscribers.push({ res });
-    res.set('X-Dedup', 'WAITING');
+    res.set("X-Dedup", "WAITING");
 
     // Clean up if client disconnects while waiting
-    req.on('close', () => {
-      const idx = existing.subscribers.findIndex(s => s.res === res);
+    req.on("close", () => {
+      const idx = existing.subscribers.findIndex((s) => s.res === res);
       if (idx !== -1) existing.subscribers.splice(idx, 1);
     });
     return;
@@ -81,7 +87,9 @@ const requestDedup = (req, res, next) => {
 
   // Size limit check
   if (inflightRequests.size >= MAX_INFLIGHT) {
-    return res.status(503).json({ error: 'Server busy — too many inflight requests' });
+    return res
+      .status(503)
+      .json({ error: "Server busy — too many inflight requests" });
   }
 
   const subscribers = [];
@@ -103,7 +111,9 @@ const requestDedup = (req, res, next) => {
         if (!subRes.headersSent) {
           subRes.status(statusCode).json(body);
         }
-      } catch (_) { /* subscriber already disconnected */ }
+      } catch {
+        /* subscriber already disconnected */
+      }
     });
     inflightRequests.delete(key);
     return originalJson(body);
@@ -114,9 +124,9 @@ const requestDedup = (req, res, next) => {
   };
 
   // Clean up on finish, close, or error
-  res.on('finish', cleanup);
-  res.on('close', cleanup);
-  res.on('error', cleanup);
+  res.on("finish", cleanup);
+  res.on("close", cleanup);
+  res.on("error", cleanup);
 
   next();
 };

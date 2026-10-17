@@ -492,7 +492,7 @@ const getSystemHealth = async (req, res) => {
         cpuUsage =
           totalTick > 0 ? Math.round((1 - totalIdle / totalTick) * 100) : 0;
       }
-    } catch (_) {
+    } catch {
       /* non-fatal — CPU % just shows 0 if unavailable */
     }
 
@@ -509,7 +509,7 @@ const getSystemHealth = async (req, res) => {
         disk = { total, used: total - free, free };
         diskUsage = total > 0 ? Math.round(((total - free) / total) * 100) : 0;
       }
-    } catch (_) {
+    } catch {
       /* non-fatal */
     }
 

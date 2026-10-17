@@ -6,13 +6,13 @@ import { getReadPool } from "../../config/database-replicas.js";
 // src/shared/utils/array.js) — kept here minimally to avoid cross-module churn.
 // NOTE: fisherYatesShuffle is currently unused in this service; retained to
 // avoid breaking any external import until the move lands.
-function fisherYatesShuffle(arr) {
-  const shuffled = [...arr];
-  for (let i = shuffled.length - 1; i > 0; i--) {
+export function fisherYatesShuffle(arr) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
     const j = crypto.randomInt(0, i + 1);
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    [copy[i], copy[j]] = [copy[j], copy[i]];
   }
-  return shuffled;
+  return copy;
 }
 
 // Read/write split: reads via readPool (replica when DATABASE_READ_URL is set,
@@ -33,7 +33,7 @@ const getNotificationService = async () => {
       const mod = await import("./core/notificationService.js");
       notificationServiceInstance =
         mod.notificationService || mod.default || mod;
-    } catch (e) {
+    } catch {
       // ignore
     }
   }

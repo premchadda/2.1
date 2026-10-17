@@ -12,7 +12,7 @@ const handoffStore = new Map();
 const pinIndex = new Map();
 
 // Periodic sweep of expired sessions (every 60s)
-let sweepTimer = setInterval(() => {
+const sweepTimer = setInterval(() => {
   const now = Date.now();
   for (const [token, record] of handoffStore.entries()) {
     if (now > record.expiresAt) {
@@ -144,7 +144,7 @@ export async function claimHandoffSession(userId, claimData = {}) {
         payload,
       );
     }
-  } catch (err) {
+  } catch {
     // Non-fatal socket broadcast failure
   }
 

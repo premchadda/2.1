@@ -127,7 +127,7 @@ router.get("/:id", async (req, res) => {
     const { id } = req.params;
 
     // Use unified identifier resolver (supports slug, public_id, and numeric ID)
-    let category = await findEntityByIdentifier(
+    const category = await findEntityByIdentifier(
       dbHelpers,
       "examCategories",
       id,
@@ -162,8 +162,8 @@ router.get("/slug/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
 
-    let categories = await ExamCategory.find({ isActive: true });
-    let category = categories.find((c) => c.slug === slug);
+    const categories = await ExamCategory.find({ isActive: true });
+    const category = categories.find((c) => c.slug === slug);
 
     if (!category) {
       return res.status(404).json({

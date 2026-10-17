@@ -1,7 +1,4 @@
-import {
-  dbHelpers,
-  pool,
-} from "../../infrastructure/database/postgres-helpers.js";
+import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import { idsMatch, safeNumber } from "./common.js";
 
 const getCompletedAttempts = async (filter = {}) => {

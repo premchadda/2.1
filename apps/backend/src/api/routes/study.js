@@ -62,7 +62,7 @@ async function getActiveStudyMaterials(dbHelpers) {
     _studyMaterialsCache = all;
     _studyMaterialsCacheTime = now;
     return all;
-  } catch (_) {
+  } catch {
     return _studyMaterialsCache || [];
   }
 }
@@ -192,7 +192,7 @@ async function resolveSubjectMediaScope(dbHelpers, subject) {
         }
       }
     }
-  } catch (_) {
+  } catch {
     // Non-fatal — proceed with the subject's own ID only
   }
 
@@ -734,7 +734,7 @@ async function loadSubjectMediaBundle(dbHelpers, subject) {
         }
       }
     }
-  } catch (_) {
+  } catch {
     // Non-fatal — proceed with the subject's own ID only
   }
 
@@ -750,7 +750,7 @@ async function loadSubjectMediaBundle(dbHelpers, subject) {
         dbHelpers.find("topicTests", { studyMaterialId: id, isActive: true }),
       ]);
       return { vids, pdfs, tests };
-    } catch (_) {
+    } catch {
       return { vids: [], pdfs: [], tests: [] };
     }
   };
@@ -771,7 +771,7 @@ async function loadSubjectMediaBundle(dbHelpers, subject) {
         dbHelpers.find("topicTests", { [field]: { $in: ids }, isActive: true }),
       ]);
       return { vids, pdfs, tests };
-    } catch (_) {
+    } catch {
       return { vids: [], pdfs: [], tests: [] };
     }
   };

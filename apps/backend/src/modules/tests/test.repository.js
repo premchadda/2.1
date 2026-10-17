@@ -1,5 +1,4 @@
 import { BaseRepository } from "../../infrastructure/repository/base.repository.js";
-import { pool } from "../../infrastructure/database/postgres-helpers.js";
 
 export class TestRepository extends BaseRepository {
   constructor() {
@@ -59,7 +58,7 @@ export class TestRepository extends BaseRepository {
        JOIN test_questions tq ON q.id = tq.question_id
        WHERE tq.test_id = $1 AND q.is_active = true
        ORDER BY tq.order_index, tq.id`,
-      [testId]
+      [testId],
     );
   }
 
@@ -71,38 +70,43 @@ export class TestRepository extends BaseRepository {
        SELECT $1, qid, $2, idx, NOW()
        FROM unnest($3::int[], $4::int[]) AS t(qid, idx)
        ON CONFLICT DO NOTHING`,
-      [testId, sectionId, questionIds, orderIndices]
+      [testId, sectionId, questionIds, orderIndices],
     );
   }
 
   async unlinkQuestions(testId) {
-    await this.executeRaw("DELETE FROM test_questions WHERE test_id = $1", [testId]);
+    await this.executeRaw("DELETE FROM test_questions WHERE test_id = $1", [
+      testId,
+    ]);
   }
 
   async linkSections(testId, sectionIds) {
     if (sectionIds.length > 0) {
       await this.executeRaw(
         "UPDATE test_sections SET test_id = $1 WHERE id = ANY($2::int[])",
-        [testId, sectionIds]
+        [testId, sectionIds],
       );
     }
   }
 
   async unlinkSections(testId) {
-    await this.executeRaw("UPDATE test_sections SET test_id = NULL WHERE test_id = $1", [testId]);
+    await this.executeRaw(
+      "UPDATE test_sections SET test_id = NULL WHERE test_id = $1",
+      [testId],
+    );
   }
 
   async flagOrphanedAttempts(testId) {
     await this.executeRaw(
       "UPDATE attempts SET series_id = NULL WHERE test_id = $1 AND is_completed = false",
-      [testId]
+      [testId],
     );
   }
 
-  async flagOrphanedQuestions(testId, deletedBy) {
+  async flagOrphanedQuestions(testId, _deletedBy) {
     const questions = await this.queryRaw(
       "SELECT q.id FROM questions q JOIN test_questions tq ON q.id = tq.question_id WHERE tq.test_id = $1 AND q.is_active = true",
-      [testId]
+      [testId],
     );
     for (const q of questions) {
       await this.update("questions", q.id, {
@@ -120,11 +124,11 @@ export class TestRepository extends BaseRepository {
        FROM questions q
        JOIN test_questions tq ON q.id = tq.question_id
        WHERE tq.test_id = $1 AND q.is_active = true`,
-      [testId]
+      [testId],
     );
     await this.executeRaw(
       "UPDATE tests SET total_questions = $1, total_marks = $2 WHERE id = $3",
-      [parseInt(stats.q_count), parseFloat(stats.total_marks || 0), testId]
+      [parseInt(stats.q_count), parseFloat(stats.total_marks || 0), testId],
     );
   }
 
@@ -139,7 +143,7 @@ export class TestRepository extends BaseRepository {
        WHERE a.test_id = $1 AND a.is_completed = true
        GROUP BY a.user_id, u.name, u.avatar
        ORDER BY best_score DESC, best_time ASC`,
-      [testId]
+      [testId],
     );
   }
 }

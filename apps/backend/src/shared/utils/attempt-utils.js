@@ -1,4 +1,3 @@
-import { idsMatch } from "./db-utils.js";
 import { buildPublicIdLookup, mapLookupId } from "./public-id-response.js";
 
 /**

@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { idsMatch } from "./db-utils.js";
 import { buildPublicIdLookup, mapLookupId } from "./public-id-response.js";
 import { getSubjectIcon as emojiGetSubjectIcon } from "../config/emojiConfig.js";
 import { decryptPii, isPiiEncryptionEnabled } from "./piiCrypto.js";

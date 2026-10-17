@@ -160,7 +160,7 @@ export const calculateCalibratedPercentile = ({
   };
 };
 
-const percentileOfScore = (sortedScores, score) => {
+export const percentileOfScore = (sortedScores, score) => {
   if (sortedScores.length === 0) return 0;
   const belowOrEqual = sortedScores.filter((value) => value <= score).length;
   return (belowOrEqual / sortedScores.length) * 100;

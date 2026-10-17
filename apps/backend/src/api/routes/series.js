@@ -289,7 +289,7 @@ router.get(
     try {
       const { category, search, sort = "popular" } = req.query;
 
-      let query = { isActive: true };
+      const query = { isActive: true };
 
       if (category && category !== "all") {
         query.category = category;
@@ -317,7 +317,7 @@ router.get(
       const enrichedSeries = await enrichSeriesWithTestCounts(series);
 
       // Sort logic
-      let sortedSeries = [...enrichedSeries];
+      const sortedSeries = [...enrichedSeries];
       sortedSeries.sort((a, b) => {
         // Pinned series always come first
         if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
@@ -361,195 +361,201 @@ router.get(
 // @route   GET /api/series/:slug
 // @desc    Get single test series by slug
 // @access  Public
-router.get("/:slug", optionalAuth, async (req, res) => {
-  try {
-    const series = await findEntityByIdentifier(
-      dbHelpers,
-      "testSeries",
-      req.params.slug,
-      {
-        slugFields: ["slug"],
-      },
-    );
-
-    if (!series || series.isActive === false) {
-      return res.status(404).json({
-        success: false,
-        message: "Test series not found",
-      });
-    }
-
-    const sId = String(getInternalId(series));
-
-    // Calculate actual test counts via SQL query to avoid fetch-all
-    let actualTestCount = 0;
-    let freeTestCount = 0;
+router.get(
+  "/:slug",
+  responseCache("series-detail", 60, { userScoped: true }),
+  optionalAuth,
+  async (req, res) => {
     try {
-      const testsResult = await dbHelpers.pool.query(
-        `SELECT COUNT(*) as actual_count, 
+      const series = await findEntityByIdentifier(
+        dbHelpers,
+        "testSeries",
+        req.params.slug,
+        {
+          slugFields: ["slug"],
+        },
+      );
+
+      if (!series || series.isActive === false) {
+        return res.status(404).json({
+          success: false,
+          message: "Test series not found",
+        });
+      }
+
+      const sId = String(getInternalId(series));
+
+      // Calculate actual test counts via SQL query to avoid fetch-all
+      let actualTestCount = 0;
+      let freeTestCount = 0;
+      try {
+        const testsResult = await dbHelpers.pool.query(
+          `SELECT COUNT(*) as actual_count, 
                 SUM(CASE WHEN is_pro = false OR type ILIKE 'free' THEN 1 ELSE 0 END) as free_count
          FROM tests 
          WHERE is_active = true AND series_id::text = $1`,
-        [sId],
-      );
-      if (testsResult.rows.length > 0) {
-        actualTestCount = parseInt(testsResult.rows[0].actual_count);
-        freeTestCount = parseInt(testsResult.rows[0].free_count);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-
-    // Check if user is enrolled - primary: enrollments table, fallback: legacy enrolledSeries
-    let isEnrolled = false;
-    if (req.user) {
-      isEnrolled = await EnrollmentService.isEnrolledInSeries(
-        dbHelpers,
-        req.user.id,
-        getInternalId(series),
-      );
-
-      if (!isEnrolled) {
-        const userSeries = Array.isArray(req.user.enrolledSeries)
-          ? req.user.enrolledSeries
-          : [];
-        const seriesId = getInternalId(series);
-        isEnrolled = userSeries.some(
-          (entry) =>
-            idsMatch(entry, series._id) ||
-            idsMatch(entry, series.id) ||
-            idsMatch(entry, seriesId),
+          [sId],
         );
-      }
-    }
-
-    // Get category and exam names
-    let categoryName = null;
-    let examName = null;
-    try {
-      const categoriesResult = await dbHelpers.pool.query(
-        `SELECT id, category_id, label FROM exam_categories WHERE is_active = true`,
-      );
-      const examsResult = await dbHelpers.pool.query(
-        `SELECT id, exam_id, category_id, title FROM exams WHERE is_active = true`,
-      );
-
-      const catId = series.category;
-      if (catId) {
-        const category = categoriesResult.rows.find(
-          (c) =>
-            String(c.id) === String(catId) ||
-            String(c.category_id) === String(catId) ||
-            (c.slug && String(c.slug) === String(catId)),
-        );
-        categoryName = category?.label || null;
-      }
-
-      const examId = series.examId || series.exam_id || series.exam_id_fk;
-      if (examId) {
-        const exam = examsResult.rows.find(
-          (e) =>
-            String(e.id) === String(examId) ||
-            String(e.exam_id) === String(examId) ||
-            (e.slug && String(e.slug) === String(examId)),
-        );
-        examName = exam?.title || null;
-      }
-    } catch (e) {
-      console.error("Error fetching category/exam names", e);
-    }
-
-    // Calculate section breakdown counts if available in series.sections
-    let sectionTotalTests = 0;
-    let sectionFreeTests = 0;
-    const testCounts = {};
-    if (Array.isArray(series.sections) && series.sections.length > 0) {
-      series.sections.forEach((sec) => {
-        const free = Number(sec.freeTestCount) || 0;
-        const paid = Number(sec.paidTestCount) || 0;
-        const total = free + paid;
-        if (total > 0) {
-          sectionTotalTests += total;
-          sectionFreeTests += free;
-          testCounts[sec.name] = total;
+        if (testsResult.rows.length > 0) {
+          actualTestCount = parseInt(testsResult.rows[0].actual_count);
+          freeTestCount = parseInt(testsResult.rows[0].free_count);
         }
+      } catch (e) {
+        console.error(e);
+      }
+
+      // Check if user is enrolled - primary: enrollments table, fallback: legacy enrolledSeries
+      let isEnrolled = false;
+      if (req.user) {
+        isEnrolled = await EnrollmentService.isEnrolledInSeries(
+          dbHelpers,
+          req.user.id,
+          getInternalId(series),
+        );
+
+        if (!isEnrolled) {
+          const userSeries = Array.isArray(req.user.enrolledSeries)
+            ? req.user.enrolledSeries
+            : [];
+          const seriesId = getInternalId(series);
+          isEnrolled = userSeries.some(
+            (entry) =>
+              idsMatch(entry, series._id) ||
+              idsMatch(entry, series.id) ||
+              idsMatch(entry, seriesId),
+          );
+        }
+      }
+
+      // Get category and exam names
+      let categoryName = null;
+      let examName = null;
+      try {
+        const categoriesResult = await dbHelpers.pool.query(
+          `SELECT id, category_id, label FROM exam_categories WHERE is_active = true`,
+        );
+        const examsResult = await dbHelpers.pool.query(
+          `SELECT id, exam_id, category_id, title FROM exams WHERE is_active = true`,
+        );
+
+        const catId = series.category;
+        if (catId) {
+          const category = categoriesResult.rows.find(
+            (c) =>
+              String(c.id) === String(catId) ||
+              String(c.category_id) === String(catId) ||
+              (c.slug && String(c.slug) === String(catId)),
+          );
+          categoryName = category?.label || null;
+        }
+
+        const examId = series.examId || series.exam_id || series.exam_id_fk;
+        if (examId) {
+          const exam = examsResult.rows.find(
+            (e) =>
+              String(e.id) === String(examId) ||
+              String(e.exam_id) === String(examId) ||
+              (e.slug && String(e.slug) === String(examId)),
+          );
+          examName = exam?.title || null;
+        }
+      } catch (e) {
+        console.error("Error fetching category/exam names", e);
+      }
+
+      // Calculate section breakdown counts if available in series.sections
+      let sectionTotalTests = 0;
+      let sectionFreeTests = 0;
+      const testCounts = {};
+      if (Array.isArray(series.sections) && series.sections.length > 0) {
+        series.sections.forEach((sec) => {
+          const free = Number(sec.freeTestCount) || 0;
+          const paid = Number(sec.paidTestCount) || 0;
+          const total = free + paid;
+          if (total > 0) {
+            sectionTotalTests += total;
+            sectionFreeTests += free;
+            testCounts[sec.name] = total;
+          }
+        });
+      }
+
+      const dbTotalTests =
+        parseInt(series.total_tests || series.totalTests) || 0;
+      const finalTotalTests = Math.max(
+        actualTestCount,
+        dbTotalTests,
+        sectionTotalTests,
+      );
+      const dbFreeTests = parseInt(series.free_tests || series.freeTests) || 0;
+      const finalFreeTests =
+        freeTestCount > 0
+          ? freeTestCount
+          : sectionFreeTests > 0
+            ? sectionFreeTests
+            : dbFreeTests;
+
+      // Calculate real user enrollments
+      let enrollmentCount = 0;
+      try {
+        const enrollResult = await dbHelpers.pool.query(
+          `SELECT COUNT(DISTINCT user_id) as count FROM enrollments WHERE series_id::text = $1 AND is_active = true`,
+          [sId],
+        );
+        if (enrollResult.rows.length > 0) {
+          enrollmentCount = parseInt(enrollResult.rows[0].count) || 0;
+        }
+      } catch {
+        // Graceful fallback
+      }
+
+      const finalUserCount =
+        enrollmentCount > 0
+          ? enrollmentCount
+          : Math.min(
+              parseInt(series.users_count || series.usersCount || 0) || 0,
+              5,
+            );
+
+      const formatUserCount = (count) => {
+        if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+        if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
+        return count.toString();
+      };
+
+      res.json({
+        success: true,
+        data: {
+          ...series,
+          totalTests: finalTotalTests,
+          total_tests: finalTotalTests,
+          freeTests: finalFreeTests,
+          free_tests: finalFreeTests,
+          testCounts:
+            Object.keys(testCounts).length > 0
+              ? testCounts
+              : series.testCounts || series.test_counts || {},
+          testTypes:
+            Object.keys(testCounts).length > 0
+              ? Object.keys(testCounts)
+              : series.testTypes || series.test_types || [],
+          activeUsers: formatUserCount(finalUserCount),
+          users: formatUserCount(finalUserCount),
+          usersCount: finalUserCount,
+          enrollmentCount: finalUserCount,
+          isEnrolled,
+          categoryName,
+          examName,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: sanitizeErrorMessage(error),
       });
     }
-
-    const dbTotalTests = parseInt(series.total_tests || series.totalTests) || 0;
-    const finalTotalTests = Math.max(
-      actualTestCount,
-      dbTotalTests,
-      sectionTotalTests,
-    );
-    const dbFreeTests = parseInt(series.free_tests || series.freeTests) || 0;
-    const finalFreeTests =
-      freeTestCount > 0
-        ? freeTestCount
-        : sectionFreeTests > 0
-          ? sectionFreeTests
-          : dbFreeTests;
-
-    // Calculate real user enrollments
-    let enrollmentCount = 0;
-    try {
-      const enrollResult = await dbHelpers.pool.query(
-        `SELECT COUNT(DISTINCT user_id) as count FROM enrollments WHERE series_id::text = $1 AND is_active = true`,
-        [sId],
-      );
-      if (enrollResult.rows.length > 0) {
-        enrollmentCount = parseInt(enrollResult.rows[0].count) || 0;
-      }
-    } catch (e) {
-      // Graceful fallback
-    }
-
-    const finalUserCount =
-      enrollmentCount > 0
-        ? enrollmentCount
-        : Math.min(
-            parseInt(series.users_count || series.usersCount || 0) || 0,
-            5,
-          );
-
-    const formatUserCount = (count) => {
-      if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
-      if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
-      return count.toString();
-    };
-
-    res.json({
-      success: true,
-      data: {
-        ...series,
-        totalTests: finalTotalTests,
-        total_tests: finalTotalTests,
-        freeTests: finalFreeTests,
-        free_tests: finalFreeTests,
-        testCounts:
-          Object.keys(testCounts).length > 0
-            ? testCounts
-            : series.testCounts || series.test_counts || {},
-        testTypes:
-          Object.keys(testCounts).length > 0
-            ? Object.keys(testCounts)
-            : series.testTypes || series.test_types || [],
-        activeUsers: formatUserCount(finalUserCount),
-        users: formatUserCount(finalUserCount),
-        usersCount: finalUserCount,
-        enrollmentCount: finalUserCount,
-        isEnrolled,
-        categoryName,
-        examName,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: sanitizeErrorMessage(error),
-    });
-  }
-});
+  },
+);
 
 // @route   GET /api/series/:slug/tests
 // @desc    Get tests in a series

@@ -29,7 +29,7 @@ router.get(
       const offset = ((parseInt(page, 10) || 1) - 1) * parsedLimit;
 
       // Conditions matching live tests, live quizzes, and scheduled sessions
-      let conditions = [
+      const conditions = [
         `t.is_active = true`,
         `(
         t.is_live = true 

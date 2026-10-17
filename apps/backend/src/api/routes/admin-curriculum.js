@@ -478,7 +478,7 @@ router.get(
       const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
       const passages = await dbHelpers.find("passages", {}, limit, offset);
       res.json({ success: true, data: passages || [] });
-    } catch (err) {
+    } catch {
       res.json({ success: true, data: [] });
     }
   }),

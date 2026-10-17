@@ -85,7 +85,7 @@ const ensureUserSessionsTable = async () => {
           `ALTER TABLE user_sessions ALTER COLUMN id DROP DEFAULT`,
         );
       }
-    } catch (_) {
+    } catch {
       /* table may not exist yet, ignore */
     }
 
@@ -144,7 +144,7 @@ const ensureUserSessionsTable = async () => {
             await pool.query(
               `ALTER TABLE user_sessions RENAME COLUMN ${from} TO ${to}`,
             );
-          } catch (_) {
+          } catch {
             /* column may already be renamed */
           }
         }
@@ -178,7 +178,7 @@ const ensureUserSessionsTable = async () => {
         await pool.query(
           `ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS ${col} ${def}`,
         );
-      } catch (_) {
+      } catch {
         /* already exists */
       }
     }

@@ -169,7 +169,7 @@ class SmsService {
    */
   validateAndFormatPhone(phoneNumber) {
     // Remove all non-digit characters
-    let cleaned = phoneNumber.replace(/\D/g, "");
+    const cleaned = phoneNumber.replace(/\D/g, "");
 
     // If starts with 91 (India), keep as is
     if (cleaned.startsWith("91")) {

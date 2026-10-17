@@ -397,7 +397,7 @@ router.post("/create-order", protect, async (req, res) => {
         });
       }
       originalAmount = expectedAmount;
-    } catch (e) {
+    } catch {
       return res.status(400).json({
         success: false,
         message: "Unable to validate plan price. Please try again.",
@@ -928,7 +928,7 @@ router.post(
       req.rawBody = req.body.toString("utf8");
       try {
         req.body = JSON.parse(req.rawBody);
-      } catch (e) {
+      } catch {
         return res
           .status(400)
           .json({ success: false, message: "Invalid JSON" });
@@ -948,7 +948,7 @@ router.post(
     try {
       req.rawBody = (req.body || "").toString();
       req.body = JSON.parse(req.rawBody);
-    } catch (e) {
+    } catch {
       return res.status(400).json({ success: false, message: "Invalid JSON" });
     }
     next();
@@ -1413,7 +1413,7 @@ router.get(
         refundId: r.refundId || r.refund_id || null,
       }));
       res.json({ success: true, count: enriched.length, data: enriched });
-    } catch (e) {
+    } catch {
       // fallback raw query
       try {
         const result = await pool.query(

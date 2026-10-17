@@ -340,12 +340,10 @@ router.get("/groups/:id/posts", optionalAuth, async (req, res) => {
     // Check access for private groups
     if (group.isPublic === false) {
       if (!req.user) {
-        return res
-          .status(401)
-          .json({
-            success: false,
-            message: "Login required to view private group posts",
-          });
+        return res.status(401).json({
+          success: false,
+          message: "Login required to view private group posts",
+        });
       }
       const isMember = group.members?.some(
         (id) => String(id) === String(req.user.id),
@@ -357,7 +355,7 @@ router.get("/groups/:id/posts", optionalAuth, async (req, res) => {
       }
     }
 
-    let posts = await dbHelpers.find("communityPosts", {
+    const posts = await dbHelpers.find("communityPosts", {
       groupId: req.params.id,
       isActive: true,
     });
@@ -525,12 +523,10 @@ router.post("/posts/:postId/vote", protect, async (req, res) => {
   try {
     const { voteType } = req.body;
     if (!["upvote", "downvote"].includes(voteType)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: 'Vote type must be "upvote" or "downvote"',
-        });
+      return res.status(400).json({
+        success: false,
+        message: 'Vote type must be "upvote" or "downvote"',
+      });
     }
 
     const post = await dbHelpers.findById("communityPosts", req.params.postId);

@@ -200,7 +200,7 @@ export const executeProctorIntervention = async (
         timestamp: interventionRecord.timestamp,
       });
     }
-  } catch (err) {
+  } catch {
     // Non-fatal if socket server not running in test context
   }
 

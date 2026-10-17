@@ -81,7 +81,7 @@ router.get(["/admin/attempts", "/attempts"], async (req, res) => {
 
     // Populate user names & emails
     const userIds = sorted.map((e) => e.userId).filter(Boolean);
-    let userMap = {};
+    const userMap = {};
     if (userIds.length > 0) {
       try {
         const usersRes = await pool.query(

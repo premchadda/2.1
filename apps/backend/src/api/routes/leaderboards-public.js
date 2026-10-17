@@ -1,22 +1,25 @@
-import express from 'express';
-import { pool, dbHelpers } from '../../infrastructure/database/postgres-helpers.js';
-import { optionalAuth } from '../../middleware/auth.middleware.js';
-import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
+import express from "express";
+import {
+  pool,
+  dbHelpers,
+} from "../../infrastructure/database/postgres-helpers.js";
+import { optionalAuth } from "../../middleware/auth.middleware.js";
+import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
 
 // SEC-08: Public leaderboards endpoint - anonymize user data to prevent PII exposure
 // @route   GET /api/leaderboards
-router.get('/', optionalAuth, async (req, res) => {
+router.get("/", optionalAuth, async (req, res) => {
   try {
     const { testId, seriesId, examId, limit = 50 } = req.query;
-    let query = { isActive: true };
+    const query = { isActive: true };
 
     if (testId) query.testId = testId;
     if (seriesId) query.seriesId = seriesId;
     if (examId) query.examId = examId;
 
-    const leaderboards = await dbHelpers.find('leaderboards', query);
+    const leaderboards = await dbHelpers.find("leaderboards", query);
 
     // If no leaderboards found, generate from results or completed attempts
     if (!leaderboards || leaderboards.length === 0) {
@@ -24,18 +27,18 @@ router.get('/', optionalAuth, async (req, res) => {
       if (seriesId) resultsQuery.seriesId = seriesId;
       if (testId) resultsQuery.testId = testId;
 
-      let results = await dbHelpers.find('results', resultsQuery);
+      let results = await dbHelpers.find("results", resultsQuery);
 
       if (!results || results.length === 0) {
         // Fallback to attempts table for real-time completed attempts
-        const attemptsQuery = { status: 'completed' };
+        const attemptsQuery = { status: "completed" };
         if (seriesId) attemptsQuery.seriesId = seriesId;
         if (testId) attemptsQuery.testId = testId;
-        results = await dbHelpers.find('attempts', attemptsQuery);
+        results = await dbHelpers.find("attempts", attemptsQuery);
       }
 
       if (!results || results.length === 0) {
-        return res.json({ success: true, data: [], count: 0, source: 'empty' });
+        return res.json({ success: true, data: [], count: 0, source: "empty" });
       }
 
       const sortedResults = results
@@ -50,42 +53,45 @@ router.get('/', optionalAuth, async (req, res) => {
         .slice(0, limit);
 
       const totalParticipants = results.length;
-      const rankings = await Promise.all(sortedResults.map(async (result, index) => {
-        const participantsBelow = totalParticipants - (index + 1);
-        const realPercentile =
-          totalParticipants > 1
-            ? ((participantsBelow / totalParticipants) * 100).toFixed(1)
-            : '100.0';
+      const rankings = await Promise.all(
+        sortedResults.map(async (result, index) => {
+          const participantsBelow = totalParticipants - (index + 1);
+          const realPercentile =
+            totalParticipants > 1
+              ? ((participantsBelow / totalParticipants) * 100).toFixed(1)
+              : "100.0";
 
-        let isProUser = false;
-        let displayName = `Student #${index + 1}`;
-        try {
-          const user = await dbHelpers.findById('users', result.userId);
-          isProUser = user?.isProUser || user?.isPro || false;
-          if (req.user && String(result.userId) === String(req.user.id)) {
-            displayName = user?.name || displayName;
+          let isProUser = false;
+          let displayName = `Student #${index + 1}`;
+          try {
+            const user = await dbHelpers.findById("users", result.userId);
+            isProUser = user?.isProUser || user?.isPro || false;
+            if (req.user && String(result.userId) === String(req.user.id)) {
+              displayName = user?.name || displayName;
+            }
+          } catch {
+            // User lookup failed, default to false
           }
-        } catch (e) {
-          // User lookup failed, default to false
-        }
 
-        return {
-          rank: index + 1,
-          name: displayName,
-          score: parseFloat(result.score || 0).toFixed(2),
-          percentile: realPercentile,
-          testsCompleted: result.testsCompleted || result.tests_completed || 1,
-          accuracy: result.accuracy ?? 0,
-          isPro: isProUser,
-        };
-      }));
+          return {
+            rank: index + 1,
+            name: displayName,
+            score: parseFloat(result.score || 0).toFixed(2),
+            percentile: realPercentile,
+            testsCompleted:
+              result.testsCompleted || result.tests_completed || 1,
+            accuracy: result.accuracy ?? 0,
+            isPro: isProUser,
+          };
+        }),
+      );
 
       return res.json({
         success: true,
         data: rankings,
         count: rankings.length,
         totalParticipants,
-        source: 'calculated',
+        source: "calculated",
       });
     }
 
@@ -98,7 +104,8 @@ router.get('/', optionalAuth, async (req, res) => {
           .sort((a, b) => a.rank - b.rank)
           .slice(0, limit)
           .map((r) => {
-            const isCurrentUser = currentUserId && String(r.userId) === currentUserId;
+            const isCurrentUser =
+              currentUserId && String(r.userId) === currentUserId;
             return {
               rank: r.rank,
               name: isCurrentUser && r.name ? r.name : `Student #${r.rank}`,
@@ -114,23 +121,29 @@ router.get('/', optionalAuth, async (req, res) => {
       }),
     );
 
-    res.json({ success: true, data: populatedLeaderboards, count: populatedLeaderboards.length });
+    res.json({
+      success: true,
+      data: populatedLeaderboards,
+      count: populatedLeaderboards.length,
+    });
   } catch (error) {
-    console.error('Get leaderboards error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    console.error("Get leaderboards error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
 
 // @route   GET /api/leaderboards/:id
-router.get('/:id', async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { page = 1, limit = 50 } = req.query;
 
-    const leaderboard = await dbHelpers.findById('leaderboards', id);
+    const leaderboard = await dbHelpers.findById("leaderboards", id);
 
     if (!leaderboard || !leaderboard.isActive) {
-      return res.status(404).json({ success: false, message: 'Leaderboard not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Leaderboard not found" });
     }
 
     const rankings = leaderboard.rankings || [];
@@ -154,8 +167,10 @@ router.get('/:id', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Get leaderboard error:', error);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    console.error("Get leaderboard error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 

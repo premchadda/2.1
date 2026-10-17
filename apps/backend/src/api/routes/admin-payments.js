@@ -458,7 +458,7 @@ router.get(
         count: result.rows.length,
         data: result.rows,
       });
-    } catch (tableError) {
+    } catch {
       // Fallback for fresh DB / unit tests where table not yet migrated
       try {
         await pool.query(

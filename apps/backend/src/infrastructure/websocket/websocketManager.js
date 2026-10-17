@@ -227,7 +227,7 @@ export const initWebSocket = async (server) => {
       };
 
       next();
-    } catch (error) {
+    } catch {
       // Invalid/expired token — reject the connection rather than silently
       // downgrading to guest (was a security gap: revoked sessions kept sockets).
       return next(new Error("Invalid or expired authentication"));

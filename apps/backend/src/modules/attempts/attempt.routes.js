@@ -1063,7 +1063,7 @@ router.post("/:attemptId/events", protect, async (req, res) => {
             serverTime: new Date().toISOString(),
           });
         }
-      } catch (_) {
+      } catch {
         /* realtime is non-fatal */
       }
     } else {
@@ -1148,7 +1148,7 @@ router.post("/:attemptId/heartbeat", protect, async (req, res) => {
           serverTime: new Date().toISOString(),
         });
       }
-    } catch (_) {
+    } catch {
       /* realtime is non-fatal */
     }
 

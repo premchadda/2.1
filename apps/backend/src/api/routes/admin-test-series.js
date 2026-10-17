@@ -189,7 +189,7 @@ router.get(
   asyncHandler(async (req, res) => {
     // Admin needs to see all series (active + inactive) by default. Support query filters:
     // ?status=all|active|inactive or ?isActive=true|false or ?includeInactive=true
-    let filter = { includeInactive: true };
+    const filter = { includeInactive: true };
     const status = String(req.query.status || "").toLowerCase();
     const includeInactive = String(
       req.query.includeInactive || "",

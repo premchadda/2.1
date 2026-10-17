@@ -297,7 +297,7 @@ router.post(
       }
 
       // OTP is valid, find or create user — fetch role/limit for session enforcement
-      let userResult = await dbHelpers.query(
+      const userResult = await dbHelpers.query(
         "SELECT id, email, name, phone_verified, role, is_pro_user, session_limit FROM users WHERE phone = $1",
         [phoneNumber],
       );

@@ -1,131 +1,159 @@
-import express from 'express'
-import { protect, admin } from '../../middleware/auth.middleware.js'
-import testBuilderService from './testBuilder.service.js'
-import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
+import express from "express";
+import { protect, admin } from "../../middleware/auth.middleware.js";
+import testBuilderService from "./testBuilder.service.js";
+import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
-const router = express.Router()
+const router = express.Router();
 
-router.get('/', protect, admin, async (req, res) => {
+router.get("/", protect, admin, async (req, res) => {
   try {
-    const { status, difficulty, seriesId, limit = 50, offset = 0 } = req.query
-    const query = {}
-    if (status) query.status = status
-    if (difficulty) query.difficulty = difficulty
-    if (seriesId) query.seriesId = seriesId
+    const { status, difficulty, seriesId, limit = 50, offset = 0 } = req.query;
+    const query = { limit, offset };
+    if (status) query.status = status;
+    if (difficulty) query.difficulty = difficulty;
+    if (seriesId) query.seriesId = seriesId;
 
-    const tests = await testBuilderService.list(query)
-    res.json({ success: true, data: tests })
+    const tests = await testBuilderService.list(query);
+    res.json({ success: true, data: tests });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
-router.get('/:id', protect, admin, async (req, res) => {
+router.get("/:id", protect, admin, async (req, res) => {
   try {
-    const test = await testBuilderService.getById(req.params.id)
-    res.json({ success: true, data: test })
+    const test = await testBuilderService.getById(req.params.id);
+    res.json({ success: true, data: test });
   } catch (error) {
-    res.status(404).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(404)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
-router.post('/', protect, admin, async (req, res) => {
+router.post("/", protect, admin, async (req, res) => {
   try {
-    const validation = testBuilderService.validate(req.body)
+    const validation = testBuilderService.validate(req.body);
     if (!validation.valid) {
       return res.status(400).json({
         success: false,
-        message: 'Validation failed',
-        errors: validation.errors
-      })
+        message: "Validation failed",
+        errors: validation.errors,
+      });
     }
 
-    const test = await testBuilderService.create(req.body)
-    res.status(201).json({ success: true, data: test })
+    const test = await testBuilderService.create(req.body);
+    res.status(201).json({ success: true, data: test });
   } catch (error) {
-    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(400)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
-router.post('/from-template/:templateId', protect, admin, async (req, res) => {
+router.post("/from-template/:templateId", protect, admin, async (req, res) => {
   try {
-    const test = await testBuilderService.createFromTemplate(req.params.templateId, req.body)
-    res.status(201).json({ success: true, data: test })
+    const test = await testBuilderService.createFromTemplate(
+      req.params.templateId,
+      req.body,
+    );
+    res.status(201).json({ success: true, data: test });
   } catch (error) {
-    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(400)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
-router.put('/:id', protect, admin, async (req, res) => {
+router.put("/:id", protect, admin, async (req, res) => {
   try {
-    const test = await testBuilderService.update(req.params.id, req.body)
-    res.json({ success: true, data: test })
+    const test = await testBuilderService.update(req.params.id, req.body);
+    res.json({ success: true, data: test });
   } catch (error) {
-    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(400)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
-router.post('/:id/clone', protect, admin, async (req, res) => {
+router.post("/:id/clone", protect, admin, async (req, res) => {
   try {
-    const test = await testBuilderService.clone(req.params.id, req.body)
-    res.status(201).json({ success: true, data: test })
+    const test = await testBuilderService.clone(req.params.id, req.body);
+    res.status(201).json({ success: true, data: test });
   } catch (error) {
-    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(400)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
-router.get('/:id/questions', protect, admin, async (req, res) => {
+router.get("/:id/questions", protect, admin, async (req, res) => {
   try {
-    const questions = await testBuilderService.getQuestions(req.params.id)
-    res.json({ success: true, data: questions })
+    const questions = await testBuilderService.getQuestions(req.params.id);
+    res.json({ success: true, data: questions });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
-router.post('/:id/questions', protect, admin, async (req, res) => {
+router.post("/:id/questions", protect, admin, async (req, res) => {
   try {
-    const { questionIds } = req.body
+    const { questionIds } = req.body;
     if (!questionIds || !Array.isArray(questionIds)) {
       return res.status(400).json({
         success: false,
-        message: 'questionIds array is required'
-      })
+        message: "questionIds array is required",
+      });
     }
 
-    await testBuilderService.linkQuestions(req.params.id, questionIds)
-    res.json({ success: true, message: 'Questions linked' })
+    await testBuilderService.linkQuestions(req.params.id, questionIds);
+    res.json({ success: true, message: "Questions linked" });
   } catch (error) {
-    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(400)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
-router.delete('/:id/questions', protect, admin, async (req, res) => {
+router.delete("/:id/questions", protect, admin, async (req, res) => {
   try {
-    const { questionIds } = req.body
-    await testBuilderService.unlinkQuestions(req.params.id, questionIds)
-    res.json({ success: true, message: 'Questions unlinked' })
+    const { questionIds } = req.body;
+    await testBuilderService.unlinkQuestions(req.params.id, questionIds);
+    res.json({ success: true, message: "Questions unlinked" });
   } catch (error) {
-    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(400)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
-router.post('/:id/sections', protect, admin, async (req, res) => {
+router.post("/:id/sections", protect, admin, async (req, res) => {
   try {
-    const section = await testBuilderService.createSection(req.params.id, req.body)
-    res.status(201).json({ success: true, data: section })
+    const section = await testBuilderService.createSection(
+      req.params.id,
+      req.body,
+    );
+    res.status(201).json({ success: true, data: section });
   } catch (error) {
-    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(400)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
-router.put('/:id/sections', protect, admin, async (req, res) => {
+router.put("/:id/sections", protect, admin, async (req, res) => {
   try {
-    await testBuilderService.updateSections(req.params.id, req.body.sections)
-    res.json({ success: true, message: 'Sections updated' })
+    await testBuilderService.updateSections(req.params.id, req.body.sections);
+    res.json({ success: true, message: "Sections updated" });
   } catch (error) {
-    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
+    res
+      .status(400)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
-})
+});
 
-export default router
+export default router;

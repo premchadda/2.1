@@ -10,7 +10,7 @@ import {
 export const invalidateResponseCache = async (namespace) => {
   try {
     await deleteCacheByPrefix(namespace);
-  } catch (err) {
+  } catch {
     // Non-fatal
   }
 };
@@ -90,6 +90,11 @@ export const responseCache = (
       // cacheService.toNamespacedKey, so the prefix must NOT be repeated here
       // (getCache(prefix, `${prefix}:…`) would double-count it).
       const key = `${userScope}:${requestPath}`;
+      // Barrier key MUST include the cache namespace/prefix: when a route
+      // carries its own responseCache under a GET wrapped by the app-level
+      // catch-all, both layers must never share one barrier entry or the
+      // inner layer waits on a barrier only its own response can release.
+      const barrierKey = `${prefix}:${key}`;
 
       try {
         const cached = await getCache(prefix, key);
@@ -101,7 +106,7 @@ export const responseCache = (
         // Cache read failure must never block the real request.
       }
 
-      const barrier = inFlight.get(key);
+      const barrier = inFlight.get(barrierKey);
       if (barrier) {
         try {
           await awaitBarrier(barrier);
@@ -117,8 +122,8 @@ export const responseCache = (
         // becomes the new leader instead of queueing behind a dead promise.
         // Only delete when the entry is still this exact barrier (the leader
         // may have finished, or a newer barrier may already exist).
-        if (inFlight.get(key) === barrier) {
-          inFlight.delete(key);
+        if (inFlight.get(barrierKey) === barrier) {
+          inFlight.delete(barrierKey);
         }
       }
 
@@ -128,7 +133,7 @@ export const responseCache = (
           release = resolve;
         }),
       };
-      inFlight.set(key, myBarrier);
+      inFlight.set(barrierKey, myBarrier);
 
       // Guarded so the 'close' fallback below can never double-release the
       // barrier when res.json/res.send already ran. Streaming/sendFile
@@ -137,7 +142,7 @@ export const responseCache = (
       const finish = () => {
         if (finished) return;
         finished = true;
-        inFlight.delete(key);
+        inFlight.delete(barrierKey);
         if (release) release();
       };
       res.on("close", finish);
@@ -191,6 +196,11 @@ export const responseCache = (
     // cacheService.toNamespacedKey (getCache(namespace, `${namespace}:…`)
     // would double-count it).
     const key = `${userScope}:${req.originalUrl || req.url}`;
+    // Barrier key includes the namespace so stacked responseCache layers (an
+    // app-level catch-all above a route-level cache) can never collide on one
+    // inFlight entry — the inner layer waiting on a barrier only its own
+    // response can release deadlocks cold requests for the barrier timeout.
+    const barrierKey = `${namespace}:${key}`;
 
     try {
       const cached = await getCache(namespace, key);
@@ -204,7 +214,7 @@ export const responseCache = (
 
     // If a request for this key is already being computed, wait for it and
     // then serve from cache instead of re-running the handler.
-    const barrier = inFlight.get(key);
+    const barrier = inFlight.get(barrierKey);
     if (barrier) {
       try {
         await awaitBarrier(barrier);
@@ -219,8 +229,8 @@ export const responseCache = (
       // Stale barrier (timed out with no cache) — delete it so this request
       // becomes the new leader instead of queueing behind a dead promise.
       // Only delete when the entry is still this exact barrier.
-      if (inFlight.get(key) === barrier) {
-        inFlight.delete(key);
+      if (inFlight.get(barrierKey) === barrier) {
+        inFlight.delete(barrierKey);
       }
     }
 
@@ -230,7 +240,7 @@ export const responseCache = (
         release = resolve;
       }),
     };
-    inFlight.set(key, myBarrier);
+    inFlight.set(barrierKey, myBarrier);
 
     // Guarded so the 'close' fallback below can never double-release the
     // barrier when res.json/res.send already ran. Streaming/sendFile
@@ -239,7 +249,7 @@ export const responseCache = (
     const finish = () => {
       if (finished) return;
       finished = true;
-      inFlight.delete(key);
+      inFlight.delete(barrierKey);
       if (release) release();
     };
     res.on("close", finish);

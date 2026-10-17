@@ -110,13 +110,11 @@ router.get(
         },
       });
     } catch (error) {
-      res
-        .status(500)
-        .json({
-          success: false,
-          message: "Failed to load trash",
-          error: sanitizeErrorMessage(error),
-        });
+      res.status(500).json({
+        success: false,
+        message: "Failed to load trash",
+        error: sanitizeErrorMessage(error),
+      });
     }
   },
 );
@@ -154,13 +152,11 @@ router.put("/:id/restore", protect, admin, async (req, res) => {
     }
     res.json({ success: true, message: "Item restored" });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to restore item",
-        error: sanitizeErrorMessage(error),
-      });
+    res.status(500).json({
+      success: false,
+      message: "Failed to restore item",
+      error: sanitizeErrorMessage(error),
+    });
   }
 });
 
@@ -184,7 +180,7 @@ const purgeAllTrash = async (_req, res) => {
             return deleteRes.rowCount || 0;
           }
           return 0;
-        } catch (err) {
+        } catch {
           // If foreign key constraint prevents bulk delete, fall back to individual deleteById
           const rows = await dbHelpers
             .find(table, TRASH_QUERY, 500)
@@ -223,13 +219,11 @@ const purgeAllTrash = async (_req, res) => {
       data: { purged },
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to empty trash",
-        error: sanitizeErrorMessage(error),
-      });
+    res.status(500).json({
+      success: false,
+      message: "Failed to empty trash",
+      error: sanitizeErrorMessage(error),
+    });
   }
 };
 
@@ -264,13 +258,11 @@ router.delete("/:id", protect, admin, async (req, res) => {
     }
     res.json({ success: true, message: "Item permanently deleted" });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to delete item",
-        error: sanitizeErrorMessage(error),
-      });
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete item",
+      error: sanitizeErrorMessage(error),
+    });
   }
 });
 

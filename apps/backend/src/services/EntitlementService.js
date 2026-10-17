@@ -1,4 +1,3 @@
-import { isProUser } from "../shared/utils/user-utils.js";
 import { TestPolicyEngine } from "./core/TestPolicyEngine.js";
 
 /**
@@ -94,7 +93,6 @@ export class EntitlementService {
 
     const isTestPro = this.isTestPro(test);
     const isProUser = this.isPro(user);
-    const accessType = isTestPro ? "PRO" : "FREE";
 
     // Free test inside ANY series (Free or Pro) is attemptable by everyone
     if (!isTestPro) {

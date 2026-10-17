@@ -498,7 +498,7 @@ router.post("/admin/broadcast", protect, admin, async (req, res) => {
 
     // Get all active users (or filtered) with limit (Issue #41)
     const MAX_BROADCAST_USERS = 10000; // Safety limit
-    let userQuery = { isActive: true };
+    const userQuery = { isActive: true };
     if (filter?.role) {
       userQuery.role = filter.role;
     }

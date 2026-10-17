@@ -206,7 +206,7 @@ describe("Multi-Exam Test Engine E2E Simulation", () => {
     it("evaluates mastery tier based on accuracy and speed thresholds", () => {
       // 18 correct out of 20 = 90% accuracy, average speed 32s/q
       let correctCount = 0;
-      let totalTimeSpent = 640; // seconds
+      const totalTimeSpent = 640; // seconds
 
       for (let i = 0; i < 20; i++) {
         if (i < 18) correctCount++;

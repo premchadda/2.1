@@ -46,7 +46,7 @@ router.put("/:id/state", protect, admin, async (req, res) => {
         testId: result.id,
         to,
       });
-    } catch (e) {
+    } catch {
       /* non-critical */
     }
     res.json({ success: true, data: result });

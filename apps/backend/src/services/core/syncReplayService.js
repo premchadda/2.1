@@ -48,13 +48,7 @@ export const processSyncReplay = async (attemptId, userId, payload = {}) => {
     throw new Error("Attempt ID is required for sync replay");
   }
 
-  const {
-    idempotencyKey,
-    answers = [],
-    sectionChanges = [],
-    telemetryEvents = [],
-    clientTimestamp,
-  } = payload;
+  const { idempotencyKey, answers = [], sectionChanges = [] } = payload;
 
   // 1. Idempotency Check
   if (idempotencyKey && processedIdempotencyKeys.has(idempotencyKey)) {

@@ -128,7 +128,6 @@ export function scoreMcqAnswer({
     const selArr = isSelectedArray ? normSelected : [normSelected];
     const corArr = isCorrectArray ? normCorrect : [normCorrect];
 
-    const selSet = new Set(selArr);
     const corSet = new Set(corArr);
 
     // Exact match (all correct options chosen, no wrong options)

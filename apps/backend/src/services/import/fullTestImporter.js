@@ -394,7 +394,7 @@ async function getTableColumns(client, table) {
   return cols;
 }
 
-async function hasColumn(client, table, column) {
+export async function hasColumn(client, table, column) {
   const cols = await getTableColumns(client, table);
   return cols.has(column);
 }
@@ -505,7 +505,7 @@ async function getCategoryPath(client, categoryId) {
 
 // ─── Helper: build INSERT dynamically based on existing columns ────────────────
 
-async function safeInsert(client, table, row, columns) {
+export async function safeInsert(client, table, row, columns) {
   const existingCols = await getTableColumns(client, table);
   const cols = columns.filter((c) => existingCols.has(c));
   const vals = cols.map((c) => row[c]);
@@ -743,14 +743,6 @@ export async function importFullTest(json, config = {}) {
 
     // Dynamic columns list (skip columns that don't exist in DB yet)
     const testCols = Object.keys(testRow);
-
-    const testPlaceholders = testCols.map((_, i) => `$${i + 1}`);
-    const testSql = `
-      INSERT INTO tests (${testCols.map((c) => `"${c}"`).join(", ")})
-      VALUES (${testPlaceholders.join(", ")})
-      RETURNING id, title, slug
-    `;
-
     let testResult;
     if (dryRun) {
       testResult = {
@@ -830,7 +822,7 @@ export async function importFullTest(json, config = {}) {
               q.solution_bilingual?.hn ||
               q.solution_bilingual?.hin ||
               null;
-            let qCorrect =
+            const qCorrect =
               typeof q.correctAnswer === "number"
                 ? q.correctAnswer - 1
                 : typeof q.correct_option_id === "number"
@@ -1029,7 +1021,7 @@ export async function importFullTest(json, config = {}) {
             null;
 
           // ── correctAnswer: JSON is 1-indexed, DB is 0-indexed
-          let correctOption =
+          const correctOption =
             typeof q.correctAnswer === "number"
               ? q.correctAnswer - 1
               : typeof q.correct_option_id === "number"

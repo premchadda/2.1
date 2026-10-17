@@ -1496,7 +1496,7 @@ router.post("/tests/:id/publish", async (req, res) => {
       await deleteCacheByPrefix("tests-list").catch(() => {});
       await deleteCacheByPrefix("tests-tag").catch(() => {});
       await deleteCacheByPrefix("admin-tests").catch(() => {});
-    } catch (_) {
+    } catch {
       /* cache clear non-fatal */
     }
 

@@ -93,7 +93,7 @@ const imageOptimization = async (req, res, next) => {
       res.set("Vary", "Accept, Accept-Encoding");
       res.set("Cache-Control", "public, max-age=31536000, immutable");
       return res.send(buffer);
-    } catch (err) {
+    } catch {
       sharpPromise = null;
       return next();
     }
@@ -116,7 +116,7 @@ const imageOptimization = async (req, res, next) => {
       res.set("Vary", "Accept, Accept-Encoding");
       res.set("Cache-Control", "public, max-age=31536000, immutable");
       return res.send(buffer);
-    } catch (err) {
+    } catch {
       sharpPromise = null;
       return next();
     }

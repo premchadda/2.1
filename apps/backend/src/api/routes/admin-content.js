@@ -347,7 +347,7 @@ router.post(
       await dbHelpers.pool.query("SELECT update_study_material_counts($1)", [
         Number(smId) || smId,
       ]);
-    } catch (err) {
+    } catch {
       // Optional procedure
     }
 

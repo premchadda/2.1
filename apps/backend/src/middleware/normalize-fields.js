@@ -173,7 +173,7 @@ export function normalizeRequestBody(body) {
 
   for (const [key, value] of Object.entries(body)) {
     // Determine the canonical snake_case name for this field
-    let canonicalKey = FIELD_ALIASES[key] || camelToSnake(key);
+    const canonicalKey = FIELD_ALIASES[key] || camelToSnake(key);
 
     // On collision prefer the explicit snake_case form (already canonical);
     // otherwise first-writer wins. Either way, record it for the warn below.

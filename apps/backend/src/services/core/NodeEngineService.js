@@ -267,7 +267,7 @@ export class NodeEngineService {
         [userId, nodeId],
       );
 
-      let skill = currentSkillRes.rows[0];
+      const skill = currentSkillRes.rows[0];
       const attemptCount = (skill?.attempt_count || 0) + 1;
       const correctCount = (skill?.correct_count || 0) + (isCorrect ? 1 : 0);
       const newMastery = this.calculateMastery(

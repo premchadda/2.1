@@ -128,7 +128,7 @@ router.get("/:id", async (req, res, next) => {
     const { id } = req.params;
     if (id === "categories") return next();
 
-    let doubt = await dbHelpers.findById("doubts", id);
+    const doubt = await dbHelpers.findById("doubts", id);
 
     if (!doubt) {
       return res

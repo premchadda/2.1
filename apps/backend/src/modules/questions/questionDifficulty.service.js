@@ -458,7 +458,7 @@ export async function calibrateQuestionById(questionId) {
         lowerGroup,
       };
     }
-  } catch (err) {
+  } catch {
     // Database query failed, rely on heuristic
   }
 

@@ -1,7 +1,3 @@
-import {
-  pool,
-  dbHelpers,
-} from "../../infrastructure/database/postgres-helpers.js";
 import { normalCDF, getExamPrior } from "./rankPredictionService.js";
 import { getUserPerformanceAnalytics } from "./analyticsService.js";
 

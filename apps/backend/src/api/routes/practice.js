@@ -804,12 +804,19 @@ router.get(
  * GET /api/practice/subjects
  * Returns all active subjects from database with chapters and question counts
  */
-router.get("/subjects", protect, async (req, res) => {
-  try {
-    // Both old queries scanned questions independently. Materialise the
-    // active question projection once and derive subject/chapter totals from
-    // it in one read-pool round trip.
-    const catalogRes = await readQuery(`
+router.get(
+  "/subjects",
+  protect,
+  responseCache("practice-subjects", 300, {
+    userScoped: true,
+    excludePaths: [],
+  }),
+  async (req, res) => {
+    try {
+      // Both old queries scanned questions independently. Materialise the
+      // active question projection once and derive subject/chapter totals from
+      // it in one read-pool round trip.
+      const catalogRes = await readQuery(`
       WITH active_questions AS MATERIALIZED (
         SELECT subject_id, chapter_id, topic_id
         FROM questions
@@ -859,43 +866,46 @@ router.get("/subjects", protect, async (req, res) => {
       ORDER BY row_type, sort_order NULLS LAST, order_index NULLS LAST, title
     `);
 
-    const chaptersBySubject = {};
-    const subjectsRes = [];
-    for (const row of catalogRes.rows) {
-      if (row.row_type === "subject") {
-        subjectsRes.push(row);
-        continue;
+      const chaptersBySubject = {};
+      const subjectsRes = [];
+      for (const row of catalogRes.rows) {
+        if (row.row_type === "subject") {
+          subjectsRes.push(row);
+          continue;
+        }
+        const c = row;
+        const key = c.subject_id;
+        if (!chaptersBySubject[key]) chaptersBySubject[key] = [];
+        chaptersBySubject[key].push({
+          id: c.id,
+          title: c.title,
+          slug: c.slug,
+          count: c.question_count || 0,
+          badge: (c.question_count || 0) > 30 ? "High Yield" : "Core Concept",
+          tag: (c.question_count || 0) > 50 ? "Most Asked" : "Essential",
+        });
       }
-      const c = row;
-      const key = c.subject_id;
-      if (!chaptersBySubject[key]) chaptersBySubject[key] = [];
-      chaptersBySubject[key].push({
-        id: c.id,
-        title: c.title,
-        slug: c.slug,
-        count: c.question_count || 0,
-        badge: (c.question_count || 0) > 30 ? "High Yield" : "Core Concept",
-        tag: (c.question_count || 0) > 50 ? "Most Asked" : "Essential",
-      });
+
+      const subjects = subjectsRes.map((s) => ({
+        id: s.id,
+        title: s.title,
+        label: s.title,
+        slug: s.slug,
+        icon: s.icon || "📚",
+        color: s.color || "indigo",
+        questionCount: s.question_count || 0,
+        chapters: chaptersBySubject[s.id] || [],
+      }));
+
+      res.json({ success: true, data: { subjects } });
+    } catch (err) {
+      console.error("GET /api/practice/subjects error:", err);
+      res
+        .status(500)
+        .json({ success: false, error: sanitizeErrorMessage(err) });
     }
-
-    const subjects = subjectsRes.map((s) => ({
-      id: s.id,
-      title: s.title,
-      label: s.title,
-      slug: s.slug,
-      icon: s.icon || "📚",
-      color: s.color || "indigo",
-      questionCount: s.question_count || 0,
-      chapters: chaptersBySubject[s.id] || [],
-    }));
-
-    res.json({ success: true, data: { subjects } });
-  } catch (err) {
-    console.error("GET /api/practice/subjects error:", err);
-    res.status(500).json({ success: false, error: sanitizeErrorMessage(err) });
-  }
-});
+  },
+);
 
 /**
  * GET /api/practice/chapters/:chapterId/topics
@@ -966,8 +976,8 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
     // they run together in a second group. Subtopic mastery stays chained
     // after (it needs subtopic ids from the subtopic list).
     const topicIds = topicsRes.rows.map((t) => t.id);
-    let masteryMap = {};
-    let subtopicsByTopic = {};
+    const masteryMap = {};
+    const subtopicsByTopic = {};
     if (topicIds.length > 0) {
       const [masteryRes, subtopicsRes] = await Promise.all([
         pool.query(
@@ -1006,7 +1016,7 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
 
       // 3b. Subtopic mastery for topics in this chapter (chained: needs ids above)
       const subtopicIds = subtopicsRes.rows.map((s) => s.id);
-      let subtopicMasteryMap = {};
+      const subtopicMasteryMap = {};
       if (subtopicIds.length > 0) {
         const subMasteryRes = await pool.query(
           `
@@ -1478,39 +1488,49 @@ router.post("/sessions", protect, async (req, res) => {
 /**
  * GET /api/practice/sessions/active
  */
-router.get("/sessions/active", protect, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const r = await pool.query(
-      `
+router.get(
+  "/sessions/active",
+  protect,
+  responseCache("practice-sessions-active", 30, {
+    userScoped: true,
+    excludePaths: [],
+  }),
+  async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const r = await pool.query(
+        `
       SELECT id, user_id, exam_id, subject_id, chapter_id, topic_id, mode, difficulty, target_count, time_limit_sec, questions_json, current_index, correct_count, wrong_count, skipped_count, started_at, last_active_at, completed_at, is_active, is_deleted, deleted_at, deleted_by FROM practice_sessions
       WHERE user_id = $1 AND is_active = true AND completed_at IS NULL
       ORDER BY started_at DESC LIMIT 1
     `,
-      [userId],
-    );
-    if (!r.rows.length) return res.json({ success: true, data: null });
-    const session = dbHelpers.toCamel(r.rows[0]);
+        [userId],
+      );
+      if (!r.rows.length) return res.json({ success: true, data: null });
+      const session = dbHelpers.toCamel(r.rows[0]);
 
-    // Hydrate questions — NULL/malformed questions_json is a client-visible 400, not an empty session
-    if (!Array.isArray(session.questionsJson))
-      return res
-        .status(400)
-        .json({ success: false, error: "Session has no questions" });
-    const ids = session.questionsJson;
-    const questions = await getSafeQuestions(ids);
-    session.questions = questions;
-    delete session.questionsJson;
+      // Hydrate questions — NULL/malformed questions_json is a client-visible 400, not an empty session
+      if (!Array.isArray(session.questionsJson))
+        return res
+          .status(400)
+          .json({ success: false, error: "Session has no questions" });
+      const ids = session.questionsJson;
+      const questions = await getSafeQuestions(ids);
+      session.questions = questions;
+      delete session.questionsJson;
 
-    // Attach user answers history for this session
-    await attachSessionAnswers(session, ids, userId);
+      // Attach user answers history for this session
+      await attachSessionAnswers(session, ids, userId);
 
-    res.json({ success: true, data: session });
-  } catch (err) {
-    console.error("GET /api/practice/sessions/active error:", err);
-    res.status(500).json({ success: false, error: sanitizeErrorMessage(err) });
-  }
-});
+      res.json({ success: true, data: session });
+    } catch (err) {
+      console.error("GET /api/practice/sessions/active error:", err);
+      res
+        .status(500)
+        .json({ success: false, error: sanitizeErrorMessage(err) });
+    }
+  },
+);
 
 /**
  * Helper: Fetch all answers attempted in a practice session and attach to session object

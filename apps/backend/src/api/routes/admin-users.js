@@ -108,7 +108,7 @@ router.get("/users", async (req, res) => {
       totalPages,
       data: sanitized,
     });
-  } catch (error) {
+  } catch {
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
@@ -132,7 +132,7 @@ router.put("/users/:id/pro-pass", admin, async (req, res) => {
       pass_type: isProUser ? passType || "pro_yearly" : "free",
     });
     res.json({ success: true, data: sanitizeUser(updated) });
-  } catch (error) {
+  } catch {
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
@@ -256,7 +256,7 @@ router.get("/enrollments/user/:userId", async (req, res) => {
         [userId],
       );
       enrollmentRecords = result.rows;
-    } catch (_) {
+    } catch {
       /* enrollments table may not exist — non-fatal */
     }
 
@@ -388,7 +388,7 @@ router.get("/enrollments/user/:userId", async (req, res) => {
         passType: user.pass_type || (user.isProUser ? "pro_yearly" : "free"),
       },
     });
-  } catch (error) {
+  } catch {
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
@@ -413,7 +413,7 @@ router.put("/users/:id/status", admin, async (req, res) => {
       updatedAt: new Date().toISOString(),
     });
     res.json({ success: true, data: sanitizeUser(updated) });
-  } catch (error) {
+  } catch {
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
@@ -536,7 +536,7 @@ router.put("/users/:id/role", admin, async (req, res) => {
     invalidateUserCache(Number(req.params.id));
 
     res.json({ success: true, data: sanitizeUser(updated) });
-  } catch (error) {
+  } catch {
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
@@ -569,7 +569,7 @@ router.delete("/users/:id", async (req, res) => {
     // M39: bust cache so soft-deleted user is rejected immediately by protect()
     invalidateUserCache(Number(req.params.id));
     res.json({ success: true, message: "User moved to trash" });
-  } catch (error) {
+  } catch {
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
