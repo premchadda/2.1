@@ -200,16 +200,20 @@ export const getSeriesTestStats = (series = {}, tests = []) => {
     0,
   );
   const rawTotal = Number(series.totalTests ?? series.total_tests ?? 0);
+  // The backend count is authoritative (exact SQL COUNT over active rows).
+  // The loaded list may be a truncated page (GET /api/tests caps at 100), so it
+  // must never shrink the total — only fill in for series that have no
+  // server-side total at all.
   const totalTests =
-    activeSeriesTests.length > 0
-      ? activeSeriesTests.length
-      : rawTotal > 0
-        ? rawTotal
+    rawTotal > 0
+      ? Math.max(rawTotal, activeSeriesTests.length)
+      : activeSeriesTests.length > 0
+        ? activeSeriesTests.length
         : sumCategoryCounts;
 
   const rawFree = Number(series.freeTests ?? series.free_tests ?? 0);
   const loadedFree = activeSeriesTests.filter(isFreeTest).length;
-  const freeTests = activeSeriesTests.length > 0 ? loadedFree : rawFree;
+  const freeTests = rawFree > 0 ? Math.max(rawFree, loadedFree) : loadedFree;
 
   return {
     ...series,

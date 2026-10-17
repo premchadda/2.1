@@ -14,7 +14,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import compressionMiddleware from "./middleware/compression.js";
 import { drainEmailQueue } from "./infrastructure/email/emailService.js";
-import responseCache from "./middleware/responseCache.js";
+// NOTE: no app-level responseCache import — route-level caching is authoritative.
 import requestDedup from "./middleware/requestDedup.js";
 import imageOptimization from "./middleware/imageOptimization.js";
 import { initWebSocket } from "./infrastructure/websocket/websocketManager.js";
@@ -172,7 +172,11 @@ let subscriptionSweeperHandle = null;
 // Re-exported stopper for the stale-paused-attempt sweeper (tests/admin tooling).
 export const stopAttemptSweep = stopAttemptCleaner;
 
-const READY_FILE = path.join(process.cwd(), ".backend-ready");
+const READY_FILE = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  ".backend-ready",
+);
 
 dotenv.config();
 
@@ -554,7 +558,7 @@ app.get("/health", async (req, res) => {
   try {
     await pool.query("SELECT 1");
     health.db = "connected";
-  } catch (e) {
+  } catch {
     health.db = "disconnected";
     health.status = "degraded";
   }
@@ -563,7 +567,7 @@ app.get("/health", async (req, res) => {
     try {
       await global.redis.ping();
       health.redis = "connected";
-    } catch (e) {
+    } catch {
       health.redis = "disconnected";
     }
   }
@@ -652,18 +656,15 @@ app.use(validateOrigin);
 
 app.use("/api", generalLimiter);
 app.use(requestDedup);
-app.use(
-  responseCache({
-    ttl: parseInt(process.env.RESPONSE_CACHE_TTL || "300", 10),
-    excludePaths: [
-      "/api/auth",
-      "/api/users",
-      "/api/me",
-      "/api/sessions",
-      "/api/admin",
-    ],
-  }),
-);
+// NOTE: the app-level catch-all responseCache(...) mount was removed. It
+// stacked a second cache layer above routes that already carry their own
+// responseCache(...) — the shared inFlight barrier collided on identical
+// keys across layers, deadlocking cold GETs for the 12s barrier timeout
+// (measured ~12.5s first-hit stalls on subscription-plans/exams/tests),
+// and its "res:" copies were never invalidated by namespace-scoped
+// invalidation, risking stale responses after admin edits. Route-level
+// caches remain authoritative; heavy unrouted public paths are covered by
+// their own namespace caches.
 app.use(cacheControlMiddleware);
 app.use("/api/auth", authLimiter, authRoutes);
 
@@ -1081,7 +1082,7 @@ db_status ${dbStatus}
 # TYPE db_query_latency_ms gauge
 db_query_latency_ms ${dbLatency}
 `);
-    } catch (error) {
+    } catch {
       res.status(500).send("Error generating metrics");
     }
   },
@@ -1213,6 +1214,40 @@ setupSwagger(app);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+// Tables behind the hottest public routes. Running one cheap query each
+// before the listener accepts traffic primes pool connections, the catalog
+// caches (getSelectColumns/columnExists) and the Postgres plan cache, so the
+// first real user request does not pay the cold-DB penalty (observed ~12.5s
+// first-hit stalls on some boots when a request raced the first DB round-trip).
+const HOT_PRIME_TABLES = [
+  ["subscriptionPlans", "subscription plans"],
+  ["exams", "exams"],
+  ["tests", "tests"],
+  ["examCategories", "exam categories"],
+  ["testCategories", "test categories"],
+  ["testSeries", "test series"],
+  ["liveTests", "live tests"],
+  ["appSettings", "app settings"],
+];
+
+const primeHotTables = async () => {
+  for (const [collection, label] of HOT_PRIME_TABLES) {
+    if (process.env.PRIME_DB_OFF) return;
+    const t = Date.now();
+    try {
+      await Promise.race([
+        dbHelpers.findReadOnly(collection, { isActive: true }, 50),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("prime timeout")), 5000),
+        ),
+      ]);
+      logger.info(`Hot table primed (${label}) in ${Date.now() - t}ms`);
+    } catch (e) {
+      logger.warn(`Hot table priming skipped (${label}): ${e.message}`);
+    }
+  }
+};
+
 const startServer = async () => {
   try {
     if (!isDevelopment && existsSync(READY_FILE)) unlinkSync(READY_FILE);
@@ -1255,6 +1290,13 @@ const startServer = async () => {
     // FIX #11: Per-request timeout to bound runaway/abandoned connections.
     server.setTimeout(30000);
     server.headersTimeout = 31000;
+
+    logger.info("Priming hot-path database queries...");
+    try {
+      await primeHotTables();
+    } catch (e) {
+      logger.warn(`Hot-table priming failed (non-fatal): ${e.message}`);
+    }
 
     logger.info("Starting server listener...");
     server.listen(PORT, "0.0.0.0", async () => {
@@ -1333,7 +1375,11 @@ const startServer = async () => {
           }
         };
         // Stagger warmup in batches of 2 to avoid saturating Postgres pool at boot
-        for (let i = 0; i < warmupPaths.length; i += 2) {
+        for (
+          let i = 0;
+          !process.env.WARMUP_OFF && i < warmupPaths.length;
+          i += 2
+        ) {
           const batch = warmupPaths.slice(i, i + 2);
           await Promise.allSettled(batch.map(warm));
         }

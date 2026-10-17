@@ -6,6 +6,9 @@ import {
 } from "./redisClient.js";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BACKEND_ROOT = path.resolve(__dirname, "..", "..", "..");
 
 const localCache = new Map();
 const LOCAL_CACHE_MAX = 1000;
@@ -52,7 +55,7 @@ const isFileCacheEnabled = () =>
 
 const FILE_CACHE_PATH =
   process.env.FILE_CACHE_PATH ||
-  path.join(process.cwd(), ".cache", "response-cache.json");
+  path.join(BACKEND_ROOT, ".cache", "response-cache.json");
 
 let fileCacheLoaded = false;
 let flushTimer = null;

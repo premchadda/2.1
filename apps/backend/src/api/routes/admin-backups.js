@@ -1,5 +1,8 @@
 import express from "express";
 import path from "path";
+import { fileURLToPath } from "url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BACKEND_ROOT = path.resolve(__dirname, "..", "..", "..");
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
@@ -33,7 +36,7 @@ const rejectOnServerless = (req, res, next) => {
 // directory components and verifies the resolved path stays inside the
 // backups directory, preventing path traversal on restore/delete/download.
 const resolveBackupFilePath = (fileName) => {
-  const backupDir = path.join(process.cwd(), "backups");
+  const backupDir = path.join(BACKEND_ROOT, "backups");
   const safeFileName = path.basename(fileName || "");
   if (!safeFileName || safeFileName !== (fileName || "")) return null;
   const filePath = path.join(backupDir, safeFileName);
@@ -89,7 +92,7 @@ router.post("/", rejectOnServerless, async (req, res) => {
     const { execFile } = await import("child_process");
     const fs = await import("fs");
     const path = await import("path");
-    const backupDir = path.default.join(process.cwd(), "backups");
+    const backupDir = path.default.join(BACKEND_ROOT, "backups");
     if (!fs.default.existsSync(backupDir))
       fs.default.mkdirSync(backupDir, { recursive: true });
 
@@ -465,7 +468,7 @@ router.post("/trigger", rejectOnServerless, admin, async (req, res) => {
     const { execFile } = await import("child_process");
     const fs = await import("fs");
     const pathNode = await import("path");
-    const backupDir = pathNode.default.join(process.cwd(), "backups");
+    const backupDir = pathNode.default.join(BACKEND_ROOT, "backups");
     if (!fs.default.existsSync(backupDir))
       fs.default.mkdirSync(backupDir, { recursive: true });
 

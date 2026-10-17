@@ -789,11 +789,84 @@ function TestDetails() {
         });
       });
 
-      // Only count the test if it matched a specific leaf category
+      // Count each test at most ONCE per root category.
+      // A single test can match several leaves inside the SAME root (e.g. a
+      // 2026 PYP matching both "Year Based/2026" and "Sectional"), which would
+      // inflate that root's count. We pick the single most relevant leaf per
+      // root.
       if (leafMatchIds.length > 0) {
-        leafMatchIds.forEach((catId) => {
-          const path = getPath(catId);
-          incrementCount(tree, path, isFree, isLiveItem);
+        const rootOfLeaf = (leafId) => {
+          const path = getPath(leafId);
+          const rootId = path.length ? path[path.length - 1] : null;
+          return tree.find((r) => String(r.id) === String(rootId)) || null;
+        };
+        const directCatId = String(
+          test.testCategoryId ??
+            test.test_category_id ??
+            test.categoryId ??
+            test.category_id ??
+            "",
+        );
+
+        // Group matched leaves by root, preserving the order roots appeared.
+        const leavesByRoot = new Map();
+        leafMatchIds.forEach((leafId) => {
+          const root = rootOfLeaf(leafId);
+          const key = root ? String(root.key) : "__no_root__";
+          if (!leavesByRoot.has(key)) leavesByRoot.set(key, []);
+          leavesByRoot.get(key).push(leafId);
+        });
+
+        // A PYP whose admin-assigned category happens to live under a
+        // non-PYP root (e.g. "Mock Tests/Sectional Tests") is counted twice —
+        // once there and once under PYPs. The canonical root is the one that
+        // matches the test's own category, so prefer it whenever it has a
+        // match; otherwise fall back to counting every matched root so real
+        // categories (e.g. "Mock Tests") keep their own tests.
+        const isPypTest =
+          test.category === "PYPs" ||
+          test.isPyq ||
+          test.is_pyq ||
+          (Array.isArray(test.tags) &&
+            test.tags.some((t) => /pyp|previous/i.test(String(t))));
+        const hintRootKey = (() => {
+          if (!isPypTest) return null;
+          const normalize = (s) =>
+            s
+              .replace(/[^a-z0-9]/g, "")
+              .replace(/previousyearpapers|pyq|pyp/g, "pyps");
+          const hintNorm = normalize(
+            String(test.category || "PYPs").toLowerCase(),
+          );
+          const match = tree.find((r) => {
+            const rootNorm = normalize(
+              String(r.key || "").toLowerCase() +
+                String(r.label || "").toLowerCase(),
+            );
+            return rootNorm.includes(hintNorm) || hintNorm.includes(rootNorm);
+          });
+          return match ? String(match.key) : null;
+        })();
+
+        const rootsToCount =
+          hintRootKey && leavesByRoot.has(hintRootKey)
+            ? [hintRootKey]
+            : Array.from(leavesByRoot.keys());
+
+        rootsToCount.forEach((rootKey) => {
+          const leaves = leavesByRoot.get(rootKey);
+          if (!leaves || leaves.length === 0) return;
+          // Prefer the admin-assigned category, else the deepest (most
+          // specific) leaf, so the count lands on the narrowest bucket.
+          const chosenLeaf =
+            leaves.find((id) => String(id) === directCatId) ||
+            leaves.reduce((best, id) => {
+              if (!best) return id;
+              return getPath(id).length > getPath(best).length ? id : best;
+            }, null);
+          if (chosenLeaf) {
+            incrementCount(tree, getPath(chosenLeaf), isFree, isLiveItem);
+          }
         });
       }
     });
@@ -889,6 +962,21 @@ function TestDetails() {
     activeFourthCategory,
   ]);
 
+  // Canonical root key for the "PYPs" (previous year papers) top-level tab.
+  const pypRootKey = useMemo(() => {
+    const normalize = (s) =>
+      String(s)
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "")
+        .replace(/previousyearpapers|pyq|pyp/g, "pyps");
+    const hintNorm = normalize("pyps");
+    const match = Object.values(computedCategories || {}).find((r) => {
+      const rootNorm = normalize(String(r.key || "") + String(r.label || ""));
+      return rootNorm.includes(hintNorm) || hintNorm.includes(rootNorm);
+    });
+    return match ? match.key : null;
+  }, [computedCategories]);
+
   const testBelongsToActiveCategory = useCallback(
     (test) => {
       if (!test) return false;
@@ -940,6 +1028,14 @@ function TestDetails() {
         test.is_pyq ||
         (Array.isArray(test.tags) &&
           test.tags.some((t) => /pyp|previous/i.test(String(t))));
+
+      // A PYP's admin-assigned category can sit under a non-PYP root (e.g.
+      // "Mock Tests/Sectional Tests"). When browsing a non-PYP root, never
+      // surface PYPs there — they belong to the PYPs root only.
+      if (isPypTest && pypRootKey && activeMainCategory !== pypRootKey) {
+        return false;
+      }
+
       if (isPypTest) {
         addField("pyp");
         addField("pyps");
@@ -991,7 +1087,12 @@ function TestDetails() {
         return false;
       });
     },
-    [activeAllowedCategoryIds, allTestCategories],
+    [
+      activeAllowedCategoryIds,
+      allTestCategories,
+      pypRootKey,
+      activeMainCategory,
+    ],
   );
 
   // Most recently active paused / in-progress attempt for THIS specific series and active category

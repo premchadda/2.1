@@ -21,7 +21,10 @@ const ALLOWED_EXTENSIONS = new Set([".json", ".xlsx", ".xls", ".csv", ".pdf"]);
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
-const TEMP_UPLOAD_DIR = path.join(process.cwd(), "uploads", "temporary");
+import { fileURLToPath } from "url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BACKEND_ROOT = path.resolve(__dirname, "..", "..");
+const TEMP_UPLOAD_DIR = path.join(BACKEND_ROOT, "uploads", "temporary");
 
 // Mirror ensureUploadDirs-style behavior: create the destination recursively
 // so the first upload after a fresh deploy does not fail with ENOENT.

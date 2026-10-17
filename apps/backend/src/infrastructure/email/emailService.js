@@ -16,8 +16,11 @@ import welcomeTemplate from "./templates/welcome.js";
 // ---------------------------------------------------------------------------
 
 const MAX_RETRIES = 3;
+import { fileURLToPath } from "url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BACKEND_ROOT = path.resolve(__dirname, "..", "..", "..");
 const SPOOL_DIR =
-  process.env.EMAIL_SPOOL_DIR || path.join(process.cwd(), ".email-spool");
+  process.env.EMAIL_SPOOL_DIR || path.join(BACKEND_ROOT, ".email-spool");
 const SPOOL_FILE = path.join(SPOOL_DIR, "queue.jsonl");
 
 const emailQueue = [];
