@@ -3,6 +3,7 @@ import { jest, describe, expect, it } from "@jest/globals";
 jest.unstable_mockModule("../middleware/auth.middleware.js", () => ({
   protect: (req, res, next) => next(),
   admin: (req, res, next) => next(),
+  optionalAuth: (req, res, next) => next(),
 }));
 jest.unstable_mockModule(
   "../infrastructure/database/postgres-helpers.js",

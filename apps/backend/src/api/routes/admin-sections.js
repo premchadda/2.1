@@ -8,6 +8,7 @@ import { protect, admin } from "../../middleware/auth.middleware.js";
 import { buildScopedSections } from "../../shared/utils/sectionScope.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
+import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
 
@@ -1042,7 +1043,28 @@ router.delete("/aliases/:id", protect, admin, async (req, res) => {
   }
 });
 
-// GET /:id — single section by ID (MUST be after /aliases, /for-test, /preset, /dedup, /seed-templates)
+// GET /resolve/:name — resolve an alias or section name to its canonical name
+router.get("/resolve/:name", protect, admin, async (req, res) => {
+  try {
+    const rawName = decodeURIComponent(req.params.name || "");
+    const canonicalName = await resolveCanonical(rawName);
+    res.json({
+      success: true,
+      data: {
+        rawName,
+        canonicalName,
+        isAlias: canonicalName.toLowerCase() !== rawName.toLowerCase(),
+      },
+    });
+  } catch (error) {
+    logger.error("[Sections] Resolve alias error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// GET /:id — single section by ID (MUST be after /aliases, /for-test, /preset, /dedup, /seed-templates, /resolve)
 router.get("/:id", protect, admin, async (req, res) => {
   try {
     const { id } = req.params;

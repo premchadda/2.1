@@ -68,8 +68,13 @@ for (const target of targets) {
   totalFiles += files.length;
 
   for (const file of files) {
-    const content = readFileSync(file, 'utf8');
+    const rawContent = readFileSync(file, 'utf8');
     const currentDir = dirname(file);
+
+    // Strip comments to avoid false positives on docstring examples
+    const content = rawContent
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/.*/g, '$1');
 
     // Regex for import ... from '...'
     const importRegex = /(?:import|from)\s+['"]([^'"]+)['"]/g;

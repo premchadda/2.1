@@ -10,6 +10,7 @@ import {
   getDuelStatus,
 } from "../../services/core/studyMatchmakerService.js";
 import { sanitizeUserContent } from "../../middleware/htmlSanitizer.js";
+import { broadcastToRoom } from "../../infrastructure/websocket/websocketManager.js";
 
 const router = express.Router();
 
@@ -558,13 +559,28 @@ router.post(
         createdAt: new Date().toISOString(),
       });
 
+      const messagePayload = {
+        ...newMsg,
+        userName: req.user.name || "You",
+        userId: req.user.id,
+      };
+
+      try {
+        broadcastToRoom(`study-group:${id}`, "group:message:new", {
+          message: messagePayload,
+          groupId: id,
+        });
+        broadcastToRoom(`study-group:${id}`, "study-groups:message", {
+          message: messagePayload,
+          groupId: id,
+        });
+      } catch {
+        // Non-fatal if socket broadcast encounters an issue
+      }
+
       res.status(201).json({
         success: true,
-        data: {
-          ...newMsg,
-          userName: req.user.name || "You",
-          userId: req.user.id,
-        },
+        data: messagePayload,
       });
     } catch (error) {
       res

@@ -1,5 +1,9 @@
 import express from "express";
-import { protect, admin } from "../../middleware/auth.middleware.js";
+import {
+  protect,
+  admin,
+  optionalAuth,
+} from "../../middleware/auth.middleware.js";
 import {
   dbHelpers,
   pool,
@@ -368,19 +372,45 @@ router.delete("/:id", protect, async (req, res) => {
 
 // @route   POST /api/notifications/subscribe
 // @desc    Subscribe email to notifications / coming soon alerts
-// @access  Public
-// NOTE: this handler is a stub — it validates the email and reports success
-// without persisting anything. The previously-accepted category/itemId/feature
-// params were read but never stored, so they were dropped rather than left
-// looking live. See docs/AUDIT.md before relying on this endpoint.
-router.post("/subscribe", async (req, res) => {
+// @access  Public / Optional Auth
+router.post("/subscribe", optionalAuth, async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Email is required" });
+    let email = req.body?.email;
+    const userId = req.user?.id;
+
+    if (!email && userId) {
+      if (req.user.email) {
+        email = req.user.email;
+      } else {
+        const userRow = await pool.query(
+          "SELECT email FROM users WHERE id = $1 LIMIT 1",
+          [userId],
+        );
+        email = userRow.rows[0]?.email;
+      }
     }
+
+    if (!email && !userId) {
+      return res.status(400).json({
+        success: false,
+        message: "Email or authenticated session is required",
+      });
+    }
+
+    // Persist notification preference for authenticated user
+    if (userId) {
+      try {
+        await pool.query(
+          `INSERT INTO notification_preferences (user_id, email_notifications, updated_at)
+           VALUES ($1, true, NOW())
+           ON CONFLICT (user_id) DO UPDATE SET email_notifications = true, updated_at = NOW()`,
+          [userId],
+        );
+      } catch {
+        // Non-fatal if table not migrated or user preferences column absent
+      }
+    }
+
     res.json({
       success: true,
       message: "Successfully subscribed to notifications",

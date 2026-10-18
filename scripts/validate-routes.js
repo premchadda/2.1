@@ -149,10 +149,10 @@ if (adminFiles.length < EXPECTED_MIN_ADMIN_ROUTERS) {
 }
 
 const adminJs = fs.readFileSync(path.join(routesDir, "admin.js"), "utf-8");
-const adminIndexJs = fs.readFileSync(
-  path.join(routesDir, "admin-routes-index.js"),
-  "utf-8",
-);
+const adminIndexFile = path.join(routesDir, "admin-routes-index.js");
+const adminIndexJs = fs.existsSync(adminIndexFile)
+  ? fs.readFileSync(adminIndexFile, "utf-8")
+  : "";
 if (!/\/api\/admin/.test(entrySrc) && !/\/api\/admin/.test(adminIndexJs)) {
   fail(
     'No "/api/admin" mount found in app-port5001.js or admin-routes-index.js',

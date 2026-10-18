@@ -606,9 +606,17 @@ router.put(
   "/topic-tests/:id/reorder",
   asyncHandler(async (req, res) => {
     const { order } = req.body;
+    const targetOrder = Number.isFinite(Number(order)) ? Number(order) : 0;
     const updated = await dbHelpers.updateById("topicTests", req.params.id, {
-      displayOrder: order,
+      displayOrder: targetOrder,
+      sortOrder: targetOrder,
+      updatedAt: new Date().toISOString(),
     });
+    if (!updated) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Topic test not found" });
+    }
     res.json({ success: true, data: updated });
   }),
 );

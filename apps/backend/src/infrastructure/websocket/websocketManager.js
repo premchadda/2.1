@@ -539,6 +539,33 @@ export const initWebSocket = async (server) => {
       acknowledge?.({ success: true });
     });
 
+    // Study Groups chat room management
+    socket.on("study-groups:join", async (data = {}, acknowledge) => {
+      const groupId = data?.groupId || data?.id;
+      if (!groupId) {
+        return acknowledge?.({
+          success: false,
+          message: "Valid groupId is required",
+        });
+      }
+      const room = `study-group:${groupId}`;
+      socket.join(room);
+      acknowledge?.({ success: true, room });
+    });
+
+    socket.on("study-groups:leave", async (data = {}, acknowledge) => {
+      const groupId = data?.groupId || data?.id;
+      if (!groupId) {
+        return acknowledge?.({
+          success: false,
+          message: "Valid groupId is required",
+        });
+      }
+      const room = `study-group:${groupId}`;
+      socket.leave(room);
+      acknowledge?.({ success: true, room });
+    });
+
     // Admin sessions monitoring - requires admin role
     socket.on("admin:sessions:subscribe", (acknowledge) => {
       if (!socket.isAuthenticated) {

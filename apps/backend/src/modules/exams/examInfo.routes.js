@@ -62,19 +62,38 @@ router.post("/report-error", createRateLimiter("strict"), async (req, res) => {
       .json({ success: false, message: "Report category is required" });
   }
   try {
-    await pool.query(
-      "INSERT INTO question_reports (question_id, reason, notes, status) VALUES (0, $1, $2, $3)",
-      [
-        reason,
-        JSON.stringify({
-          examId: examId ?? null,
-          examTitle: examTitle ?? "",
-          year: year ?? null,
-          details: String(details || "").slice(0, 2000),
-        }),
-        "open",
-      ],
-    );
+    const parsedExamId =
+      Number.isInteger(Number(examId)) && Number(examId) > 0
+        ? Number(examId)
+        : null;
+
+    const reportPayload = [
+      reason,
+      JSON.stringify({
+        examId: examId ?? null,
+        examTitle: examTitle ?? "",
+        year: year ?? null,
+        details: String(details || "").slice(0, 2000),
+      }),
+      "open",
+    ];
+
+    try {
+      await pool.query(
+        "INSERT INTO question_reports (question_id, exam_id, reason, notes, status) VALUES (NULL, $1, $2, $3, $4)",
+        [parsedExamId, ...reportPayload],
+      );
+    } catch (colErr) {
+      if (colErr.code === "42703") {
+        // Fallback if exam_id column is not yet present
+        await pool.query(
+          "INSERT INTO question_reports (question_id, reason, notes, status) VALUES (NULL, $1, $2, $3)",
+          reportPayload,
+        );
+      } else {
+        throw colErr;
+      }
+    }
     res.status(201).json({ success: true, message: "Report submitted" });
   } catch (error) {
     console.error("POST /report-error error:", error.message);

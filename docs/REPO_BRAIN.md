@@ -2,10 +2,10 @@
 
 > **Document Type:** Live Architectural Bible & System Encyclopedia  
 > **Repository:** `trstprep-monorepo` v2.1.0 (Turborepo + pnpm workspaces)  
-> **Current HEAD:** <span data-brain="head">8a195a3</span>  
+> **Current HEAD:** <span data-brain="head">0d054c8</span>  
 > **Last Refreshed:** <span data-brain="refreshed">18 Oct 2026</span>  
-> **AST Knowledge Graph Coverage:** <span data-brain="graph_nodes">9963</span> Nodes · <span data-brain="graph_edges">20859</span> Edges · <span data-brain="graph_communities">608</span> Communities  
-> **Verification Status:** 126 Test Suites / 1,159 Tests Passing (100% GREEN) · 0 Lint Errors · <span data-brain="migration_files">142</span> Database Migrations
+> **AST Knowledge Graph Coverage:** <span data-brain="graph_nodes">9644</span> Nodes · <span data-brain="graph_edges">20639</span> Edges · <span data-brain="graph_communities">588</span> Communities  
+> **Verification Status:** 126 Test Suites / 1,159 Tests Passing (100% GREEN) · 0 Lint Errors · <span data-brain="migration_files">143</span> Database Migrations
 
 ---
 
@@ -30,28 +30,28 @@ Every metric below is wired to an AST extraction marker (`<span data-brain="key"
 
 | Metric Category           | Observable Signal             | Live Count / Marker                                              | Architectural Verification Source                     |
 | :------------------------ | :---------------------------- | :--------------------------------------------------------------- | :---------------------------------------------------- |
-| **Git Commit Reference**  | Monorepo HEAD                 | <span data-brain="head">8a195a3</span>                           | `git rev-parse --short HEAD`                          |
+| **Git Commit Reference**  | Monorepo HEAD                 | <span data-brain="head">0d054c8</span>                           | `git rev-parse --short HEAD`                          |
 | **Last Synchronized**     | Build & Audit Date            | <span data-brain="refreshed">18 Oct 2026</span>                  | Automatic commit timestamp                            |
-| **Knowledge Graph Nodes** | Extracted Code Entities       | <span data-brain="graph_nodes">9963</span> nodes                 | `graphify-out/graph.json`                             |
-| **Knowledge Graph Edges** | Semantic & Code Relationships | <span data-brain="graph_edges">20859</span> edges                | `graphify-out/graph.json`                             |
-| **Knowledge Communities** | Distinct Cluster Hubs         | <span data-brain="graph_communities">608</span> communities      | `graphify-out/GRAPH_REPORT.md`                        |
-| **Backend Source Files**  | Application Logic & Routes    | <span data-brain="backend_src_files">549</span> source files     | `apps/backend/src` tree walk                          |
+| **Knowledge Graph Nodes** | Extracted Code Entities       | <span data-brain="graph_nodes">9644</span> nodes                 | `graphify-out/graph.json`                             |
+| **Knowledge Graph Edges** | Semantic & Code Relationships | <span data-brain="graph_edges">20639</span> edges                | `graphify-out/graph.json`                             |
+| **Knowledge Communities** | Distinct Cluster Hubs         | <span data-brain="graph_communities">588</span> communities      | `graphify-out/GRAPH_REPORT.md`                        |
+| **Backend Source Files**  | Application Logic & Routes    | <span data-brain="backend_src_files">551</span> source files     | `apps/backend/src` tree walk                          |
 | **API Route Files**       | Primary Route Handlers        | <span data-brain="backend_route_files">85</span> route files     | `apps/backend/src/api/routes`                         |
 | **Module Route Handlers** | Domain Micro-Routes           | <span data-brain="backend_module_route_files">32</span> files    | `apps/backend/src/modules/**/*.routes.js`             |
 | **Security & Middleware** | Composition Middlewares       | <span data-brain="backend_middleware">25</span> middleware files | `apps/backend/src/middleware`                         |
 | **Canonical API Mounts**  | `app.use('/api/...')` Mounts  | <span data-brain="api_mounts">73</span> mount points             | `apps/backend/src/app-port5001.js`                    |
-| **Database Migrations**   | Shipped Schema Evolutions     | <span data-brain="migration_files">142</span> migration files    | `apps/backend/src/infrastructure/database/migrations` |
+| **Database Migrations**   | Shipped Schema Evolutions     | <span data-brain="migration_files">143</span> migration files    | `apps/backend/src/infrastructure/database/migrations` |
 | **Frontend Source Files** | Learner SPA Codebase          | <span data-brain="frontend_src_files">321</span> source files    | `apps/frontend/src` tree walk                         |
 | **Frontend Page Views**   | Routed Page Components        | <span data-brain="frontend_pages">112</span> page files          | `apps/frontend/src/pages/**/*.jsx`                    |
 | **Admin Source Files**    | Operations Console Codebase   | <span data-brain="admin_src_files">188</span> source files       | `apps/admin-panel/src` tree walk                      |
-| **Maintenance Scripts**   | CLI, Audits, Sync Tools       | <span data-brain="scripts_files">214</span> scripts              | `scripts/` directory                                  |
-| **Core God-Node: App**    | Composition Root Centrality   | <span data-brain="node_app_port5001">265</span> edges            | `apps/backend/src/app-port5001.js`                    |
-| **Core God-Node: DB**     | `dbHelpers` Utility Edges     | <span data-brain="node_dbhelpers">134</span> edges               | `infrastructure/database/postgres-helpers.js`         |
+| **Maintenance Scripts**   | CLI, Audits, Sync Tools       | <span data-brain="scripts_files">216</span> scripts              | `scripts/` directory                                  |
+| **Core God-Node: App**    | Composition Root Centrality   | <span data-brain="node_app_port5001">267</span> edges            | `apps/backend/src/app-port5001.js`                    |
+| **Core God-Node: DB**     | `dbHelpers` Utility Edges     | <span data-brain="node_dbhelpers">132</span> edges               | `infrastructure/database/postgres-helpers.js`         |
 | **Core God-Node: Auth**   | `protect()` Authentication    | <span data-brain="node_protect">120</span> edges                 | `middleware/auth.middleware.js`                       |
-| **Core God-Node: Pool**   | Connection Pool Hub           | <span data-brain="node_pool">109</span> edges                    | `infrastructure/database/postgres-helpers.js`         |
-| **Core God-Node: Admin**  | `admin()` Guard Middleware    | <span data-brain="node_admin">82</span> edges                    | `middleware/auth.middleware.js`                       |
+| **Core God-Node: Pool**   | Connection Pool Hub           | <span data-brain="node_pool">83</span> edges                     | `infrastructure/database/postgres-helpers.js`         |
+| **Core God-Node: Admin**  | `admin()` Guard Middleware    | <span data-brain="node_admin">80</span> edges                    | `middleware/auth.middleware.js`                       |
 | **Core God-Node: Client** | `DataService` Frontend API    | <span data-brain="node_dataservice">22</span> edges              | `frontend/src/shared/lib/dataService.js`              |
-| **Core God-Node: Redis**  | `getRedisClient()` Cache Hub  | <span data-brain="node_getredisclient">53</span> edges           | `cache/redisClient.js`                                |
+| **Core God-Node: Redis**  | `getRedisClient()` Cache Hub  | <span data-brain="node_getredisclient">51</span> edges           | `cache/redisClient.js`                                |
 
 ---
 
@@ -441,7 +441,7 @@ sequenceDiagram
 
 ## Database Architecture & 164 Tables Schema Dictionary
 
-The database is built on PostgreSQL 16 (Supabase managed) utilizing the `pgvector` extension for embedding storage. Database migrations are numbered sequentially from `000` to `153` (<span data-brain="migration_files">142</span> physical files on disk).
+The database is built on PostgreSQL 16 (Supabase managed) utilizing the `pgvector` extension for embedding storage. Database migrations are numbered sequentially from `000` to `153` (<span data-brain="migration_files">143</span> physical files on disk).
 
 ### Core Schema Entity-Relationship Map:
 

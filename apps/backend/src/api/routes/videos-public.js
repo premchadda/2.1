@@ -4,6 +4,7 @@ import {
   pool,
 } from "../../infrastructure/database/postgres-helpers.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import { optionalAuth } from "../../middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -139,12 +140,12 @@ router.post("/:id/view", async (req, res) => {
 
 // @route   POST /api/videos/:id/activity
 // @desc    Ingest real-time video telemetry events (play, pause, resume, seek, heartbeat, complete)
-router.post("/:id/activity", async (req, res) => {
+router.post("/:id/activity", optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { sessionId, events = [], lastTimestamp, totalTimeSpent } = req.body;
-    const userId = req.user?.id || "guest";
-    const key = `${userId}_${id}`;
+    const userId = req.user?.id ? Number(req.user.id) : null;
+    const key = `${userId || "guest"}_${id}`;
     const prev = userVideoProgressMap.get(key) || {
       lastTimestamp: 0,
       totalTimeSpent: 0,
@@ -161,10 +162,26 @@ router.post("/:id/activity", async (req, res) => {
     };
     userVideoProgressMap.set(key, updated);
 
+    if (userId) {
+      try {
+        await pool.query(
+          `INSERT INTO video_progress (user_id, video_id, last_timestamp, total_time_spent, updated_at)
+           VALUES ($1, $2, $3, $4, NOW())
+           ON CONFLICT (user_id, video_id) DO UPDATE SET
+             last_timestamp = EXCLUDED.last_timestamp,
+             total_time_spent = EXCLUDED.total_time_spent,
+             updated_at = NOW()`,
+          [userId, String(id), updated.lastTimestamp, updated.totalTimeSpent],
+        );
+      } catch {
+        // Fallback to in-memory map
+      }
+    }
+
     if (sessionId) {
-      const sessionKey = `${userId}_${sessionId}`;
+      const sessionKey = `${userId || "guest"}_${sessionId}`;
       const existingSession = userVideoActivitySessions.get(sessionKey) || {
-        userId,
+        userId: userId || "guest",
         videoId: id,
         sessionId,
         events: [],
@@ -187,16 +204,42 @@ router.post("/:id/activity", async (req, res) => {
 
 // @route   GET /api/videos/user/progress-map
 // @desc    Get all video progress checkpoints for the current user
-router.get("/user/progress-map", async (req, res) => {
+router.get("/user/progress-map", optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.id || "guest";
-    const prefix = `${userId}_`;
+    const userId = req.user?.id ? Number(req.user.id) : null;
     const userMap = {};
 
+    if (userId) {
+      try {
+        const { rows } = await pool.query(
+          `SELECT video_id, last_timestamp, total_time_spent, EXTRACT(EPOCH FROM updated_at) * 1000 AS updated_at
+           FROM video_progress WHERE user_id = $1`,
+          [userId],
+        );
+        for (const r of rows) {
+          userMap[r.video_id] = {
+            videoId: r.video_id,
+            lastTimestamp: parseFloat(r.last_timestamp || 0),
+            totalTimeSpent: parseFloat(r.total_time_spent || 0),
+            updatedAt: Number(r.updated_at || Date.now()),
+          };
+        }
+      } catch {
+        // Fallback to in-memory map
+      }
+    }
+
+    // Merge in-memory progress for any video not yet in DB or for guests
+    const prefix = `${userId || "guest"}_`;
     for (const [key, value] of userVideoProgressMap.entries()) {
       if (key.startsWith(prefix)) {
         const videoId = key.substring(prefix.length);
-        userMap[videoId] = value;
+        if (
+          !userMap[videoId] ||
+          value.updatedAt > (userMap[videoId].updatedAt || 0)
+        ) {
+          userMap[videoId] = value;
+        }
       }
     }
 
@@ -209,12 +252,12 @@ router.get("/user/progress-map", async (req, res) => {
 });
 
 // @route   POST /api/videos/:id/progress
-router.post("/:id/progress", async (req, res) => {
+router.post("/:id/progress", optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { lastTimestamp, totalTimeSpent } = req.body;
-    const userId = req.user?.id || "guest";
-    const key = `${userId}_${id}`;
+    const userId = req.user?.id ? Number(req.user.id) : null;
+    const key = `${userId || "guest"}_${id}`;
     const prev = userVideoProgressMap.get(key) || {
       lastTimestamp: 0,
       totalTimeSpent: 0,
@@ -230,6 +273,22 @@ router.post("/:id/progress", async (req, res) => {
     };
     userVideoProgressMap.set(key, updated);
 
+    if (userId) {
+      try {
+        await pool.query(
+          `INSERT INTO video_progress (user_id, video_id, last_timestamp, total_time_spent, updated_at)
+           VALUES ($1, $2, $3, $4, NOW())
+           ON CONFLICT (user_id, video_id) DO UPDATE SET
+             last_timestamp = EXCLUDED.last_timestamp,
+             total_time_spent = EXCLUDED.total_time_spent,
+             updated_at = NOW()`,
+          [userId, String(id), updated.lastTimestamp, updated.totalTimeSpent],
+        );
+      } catch {
+        // Fallback to in-memory map
+      }
+    }
+
     res.json({ success: true, data: updated });
   } catch (error) {
     res
@@ -239,15 +298,43 @@ router.post("/:id/progress", async (req, res) => {
 });
 
 // @route   GET /api/videos/:id/progress
-router.get("/:id/progress", async (req, res) => {
+router.get("/:id/progress", optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user?.id || "guest";
-    const key = `${userId}_${id}`;
-    const progress = userVideoProgressMap.get(key) || {
-      lastTimestamp: 0,
-      totalTimeSpent: 0,
-    };
+    const userId = req.user?.id ? Number(req.user.id) : null;
+    const key = `${userId || "guest"}_${id}`;
+    let progress = userVideoProgressMap.get(key);
+
+    if (userId) {
+      try {
+        const { rows } = await pool.query(
+          `SELECT last_timestamp, total_time_spent, EXTRACT(EPOCH FROM updated_at) * 1000 AS updated_at
+           FROM video_progress WHERE user_id = $1 AND video_id = $2 LIMIT 1`,
+          [userId, String(id)],
+        );
+        if (rows.length > 0) {
+          const dbProgress = {
+            videoId: id,
+            lastTimestamp: parseFloat(rows[0].last_timestamp || 0),
+            totalTimeSpent: parseFloat(rows[0].total_time_spent || 0),
+            updatedAt: Number(rows[0].updated_at || Date.now()),
+          };
+          if (!progress || dbProgress.updatedAt >= (progress.updatedAt || 0)) {
+            progress = dbProgress;
+          }
+        }
+      } catch {
+        // Fallback to in-memory map
+      }
+    }
+
+    if (!progress) {
+      progress = {
+        lastTimestamp: 0,
+        totalTimeSpent: 0,
+      };
+    }
+
     res.json({ success: true, data: progress });
   } catch (error) {
     res
