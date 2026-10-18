@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { Plus, Trash2, X, Save, Image, Eye, EyeOff } from "lucide-react";
 import { apiClient } from "../../../shared/lib/dataService.js";
@@ -40,7 +41,7 @@ export default function BannerManager() {
         setBanners([]);
       }
     } catch (error) {
-      console.error("Failed to fetch banners:", error);
+      logger.error("Failed to fetch banners:", error);
       toast.error(error.response?.data?.message || "Failed to fetch banners");
       setBanners([]);
     } finally {
@@ -98,7 +99,7 @@ export default function BannerManager() {
         toast.error(response.data?.message || "Failed to save banner");
       }
     } catch (error) {
-      console.error("Failed to save banner:", error);
+      logger.error("Failed to save banner:", error);
       toast.error(error.response?.data?.message || "Failed to save banner");
     } finally {
       setSaving(false);
@@ -138,7 +139,7 @@ export default function BannerManager() {
         toast.error(response.data?.message || "Failed to delete banner");
       }
     } catch (error) {
-      console.error("Failed to delete banner:", error);
+      logger.error("Failed to delete banner:", error);
       toast.error(error.response?.data?.message || "Failed to delete banner");
     }
   };
@@ -155,7 +156,7 @@ export default function BannerManager() {
         toast.error(response.data?.message || "Failed to toggle banner");
       }
     } catch (error) {
-      console.error("Failed to toggle banner:", error);
+      logger.error("Failed to toggle banner:", error);
       toast.error(error.response?.data?.message || "Failed to toggle banner");
     }
   };

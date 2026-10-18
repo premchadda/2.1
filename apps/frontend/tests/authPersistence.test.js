@@ -47,6 +47,9 @@ describe("Mobile Auth Persistence & Token Fallback", () => {
 
     let capturedHeaders = null;
     const client = createApiClient({
+      // Explicit origin: an empty baseURL is the documented same-origin fallback
+      // and logs a one-off warning, which is noise in a unit test.
+      baseURL: "http://api.test",
       authEndpoints: [
         "/api/auth/login",
         "/api/auth/register",
@@ -71,6 +74,9 @@ describe("Mobile Auth Persistence & Token Fallback", () => {
 
     let capturedHeaders = null;
     const client = createApiClient({
+      // Explicit origin: an empty baseURL is the documented same-origin fallback
+      // and logs a one-off warning, which is noise in a unit test.
+      baseURL: "http://api.test",
       authEndpoints: [
         "/api/auth/login",
         "/api/auth/register",
@@ -98,6 +104,9 @@ describe("Mobile Auth Persistence & Token Fallback", () => {
     let retriedHeaders = null;
 
     const client = createApiClient({
+      // Explicit origin: an empty baseURL is the documented same-origin fallback
+      // and logs a one-off warning, which is noise in a unit test.
+      baseURL: "http://api.test",
       authEndpoints: [
         "/api/auth/login",
         "/api/auth/register",

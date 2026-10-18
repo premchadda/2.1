@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
   BarChart,
@@ -18,16 +18,13 @@ import {
   Settings,
   TrendingUp,
   TestTube2,
-  HelpCircle,
   BarChart3,
   Activity,
-  Calendar,
   Clock,
   Eye,
   DollarSign,
   AlertTriangle,
   CheckCircle,
-  Filter,
   ArrowUp,
   ArrowDown,
   ArrowRight,
@@ -42,7 +39,7 @@ import {
   Download,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "../../../shared/lib/dataService.js";
+
 import { useAuth } from "../../../shared/providers/AuthContext";
 import {
   formatCurrency,
@@ -222,6 +219,7 @@ export default function AdminDashboard() {
       ["Time Range", timeRange],
       ["Exported At", new Date().toISOString()],
     ];
+
     exportToCSV(`trstprep_dashboard_stats_${timeRange}_${Date.now()}`, rows);
   };
 
@@ -580,10 +578,12 @@ export default function AdminDashboard() {
                     stroke="#e5e7eb"
                     vertical={false}
                   />
+
                   <XAxis
                     dataKey="day"
                     tick={{ fontSize: 11, fill: "#6b7280" }}
                   />
+
                   <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />

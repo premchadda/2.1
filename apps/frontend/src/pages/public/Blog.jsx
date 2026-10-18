@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Link } from "react-router-dom";
 import {
   Calendar,
@@ -36,7 +37,7 @@ export default function Blog() {
         setLearnersFetched(true);
       } catch (error) {
         if (error.name !== "AbortError")
-          console.error("Failed to fetch stats:", error);
+          logger.error("Failed to fetch stats:", error);
         setLearnerCount(0);
         setLearnersFetched(true);
       }
@@ -99,7 +100,7 @@ export default function Blog() {
         }
         return [];
       } catch (err) {
-        console.error("Blog API error:", err.message);
+        logger.error("Blog API error:", err.message);
         throw err; // Let the UI handle the error state
       }
     },

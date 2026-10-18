@@ -20,6 +20,24 @@ export default function ChapterPageModal({
 }) {
   if (!chapterView.open || typeof document === "undefined") return null;
 
+  // Header breadcrumbs. The selection is stored as ids on chapterView
+  // (selectedTopicId / selectedSubtopicId, set by the sidebar below), so the
+  // display objects have to be resolved back out of chapterView.topics.
+  const topics = chapterView.topics || [];
+  const selectedChapterTopic =
+    topics.find(
+      (topic) =>
+        String(getEntityId(topic)) ===
+        String(chapterView.selectedTopicId || ""),
+    ) || null;
+  const selectedChapterSubtopic = selectedChapterTopic
+    ? (selectedChapterTopic.subtopics || []).find(
+        (subtopic) =>
+          String(getEntityId(subtopic)) ===
+          String(chapterView.selectedSubtopicId || ""),
+      ) || null
+    : null;
+
   return createPortal(
     <div
       className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-fade-in"
@@ -66,13 +84,13 @@ export default function ChapterPageModal({
               Topics
             </h4>
 
-            {chapterView.topics.length === 0 ? (
+            {topics.length === 0 ? (
               <div className="text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2">
                 No topics linked to this chapter yet.
               </div>
             ) : (
               <div className="space-y-2">
-                {chapterView.topics.map((topic) => {
+                {topics.map((topic) => {
                   const topicId = String(getEntityId(topic));
                   const isTopicSelected =
                     chapterView.selectedTopicId === topicId;
@@ -244,7 +262,7 @@ export default function ChapterPageModal({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleReorderResource("up", item, index);
+                                  reorderChapterResource("up", item, index);
                                 }}
                                 disabled={index === 0}
                                 className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 transition-colors ${index === 0 ? "text-gray-200 cursor-not-allowed" : "text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:text-indigo-400"}`}
@@ -256,7 +274,7 @@ export default function ChapterPageModal({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleReorderResource("down", item, index);
+                                  reorderChapterResource("down", item, index);
                                 }}
                                 disabled={
                                   index === chapterActiveItems.length - 1

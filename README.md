@@ -2,7 +2,7 @@
 
 Trstprep is a monorepo for an online exam-preparation platform focused on competitive exams such as SSC and Railway. The repository contains the learner-facing web app, a separate admin panel, a Node.js API, shared workspace packages, and supporting docs/scripts.
 
-> **Refresh — September 6, 2026:** Documentation re-verified against live codebase (commit `a3651475`). Workspace layout, tech stack, ports, env vars, and feature lists checked from `package.json`, `apps/*/package.json`, `apps/backend/src/app-port5001.js`, and `graphify-out/` (10862 nodes, 20266 edges, 1744 files). Every doc in this repo was rewritten or re-verified in this pass; counts carry as-of dates — re-run the cited commands before treating them as current.
+> **Refresh — October 2026:** Documentation verified against live codebase. Workspace layout, tech stack, ports, env vars, and test suites verified from `package.json`, `apps/*/package.json`, `apps/backend/src/app-port5001.js`, and `graphify-out/` (9963 nodes, 20859 edges, 608 communities). Verified 126 test suites / 1159 passing unit and integration tests across monorepo packages.
 
 ## Workspace Layout
 
@@ -17,15 +17,16 @@ Trstprep is a monorepo for an online exam-preparation platform focused on compet
 |   `-- shared-hooks/   # useAuth, useProPass, cross-app hooks
 |-- scripts/            # dev-sequential, DB audit, maintenance scripts
 |-- deploy/             # docker, nginx, logging docs
-|-- docs/               # ARCHITECTURE.md, DEVELOPMENT.md, SECURITY_POSTURE.md, audits
+|-- docs/               # SYSTEM_ARCHITECTURE.md, SECURITY_AI_REMEDIATION.md, CONTRIBUTING_AND_CHANGELOG.md, REPO_BRAIN.md / .html, AUDIT.md
+|-- tools/              # archify, agent-skills
+|-- content-pipeline/   # raw exam sources, question books, mockups, processing scratch
 |-- graphify-out/       # knowledge graph (do NOT deploy)
-|-- archify/            # architecture explorer skill
-|-- turbo.json          # Turborepo ^2.10.12 pipeline
+|-- turbo.json          # Turborepo ^2.11.9 pipeline
 |-- package.json        # pnpm workspaces: apps/*, packages/* (pnpm-workspace.yaml)
 `-- .husky/             # pre-commit hooks (PII guard, lint)
 ```
 
-Historical `dev-tools/` references removed — canonical scripts live in `scripts/` and `apps/backend/scripts/`. `graphify-out/` and `archify/` are present at root and excluded from Docker build context.
+Historical `dev-tools/` references removed — canonical scripts live in `scripts/`. Standalone tools live in `tools/` and content pipelines live in `content-pipeline/` (both excluded from Docker build context).
 
 ## Tech Stack
 
@@ -187,18 +188,20 @@ pnpm load-test:auth    # k6 auth load
 pnpm load-test:realtime # k6 realtime
 ```
 
-Current state (verified Aug 23, 2026; backend suite counts conflict between sources — re-run before quoting):
+Current state (verified October 2026):
 
-- Backend: Jest (`apps/backend`, `npm test` / `pnpm --filter trstprep-backend test`) — Aug 23 reports disagree (`128–129` vs `157` passing); treat both as stale, re-run.
-- Frontend: Vitest ^4.1.11 + `@vitest/coverage-v8` (`pnpm --filter trstprep-frontend test`).
-- Admin panel: React + Vite, lint via `eslint`/`@eslint/js`; no dedicated test script in `package.json`.
-- Lint: `pnpm lint` (turbo) — see `docs/REMEDIATION_PLAN.md` for triage status.
+- **Backend:** Jest (`apps/backend`, `pnpm --filter trstprep-backend test`) — 81 test suites, 727 tests passing.
+- **Frontend:** Vitest ^4.1.11 + `@vitest/coverage-v8` (`pnpm --filter trstprep-frontend test`) — 31 test suites, 321 tests passing.
+- **Admin panel:** Vitest ^4.1.11 (`pnpm --filter trstprep-admin test`) — 14 test suites, 111 tests passing.
+- **Total Test Suite:** 126 test suites, 1159 tests passing across all packages (100% pass rate).
+- **Lint:** `pnpm lint` (turbo) — 0 errors across monorepo; 0 warnings in `apps/frontend` and `apps/backend`; `apps/admin-panel` capped with `--max-warnings=125`.
 
 ## Useful Scripts
 
-The `scripts/` directory (108 files — see `scripts/README.md` for the inventory) contains audit, seeding, taxonomy, dev, and load tooling. Key scripts:
+The `scripts/` directory (224 files — see `scripts/README.md` for the inventory) contains audit, seeding, taxonomy, dev, and load tooling. Key scripts:
 
-- `scripts/run-database-audit.js` — schema audit (run before any migration)
+- `scripts/run-database-audit.js` — schema and index audit (run before any migration)
+- `scripts/sync-repo-brain.mjs` — knowledge graph & repo brain metric synchronization
 - `scripts/dev-sequential.mjs` — ordered dev start (`pnpm dev`)
 - `scripts/reset-admin.js` — admin seeding/reset (`ADMIN_EMAIL`/`ADMIN_PASSWORD`)
 - `deploy/logging.md` — logging setup
@@ -208,7 +211,7 @@ The `scripts/` directory (108 files — see `scripts/README.md` for the inventor
 - Separate learner app (`apps/frontend`) and admin panel (`apps/admin-panel`) — 60 admin manager components across 13 categories (verified `apps/admin-panel/src/features/admin/**/*.jsx`)
 - JWT (httpOnly + SameSite=Lax, 30-day absolute / 30-min idle) + CSRF (DB-backed, 5-min cleanup) + fail-closed auth
 - 85 backend route files + 33 module routes; 81+ `/api` mounts, 40+ admin routers (`/api/admin/*` with defense-in-depth)
-- Exam, test-series (migrations `000`–`135` on disk), practice lab, study-material, current-affairs, leaderboard, community, referrals, subscriptions (Razorpay) routes
+- Exam, test-series (migrations `000`–`153`, 142 .sql files on disk), practice lab, study-material, current-affairs, leaderboard, community, referrals, subscriptions (Razorpay) routes
 - WebSocket (Socket.IO) with JWT auth + session eviction; Redis adapter + BullMQ queues (analytics, leaderboard, notifications)
 - Shared workspace packages: `shared-config` (constants/formatters/asset helpers) + `shared-hooks` (useAuth, useProPass). Known duplication: `adminNavConfig` is mirrored in both apps alongside the shared package — verify consumers before editing nav.
 - AI gateway (OpenRouter via `modules/ai/aiClient.js`), pgvector semantic search, Node Engine V1 (+V2 tables); Practice↔Test bridge (`practice_ai_cache`)
@@ -216,23 +219,28 @@ The `scripts/` directory (108 files — see `scripts/README.md` for the inventor
 
 ## Documentation
 
-- **Main docs:** `docs/ARCHITECTURE.md` (quick ref, deployment, structure, workflows — rewritten Sep 6, 2026)
-- **Development:** `docs/DEVELOPMENT.md` (admin panel components, bulk upload, pnpm/uv workflow — rewritten Sep 6, 2026)
-- **AI prompts/vision:** `docs/AI_PROMPTS.md` + `docs/vision/NODE_ENGINE_V4-V6.md` (V3–V6 are vision, not shipped)
-- **Test lifecycle:** `docs/test-quiz-lifecycle.md` (authoritative state/transition contract)
-- **Security:** `docs/SECURITY_POSTURE.md` (CSRF, rate limiting, RLS, admin defense-in-depth — refreshed Sep 6, 2026)
-- **Database:** `docs/DATABASE_SCHEMA_AUDIT.md` (migrations `000`–`135`, soft-delete, RLS — refreshed Sep 6, 2026) + `database_schema_dictionary.md` (live-DB snapshot Aug 27, 2026)
-- **Remediation:** `docs/REMEDIATION_PLAN.md` (status tokens per phase + Sep 6, 2026 addendum)
-- **Site readiness:** `docs/SITE_READINESS_REPORT.md` (frozen Aug 23 first pass) / `docs/FINAL_SITE_READINESS_REPORT.md` (living scorecard)
-- **Audits:** `docs/audit/D1_WORKFLOW_VERIFICATION.md`, `D2_HARDCODED_FAKE_DATA.md`, `D3_DEAD_DISCONNECTED.md` (re-verified Sep 6, 2026 — most Aug-23 breaks now fixed)
-- **Architecture explorer:** `docs/ARCHITECTURE.html` + `docs/FEATURES.html` (interactive HTML)
-- **Knowledge graph:** `graphify-out/GRAPH_REPORT.md` — run `/graphify query "<question>"` before grepping
+The project documentation has been consolidated into unified, single-source-of-truth master documents:
+
+- **System Architecture & Development:** [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md)  
+  Master specification combining system topology, deployment & environment configs, full developer workflow (admin panel components, bulk upload, pnpm/uv), quiz & test lifecycle transition contract, practice lab state engine, live 164-table database schema dictionary, and dedicated dynamic update workspace.
+- **Security, AI & Remediation:** [`docs/SECURITY_AI_REMEDIATION.md`](docs/SECURITY_AI_REMEDIATION.md)  
+  Comprehensive security posture (CSRF, RLS, rate limiting, admin defense-in-depth, DPDP Act 2023 compliance & data breach runbook), AI gateway & prompt engineering specifications, and unified remediation plan & task tracker.
+- **Contributing & Changelog:** [`docs/CONTRIBUTING_AND_CHANGELOG.md`](docs/CONTRIBUTING_AND_CHANGELOG.md)  
+  Monorepo development guidelines, branch & PR conventions, multi-agent deployment rules, and complete semantic version changelog.
+- **Living Book of the System & Interactive Visualizer:** [`docs/REPO_BRAIN.md`](docs/REPO_BRAIN.md) / [`docs/REPO_BRAIN.html`](docs/REPO_BRAIN.html)  
+  Comprehensive system encyclopedia and interactive 3D WebGL architecture visualizer. Documents every page, subpage, layout, button, route, and table, with real-time telemetry and AST metrics auto-synchronized via `.husky/post-commit`.
+- **Engineering Audit Log:** [`docs/AUDIT.md`](docs/AUDIT.md)  
+  Consolidated engineering audit covering workflow verification, hardcoded data elimination, dead code remediation, and site readiness scorecards.
+- **Research Roadmap:** [`docs/vision/NODE_ENGINE_V4-V6.md`](docs/vision/NODE_ENGINE_V4-V6.md)  
+  Forward-looking research specifications for Node Engine V3 (Socratic AI Tutor), V4 (Autonomous Education OS), and V5/V6 cognitive graphs.
+- **Knowledge Graph:** [`graphify-out/GRAPH_REPORT.md`](graphify-out/GRAPH_REPORT.md)  
+  Knowledge graph map. Consult before grepping: use `/graphify query "<question>"` or the Graphify MCP tools.
 
 ## Notes
 
-- Point-in-time reports (`docs/SITE_READINESS_REPORT.md`, `docs/UNIFIED_TRSTPREP_AUDIT.md` body, `docs/audit/archive/`) are frozen historical evidence — check their banners before quoting verdicts.
+- Point-in-time audit findings and verification runs are consolidated in `docs/AUDIT.md`.
 - Docker deploy primary: `docker-compose.yml` + `nginx`. Vercel is vestigial.
 
 ---
 
-_Last Updated: September 6, 2026 — content re-verified against commit `a3651475` + live file counts_
+_Last Updated: October 2026 — verified 126 test suites / 1159 passing tests, 142 migrations, 0 lint errors_

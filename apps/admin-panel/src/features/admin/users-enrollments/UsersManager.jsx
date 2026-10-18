@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   Users,
-  Search,
-  Eye,
   Ban,
   CheckCircle2,
   Award,
@@ -11,7 +10,6 @@ import {
   X,
   Shield,
   BookOpen,
-  TestTube2,
   CreditCard,
   AlertCircle,
   Smartphone,
@@ -24,11 +22,6 @@ import {
   Copy,
   ChevronLeft,
   ChevronRight,
-  ShieldAlert,
-  Calendar,
-  Lock,
-  Mail,
-  Phone,
   PieChart as PieIcon,
   TrendingUp,
   Activity,
@@ -168,7 +161,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
       }
     } catch (error) {
       if (signal?.aborted) return;
-      console.error("Failed to fetch users:", error);
+      logger.error("Failed to fetch users:", error);
     } finally {
       if (!signal?.aborted) {
         setLoading(false);
@@ -298,7 +291,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
       const res = await api.get(`/admin/users/${userId}/sessions`);
       setUserSessions(res.data.data || []);
     } catch (error) {
-      console.error("Failed to fetch sessions:", error);
+      logger.error("Failed to fetch sessions:", error);
       setUserSessions([]);
     } finally {
       setSessionsLoading(false);
@@ -311,7 +304,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
       setUserSessions((prev) => prev.filter((s) => s.id !== sessionId));
       toast.success("Session revoked");
     } catch (error) {
-      console.error("Failed to revoke session:", error);
+      logger.error("Failed to revoke session:", error);
       toast.error("Failed to revoke session");
     }
   };
@@ -331,7 +324,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
       );
       toast.success(`Session limit updated`);
     } catch (error) {
-      console.error("Failed to update session limit:", error);
+      logger.error("Failed to update session limit:", error);
       toast.error("Failed to update session limit");
     }
   };
@@ -449,6 +442,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
         "Pro Member",
         "Created At",
       ];
+
       const rows = allUsers.map((u) =>
         [
           u.id || u._id || "",
@@ -475,7 +469,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
       URL.revokeObjectURL(url);
       toast.success(`Exported ${allUsers.length} users to CSV`);
     } catch (error) {
-      console.error("Failed to export users:", error);
+      logger.error("Failed to export users:", error);
       toast.error("Failed to export users");
     } finally {
       setExporting(false);
@@ -596,6 +590,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
             <RefreshCw
               className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${refreshing ? "animate-spin text-indigo-600" : ""}`}
             />
+
             <span>Refresh</span>
           </button>
 
@@ -1019,6 +1014,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
                     className="w-2 h-2 rounded-full"
                     style={{ backgroundColor: item.color }}
                   />
+
                   <span>
                     {item.name}: <strong>{item.value}</strong>
                   </span>
@@ -1056,11 +1052,13 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
                       axisLine={false}
                       tickLine={false}
                     />
+
                     <YAxis
                       tick={{ fontSize: 10, fill: "#94a3b8" }}
                       axisLine={false}
                       tickLine={false}
                     />
+
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "rgba(17, 24, 39, 0.95)",
@@ -1071,6 +1069,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
                         padding: "6px 10px",
                       }}
                     />
+
                     <Bar dataKey="count" radius={[8, 8, 0, 0]}>
                       {statusDistribution.map((entry, index) => (
                         <Cell key={`cell-status-${index}`} fill={entry.fill} />
@@ -1115,6 +1114,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
                           stopColor="#8b5cf6"
                           stopOpacity={0.4}
                         />
+
                         <stop
                           offset="95%"
                           stopColor="#8b5cf6"
@@ -1128,11 +1128,13 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
                       axisLine={false}
                       tickLine={false}
                     />
+
                     <YAxis
                       tick={{ fontSize: 10, fill: "#94a3b8" }}
                       axisLine={false}
                       tickLine={false}
                     />
+
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "rgba(17, 24, 39, 0.95)",
@@ -1143,6 +1145,7 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
                         padding: "6px 10px",
                       }}
                     />
+
                     <Area
                       type="monotone"
                       dataKey="count"

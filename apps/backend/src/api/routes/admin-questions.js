@@ -202,15 +202,6 @@ const INTEGER_FIELDS = new Set([
   "created_by",
 ]);
 
-const ARRAY_FIELDS = new Set(["options", "optionsHi", "options_hi", "tags"]);
-
-const FLEXIBLE_INTEGER_FIELDS = new Set([
-  "correctAnswer",
-  "correct_answer",
-  "correctOption",
-  "correct_option",
-]);
-
 const safeParseInt = (value) => {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number.parseInt(value, 10);
@@ -660,7 +651,6 @@ router.get("/questions/export", async (req, res) => {
     if (category) query.category = category;
     if (difficulty) query.difficulty = difficulty;
 
-    const tests = await dbHelpers.find("tests");
     const subjects = await dbHelpers.find("subjects");
     const headers = [
       "id",
@@ -708,9 +698,6 @@ router.get("/questions/export", async (req, res) => {
 
       const csvRows = [];
       for (const q of questions) {
-        const test = tests.find(
-          (t) => String(t.id) === String(q.testId || q.test_id),
-        );
         const subject = subjects.find(
           (s) => String(s.id) === String(q.subject),
         );

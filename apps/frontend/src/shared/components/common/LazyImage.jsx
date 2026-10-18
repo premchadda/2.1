@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 
 const LazyImage = ({
   src,
@@ -12,7 +13,7 @@ const LazyImage = ({
   ...props
 }) => {
   if (!alt && import.meta.env.DEV) {
-    console.warn("[LazyImage] alt prop is required for accessibility");
+    logger.warn("[LazyImage] alt prop is required for accessibility");
   }
   const [isLoaded, setIsLoaded] = useState(false);
   const [isInView, setIsInView] = useState(false);

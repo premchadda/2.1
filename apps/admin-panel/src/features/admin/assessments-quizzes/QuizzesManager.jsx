@@ -1,40 +1,28 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import {
   Brain,
   Plus,
   Search,
   Clock,
-  Users,
   CheckCircle,
   AlertCircle,
-  ChevronLeft,
-  ChevronRight,
   FileText,
   RefreshCw,
   Copy,
   Edit2,
   Trash2,
-  Upload,
-  Download,
   X,
   Sparkles,
-  Layers,
-  Check,
   HelpCircle,
-  ArrowRight,
-  ListOrdered,
-  Settings,
   Eye,
-  BookOpen,
-  Tag,
   Award,
-  Shuffle,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { adminAPI } from "../../../shared/lib/dataService";
 import { useSubjects } from "../../../shared/hooks/useSubjects.js";
 import { StatsCard } from "./components/StatsCard";
-import { Badge } from "./components/Badge";
+
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 import EmptyState from "../../../shared/components/ui/EmptyState";
 import { DIFFICULTY_LEVELS } from "../../../shared/config/difficultyConfig.js";
@@ -133,7 +121,7 @@ export default function QuizzesManager() {
       ) {
         return;
       }
-      console.error("Error fetching quizzes:", error);
+      logger.error("Error fetching quizzes:", error);
       toast.error("Failed to load quizzes");
     } finally {
       if (!signal?.aborted) {
@@ -355,7 +343,7 @@ export default function QuizzesManager() {
       toast.success("Quiz duplicated successfully");
       fetchAllData();
     } catch (err) {
-      console.error("Failed to duplicate quiz:", err);
+      logger.error("Failed to duplicate quiz:", err);
       toast.error(err.response?.data?.message || "Failed to duplicate quiz");
     }
   };
@@ -389,7 +377,7 @@ export default function QuizzesManager() {
       setShowFormModal(false);
       fetchAllData();
     } catch (err) {
-      console.error("Failed to save quiz:", err);
+      logger.error("Failed to save quiz:", err);
       toast.error(err.response?.data?.message || "Failed to save quiz");
     } finally {
       setSaving(false);
@@ -600,7 +588,7 @@ export default function QuizzesManager() {
       setAiTopic("");
       fetchAllData();
     } catch (err) {
-      console.error("AI Quiz Generator error:", err);
+      logger.error("AI Quiz Generator error:", err);
       toast.error(
         err.response?.data?.message || "Failed to generate quiz with AI",
       );
@@ -676,18 +664,21 @@ export default function QuizzesManager() {
           value={stats.total}
           color="indigo"
         />
+
         <StatsCard
           icon={CheckCircle}
           label="Active Live Quizzes"
           value={stats.active}
           color="green"
         />
+
         <StatsCard
           icon={AlertCircle}
           label="Draft Quizzes"
           value={stats.drafts}
           color="yellow"
         />
+
         <StatsCard
           icon={Award}
           label="Pro Quizzes"
@@ -773,6 +764,7 @@ export default function QuizzesManager() {
               }}
               className="w-full pl-9 pr-8 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white placeholder-gray-400 outline-none focus:border-indigo-500 transition"
             />
+
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
@@ -1497,6 +1489,7 @@ export default function QuizzesManager() {
                         }
                         className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4"
                       />
+
                       <span>Require Pro Pass (Locked for Free Users)</span>
                     </label>
 
@@ -1512,6 +1505,7 @@ export default function QuizzesManager() {
                         }
                         className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                       />
+
                       <span>Publish Immediately (Active)</span>
                     </label>
                   </div>
@@ -1730,6 +1724,7 @@ export default function QuizzesManager() {
                         }
                         className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                       />
+
                       <span>Shuffle Question Order for Each Student</span>
                     </label>
 
@@ -1745,6 +1740,7 @@ export default function QuizzesManager() {
                         }
                         className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                       />
+
                       <span>Randomize Options (A, B, C, D)</span>
                     </label>
 
@@ -1760,6 +1756,7 @@ export default function QuizzesManager() {
                         }
                         className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                       />
+
                       <span>
                         Show Instant Solution &amp; Explanations Upon Submission
                       </span>

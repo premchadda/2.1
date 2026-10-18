@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useParams, Link } from "react-router-dom";
 import { Calendar, User, Clock, ArrowLeft, Share2 } from "lucide-react";
 // NOTE: dataService default-exports the shared axios instance (apiClient).
@@ -38,7 +39,7 @@ export default function BlogDetail() {
       }
     } catch (error) {
       if (error.name !== "AbortError") {
-        console.error("Failed to fetch blog:", error);
+        logger.error("Failed to fetch blog:", error);
         setError("Failed to load blog post");
       }
     } finally {

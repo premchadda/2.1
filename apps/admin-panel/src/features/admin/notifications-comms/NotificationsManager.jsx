@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   Plus,
@@ -6,7 +7,6 @@ import {
   Send,
   Bell,
   X,
-  Save,
   Users,
   User,
   Calendar,
@@ -14,9 +14,6 @@ import {
   CheckCircle,
   Trophy,
   Clock,
-  Filter,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import { apiClient } from "../../../shared/lib/dataService.js";
 import { toast } from "react-hot-toast";
@@ -168,7 +165,7 @@ export default function NotificationsManager() {
         setNotifications(response.data.data);
       }
     } catch (error) {
-      console.error("Failed to fetch notifications:", error);
+      logger.error("Failed to fetch notifications:", error);
     } finally {
       setLoading(false);
     }
@@ -185,7 +182,7 @@ export default function NotificationsManager() {
         if (!query) setFilteredUsers(data.slice(0, 10));
       }
     } catch (error) {
-      console.error("Failed to fetch users:", error);
+      logger.error("Failed to fetch users:", error);
     }
   };
 
@@ -303,7 +300,7 @@ export default function NotificationsManager() {
       await fetchNotifications();
       resetForm();
     } catch (error) {
-      console.error("Failed to send notification:", error);
+      logger.error("Failed to send notification:", error);
       toast.error("Failed to send notification");
     }
   };
@@ -320,7 +317,7 @@ export default function NotificationsManager() {
       toast.success("Notification deleted");
       await fetchNotifications();
     } catch (error) {
-      console.error("Failed to delete notification:", error);
+      logger.error("Failed to delete notification:", error);
       toast.error("Failed to delete notification");
     }
   };
@@ -704,6 +701,7 @@ export default function NotificationsManager() {
                           placeholder="Search by name or email, or enter user ID"
                           aria-label="Search recipient user"
                         />
+
                         {filteredUsers.length > 0 && userSearch && (
                           <div
                             className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto"
@@ -936,6 +934,7 @@ export default function NotificationsManager() {
                             }}
                             className="w-4 h-4 text-indigo-600 rounded"
                           />
+
                           <span className="text-sm capitalize">
                             {channel.replace("_", " ")}
                           </span>

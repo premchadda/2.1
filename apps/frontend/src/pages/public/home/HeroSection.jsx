@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { AnimatedHero } from "../../../shared/components";
 import { handleAvatarError } from "../../../shared/utils/avatarFallback.js";
@@ -11,16 +12,69 @@ import {
   User,
 } from "lucide-react";
 
+/** Mirrors the transform a mousePos of {x:0,y:0} produced before the refactor. */
+const applyParallax = (dailyRef, insightsRef, cardRef, x, y) => {
+  const nx = x / window.innerWidth - 0.5;
+  const ny = y / window.innerHeight - 0.5;
+  if (dailyRef.current) {
+    dailyRef.current.style.transform = `translate3d(${nx * 16}px, ${ny * 16}px, 0)`;
+  }
+  if (insightsRef.current) {
+    insightsRef.current.style.transform = `translate3d(${nx * 12}px, ${ny * 12}px, 0)`;
+  }
+  if (cardRef.current) {
+    cardRef.current.style.transform = `rotateY(${nx * 8}deg) rotateX(${-ny * 8}deg)`;
+  }
+};
+
 function HeroSection({
   user,
   isMobile,
-  mousePos,
   popularSeries,
   studyMaterials,
   totalMockTestsCount,
   totalCategoriesCount,
   getSubjectEmoji,
 }) {
+  // The mouse-parallax subscription lives HERE, in the only component that
+  // consumes it, and writes transforms straight to the DOM via refs.
+  //
+  // It previously lived in Home.jsx as React state, so every mouse move (throttled
+  // to 100ms) re-rendered the whole landing page — Home + HomeSections + the
+  // AnimatedHero canvas — 10x/second for as long as the cursor was over the page.
+  // Now it causes ZERO React re-renders.
+  const dailyCardRef = useRef(null);
+  const insightsCardRef = useRef(null);
+  const mainCardRef = useRef(null);
+
+  useEffect(() => {
+    applyParallax(dailyCardRef, insightsCardRef, mainCardRef, 0, 0);
+
+    let raf = 0;
+    let last = 0;
+    let px = 0;
+    let py = 0;
+
+    const flush = () => {
+      applyParallax(dailyCardRef, insightsCardRef, mainCardRef, px, py);
+    };
+    const handleMouseMove = (e) => {
+      px = e.clientX;
+      py = e.clientY;
+      const now = Date.now();
+      if (now - last < 100) return;
+      last = now;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(flush);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
   return (
     <AnimatedHero pageType="home">
       {user ? (
@@ -154,9 +208,10 @@ function HeroSection({
                 style={{ perspective: "1200px" }}
               >
                 <div
+                  ref={dailyCardRef}
                   className="absolute -top-4 right-8 z-30 transition-transform duration-500"
                   style={{
-                    transform: `translate3d(${(mousePos.x / window.innerWidth - 0.5) * 16}px, ${(mousePos.y / window.innerHeight - 0.5) * 16}px, 0)`,
+                    transform: "translate3d(-8px, -8px, 0)",
                     transition: "transform 0.4s cubic-bezier(0.23,1,0.32,1)",
                   }}
                 >
@@ -178,9 +233,10 @@ function HeroSection({
                 </div>
 
                 <div
+                  ref={insightsCardRef}
                   className="absolute bottom-10 -left-6 z-30 transition-transform duration-700"
                   style={{
-                    transform: `translate3d(${(mousePos.x / window.innerWidth - 0.5) * 12}px, ${(mousePos.y / window.innerHeight - 0.5) * 12}px, 0)`,
+                    transform: "translate3d(-6px, -6px, 0)",
                     transition: "transform 0.6s cubic-bezier(0.23,1,0.32,1)",
                   }}
                 >
@@ -203,9 +259,10 @@ function HeroSection({
 
                 {/* Main 3D card */}
                 <div
+                  ref={mainCardRef}
                   className="relative z-10 bg-white/8 backdrop-blur-2xl border border-white/15 rounded-3xl p-6 md:p-7 shadow-2xl transition-transform duration-500"
                   style={{
-                    transform: `rotateY(${(mousePos.x / window.innerWidth - 0.5) * 8}deg) rotateX(${-(mousePos.y / window.innerHeight - 0.5) * 8}deg)`,
+                    transform: "rotateY(-4deg) rotateX(4deg)",
                     boxShadow:
                       "0 40px 100px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.15)",
                   }}

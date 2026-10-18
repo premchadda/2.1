@@ -2,7 +2,8 @@ import { getCsrfToken } from "@trstprep/shared-config";
 import { API_BASE_URL } from "./apiBase.js";
 
 /**
- * keepalive-safe autosave beacon shared by TestInterface and useAnswerPersistence.
+ * keepalive-safe autosave beacon used by TestInterface's unload/visibility
+ * flushes.
  *
  * axios cannot send keepalive requests, so unload/visibility flushes use native
  * fetch. This helper keeps that path on the cookie auth model:

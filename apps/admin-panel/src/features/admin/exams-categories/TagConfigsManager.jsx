@@ -1,36 +1,19 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   Plus,
   Edit,
   Trash2,
   X,
-  Save,
   Tag,
   RefreshCw,
-  Eye,
   CheckCircle2,
-  XCircle,
   Filter,
   Route,
-  Globe,
   Sparkles,
-  Layers,
-  BookOpen,
-  Zap,
-  Trophy,
-  Radio,
-  FileText,
-  Target,
-  Flame,
-  Shield,
-  Award,
-  Copy,
-  Check,
   LayoutGrid,
   Table as TableIcon,
-  ExternalLink,
-  ArrowUpDown,
 } from "lucide-react";
 import { apiClient } from "../../../shared/lib/dataService.js";
 import { toast } from "react-hot-toast";
@@ -271,7 +254,7 @@ export default function TagConfigsManager() {
       const data = res.data?.data || res.data || [];
       setTagConfigs(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error("Failed to fetch tag configs:", error);
+      logger.error("Failed to fetch tag configs:", error);
       toast.error("Failed to load tag configurations");
     } finally {
       setLoading(false);
@@ -335,7 +318,7 @@ export default function TagConfigsManager() {
         resetForm();
       }
     } catch (error) {
-      console.error("Failed to save tag config:", error);
+      logger.error("Failed to save tag config:", error);
       toast.error(
         error.response?.data?.message || "Failed to save tag configuration",
       );
@@ -397,7 +380,7 @@ export default function TagConfigsManager() {
         fetchTagConfigs();
       }
     } catch (error) {
-      console.error("Failed to delete tag config:", error);
+      logger.error("Failed to delete tag config:", error);
       toast.error("Failed to delete tag configuration");
     }
   };
@@ -550,6 +533,7 @@ export default function TagConfigsManager() {
             <RefreshCw
               className={`w-3.5 h-3.5 ${refreshing || loading ? "animate-spin text-indigo-600" : "text-gray-500"}`}
             />
+
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
@@ -1007,6 +991,7 @@ export default function TagConfigsManager() {
                       placeholder="e.g. Radio, BookOpen, Zap"
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-900 dark:text-white"
                     />
+
                     {/* Quick Icon Chips */}
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {QUICK_ICONS.slice(0, 6).map((iconName) => (
@@ -1148,6 +1133,7 @@ export default function TagConfigsManager() {
                     }
                     className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
                   />
+
                   <label
                     htmlFor="tagIsActive"
                     className="text-xs font-bold text-gray-800 dark:text-gray-200"

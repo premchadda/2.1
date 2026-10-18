@@ -1,4 +1,5 @@
 import { Helmet } from "react-helmet-async";
+import { logger } from "@trstprep/shared-config";
 import { usePublicSettings } from "../hooks/usePublicSettings";
 
 /**
@@ -104,7 +105,7 @@ export default function SEO({
     );
   } catch (err) {
     if (import.meta.env.DEV)
-      console.warn("[SEO] Helmet error (fail-open):", err);
+      logger.warn("[SEO] Helmet error (fail-open):", err);
     return null;
   }
 }

@@ -33,7 +33,6 @@ jest.unstable_mockModule("../services/SettingsService.js", () => ({
 }));
 
 const {
-  notificationService,
   isWithinQuietHours,
   registerPushToken,
   dispatchNotification,
@@ -232,14 +231,11 @@ describe("Push Notification Dispatcher & Quiet Hours Engine", () => {
       });
       mockInsertOne.mockResolvedValueOnce({ id: 88, userId: 301 });
 
-      const res = await handleNotificationJob(
-        "notifications.streak-milestone",
-        {
-          userId: 301,
-          streakDays: 7,
-          xpAwarded: 50,
-        },
-      );
+      await handleNotificationJob("notifications.streak-milestone", {
+        userId: 301,
+        streakDays: 7,
+        xpAwarded: 50,
+      });
 
       expect(mockInsertOne).toHaveBeenCalledWith(
         "notifications",
@@ -259,16 +255,13 @@ describe("Push Notification Dispatcher & Quiet Hours Engine", () => {
       });
       mockInsertOne.mockResolvedValueOnce({ id: 89, userId: 302 });
 
-      const res = await handleNotificationJob(
-        "notifications.discussion-reply",
-        {
-          userId: 302,
-          replierName: "Mentor Ravi",
-          questionId: "q-reasoning-401",
-          commentPreview:
-            "Here is the alternate shortcut using divisibility by 9",
-        },
-      );
+      await handleNotificationJob("notifications.discussion-reply", {
+        userId: 302,
+        replierName: "Mentor Ravi",
+        questionId: "q-reasoning-401",
+        commentPreview:
+          "Here is the alternate shortcut using divisibility by 9",
+      });
 
       expect(mockInsertOne).toHaveBeenCalledWith(
         "notifications",
@@ -288,16 +281,13 @@ describe("Push Notification Dispatcher & Quiet Hours Engine", () => {
       });
       mockInsertOne.mockResolvedValueOnce({ id: 90, userId: 303 });
 
-      const res = await handleNotificationJob(
-        "notifications.mock-test-reminder",
-        {
-          userId: 303,
-          testTitle: "SSC CGL All India Live Mock #4",
-          startTime: "10:00 AM IST",
-          testId: "mock-live-04",
-          seriesSlug: "ssc-cgl-2026",
-        },
-      );
+      await handleNotificationJob("notifications.mock-test-reminder", {
+        userId: 303,
+        testTitle: "SSC CGL All India Live Mock #4",
+        startTime: "10:00 AM IST",
+        testId: "mock-live-04",
+        seriesSlug: "ssc-cgl-2026",
+      });
 
       expect(mockInsertOne).toHaveBeenCalledWith(
         "notifications",

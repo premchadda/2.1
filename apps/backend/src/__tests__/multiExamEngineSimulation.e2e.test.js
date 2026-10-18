@@ -1,13 +1,8 @@
 import { describe, it, expect } from "@jest/globals";
 import {
-  normalizeScorerOption,
   resolveQuestionMarks,
   scoreMcqAnswer,
 } from "../shared/utils/scoreAttempt.js";
-import {
-  ATTEMPT_STATES,
-  isValidAttemptTransition,
-} from "../constants/lifecycle.constants.js";
 
 describe("Multi-Exam Test Engine E2E Simulation", () => {
   // =========================================================================

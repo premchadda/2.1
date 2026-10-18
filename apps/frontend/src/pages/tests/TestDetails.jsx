@@ -1,4 +1,5 @@
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
+import { logger } from "@trstprep/shared-config";
 
 import { useState, useEffect, useRef, useMemo, memo } from "react";
 import { Helmet } from "react-helmet-async";
@@ -64,6 +65,10 @@ import {
   resolveSelectedNode,
 } from "../../shared/utils/testCategoryMembership";
 import { getTestAccessType } from "../../shared/utils/entitlement";
+import {
+  getErrorMessage,
+  getErrorDetails,
+} from "../../shared/lib/apiClient.js";
 
 const identifierKeys = (...values) =>
   values
@@ -319,15 +324,15 @@ function TestDetails() {
         }
       }
     } catch (err) {
-      console.error("Enrollment error:", err);
+      logger.error("Enrollment error:", err);
       if (
-        err.response?.data?.requiresPro ||
-        err.response?.data?.code === "PRO_REQUIRED"
+        getErrorDetails(err)?.requiresPro ||
+        getErrorDetails(err)?.code === "PRO_REQUIRED"
       ) {
         navigate("/pass");
         return;
       }
-      const message = err.response?.data?.message || "";
+      const message = getErrorMessage(err) || "";
       if (
         message.includes("Already enrolled") ||
         message.includes("already enrolled")
@@ -373,8 +378,8 @@ function TestDetails() {
         );
       }
     } catch (err) {
-      console.error("Unenroll error:", err);
-      const message = err.response?.data?.message || "";
+      logger.error("Unenroll error:", err);
+      const message = getErrorMessage(err) || "";
       toast.error(`Failed to unenroll: ${message || "Please try again."}`);
     }
   };
@@ -1048,7 +1053,7 @@ function TestDetails() {
         }
       } catch (err) {
         if (controller.signal.aborted) return;
-        console.error("Failed to fetch metadata:", err);
+        logger.error("Failed to fetch metadata:", err);
       }
     };
 
@@ -1211,7 +1216,7 @@ function TestDetails() {
             rankingsResp.data?.data || rankingsResp.data || rankingsResp || [];
           setRankings(Array.isArray(rankingList) ? rankingList : []);
         } catch (rankErr) {
-          console.error("Failed to fetch rankings:", rankErr);
+          logger.error("Failed to fetch rankings:", rankErr);
           setRankings([]);
         } finally {
           setRankingsLoading(false);
@@ -1225,12 +1230,12 @@ function TestDetails() {
               setUserStats(analytics.summary || analytics);
             }
           } catch (analyticsErr) {
-            console.error("Failed to fetch user analytics:", analyticsErr);
+            logger.error("Failed to fetch user analytics:", analyticsErr);
           }
         }
       } catch (error) {
         if (controller.signal.aborted) return;
-        console.error("Failed to fetch series:", error);
+        logger.error("Failed to fetch series:", error);
       } finally {
         setLoading(false);
       }
@@ -1468,9 +1473,9 @@ function TestDetails() {
                 <Clock className="w-6 h-6 text-amber-600 dark:text-amber-400" />
               </div>
               <div className="flex-1">
-                <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-1">
+                <h2 className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-1">
                   Coming Soon - Tests Under Preparation
-                </h3>
+                </h2>
                 <p className="text-sm text-amber-700 dark:text-amber-300">
                   This test series is being prepared and tests will be available
                   shortly. We're creating comprehensive mock tests, previous

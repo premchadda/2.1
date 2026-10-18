@@ -10,11 +10,11 @@ export default function CurriculumGeneralModal({
   setFormData,
   handleSave,
   HIERARCHY_TABS,
-  subjects,
-  units,
-  chapters,
-  topics,
-  subtopics,
+  subjects = [],
+  units = [],
+  chapters = [],
+  topics = [],
+  subtopics = [],
   selectedSubject,
   getEntityId,
   slugError = "",
@@ -67,13 +67,11 @@ export default function CurriculumGeneralModal({
                 className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
               >
                 <option value="">-- Select Subject --</option>
-                {(selectedSubjectId ? filteredSubjects : data.subjects).map(
-                  (s) => (
-                    <option key={getEntityId(s)} value={getEntityId(s)}>
-                      {s.name}
-                    </option>
-                  ),
-                )}
+                {subjects.map((s) => (
+                  <option key={getEntityId(s)} value={getEntityId(s)}>
+                    {s.name}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -96,13 +94,11 @@ export default function CurriculumGeneralModal({
                 className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
               >
                 <option value="">-- Select Subject --</option>
-                {(selectedSubjectId ? filteredSubjects : data.subjects).map(
-                  (s) => (
-                    <option key={getEntityId(s)} value={getEntityId(s)}>
-                      {s.name}
-                    </option>
-                  ),
-                )}
+                {subjects.map((s) => (
+                  <option key={getEntityId(s)} value={getEntityId(s)}>
+                    {s.name}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -126,16 +122,14 @@ export default function CurriculumGeneralModal({
               >
                 <option value="">-- Select Parent --</option>
                 <optgroup label="Directly under Subject">
-                  {(selectedSubjectId ? filteredSubjects : data.subjects).map(
-                    (s) => (
-                      <option key={getEntityId(s)} value={getEntityId(s)}>
-                        {s.name}
-                      </option>
-                    ),
-                  )}
+                  {subjects.map((s) => (
+                    <option key={getEntityId(s)} value={getEntityId(s)}>
+                      {s.name}
+                    </option>
+                  ))}
                 </optgroup>
                 <optgroup label="Inside a Unit">
-                  {(selectedSubjectId ? filteredUnits : data.units).map((u) => (
+                  {units.map((u) => (
                     <option key={getEntityId(u)} value={getEntityId(u)}>
                       {u.name}
                     </option>
@@ -163,13 +157,11 @@ export default function CurriculumGeneralModal({
                 className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
               >
                 <option value="">-- Select Chapter --</option>
-                {(selectedSubjectId ? filteredChapters : data.chapters).map(
-                  (c) => (
-                    <option key={getEntityId(c)} value={getEntityId(c)}>
-                      {c.title || c.name}
-                    </option>
-                  ),
-                )}
+                {chapters.map((c) => (
+                  <option key={getEntityId(c)} value={getEntityId(c)}>
+                    {c.title || c.name}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -192,7 +184,7 @@ export default function CurriculumGeneralModal({
                 className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
               >
                 <option value="">-- Select Topic --</option>
-                {(selectedSubjectId ? filteredTopics : data.topics).map((t) => (
+                {topics.map((t) => (
                   <option key={getEntityId(t)} value={getEntityId(t)}>
                     {t.name || t.title}
                   </option>

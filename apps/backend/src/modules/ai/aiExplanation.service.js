@@ -10,7 +10,6 @@
  * - Cost tracking and rate limiting
  */
 
-import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import AiGenerationLog from "../../data/models/ai/AiGenerationLog.js";
 import { AI_CONFIG, callAIWithFallback } from "./aiClient.js";
 import { sanitizeForPrompt } from "./aiMentor.service.js";

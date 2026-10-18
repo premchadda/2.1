@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { createPortal } from "react-dom";
+import { logger } from "@trstprep/shared-config";
+
 import {
   Search,
   RefreshCw,
@@ -7,7 +8,6 @@ import {
   BookOpen,
   FileText,
   Video,
-  ChevronRight,
   GitBranch,
   ArrowRightLeft,
   Database,
@@ -78,7 +78,7 @@ export default function SubjectRelationsManager() {
       setAllTests(ok(responses[5]));
       setAllSeries(ok(responses[6]));
     } catch (error) {
-      console.error("Failed to fetch relation data:", error);
+      logger.error("Failed to fetch relation data:", error);
       toast.error("Failed to load subject relations");
     } finally {
       setLoading(false);

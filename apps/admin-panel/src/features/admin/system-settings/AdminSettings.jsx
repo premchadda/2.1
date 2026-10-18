@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useSearchParams } from "react-router-dom";
 import {
   Save,
@@ -11,7 +12,6 @@ import {
   CreditCard,
   Bell,
   Mail,
-  Key,
   Lock,
   Eye,
   EyeOff,
@@ -245,6 +245,7 @@ export default function AdminSettings() {
     "payment",
     "notifications",
   ];
+
   const getInitialTab = () => {
     const tab = searchParams.get("tab");
     if (tab && validTabs.includes(tab)) return tab;
@@ -458,7 +459,7 @@ export default function AdminSettings() {
         }));
       }
     } catch (error) {
-      console.error("Failed to fetch settings:", error);
+      logger.error("Failed to fetch settings:", error);
     } finally {
       setLoading(false);
     }
@@ -541,7 +542,7 @@ export default function AdminSettings() {
         setTimeout(() => setSaveStatus(null), 3000);
       }
     } catch (error) {
-      console.error("Failed to save settings:", error);
+      logger.error("Failed to save settings:", error);
       toast.error("Failed to save settings");
       setSaveStatus("error");
       setTimeout(() => setSaveStatus(null), 3000);
@@ -598,7 +599,7 @@ export default function AdminSettings() {
       await apiClient.put("/admin/settings", patch);
       toast.success("Saved");
     } catch (err) {
-      console.error(`Auto-save failed for ${path}:`, err);
+      logger.error(`Auto-save failed for ${path}:`, err);
       toast.error(
         err.response?.data?.message || "Could not save setting — reverted",
       );
@@ -683,6 +684,7 @@ export default function AdminSettings() {
                   <Icon
                     className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${active ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`}
                   />
+
                   {tab.label}
                 </button>
               );
@@ -963,12 +965,14 @@ export default function AdminSettings() {
                       "verifyEmailMx",
                       "enforceDomainAllowlist",
                     ],
+
                     Security: ["botProtection"],
                     "Content & Insights": [
                       "analytics",
                       "seoEnabled",
                       "demoMode",
                     ],
+
                     Communication: ["smsNotifications"],
                     Monetization: ["paymentGateway"],
                   }).map(([category, keys]) => {
@@ -989,6 +993,7 @@ export default function AdminSettings() {
                           <span
                             className={`w-1 h-3 rounded-full ${category === "User & Access" ? "bg-indigo-500" : category === "Security" ? "bg-red-500" : category === "Content & Insights" ? "bg-emerald-500" : category === "Communication" ? "bg-sky-500" : "bg-amber-500"}`}
                           />
+
                           {category}
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1237,6 +1242,7 @@ export default function AdminSettings() {
                         "achievements",
                         "referAndEarn",
                       ];
+
                       const isCustom =
                         (config.type || "page") === "page" &&
                         !defaultPageKeys.includes(key) &&
@@ -1260,6 +1266,7 @@ export default function AdminSettings() {
                             }
                             showPageHint={config.type === "section"}
                           />
+
                           {isCustom && (
                             <button
                               onClick={() => {
@@ -1492,6 +1499,7 @@ export default function AdminSettings() {
                         }
                         className="w-12 h-12 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer"
                       />
+
                       <input
                         type="text"
                         aria-label="Primary color hex code"
@@ -1526,6 +1534,7 @@ export default function AdminSettings() {
                         }
                         className="w-12 h-12 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer"
                       />
+
                       <input
                         type="text"
                         aria-label="Secondary color hex code"
@@ -1640,6 +1649,7 @@ export default function AdminSettings() {
                         }
                         className="sr-only peer"
                       />
+
                       <div className="w-11 h-6 bg-red-500 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 dark:peer-focus:ring-red-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 dark:bg-red-600"></div>
                     </label>
                     <div>
@@ -1727,6 +1737,7 @@ export default function AdminSettings() {
                       }
                       className="sr-only peer"
                     />
+
                     <div className="w-11 h-6 bg-red-500 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 dark:peer-focus:ring-red-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 dark:bg-red-600"></div>
                   </label>
                   <div>
@@ -1776,6 +1787,7 @@ export default function AdminSettings() {
                   placeholder="gmail.com, outlook.com, yahoo.com, *.ac.in, *.edu"
                   className="w-full px-3 py-2 text-sm font-mono border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-200"
                 />
+
                 <div className="mt-2 flex flex-wrap gap-1.5 text-xs text-gray-500">
                   <span className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium">
                     Tip: Use *.ac.in for all Indian University domains
@@ -1893,6 +1905,7 @@ export default function AdminSettings() {
                         }
                         className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       />
+
                       <button
                         type="button"
                         onClick={() => togglePasswordVisibility("smtpPassword")}
@@ -2022,6 +2035,7 @@ export default function AdminSettings() {
                         }
                         className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       />
+
                       <button
                         type="button"
                         onClick={() =>
@@ -2087,6 +2101,7 @@ export default function AdminSettings() {
                         }
                         className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       />
+
                       <button
                         type="button"
                         onClick={() =>
@@ -2150,6 +2165,7 @@ export default function AdminSettings() {
                         }
                         className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       />
+
                       <button
                         type="button"
                         onClick={() => togglePasswordVisibility("paypalSecret")}
@@ -2206,6 +2222,7 @@ export default function AdminSettings() {
                         }
                         className="sr-only peer"
                       />
+
                       <div className="w-11 h-6 bg-red-500 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 dark:peer-focus:ring-red-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 dark:bg-red-600"></div>
                     </label>
                     <div>
@@ -2281,6 +2298,7 @@ export default function AdminSettings() {
                             }
                             className="sr-only peer"
                           />
+
                           <div className="w-11 h-6 bg-red-500 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 dark:peer-focus:ring-red-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 dark:bg-red-600"></div>
                         </label>
                       </div>
@@ -2381,6 +2399,7 @@ function ToggleSwitch({ checked, onChange }) {
         onChange={(e) => onChange(e.target.checked)}
         className="sr-only peer"
       />
+
       <div className="w-11 h-6 bg-red-500 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 dark:peer-focus:ring-red-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 dark:bg-red-600"></div>
     </label>
   );

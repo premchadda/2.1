@@ -9,13 +9,8 @@ jest.unstable_mockModule(
   }),
 );
 
-const {
-  auditMiddleware,
-  createAuditLog,
-  AUDIT_ACTIONS,
-  AUDIT_RESOURCES,
-  logAuditEvent,
-} = await import("../middleware/audit.middleware.js");
+const { auditMiddleware, createAuditLog, AUDIT_ACTIONS, AUDIT_RESOURCES } =
+  await import("../middleware/audit.middleware.js");
 
 function makeReq(body) {
   return {

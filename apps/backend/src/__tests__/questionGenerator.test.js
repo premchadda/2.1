@@ -1,7 +1,6 @@
 import {
   normalizeGeneratedQuestion,
   generateQuestions,
-  QUESTION_TEMPLATES,
 } from "../modules/questions/questionGenerator.service.js";
 
 describe("AI Question Generator & Bilingual LaTeX Schema (Wave 17)", () => {

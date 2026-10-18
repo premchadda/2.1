@@ -24,12 +24,8 @@ jest.unstable_mockModule("../../config/database-replicas.js", () => ({
   getReadPool: () => null,
 }));
 
-const {
-  default: subscriptionService,
-  SUBSCRIPTION_PLANS,
-  FEATURES,
-  FREE_LIMITS,
-} = await import("../services/SubscriptionService.js");
+const { default: subscriptionService, FEATURES } =
+  await import("../services/SubscriptionService.js");
 const { EntitlementService } =
   await import("../services/EntitlementService.js");
 

@@ -1,6 +1,5 @@
 import {
   normalizeScorerOption,
-  resolveQuestionMarks,
   scoreMcqAnswer,
 } from "../shared/utils/scoreAttempt.js";
 

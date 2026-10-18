@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../../shared/providers/AuthContext";
@@ -51,6 +52,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useConfirm } from "../../shared/components/common/ConfirmModal";
+import { getErrorMessage } from "../../shared/lib/apiClient.js";
 
 // Springy Smooth Toggle Switch
 function ModernToggle({ checked, onChange, disabled = false, label, sub }) {
@@ -173,7 +175,7 @@ export default function Settings() {
       } catch (err) {
         // Silently fail — component will show generic text
         if (!ignore) {
-          console.error("Failed to fetch platform stats:", err?.message ?? err);
+          logger.error("Failed to fetch platform stats:", err?.message ?? err);
         }
       }
     };
@@ -211,7 +213,7 @@ export default function Settings() {
       const res = await authAPI.twoFactorStatus();
       setTwoFAStatus(res.data?.data || null);
     } catch (err) {
-      console.error("Failed to fetch 2FA status:", err?.message ?? err);
+      logger.error("Failed to fetch 2FA status:", err?.message ?? err);
     } finally {
       setTwoFALoading(false);
     }
@@ -226,9 +228,7 @@ export default function Settings() {
       setShowTwoFABackupCodes(true);
       toast.success("Scan the QR code with your authenticator app");
     } catch (err) {
-      toast.error(
-        err.response?.data?.message || "Failed to start 2FA enrollment",
-      );
+      toast.error(getErrorMessage(err) || "Failed to start 2FA enrollment");
     } finally {
       setTwoFAEnrolling(false);
     }
@@ -249,7 +249,7 @@ export default function Settings() {
       setShowTwoFABackupCodes(false);
       fetchTwoFAStatus();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Invalid verification code");
+      toast.error(getErrorMessage(err) || "Invalid verification code");
     } finally {
       setTwoFAVerifying(false);
     }
@@ -278,9 +278,7 @@ export default function Settings() {
         "New backup codes generated. Save them now — old codes no longer work.",
       );
     } catch (err) {
-      toast.error(
-        err.response?.data?.message || "Failed to regenerate backup codes",
-      );
+      toast.error(getErrorMessage(err) || "Failed to regenerate backup codes");
     } finally {
       setTwoFARegenerating(false);
     }
@@ -302,7 +300,7 @@ export default function Settings() {
       setShowTwoFABackupCodes(false);
       fetchTwoFAStatus();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to disable 2FA");
+      toast.error(getErrorMessage(err) || "Failed to disable 2FA");
     } finally {
       setTwoFADisabling(false);
     }
@@ -345,7 +343,7 @@ export default function Settings() {
       const res = await userAPI.getSessions();
       setSessions(res.data?.data || []);
     } catch (err) {
-      console.error("Failed to load active sessions:", err?.message ?? err);
+      logger.error("Failed to load active sessions:", err?.message ?? err);
     } finally {
       setSessionsLoading(false);
     }
@@ -361,8 +359,8 @@ export default function Settings() {
       );
       toast.success("Session revoked successfully");
     } catch (err) {
-      console.error("Failed to revoke session:", err?.message ?? err);
-      toast.error(err.response?.data?.message || "Failed to revoke session");
+      logger.error("Failed to revoke session:", err?.message ?? err);
+      toast.error(getErrorMessage(err) || "Failed to revoke session");
     } finally {
       setRevokingSessionId(null);
     }
@@ -466,7 +464,7 @@ export default function Settings() {
       if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
       saveStatusTimerRef.current = setTimeout(() => setSaveStatus(null), 2500);
     } catch (err) {
-      console.error("Failed to update preferences:", err?.message ?? err);
+      logger.error("Failed to update preferences:", err?.message ?? err);
       setSaveStatus("error");
       toast.error("Failed to save preferences");
     }
@@ -498,9 +496,9 @@ export default function Settings() {
         );
       }
     } catch (error) {
-      console.error("Failed to update profile:", error?.message ?? error);
+      logger.error("Failed to update profile:", error?.message ?? error);
       setSaveStatus("error");
-      toast.error(error.response?.data?.message || "Failed to update profile");
+      toast.error(getErrorMessage(error) || "Failed to update profile");
     } finally {
       setSaving(false);
     }
@@ -550,8 +548,8 @@ export default function Settings() {
         },
       });
     } catch (error) {
-      console.error("Failed to update password:", error?.message ?? error);
-      toast.error(error.response?.data?.message || "Failed to update password");
+      logger.error("Failed to update password:", error?.message ?? error);
+      toast.error(getErrorMessage(error) || "Failed to update password");
     } finally {
       setSaving(false);
     }
@@ -607,7 +605,7 @@ export default function Settings() {
       URL.revokeObjectURL(url);
       toast.success("Data exported successfully!");
     } catch (error) {
-      console.error("Failed to export account data:", error?.message ?? error);
+      logger.error("Failed to export account data:", error?.message ?? error);
       toast.error("Failed to export data");
     } finally {
       setExportingData(false);
@@ -622,7 +620,7 @@ export default function Settings() {
         state: { from: "/", message: "Your account has been deactivated." },
       });
     } catch (err) {
-      console.error("Deactivation failed:", err?.message ?? err);
+      logger.error("Deactivation failed:", err?.message ?? err);
       toast.error("Failed to deactivate account");
     }
   };
@@ -635,7 +633,7 @@ export default function Settings() {
         state: { from: "/", message: "Account permanently deleted." },
       });
     } catch (err) {
-      console.error("Account deletion failed:", err?.message ?? err);
+      logger.error("Account deletion failed:", err?.message ?? err);
       toast.error("Failed to delete account");
     }
   };
@@ -933,9 +931,9 @@ export default function Settings() {
 
                     <div className="flex-1 text-center sm:text-left">
                       <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                        <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                        <h2 className="text-xl font-black text-slate-900 dark:text-white">
                           {user?.name || "Aspirant"}
-                        </h3>
+                        </h2>
                         {user?.isVerified && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                             <CheckCircle2 className="w-3 h-3" /> Verified

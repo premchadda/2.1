@@ -159,7 +159,7 @@ async function runMigrationsLocked(
     if (!prefixMap.has(prefix)) prefixMap.set(prefix, []);
     prefixMap.get(prefix).push(file);
   }
-  // Grandfathered intentional pairs (see docs/legacy-migrations/README.md):
+  // Grandfathered intentional pairs (historical convention in migration history):
   // 000_baseline_functions.sql + 000a_enable_rls_policies.sql,
   // 056a_* + 056b_* (no bare 056_* exists). Never add new pairs.
   const GRANDFATHERED_PREFIXES = new Set(["000", "056"]);

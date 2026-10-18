@@ -5,7 +5,6 @@ import {
   getStreakFreezeStatus,
   applyStreakFreeze,
   evaluateMilestoneBadges,
-  BADGE_DEFINITIONS,
 } from "../services/core/gamificationService.js";
 
 describe("Gamification, XP & Milestone Badges Service", () => {

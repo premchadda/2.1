@@ -1,4 +1,5 @@
 import { useContext } from "react";
+import { logger } from "@trstprep/shared-config";
 import { AuthContext, createFallbackAuthContext } from "./AuthContextCore.js";
 
 export function useAuth() {
@@ -11,7 +12,7 @@ export function useAuth() {
     // instead. Do NOT change this to throw. The DEV-only warn below flags
     // genuine mis-wiring without spamming production consoles.
     if (import.meta.env.DEV) {
-      console.warn(
+      logger.warn(
         "useAuth called outside AuthProvider. Falling back to no-auth context.",
       );
     }

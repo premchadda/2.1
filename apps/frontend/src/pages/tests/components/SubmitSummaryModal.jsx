@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   Clock,
@@ -12,6 +12,9 @@ import {
   X,
   Timer,
 } from "lucide-react";
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 function formatDuration(seconds) {
   if (!seconds || seconds <= 0) return "00m 00s";
@@ -40,6 +43,68 @@ export default function SubmitSummaryModal({
   sectionTimers = {},
   dialogRef,
 }) {
+  // `dialogRef` is supplied by the parent, so keep an internal node reference
+  // too and mirror into whichever ref the caller passed.
+  const innerDialogRef = useRef(null);
+  const setDialogRef = useCallback(
+    (node) => {
+      innerDialogRef.current = node;
+      if (typeof dialogRef === "function") dialogRef(node);
+      else if (dialogRef) dialogRef.current = node;
+    },
+    [dialogRef],
+  );
+
+  // Escape-to-close + focus move on open, focus restore on close.
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEsc = (e) => {
+      if (e.key === "Escape" && !isSubmitting) onClose();
+    };
+    document.addEventListener("keydown", handleEsc);
+
+    const prevFocused = document.activeElement;
+    innerDialogRef.current?.focus();
+
+    return () => {
+      document.removeEventListener("keydown", handleEsc);
+      if (
+        prevFocused &&
+        typeof prevFocused.focus === "function" &&
+        document.contains(prevFocused)
+      ) {
+        prevFocused.focus();
+      }
+    };
+  }, [isOpen, onClose, isSubmitting]);
+
+  // Keep Tab inside the dialog while it is open.
+  const handleDialogKeyDown = (e) => {
+    if (e.key !== "Tab") return;
+    const node = innerDialogRef.current;
+    if (!node) return;
+    const focusable = Array.from(node.querySelectorAll(FOCUSABLE)).filter(
+      (el) => el.offsetWidth > 0 || el.offsetHeight > 0,
+    );
+    if (focusable.length === 0) {
+      e.preventDefault();
+      node.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey) {
+      if (active === first || !node.contains(active)) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else if (active === last || !node.contains(active)) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
   const timeElapsedSeconds = Math.max(
     0,
     Number(testDuration || 60) * 60 - Number(timeLeft || 0),
@@ -148,11 +213,12 @@ export default function SubmitSummaryModal({
         }}
       >
         <div
-          ref={dialogRef}
+          ref={setDialogRef}
           role="dialog"
           aria-modal="true"
           aria-label="Submit Test Summary"
           tabIndex={-1}
+          onKeyDown={handleDialogKeyDown}
           className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full flex flex-col max-h-[92vh] max-h-[92dvh] overflow-hidden transform transition-all"
         >
           {/* Modal Header */}

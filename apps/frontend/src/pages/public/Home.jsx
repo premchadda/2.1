@@ -104,7 +104,6 @@ function Home() {
   const location = useLocation();
   const { ref: popularSeriesScrollRef } = useDraggableScroll();
   const { ref: studyMaterialsScrollRef } = useDraggableScroll();
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 768 : false,
   );
@@ -223,24 +222,10 @@ function Home() {
     setTestimonialsLoading(false);
   }, [liveData]);
 
-  useEffect(() => {
-    let raf = 0;
-    let last = 0;
-    const handleMouseMove = (e) => {
-      const now = Date.now();
-      if (now - last < 100) return;
-      last = now;
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() =>
-        setMousePos({ x: e.clientX, y: e.clientY }),
-      );
-    };
-    window.addEventListener("mousemove", handleMouseMove, { passive: true });
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      cancelAnimationFrame(raf);
-    };
-  }, []);
+  // NOTE: the mouse-parallax listener that used to live here was moved into
+  // HeroSection — its only consumer — where it writes transforms via refs and
+  // triggers zero React re-renders. Previously it re-rendered this entire page
+  // 10x/second whenever the cursor moved over it.
 
   // Prefetch /test-series when hero is visible (for instant catalog nav)
   useEffect(() => {
@@ -402,7 +387,6 @@ function Home() {
       <HeroSection
         user={user}
         isMobile={isMobile}
-        mousePos={mousePos}
         popularSeries={popularSeries}
         studyMaterials={studyMaterials}
         totalMockTestsCount={totalMockTestsCount}

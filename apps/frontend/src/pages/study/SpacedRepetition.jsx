@@ -64,7 +64,7 @@ function Flashcard({ card, onKnow, onNeedsReview, index }) {
       className="w-full max-w-[95vw] sm:max-w-xl mx-auto"
       style={{ animationDelay: `${index * 0.1}s` }}
     >
-      <div className="perspective-1000 cursor-pointer" onClick={handleFlip}>
+      <div className="perspective-1000 cursor-pointer">
         <div
           className={`relative w-full min-h-[320px] transition-transform duration-500 transform-style-3d ${
             flipped ? "rotate-y-180" : ""
@@ -82,6 +82,20 @@ function Flashcard({ card, onKnow, onNeedsReview, index }) {
             } transition-colors duration-300`}
             style={{ backfaceVisibility: "hidden" }}
           >
+            {/* Flip affordance: a real button covering only this face, so the
+                card wrapper never carries role="button" (which gives a
+                role=button container presentational-children semantics and
+                de-emphasises the nested Know it / Needs Review controls on the
+                back face). Transparent, so the visuals are unchanged. */}
+            <button
+              type="button"
+              onClick={handleFlip}
+              disabled={answered}
+              aria-label={`${flipped ? "Hide" : "Reveal"} answer${
+                card.topic_name ? ` for ${card.topic_name}` : ""
+              }`}
+              className="absolute inset-0 z-10 cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            />
             <div className="flex items-center justify-between mb-4">
               <span
                 className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${priority.color}`}
@@ -142,6 +156,18 @@ function Flashcard({ card, onKnow, onNeedsReview, index }) {
               transform: "rotateY(180deg)",
             }}
           >
+            {/* Same flip affordance on the answer face, kept BELOW the two
+                action buttons (which sit at z-20) so it never intercepts
+                their clicks. */}
+            <button
+              type="button"
+              onClick={handleFlip}
+              disabled={answered}
+              aria-label={`${flipped ? "Hide" : "Reveal"} answer${
+                card.topic_name ? ` for ${card.topic_name}` : ""
+              }`}
+              className="absolute inset-0 z-0 cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            />
             <div className="flex items-center gap-2 mb-4">
               <CheckCircle className="w-4 h-4 text-indigo-500" />
               <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-400">
@@ -163,23 +189,19 @@ function Flashcard({ card, onKnow, onNeedsReview, index }) {
               </p>
               <div className="flex gap-3">
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleKnow();
-                  }}
+                  type="button"
+                  onClick={handleKnow}
                   disabled={answered}
-                  className="flex-1 py-3 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white font-semibold rounded-xl transition flex items-center justify-center gap-2"
+                  className="relative z-20 flex-1 py-3 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white font-semibold rounded-xl transition flex items-center justify-center gap-2"
                 >
                   <CheckCircle className="w-4 h-4" />
                   Know it
                 </button>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleNeedsReview();
-                  }}
+                  type="button"
+                  onClick={handleNeedsReview}
                   disabled={answered}
-                  className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white font-semibold rounded-xl transition flex items-center justify-center gap-2"
+                  className="relative z-20 flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white font-semibold rounded-xl transition flex items-center justify-center gap-2"
                 >
                   <RefreshCw className="w-4 h-4" />
                   Needs Review
@@ -494,9 +516,9 @@ export default function SpacedRepetition() {
             ) : dueCards.length === 0 ? (
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-8 text-center">
                 <div className="text-3xl sm:text-4xl lg:text-5xl mb-4">🎉</div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
                   All caught up!
-                </h3>
+                </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                   No revisions due right now. Keep practicing to build your
                   revision queue.

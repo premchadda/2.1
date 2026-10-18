@@ -310,7 +310,6 @@ router.delete("/:id", rejectOnServerless, admin, async (req, res) => {
 
     // Delete actual backup file if it exists
     if (backup.fileName) {
-      const pathNode = await import("path");
       const fs = await import("fs");
       const filePath = resolveBackupFilePath(backup.fileName);
       if (!filePath) {
@@ -358,7 +357,6 @@ router.post("/:id/restore", rejectOnServerless, admin, async (req, res) => {
         .json({ success: false, message: "Backup is not completed" });
     }
 
-    const pathNode = await import("path");
     const fs = await import("fs");
     const { execFile } = await import("child_process");
 

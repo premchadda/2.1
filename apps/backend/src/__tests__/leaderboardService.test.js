@@ -75,7 +75,7 @@ describe("LeaderboardService", () => {
           ],
         });
 
-      const result = await leaderboardService.getLeaderboard({
+      await leaderboardService.getLeaderboard({
         type: "test",
         testId: 5,
       });
@@ -134,7 +134,7 @@ describe("LeaderboardService", () => {
           ],
         });
 
-      const result = await leaderboardService.getLeaderboard({
+      await leaderboardService.getLeaderboard({
         type: "test",
         testId: 5,
       });

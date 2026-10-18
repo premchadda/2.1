@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useCallback,
 } from "react";
+import { logger } from "@trstprep/shared-config";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 import {
   Terminal,
@@ -18,7 +19,6 @@ import {
   Check,
   AlertCircle,
   AlertTriangle,
-  Info,
   Activity,
   Server,
   Cpu,
@@ -175,7 +175,7 @@ export default function ServerLogsManager() {
         }
       }
     } catch (err) {
-      console.error("Failed to load initial logs:", err);
+      logger.error("Failed to load initial logs:", err);
     }
   }, []);
 
@@ -235,7 +235,7 @@ export default function ServerLogsManager() {
             if (payload.stats) setServerStats(payload.stats);
           }
         } catch (err) {
-          console.warn("Error parsing SSE event:", err);
+          logger.warn("Error parsing SSE event:", err);
         }
       };
 
@@ -244,7 +244,7 @@ export default function ServerLogsManager() {
         // EventSource automatically handles reconnection
       };
     } catch (err) {
-      console.error("SSE connection error:", err);
+      logger.error("SSE connection error:", err);
       setStreamStatus("error");
     }
 
@@ -507,6 +507,7 @@ export default function ServerLogsManager() {
             { label: "Terminal Logs" },
           ]}
         />
+
         <div className="flex items-center justify-between gap-2 flex-nowrap">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-900 text-emerald-400 border border-slate-800 shadow-xs flex items-center justify-center shrink-0">
@@ -800,6 +801,7 @@ export default function ServerLogsManager() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-7 py-1.5 text-xs bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
+
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
@@ -860,6 +862,7 @@ export default function ServerLogsManager() {
               <ArrowDownToLine
                 className={`w-3.5 h-3.5 ${autoScroll ? "animate-bounce" : ""}`}
               />
+
               <span className="hidden lg:inline">Auto</span>
             </button>
             {(selectedLevel !== "ALL" || searchQuery) && (

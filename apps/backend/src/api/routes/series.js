@@ -14,13 +14,6 @@ import { isPypSlug } from "../../utils/slug-helpers.js";
 
 const router = express.Router();
 
-const getTestSeriesId = (source = {}) =>
-  source.testSeriesId ??
-  source.test_series_id ??
-  source.seriesId ??
-  source.series_id ??
-  null;
-
 // Helper to parse user count strings like "125.6k" to numbers for sorting
 function parseUserCount(countStr) {
   if (!countStr) return 0;

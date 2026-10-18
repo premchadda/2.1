@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Helmet } from "react-helmet-async";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../../shared/lib/dataService";
@@ -7,6 +8,7 @@ import MathRenderer from "../../shared/components/MathRenderer";
 import { toast } from "react-hot-toast";
 import { useAuth } from "../../shared/providers/AuthContext";
 import { getLanguageDisplayName } from "../../shared/lib/language";
+import { getErrorStatus } from "../../shared/lib/apiClient.js";
 import "./CurrentAffairsDetail.css";
 
 const CurrentAffairsDetail = () => {
@@ -50,7 +52,7 @@ const CurrentAffairsDetail = () => {
         });
       } catch (error) {
         if (api.isCancel(error)) return;
-        console.error("Error fetching article:", error);
+        logger.error("Error fetching article:", error);
       } finally {
         setLoading(false);
       }
@@ -73,7 +75,7 @@ const CurrentAffairsDetail = () => {
       setQuiz(response.data?.data || null);
       setShowQuiz(true);
     } catch (error) {
-      console.error("Error fetching quiz:", error);
+      logger.error("Error fetching quiz:", error);
     }
   };
 
@@ -100,9 +102,9 @@ const CurrentAffairsDetail = () => {
         setQuizSubmitted(true);
       }
     } catch (error) {
-      console.error("Error submitting quiz:", error);
+      logger.error("Error submitting quiz:", error);
       toast.error(
-        error.response?.status === 401
+        getErrorStatus(error) === 401
           ? "Please login to submit the quiz."
           : "Error submitting quiz",
       );
@@ -202,7 +204,7 @@ const CurrentAffairsDetail = () => {
               {/* Related Topics */}
               {article.topics && article.topics.length > 0 && (
                 <div className="ca-detail-topics">
-                  <h3>Related Topics</h3>
+                  <h2>Related Topics</h2>
                   <div className="ca-detail-topics-list">
                     {article.topics.map((topic, idx) => (
                       <span

@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useConfirm } from "../../shared/components/common/ConfirmModal";
 import { toast } from "react-hot-toast";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -187,12 +188,24 @@ export default function StudyMaterialChapter() {
     chapterIndex >= 0 && chapterIndex < chapters.length - 1
       ? chapters[chapterIndex + 1]
       : null;
-  const completedCount = chapters.filter((item) => {
-    if (item.isCompleted) return true;
-    const key = `chapter-scroll-${item._id || item.id || item.slug}`;
-    const stored = localStorage.getItem(key);
-    return stored && parseFloat(stored) >= 80;
-  }).length;
+  // Memoized on [chapters] only.
+  //
+  // localStorage has no key-prefix enumeration API, so the N reads below
+  // (one `chapter-scroll-*` key per chapter) cannot be collapsed into a single
+  // read — the fallback in the brief. What CAN be removed is the *frequency*:
+  // this used to run on every render, so it was N synchronous main-thread reads
+  // per render, and this component re-renders on every scroll tick and every
+  // active-topic change. Now it runs only when the chapter list identity changes.
+  const completedCount = useMemo(
+    () =>
+      chapters.filter((item) => {
+        if (item.isCompleted) return true;
+        const key = `chapter-scroll-${item._id || item.id || item.slug}`;
+        const stored = localStorage.getItem(key);
+        return stored && parseFloat(stored) >= 80;
+      }).length,
+    [chapters],
+  );
   const _subjectProgress =
     chapters.length > 0
       ? Math.round((completedCount / chapters.length) * 100)
@@ -258,10 +271,7 @@ export default function StudyMaterialChapter() {
         setSubject(subjectData);
       } catch (err) {
         if (err.name !== "AbortError") {
-          console.error(
-            "Failed to fetch subject content:",
-            err?.message ?? err,
-          );
+          logger.error("Failed to fetch subject content:", err?.message ?? err);
           setError("Failed to load subject content");
         }
       } finally {
@@ -292,7 +302,7 @@ export default function StudyMaterialChapter() {
         setDiscussions(res.data?.data || []);
       } catch (err) {
         if (err.name !== "AbortError")
-          console.error("Failed to fetch discussions:", err?.message ?? err);
+          logger.error("Failed to fetch discussions:", err?.message ?? err);
       }
     };
 
@@ -334,7 +344,7 @@ export default function StudyMaterialChapter() {
         setAnalytics(res.data?.data || res.data || null);
       } catch (err) {
         if (err.name !== "AbortError")
-          console.error("Failed to fetch analytics:", err?.message ?? err);
+          logger.error("Failed to fetch analytics:", err?.message ?? err);
       }
     };
     fetchAnalytics();
@@ -414,6 +424,14 @@ export default function StudyMaterialChapter() {
     let ticking = false;
     let timer = null;
     let cancelled = false;
+    // Last scroll percentage actually persisted. The handler is debounced to 1s
+    // but still fired continuously while scrolling, and every fire unconditionally
+    // rewrote localStorage and called recordChapterVisit — which re-reads and
+    // re-serialises the ENTIRE subject progress map and always stamps a fresh
+    // `updatedAt: Date.now()`, so the stored value changed on every tick even when
+    // the learner had not actually moved. Scoped to this effect instance, so it
+    // resets automatically when chapterIdKey changes.
+    let lastRecordedPct = null;
     const handleScroll = () => {
       if (ticking) return;
       ticking = true;
@@ -425,6 +443,12 @@ export default function StudyMaterialChapter() {
         if (docHeight > 0) {
           const pct = Math.round((scrollTop / docHeight) * 100);
           setScrollProgress(Math.min(pct, 100));
+          if (pct === lastRecordedPct) {
+            ticking = false;
+            timer = null;
+            return;
+          }
+          lastRecordedPct = pct;
           localStorage.setItem(chapterIdKey, String(pct));
           if (subject && chapter) {
             const subKey =
@@ -516,7 +540,7 @@ export default function StudyMaterialChapter() {
         setNewDiscussion("");
       }
     } catch (err) {
-      console.error("Failed to post discussion:", err?.message ?? err);
+      logger.error("Failed to post discussion:", err?.message ?? err);
     } finally {
       setIsSubmitting(false);
     }
@@ -536,7 +560,7 @@ export default function StudyMaterialChapter() {
         discussions.filter((d) => (d.id || d._id) !== discussionId),
       );
     } catch (err) {
-      console.error("Failed to delete discussion:", err?.message ?? err);
+      logger.error("Failed to delete discussion:", err?.message ?? err);
     }
   };
 
@@ -556,7 +580,7 @@ export default function StudyMaterialChapter() {
         setEditContent("");
       }
     } catch (err) {
-      console.error("Failed to update discussion:", err?.message ?? err);
+      logger.error("Failed to update discussion:", err?.message ?? err);
     }
   };
 
@@ -586,7 +610,7 @@ export default function StudyMaterialChapter() {
         title: chapter?.title || chapter?.name || "",
       });
     } catch (err) {
-      console.error("Failed to bookmark:", err?.message ?? err);
+      logger.error("Failed to bookmark:", err?.message ?? err);
       setIsBookmarked((prev) => !prev);
     }
   };
@@ -610,7 +634,7 @@ export default function StudyMaterialChapter() {
       setShareSuccess(true);
       setTimeout(() => setShareSuccess(false), 2000);
     } catch (err) {
-      console.error("Failed to copy chapter link:", err?.message ?? err);
+      logger.error("Failed to copy chapter link:", err?.message ?? err);
       toast.error(
         "Failed to copy link. Please copy the URL from the address bar.",
       );
@@ -840,9 +864,9 @@ export default function StudyMaterialChapter() {
                       <p className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-0.5">
                         Progress
                       </p>
-                      <h4 className="text-sm font-black text-white truncate">
+                      <h2 className="text-sm font-black text-white truncate">
                         {chapterProgress === 100 ? "Completed" : "In Progress"}
-                      </h4>
+                      </h2>
                       <div className="flex items-center gap-1.5 mt-1">
                         <span className="text-[9px] text-white/40 font-bold">
                           {chapterIndex + 1}/{chapters.length}
@@ -964,9 +988,9 @@ export default function StudyMaterialChapter() {
                       <p className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-0.5">
                         Chapter Progress
                       </p>
-                      <h4 className="text-lg font-black text-white truncate">
+                      <h3 className="text-lg font-black text-white truncate">
                         {chapterProgress === 100 ? "Completed" : "In Progress"}
-                      </h4>
+                      </h3>
                     </div>
                   </div>
 

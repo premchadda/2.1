@@ -13,7 +13,7 @@
  * This middleware applies them at the request boundary.
  */
 
-import { toSnakeCase, camelToSnake } from "../utils/naming-conventions.js";
+import { camelToSnake } from "../utils/naming-conventions.js";
 
 /**
  * Known legacy field name aliases that the frontend may send.
@@ -126,31 +126,6 @@ const FIELD_ALIASES = {
   originalPrice: "original_price",
   original_price: "original_price",
 };
-
-/**
- * Fields that should NOT be converted to snake_case.
- * These are fields whose values are themselves identifiers
- * (like slugs, names, descriptions) that must remain as-is.
- */
-const PRESERVE_VALUE_FIELDS = new Set([
-  "name",
-  "title",
-  "description",
-  "slug",
-  "content",
-  "explanation",
-  "tags",
-  "difficulty",
-  "type",
-  "category",
-  "icon",
-  "color",
-  "colour_hex",
-  "email",
-  "phone",
-  "password",
-  "token",
-]);
 
 /**
  * Normalize a single request body object.

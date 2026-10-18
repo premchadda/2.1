@@ -7,6 +7,7 @@ import {
   Suspense,
   lazy,
 } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
@@ -17,6 +18,7 @@ import {
   getTestById,
   getQuestionsByTestId,
   bookmarksAPI,
+  dataService,
 } from "../../shared/lib/dataService";
 import { sendAutosaveBeacon } from "../../shared/lib/autosaveBeacon.js";
 import { clearDashboardCache } from "../../shared/lib/dashboardCache";
@@ -42,6 +44,7 @@ import QuestionViewer from "./components/QuestionViewer";
 import TestBottomBar from "./components/TestBottomBar";
 import { normalizeTestQuestions } from "../../shared/utils/testClassification";
 import { AlertCircle } from "lucide-react";
+import { getErrorStatus, getErrorDetails } from "../../shared/lib/apiClient.js";
 
 // Local offline buffer key for in-progress answers. Uses the URL param testId
 // so it is stable and available at restore time (before numeric DB id resolves).
@@ -320,7 +323,11 @@ function TestInterface() {
           }
           const finalMinutes =
             secMinutes && secMinutes > 0 ? secMinutes : fallbackMinutes;
-          sectionTimeLimits[sectionName] = finalMinutes * 60;
+          // fallbackMinutes is an unrounded division (duration / sectionCount),
+          // so `finalMinutes * 60` can be fractional (e.g. 771.4285714) and the
+          // formatter would then render "12:51.428571428571". Round to whole
+          // seconds at the source.
+          sectionTimeLimits[sectionName] = Math.round(finalMinutes * 60);
         });
       }
       return {
@@ -440,7 +447,7 @@ function TestInterface() {
           setSavedQuestions(set);
         })
         .catch((err) => {
-          if (import.meta.env.DEV) console.warn("Load bookmarks error:", err);
+          if (import.meta.env.DEV) logger.warn("Load bookmarks error:", err);
         });
     }
   }, [user]);
@@ -515,7 +522,7 @@ function TestInterface() {
         });
       }
     } catch (err) {
-      console.error("Failed to toggle save question:", err?.message);
+      logger.error("Failed to toggle save question:", err?.message);
       // Revert optimistic state
       setSavedQuestions((prev) => {
         const next = new Set(prev);
@@ -549,6 +556,23 @@ function TestInterface() {
   const tabSwitchCountRef = useRef(0);
   const revokedRedirectTimerRef = useRef(null);
   const _lastActivityRef = useRef(Date.now());
+
+  // Single-flight latch for submit. `isSubmitting` state is not sufficient on its
+  // own: `setIsSubmitting(true)` does not commit until React flushes, so another
+  // flush inside that window (the 1Hz timer tick, questionTimers, visitedQuestions
+  // — all of which re-run the auto-submit effect because handleSubmit is a fresh
+  // identity each render) can re-enter with isSubmitting === false and fire a
+  // second PUT .../submit. This ref flips synchronously.
+  const submitGuardRef = useRef(false);
+
+  // Monotonic autosave sequence + single-flight latch (FIX 1).
+  // clientSeq is echoed to the server so strictly-stale payloads are rejected
+  // instead of overwriting newer answers. The in-flight latch prevents
+  // overlapping PUTs; a call arriving mid-flight marks state dirty and re-fires
+  // exactly once when the current request settles.
+  const autosaveSeqRef = useRef(0);
+  const autosaveInFlightRef = useRef(false);
+  const autosaveDirtyRef = useRef(false);
 
   // Derived state for sections in proper configured order directly from normalized questions
   const sections = useMemo(() => {
@@ -803,7 +827,9 @@ function TestInterface() {
                 }
                 const finalMinutes =
                   secMinutes && secMinutes > 0 ? secMinutes : fallbackMinutes;
-                sectionTimeLimits[sectionName] = finalMinutes * 60;
+                // See note above: round to whole seconds, else the countdown
+                // renders a raw float.
+                sectionTimeLimits[sectionName] = Math.round(finalMinutes * 60);
               });
             }
             testData.sectionTimeLimits = sectionTimeLimits;
@@ -863,7 +889,19 @@ function TestInterface() {
                 const visited = new Set([0]);
                 attemptData.answers.forEach((a) => {
                   restoredAnswers[a.questionIndex] = a.selectedOption;
-                  visited.add(a.questionIndex);
+                  // Only indices that still exist in the loaded question set
+                  // count as visited. A stale attempt (or a question set
+                  // reordered by a re-import) can return indices past the end;
+                  // admitting them inflated visitedQuestions.size beyond
+                  // questions.length and rendered a negative "not visited".
+                  const idx = Number(a.questionIndex);
+                  if (
+                    Number.isInteger(idx) &&
+                    idx >= 0 &&
+                    idx < questions.length
+                  ) {
+                    visited.add(idx);
+                  }
                 });
                 setAnswers(restoredAnswers);
                 setVisitedQuestions(visited);
@@ -952,8 +990,8 @@ function TestInterface() {
         // original axios response object is NOT preserved — use error.status
         // (HTTP status code, added by our interceptor fix) and error.details
         // (the backend JSON body) for branching instead of error.response.*.
-        const status = error?.status ?? error?.response?.status;
-        const data = error?.details ?? error?.response?.data;
+        const status = getErrorStatus(error);
+        const data = getErrorDetails(error);
 
         // Track a general error state for non-auth failures (500, network, etc.)
         if (
@@ -1160,6 +1198,41 @@ function TestInterface() {
     };
   });
 
+  // Single-flight autosave dispatcher shared by the 30s interval autosave and
+  // `saveQuestionProgress` (navigation / pause / visibility change).
+  //
+  // Without a guard those two paths overlap: a slow earlier PUT can land AFTER a
+  // faster later one and the backend blindly overwrites the row, permanently
+  // losing answers. Two layers protect us:
+  //   1. a single-flight latch — a call arriving while one is in flight marks
+  //      state dirty and returns; when the in-flight request settles we re-fire
+  //      exactly once with the latest state.
+  //   2. a monotonic `clientSeq` stamped on every dispatch, so even if two
+  //      requests do end up racing the server can reject the strictly-stale one.
+  const dispatchAutosave = useCallback(async (collectPayload) => {
+    if (autosaveInFlightRef.current) {
+      autosaveDirtyRef.current = true;
+      return;
+    }
+
+    autosaveInFlightRef.current = true;
+    try {
+      do {
+        autosaveDirtyRef.current = false;
+        const payload = collectPayload();
+        if (!payload) return;
+        await apiClient.put(
+          `/api/tests/${payload.testId}/autosave`,
+          payload.body,
+        );
+      } while (autosaveDirtyRef.current);
+    } catch {
+      // autosave failed silently — the local buffer already holds latest answers
+    } finally {
+      autosaveInFlightRef.current = false;
+    }
+  }, []);
+
   useEffect(() => {
     if (
       reviewMode ||
@@ -1171,8 +1244,8 @@ function TestInterface() {
     )
       return;
 
-    const autosave = async () => {
-      try {
+    const autosave = () =>
+      dispatchAutosave(() => {
         const s = autosaveStateRef.current;
         const currentAnswers = s.questions
           .map((question, index) => {
@@ -1207,18 +1280,19 @@ function TestInterface() {
           else if (typeof s.test?._id === "number") actualTestId = s.test._id;
         }
 
-        await apiClient.put(`/api/tests/${actualTestId}/autosave`, {
-          attemptId: s.attemptId,
-          timeSpent: (s.test?.duration || 60) * 60 - s.timeLeft,
-          answers: currentAnswers,
-          markedForReview: Array.from(s.markedForReview),
-          sectionTimers: s.computeSectionTimers(),
-          currentSection: s.currentSection,
-        });
-      } catch {
-        // autosave failed silently — local buffer still holds the latest answers
-      }
-    };
+        return {
+          testId: actualTestId,
+          body: {
+            attemptId: s.attemptId,
+            timeSpent: (s.test?.duration || 60) * 60 - s.timeLeft,
+            answers: currentAnswers,
+            markedForReview: Array.from(s.markedForReview),
+            sectionTimers: s.computeSectionTimers(),
+            currentSection: s.currentSection,
+            clientSeq: (autosaveSeqRef.current += 1),
+          },
+        };
+      });
 
     const interval = setInterval(autosave, 30000); // autosave every 30 seconds
 
@@ -1287,6 +1361,9 @@ function TestInterface() {
           markedForReview: Array.from(s.markedForReview),
           sectionTimers: s.computeSectionTimers(),
           currentSection: s.currentSection,
+          // Same monotonic guard as the normal autosave path, so a keepalive
+          // flush that lands after a newer PUT cannot resurrect stale answers.
+          clientSeq: (autosaveSeqRef.current += 1),
         };
 
         sendAutosaveBeacon(actualTestId, payload);
@@ -1365,25 +1442,34 @@ function TestInterface() {
     return spent;
   }, []);
 
-  // Save question progress (uses autosave endpoint for consistent data format)
-  const saveQuestionProgress = useCallback(
-    async (questionIndex, _extraData = {}) => {
-      if (reviewMode || !attemptId) return;
+  // Persist the whole answers map (the autosave endpoint always receives the full
+  // set). A `questionIndex` parameter used to be accepted here but was never
+  // read, and the single call site passed `currentQuestion - 1` — an off-by-one
+  // that is -1 on the first question — which made the call read like per-question
+  // persistence it never performed. Removed rather than implemented.
+  const saveQuestionProgress = useCallback(async () => {
+    if (reviewMode || !attemptId) return;
 
-      try {
-        let actualTestId = test?.id || test?._id || testId;
-        if (typeof actualTestId === "string" && actualTestId.includes("-")) {
-          if (typeof test?.id === "number") actualTestId = test.id;
-          else if (typeof test?._id === "number") actualTestId = test._id;
-        }
+    // Shares the single-flight latch + clientSeq with the interval autosave so
+    // navigation/pause saves cannot race the 30s save and clobber newer answers.
+    await dispatchAutosave(() => {
+      let actualTestId = test?.id || test?._id || testId;
+      if (typeof actualTestId === "string" && actualTestId.includes("-")) {
+        if (typeof test?.id === "number") actualTestId = test.id;
+        else if (typeof test?._id === "number") actualTestId = test._id;
+      }
 
-        const normalizedAnswers = Object.entries(answers).map(([qId, ans]) => ({
-          questionId: questions[qId]?.id || questions[qId]?._id || qId,
-          questionIndex: parseInt(qId),
-          selectedOption: ans,
-        }));
+      const normalizedAnswers = Object.entries(answers).map(([qId, ans]) => ({
+        questionId: questions[qId]?.id || questions[qId]?._id || qId,
+        questionIndex: parseInt(qId),
+        selectedOption: ans,
+      }));
 
-        await apiClient.put(`/api/tests/${actualTestId}/autosave`, {
+      lastSaveRef.current = Date.now();
+
+      return {
+        testId: actualTestId,
+        body: {
           attemptId,
           answers: normalizedAnswers,
           timeSpent: (test.duration || 60) * 60 - timeLeft,
@@ -1391,24 +1477,22 @@ function TestInterface() {
           sectionTimers: computeSectionTimers(),
           sectionalTimerEnabled,
           currentSection,
-        });
-        lastSaveRef.current = Date.now();
-      } catch {
-        // autosave failed silently
-      }
-    },
-    [
-      attemptId,
-      answers,
-      timeLeft,
-      test,
-      testId,
-      questions,
-      markedForReview,
-      computeSectionTimers,
-      currentSection,
-    ],
-  );
+          clientSeq: (autosaveSeqRef.current += 1),
+        },
+      };
+    });
+  }, [
+    attemptId,
+    answers,
+    timeLeft,
+    test,
+    testId,
+    questions,
+    markedForReview,
+    computeSectionTimers,
+    currentSection,
+    dispatchAutosave,
+  ]);
 
   // Log anti-cheat event
   const logAntiCheatEvent = useCallback(
@@ -1610,7 +1694,7 @@ function TestInterface() {
         revokedRedirectTimerRef.current = null;
       }
     };
-  }, [attemptId, test, reviewMode, isPaused]);
+  }, [attemptId, test, reviewMode, isPaused, showSubmitSummary]);
 
   // Lock background scrolling while the pause modal is open
   useEffect(() => {
@@ -1684,12 +1768,13 @@ function TestInterface() {
     // 1-4 / 1-6: select option by index
     if (/^[1-9]$/.test(e.key)) {
       const idx = parseInt(e.key) - 1;
-      const opts = currentQ.options;
-      const optCount = Array.isArray(opts)
-        ? opts.length
-        : typeof opts === "object"
-          ? Object.keys(opts).length
-          : 0;
+      // Options arrive either as a plain array or as a localized
+      // `{ en: [...], hi: [...] }` object. `Object.keys({en,hi}).length`
+      // returns 2, which capped every MCQ at two hotkeys.
+      const opts = Array.isArray(currentQ.options)
+        ? currentQ.options
+        : (currentQ.options?.en ?? []);
+      const optCount = Array.isArray(opts) ? opts.length : 0;
       if (idx < optCount) {
         e.preventDefault();
         handleAnswer(idx);
@@ -1769,7 +1854,7 @@ function TestInterface() {
         }));
 
         // Save to server
-        await saveQuestionProgress(currentQuestion - 1);
+        await saveQuestionProgress();
       }
     };
 
@@ -1907,6 +1992,59 @@ function TestInterface() {
     };
   }, [questions, answers, markedForReview]);
 
+  // Memoized for the same reason as `reviewFilterCounts` above: the clock effect
+  // fires setTimeLeft() every 1000ms, and these two were rebuilt in the render
+  // body on every one of those ticks (a .map().filter() plus a .reduce() calling
+  // getQuestionStatus per question).
+  //
+  // NOTE: the dep list is intentionally WIDER than reviewFilterCounts'. These
+  // stats are derived via getQuestionStatus(), which also reads
+  // `visitedQuestions`, `currentQuestion` and `reviewMode` — visiting a question
+  // flips its status from "p-not-visited" to "p-not-answered", so omitting them
+  // would leave the section palette stale.
+  //
+  // Placed here rather than at their original render-body position because this
+  // component has four early returns below (loading, isError, !test,
+  // questions.length === 0) and hooks cannot sit after them.
+  const currentSectionIndexes = useMemo(
+    () =>
+      questions
+        .map((question, index) => ({ question, index }))
+        .filter(({ question }) => question.section === currentSection),
+    [questions, currentSection],
+  );
+  const currentSectionStats = useMemo(
+    () =>
+      currentSectionIndexes.reduce(
+        (acc, { index }) => {
+          const status = getQuestionStatus(index);
+          acc.total += 1;
+          if (status === "p-answered") acc.answered += 1;
+          else if (status === "p-not-answered") acc.notAnswered += 1;
+          else if (status === "p-review") acc.review += 1;
+          else if (status === "p-ans-review") acc.answeredReview += 1;
+          else acc.notVisited += 1;
+          return acc;
+        },
+        {
+          total: 0,
+          answered: 0,
+          notAnswered: 0,
+          notVisited: 0,
+          review: 0,
+          answeredReview: 0,
+        },
+      ),
+    [
+      currentSectionIndexes,
+      answers,
+      markedForReview,
+      visitedQuestions,
+      currentQuestion,
+      reviewMode,
+    ],
+  );
+
   const handleSetReviewFilter = useCallback(
     (newFilter) => {
       setReviewFilter(newFilter);
@@ -1964,11 +2102,17 @@ function TestInterface() {
     }
   };
 
-  // Stats calculation
+  // Stats calculation. Both counters are clamped at 0: the visited set can be
+  // seeded from a stale server attempt / local offline buffer whose indices no
+  // longer line up with the current question set, which previously rendered a
+  // negative "not visited" tile in the palette.
   const stats = {
     answered: Object.keys(answers).length,
-    notAnswered: visitedQuestions.size - Object.keys(answers).length,
-    notVisited: questions.length - visitedQuestions.size,
+    notAnswered: Math.max(
+      0,
+      visitedQuestions.size - Object.keys(answers).length,
+    ),
+    notVisited: Math.max(0, questions.length - visitedQuestions.size),
     review: markedForReview.size,
     correct: reviewFilterCounts.correct,
     wrong: reviewFilterCounts.wrong,
@@ -1995,8 +2139,12 @@ function TestInterface() {
   };
 
   const formatSectionTime = (seconds) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
+    // Belt-and-braces: guard the remainder too, so a fractional value that
+    // arrives from anywhere (API payload, restored state) can never leak a
+    // decimal into the mm:ss string.
+    const safeSeconds = Number.isFinite(seconds) ? seconds : 0;
+    const m = Math.floor(safeSeconds / 60);
+    const s = Math.floor(safeSeconds % 60);
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
@@ -2103,7 +2251,13 @@ function TestInterface() {
   };
 
   async function handleSubmit() {
-    if (isSubmitting) return;
+    if (submitGuardRef.current) return;
+    submitGuardRef.current = true;
+
+    if (isSubmitting) {
+      submitGuardRef.current = false;
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -2123,16 +2277,18 @@ function TestInterface() {
         .filter(Boolean);
 
       // Use test.id or test._id (actual database ID) instead of URL param testId
-      // The URL param testId might be a slug or different identifier
-      let actualTestId = test.id || test._id || testId;
+      // The URL param testId might be a slug or different identifier. Every
+      // other access in this handler is optional-chained; these were not,
+      // which is a latent TypeError if the test is ever nulled mid-submit.
+      let actualTestId = test?.id || test?._id || testId;
 
       // If testId looks like a string/UUID but we have a numeric ID, use the numeric one
       // PostgreSQL findById only works with numeric IDs
       if (typeof actualTestId === "string" && actualTestId.includes("-")) {
         // This looks like a UUID or slug, try to get numeric ID from test object
-        if (typeof test.id === "number") {
+        if (typeof test?.id === "number") {
           actualTestId = test.id;
-        } else if (typeof test._id === "number") {
+        } else if (typeof test?._id === "number") {
           actualTestId = test._id;
         }
       }
@@ -2172,8 +2328,12 @@ function TestInterface() {
       queryClient.invalidateQueries({ queryKey: ["user-attempts"] });
       queryClient.invalidateQueries({ queryKey: ["user-incomplete-attempts"] });
       queryClient.invalidateQueries({ queryKey: ["user-attempts-live"] });
-      queryClient.invalidateQueries({ queryKey: ["user-analytics"] });
-      queryClient.invalidateQueries({ queryKey: ["recent-activity"] });
+      // ["user-analytics"], ["recent-activity"] and ["attempted-tests"] were
+      // never query keys anywhere in the app, so those three invalidations were
+      // no-ops: user analytics does not go through React Query at all — it is
+      // read via dataService.getUserAnalytics(), which keeps its own 60s Map
+      // cache. Evicting the real entry is what actually refreshes it.
+      dataService.clearCacheForEndpoint("/users/analytics");
       queryClient.invalidateQueries({ queryKey: ["intelligence-performance"] });
       queryClient.invalidateQueries({ queryKey: ["intelligence-weak-topics"] });
       queryClient.invalidateQueries({
@@ -2182,18 +2342,18 @@ function TestInterface() {
       queryClient.invalidateQueries({ queryKey: ["intelligence-streak"] });
       queryClient.invalidateQueries({ queryKey: ["practice-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
-      queryClient.invalidateQueries({ queryKey: ["attempted-tests"] });
 
       // Report adaptive difficulty for each answered question (fire-and-forget)
       submittedAnswers.forEach(({ questionId, selectedOption }) => {
         const question = questions.find((q) => (q.id || q._id) === questionId);
         const topicId = question?.topicId || question?.topic_id;
         if (topicId) {
-          const correctOption =
-            question.correct_option ??
-            question.correctOption ??
-            question.correct_answer;
-          const isCorrect = selectedOption === Number(correctOption);
+          // Reuse the file's own correctness helper. It resolves all 8
+          // correct-answer field names plus option-text/letter matching, and
+          // handles MSQ array answers. The previous inline version only checked
+          // 3 fields, so `Number(undefined)` → NaN made every answer read as
+          // incorrect and permanently poisoned the adaptive-difficulty signal.
+          const isCorrect = isReviewAnswerCorrect(question, selectedOption);
           const timeSpent = questionTimers[questions.indexOf(question)] || 0;
           submitPerformance(isCorrect, timeSpent).catch(() => {});
         }
@@ -2214,6 +2374,8 @@ function TestInterface() {
           error?.message ||
           "Failed to submit test. Please try again.",
       );
+      // Release the latch on failure so the learner can retry.
+      submitGuardRef.current = false;
     } finally {
       setIsSubmitting(false);
     }
@@ -2315,29 +2477,6 @@ function TestInterface() {
     currentQ?.questionImageUrl ||
     currentQ?.image_url ||
     null;
-  const currentSectionIndexes = questions
-    .map((question, index) => ({ question, index }))
-    .filter(({ question }) => question.section === currentSection);
-  const currentSectionStats = currentSectionIndexes.reduce(
-    (acc, { index }) => {
-      const status = getQuestionStatus(index);
-      acc.total += 1;
-      if (status === "p-answered") acc.answered += 1;
-      else if (status === "p-not-answered") acc.notAnswered += 1;
-      else if (status === "p-review") acc.review += 1;
-      else if (status === "p-ans-review") acc.answeredReview += 1;
-      else acc.notVisited += 1;
-      return acc;
-    },
-    {
-      total: 0,
-      answered: 0,
-      notAnswered: 0,
-      notVisited: 0,
-      review: 0,
-      answeredReview: 0,
-    },
-  );
   const userName = user?.name || user?.fullName || "Student";
   const userInitials =
     userName

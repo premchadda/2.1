@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import ExamReadinessGauge from "../pages/dashboard/components/ExamReadinessGauge";
+import { ROUTER_FUTURE_FLAGS } from "../test/routerFutureFlags";
 
 vi.mock("../shared/lib/dataService", () => ({
   api: {
@@ -50,7 +51,7 @@ describe("ExamReadinessGauge Component", () => {
 
   const renderComponent = () =>
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <QueryClientProvider client={queryClient}>
           <ExamReadinessGauge />
         </QueryClientProvider>

@@ -1,5 +1,9 @@
 import { createPortal } from "react-dom";
+import { useEffect, useRef } from "react";
 import { X, Download, ExternalLink } from "lucide-react";
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 function getEmbedUrl(url) {
   if (!url) return null;
@@ -19,6 +23,36 @@ function getEmbedUrl(url) {
 }
 
 export default function PDFViewer({ isOpen, onClose, pdfData }) {
+  const dialogRef = useRef(null);
+
+  // Escape-to-close + focus move on open, focus restore on close. No Tab trap
+  // on purpose: the embedded PDF viewer has its own controls to reach.
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEsc = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEsc);
+
+    const prevFocused = document.activeElement;
+    const node = dialogRef.current;
+    if (node) {
+      const focusable = node.querySelector(FOCUSABLE);
+      (focusable || node).focus();
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleEsc);
+      if (
+        prevFocused &&
+        typeof prevFocused.focus === "function" &&
+        document.contains(prevFocused)
+      ) {
+        prevFocused.focus();
+      }
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen || typeof document === "undefined") return null;
 
   const rawUrl = pdfData?.url || null;
@@ -34,7 +68,14 @@ export default function PDFViewer({ isOpen, onClose, pdfData }) {
   };
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-xs z-[99999] flex flex-col animate-fade-in">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`PDF viewer${pdfData?.title ? `: ${pdfData.title}` : ""}`}
+      tabIndex={-1}
+      className="fixed inset-0 bg-black/90 backdrop-blur-xs z-[99999] flex flex-col animate-fade-in"
+    >
       {/* Header */}
       <div className="bg-gray-900/95 backdrop-blur border-b border-gray-700 px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3 min-w-0">

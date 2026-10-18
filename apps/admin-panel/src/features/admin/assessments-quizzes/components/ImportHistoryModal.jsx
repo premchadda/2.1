@@ -4,7 +4,6 @@ import {
   X,
   History,
   Clock,
-  CheckCircle,
   AlertTriangle,
   FileText,
   Loader2,

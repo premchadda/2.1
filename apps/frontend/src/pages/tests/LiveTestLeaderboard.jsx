@@ -3,9 +3,14 @@ import { useParams, Link } from "react-router-dom";
 import { Trophy, Medal, ArrowLeft, Loader2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../shared/lib/dataService";
-import { getSocket } from "../../shared/lib/websocket";
 import { useAuth } from "../../shared/providers/AuthContext";
 import { useLiveTestMonitor } from "../../shared/hooks";
+// Direct import of the app's socket hook (not the @trstprep/shared-hooks
+// re-export in hooks/index.js) so this subscribes to the same singleton the
+// backend emits live-test events on. Its `on()` also queues registrations made
+// before the socket exists, which is what previously made this a silent no-op:
+// the page's effect flushes before AuthProvider's, so getSocket() was null.
+import { useWebSocket } from "../../shared/hooks/useWebSocket";
 
 export default function LiveTestLeaderboard() {
   const { liveTestId } = useParams();
@@ -13,6 +18,7 @@ export default function LiveTestLeaderboard() {
   const queryClient = useQueryClient();
 
   const { participants, isLive } = useLiveTestMonitor(liveTestId);
+  const { on } = useWebSocket(Boolean(user));
 
   const {
     data: leaderboard = [],
@@ -33,8 +39,7 @@ export default function LiveTestLeaderboard() {
   });
 
   useEffect(() => {
-    const socket = getSocket();
-    if (!socket?.connected) return;
+    if (!liveTestId) return undefined;
 
     const handleLeaderboardUpdate = (payload) => {
       if (String(payload?.testId) === String(liveTestId)) {
@@ -44,11 +49,10 @@ export default function LiveTestLeaderboard() {
       }
     };
 
-    socket.on("leaderboard:updated", handleLeaderboardUpdate);
-    return () => {
-      socket.off("leaderboard:updated", handleLeaderboardUpdate);
-    };
-  }, [liveTestId, queryClient]);
+    // Queued-registration `on()` — attaches whether or not the socket exists
+    // yet, and the returned unsubscribe detaches on unmount.
+    return on("leaderboard:updated", handleLeaderboardUpdate);
+  }, [liveTestId, queryClient, on]);
 
   const userEntry = useMemo(() => {
     if (!user) return null;

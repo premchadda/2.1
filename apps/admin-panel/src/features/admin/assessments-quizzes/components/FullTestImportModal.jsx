@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   Upload,
@@ -8,7 +9,6 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronRight,
-  Shield,
   Info,
   Search,
   ArrowLeft,
@@ -280,7 +280,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
       throw lastError;
     };
 
-    let abortImport = false;
+    const abortImport = false;
     const worker = async (workerId) => {
       while (!abortImport) {
         const chunkIndices = getNextChunk();
@@ -306,7 +306,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
             accumulatedResults.failed.push(...resData.failed);
           }
         } catch (error) {
-          console.error(
+          logger.error(
             `[Import Modal Worker ${workerId}] Batch failed:`,
             error,
           );
@@ -352,7 +352,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
         toast.error(`Failed to import ${failCount} test(s)`);
       }
     } catch (err) {
-      console.error("[FullTestImportModal] Import batch failure:", err);
+      logger.error("[FullTestImportModal] Import batch failure:", err);
       toast.error("Import failed due to an unexpected error");
     } finally {
       setImporting(false);
@@ -519,6 +519,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
               state={testState}
               onChange={() => handleToggleSelect(test.index)}
             />
+
             <span
               className="font-medium text-gray-700 dark:text-gray-300 truncate"
               title={test.title}
@@ -547,11 +548,12 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
     const nodeState = getNodeSelectionState(node.tests);
 
     // Icon and badge styling based on nodeType
-    let icon = isExpanded ? (
+    const icon = isExpanded ? (
       <FolderOpen className="w-4 h-4 text-indigo-500 shrink-0" />
     ) : (
       <Folder className="w-4 h-4 text-indigo-500 shrink-0" />
     );
+
     let badgeColor =
       "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
     let typeLabel = "Folder";
@@ -611,6 +613,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
             state={nodeState}
             onChange={() => handleToggleSubtree(node.tests, nodeState)}
           />
+
           {icon}
           <span
             className={`uppercase text-[11px] tracking-wider px-1.5 py-0.5 rounded font-bold mr-1 ${badgeColor}`}
@@ -981,6 +984,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                     className="hidden"
                     id="full-test-file-input"
                   />
+
                   <label
                     htmlFor="full-test-file-input"
                     className="cursor-pointer block"
@@ -1213,6 +1217,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                       onChange={(e) => setStrict(e.target.checked)}
                       className="w-3.5 h-3.5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 mt-0.5 cursor-pointer"
                     />
+
                     <label
                       htmlFor="strict-import-toggle"
                       className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 cursor-pointer select-none"
@@ -1392,6 +1397,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                                         }}
                                         className="inline-block"
                                       />
+
                                       {qOptionsHi[optIdx] && (
                                         <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-1 border-t border-dashed border-gray-100 dark:border-gray-800/60 pt-1">
                                           <div

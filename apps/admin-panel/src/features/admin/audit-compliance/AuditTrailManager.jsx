@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { adminAPI } from "../../../shared/lib/dataService";
 import { toast } from "react-hot-toast";
@@ -11,12 +12,10 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
-  Calendar,
   User,
   FileText,
   AlertCircle,
   X,
-  Clock,
   Database,
   Layers,
 } from "lucide-react";
@@ -78,7 +77,7 @@ export default function AuditTrailManager() {
             },
           );
         } else {
-          console.warn("Audit logs fetch failed:", logsRes.reason);
+          logger.warn("Audit logs fetch failed:", logsRes.reason);
           setLogs([]);
         }
 
@@ -95,7 +94,7 @@ export default function AuditTrailManager() {
         }
       } catch (err) {
         if (signal?.aborted) return;
-        console.error("Error fetching audit logs:", err);
+        logger.error("Error fetching audit logs:", err);
         setError(err?.message || "Failed to load audit logs");
         toast.error("Failed to load audit logs");
       } finally {
@@ -127,6 +126,7 @@ export default function AuditTrailManager() {
         "IP Address",
         "Timestamp",
       ],
+
       ...logs.map((log) => [
         log.id ?? "",
         log.action ?? "",
@@ -138,6 +138,7 @@ export default function AuditTrailManager() {
         log.timestamp || log.created_at || "",
       ]),
     ];
+
     exportToCSV(
       `audit_trail_${new Date().toISOString().split("T")[0]}_page_${currentPage}`,
       rows,

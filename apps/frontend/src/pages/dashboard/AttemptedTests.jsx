@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../../shared/providers/AuthContext";
@@ -93,7 +94,7 @@ export default function AttemptedTests() {
         const attempts = attemptsRes.data?.data || [];
         setAttemptedTests(attempts);
       } catch (err) {
-        console.error("[AttemptedTests] Failed to fetch data:", err);
+        logger.error("[AttemptedTests] Failed to fetch data:", err);
         setError("Unable to load your attempted tests. Please try again.");
       } finally {
         setLoading(false);
@@ -1109,9 +1110,9 @@ export default function AttemptedTests() {
             <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 border border-indigo-200/60 dark:border-indigo-800/60">
               <ClipboardCheck className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-black text-slate-900 dark:text-white mb-1.5">
+            <h2 className="text-base font-black text-slate-900 dark:text-white mb-1.5">
               No Test Attempts Found
-            </h3>
+            </h2>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-5 max-w-xs mx-auto">
               {searchQuery || filterSeries !== "all" || activeTab !== "all"
                 ? "No attempted tests match your current filters. Try resetting your search or series selection."

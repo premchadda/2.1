@@ -1,8 +1,5 @@
 import express from "express";
-import {
-  pool,
-  dbHelpers,
-} from "../../infrastructure/database/postgres-helpers.js";
+import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { optionalAuth } from "../../middleware/auth.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 

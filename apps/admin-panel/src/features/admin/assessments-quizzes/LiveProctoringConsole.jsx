@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useParams, Link } from "react-router-dom";
 import {
   ShieldAlert,
@@ -7,17 +8,13 @@ import {
   AlertOctagon,
   Pause,
   Play,
-  Send,
   UserX,
   RefreshCw,
   Search,
-  Filter,
-  Eye,
   Clock,
   Radio,
   ChevronRight,
   ArrowLeft,
-  CheckCircle2,
   X,
   Loader2,
 } from "lucide-react";
@@ -97,7 +94,7 @@ export default function LiveProctoringConsole() {
         highRiskCount: payload.highRiskCount || 0,
       });
     } catch (err) {
-      console.warn("[LiveProctoringConsole] Failed to load candidates:", err);
+      logger.warn("[LiveProctoringConsole] Failed to load candidates:", err);
     } finally {
       setLoading(false);
     }
@@ -215,6 +212,7 @@ export default function LiveProctoringConsole() {
             <RefreshCw
               className={`w-3.5 h-3.5 ${autoRefresh ? "animate-spin text-indigo-600" : ""}`}
             />
+
             <span>{autoRefresh ? "10s Poll" : "Paused"}</span>
           </button>
 

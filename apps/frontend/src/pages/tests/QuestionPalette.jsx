@@ -241,7 +241,7 @@ function QuestionPalette({
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 border border-red-600 px-1 font-bold text-white shadow-sm">
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 border-2 border-dashed border-gray-400 dark:border-gray-500 px-1 font-bold text-gray-600 dark:text-gray-300 shadow-sm">
                       {stats.notAnswered}
                     </span>
                     <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
@@ -249,7 +249,7 @@ function QuestionPalette({
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-green-500 border border-green-600 px-1 font-bold text-white shadow-sm">
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-green-50 dark:bg-green-900/40 border-2 border-green-500 px-1 font-bold text-green-700 dark:text-green-300 shadow-sm">
                       {stats.answered}
                     </span>
                     <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
@@ -362,22 +362,53 @@ function QuestionPalette({
                                       : status === "p-ans-review"
                                         ? "Answered and Marked"
                                         : "Not Visited";
+                        // Four graded/attempted states must be told apart by
+                        // SIGHT alone — these exams apply negative marking, so
+                        // "answered but not yet graded" is a different score
+                        // outcome from "correct", and "wrong" is a different
+                        // outcome from "not answered". Colour is never the only
+                        // cue: each state also carries a glyph (WCAG 1.4.1).
+                        const isGradedCorrect =
+                          status === "p-correct" ||
+                          status === "p-correct-review";
+                        const isGradedWrong =
+                          status === "p-wrong" || status === "p-wrong-review";
+                        const isMarked =
+                          status === "p-ans-review" || status === "p-review";
+                        const isAnsweredOnly = status === "p-answered";
+                        const isNotAnswered = status === "p-not-answered";
+
                         const statusClass = isSecExpired
                           ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900 text-red-300 dark:text-red-700 cursor-not-allowed opacity-50"
-                          : status === "p-correct" ||
-                              status === "p-correct-review"
-                            ? "bg-green-500 border-green-600 text-white"
-                            : status === "p-wrong" ||
-                                status === "p-wrong-review"
+                          : isGradedCorrect
+                            ? "bg-green-600 border-green-700 text-white"
+                            : isGradedWrong
                               ? "bg-red-500 border-red-600 text-white"
-                              : status === "p-ans-review" ||
-                                  status === "p-review"
+                              : isMarked
                                 ? "bg-purple-500 border-purple-600 text-white"
-                                : status === "p-answered"
-                                  ? "bg-green-500 border-green-600 text-white"
-                                  : status === "p-not-answered"
-                                    ? "bg-red-500 border-red-600 text-white"
+                                : isAnsweredOnly
+                                  ? "bg-green-50 dark:bg-green-900/40 border-2 border-green-500 text-green-700 dark:text-green-300"
+                                  : isNotAnswered
+                                    ? "bg-gray-100 dark:bg-gray-700 border-2 border-dashed border-gray-400 dark:border-gray-500 text-gray-600 dark:text-gray-300"
                                     : "bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-500 text-gray-900 dark:text-white hover:border-indigo-500";
+
+                        const stateGlyph = isSecExpired
+                          ? null
+                          : isGradedCorrect
+                            ? "✓"
+                            : isGradedWrong
+                              ? "✗"
+                              : isAnsweredOnly
+                                ? "•"
+                                : isNotAnswered
+                                  ? "○"
+                                  : null;
+                        const stateGlyphClass =
+                          isGradedCorrect || isGradedWrong
+                            ? "text-white/90"
+                            : isAnsweredOnly
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-gray-500 dark:text-gray-400";
 
                         const isMatch = matchesReviewFilter(status);
 
@@ -410,6 +441,14 @@ function QuestionPalette({
                             }
                           >
                             {index + 1}
+                            {stateGlyph && (
+                              <span
+                                aria-hidden="true"
+                                className={`absolute -bottom-0.5 -left-0.5 text-[9px] leading-none font-black ${stateGlyphClass}`}
+                              >
+                                {stateGlyph}
+                              </span>
+                            )}
                             {status === "p-ans-review" && (
                               <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 border border-white dark:border-gray-800" />
                             )}

@@ -1,4 +1,5 @@
 import { BookOpen, Users, FileText, Clock } from "lucide-react";
+import { logger } from "@trstprep/shared-config";
 import { getPublicStats } from "../../shared/lib/dataService";
 import { useEffect, useState } from "react";
 
@@ -19,7 +20,7 @@ export default function QuickStats({ stats: initialStats }) {
             });
           }
         } catch (error) {
-          console.error("Failed to fetch stats for QuickStats:", error);
+          logger.error("Failed to fetch stats for QuickStats:", error);
         }
       };
       fetchStats();

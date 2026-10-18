@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import {
@@ -45,7 +46,7 @@ export default function CurrentAffairs() {
       }
     } catch (error) {
       if (error.name !== "AbortError") {
-        console.error("Failed to fetch current affairs:", error);
+        logger.error("Failed to fetch current affairs:", error);
         setArticles([]);
         setError("Failed to load articles");
       }
@@ -155,9 +156,9 @@ export default function CurrentAffairs() {
               <Zap className="w-5 h-5 text-amber-300 animate-pulse" />
             </div>
             <div>
-              <h3 className="font-bold text-base">
+              <h2 className="font-bold text-base">
                 Daily Current Affairs Speed Quiz
-              </h3>
+              </h2>
               <p className="text-xs text-indigo-100 mt-0.5">
                 Test your retention with today's 10-question timed quiz & climb
                 the leaderboard.

@@ -1,5 +1,3 @@
-import { pool } from "../../infrastructure/database/postgres-helpers.js";
-
 // KaTeX is a large (~300KB) dependency; load it on demand so it is not pulled
 // into the backend module graph until math rendering is actually requested.
 let katexPromise;
@@ -11,6 +9,9 @@ const getKatex = async () => {
 const mathService = {
   async renderMath(text, options = {}) {
     const { displayMode = false, throwOnError = false } = options;
+    // The caller's displayMode is an explicit override; when it is not set we
+    // infer intent from the delimiter ($$ / \(...\) => display, $...$ => inline).
+    const forceDisplay = displayMode === true;
     const katex = await getKatex();
 
     const processed = text.replace(
@@ -27,7 +28,7 @@ const mathService = {
           // No `trust` option: KaTeX escapes HTML by default, so output is
           // safe to inject (no stored-XSS vector through this path).
           return katex.renderToString(eq.trim(), {
-            displayMode: !!displayEq || match.startsWith("$$"),
+            displayMode: forceDisplay || !!displayEq || match.startsWith("$$"),
             throwOnError,
             output: "html",
           });

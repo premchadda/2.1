@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   Plus,
@@ -26,10 +27,7 @@ import {
   ArrowDown,
   Download,
   Upload,
-  Copy,
-  Check,
   RefreshCw,
-  HelpCircle,
 } from "lucide-react";
 import { adminAPI, apiClient } from "../../../shared/lib/dataService.js";
 import { useStages } from "../../../shared/hooks/useStages";
@@ -84,7 +82,7 @@ const hasMatchingId = (value, targetIds) => {
 function getDescendantIdSet(rootId, flatCategories) {
   if (!rootId) return new Set();
   const set = new Set([String(rootId)]);
-  let frontier = [String(rootId)];
+  const frontier = [String(rootId)];
   while (frontier.length) {
     const id = frontier.pop();
     flatCategories.forEach((c) => {
@@ -264,6 +262,7 @@ function TestSeriesMultiSelect({
                       checked={isSelected}
                       onChange={() => toggleSeries(seriesId)}
                     />
+
                     <span
                       className="flex-1 text-xs sm:text-sm text-gray-900 dark:text-gray-100 font-medium truncate"
                       title={series.title || series.name}
@@ -411,7 +410,7 @@ export default function CategoriesManager() {
           setExpandedCategories(JSON.parse(savedExpanded));
         }
       } catch (e) {
-        console.warn("Could not restore expanded state:", e);
+        logger.warn("Could not restore expanded state:", e);
       }
 
       const catResponse = await adminAPI.getTestCategories();
@@ -425,7 +424,7 @@ export default function CategoriesManager() {
           setExamCategories(examCatResponse.data.data || []);
         }
       } catch (err) {
-        console.error("Failed to fetch exam categories:", err);
+        logger.error("Failed to fetch exam categories:", err);
       }
 
       try {
@@ -434,7 +433,7 @@ export default function CategoriesManager() {
           setTestSeries(seriesResponse.data.data || []);
         }
       } catch (err) {
-        console.error("Failed to fetch test series:", err);
+        logger.error("Failed to fetch test series:", err);
       }
 
       try {
@@ -443,10 +442,10 @@ export default function CategoriesManager() {
           setTests(testsResponse.data.data || []);
         }
       } catch (err) {
-        console.error("Failed to fetch tests:", err);
+        logger.error("Failed to fetch tests:", err);
       }
     } catch (error) {
-      console.error("Failed to fetch data:", error);
+      logger.error("Failed to fetch data:", error);
       addActivityLog("fetch", "Fetch All Data", null, null, error);
       showToast("Failed to load categories data", "error");
     } finally {
@@ -479,6 +478,7 @@ export default function CategoriesManager() {
     "category_path_ids",
     "categoryPath",
   ];
+
   const TEST_CATEGORY_FIELDS = ["categoryId", "category", "category_id"];
   const TEST_CATEGORY_PATH_FIELDS = ["categoryPathIds", "category_path_ids"];
 
@@ -659,7 +659,7 @@ export default function CategoriesManager() {
         );
       }
     } catch (error) {
-      console.error("Failed to save category:", error);
+      logger.error("Failed to save category:", error);
       const errorMsg =
         error.response?.data?.message ||
         error.response?.data?.error?.message ||
@@ -790,7 +790,7 @@ export default function CategoriesManager() {
         );
       }
     } catch (error) {
-      console.error("Failed to delete category:", error);
+      logger.error("Failed to delete category:", error);
       showToast("Failed to move category to trash", "error");
       addActivityLog(
         "delete",
@@ -855,7 +855,7 @@ export default function CategoriesManager() {
       showToast("Category order updated");
       await fetchAllData();
     } catch (error) {
-      console.error("Reorder failed:", error);
+      logger.error("Reorder failed:", error);
       showToast("Failed to reorder categories", "error");
     }
   };
@@ -1137,7 +1137,7 @@ export default function CategoriesManager() {
       await fetchAllData();
       triggerTreeRefresh();
     } catch (err) {
-      console.error("Import error:", err);
+      logger.error("Import error:", err);
       showToast(
         err.response?.data?.message ||
           err.message ||
@@ -1475,6 +1475,7 @@ export default function CategoriesManager() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-8 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-xs sm:text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 shadow-xs"
               />
+
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
@@ -1942,6 +1943,7 @@ export default function CategoriesManager() {
                 rows={4}
                 className="w-full p-2 text-xs font-mono border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               />
+
               <button
                 type="button"
                 onClick={handleImportJson}
@@ -2135,6 +2137,7 @@ export default function CategoriesManager() {
                         : "border-gray-300 dark:border-gray-600"
                     }`}
                   />
+
                   {slugError && (
                     <p className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -2282,6 +2285,7 @@ export default function CategoriesManager() {
                                 }
                               }}
                             />
+
                             <span>{stage.name}</span>
                           </label>
                         );
@@ -2345,6 +2349,7 @@ export default function CategoriesManager() {
                         }
                         className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
                       />
+
                       <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
                         Active Status
                       </span>

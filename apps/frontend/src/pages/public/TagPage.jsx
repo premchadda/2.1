@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useParams } from "react-router-dom";
 import { useAuth } from "../../shared/providers/AuthContext";
 import {
@@ -85,7 +86,7 @@ function TagPage({ tagProp }) {
         }
       } catch (error) {
         if (error.name === "AbortError" || controller.signal.aborted) return;
-        console.error("Failed to fetch data:", error);
+        logger.error("Failed to fetch data:", error);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }

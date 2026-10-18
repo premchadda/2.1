@@ -248,26 +248,6 @@ router.get(
   responseCache("admin-sections-batch", 60),
   async (req, res) => {
     try {
-      const { scope, testSeriesId, stageId, testId } = req.query;
-
-      const resolveId = async (table, value) => {
-        if (!value) return null;
-        if (/^\d+$/.test(String(value))) return Number(value);
-        const { rows } = await pool.query(
-          `SELECT id FROM "${table}" WHERE public_id = $1 LIMIT 1`,
-          [value],
-        );
-        return rows[0]?.id || null;
-      };
-
-      const resolvedTestSeriesId = testSeriesId
-        ? await resolveId("test_series", testSeriesId)
-        : null;
-      const resolvedStageId = stageId
-        ? await resolveId("stages", stageId)
-        : null;
-      const resolvedTestId = testId ? await resolveId("tests", testId) : null;
-
       const batchData = await Promise.allSettled([
         dbHelpers.find("testCategories"),
         dbHelpers.find("tests"),
@@ -303,7 +283,10 @@ router.get(
   responseCache("admin-sections", 60),
   async (req, res) => {
     try {
-      let { testId, testSeriesId, stageId, scope, onlyLinked } = req.query;
+      // testId/testSeriesId/stageId are reassigned below after public-id resolution,
+      // so only the read-only half of the destructuring is const.
+      let { testId, testSeriesId, stageId } = req.query;
+      const { scope, onlyLinked } = req.query;
 
       // Resolve public_ids (like ser_xxx, stg_xxx, tst_xxx) to numeric ids
       const resolveId = async (table, value) => {
@@ -528,7 +511,9 @@ router.get("/for-test", protect, admin, async (req, res) => {
 // MUST be before /:id to avoid being caught by the param route
 router.post("/preset", protect, admin, async (req, res) => {
   try {
-    let { testId, testSeriesId, stageId, sections: presetSections } = req.body;
+    // Reassigned below once public ids are resolved to numeric ids.
+    let { testId, testSeriesId, stageId } = req.body;
+    const { sections: presetSections } = req.body;
 
     const resolveId = async (table, value) => {
       if (!value) return null;

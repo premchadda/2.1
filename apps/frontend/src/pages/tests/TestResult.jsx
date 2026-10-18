@@ -1,5 +1,6 @@
 import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
+import { Suspense, useEffect, useMemo, useState, useRef } from "react";
 import axios from "axios";
 import { Helmet } from "react-helmet-async";
 import { toast } from "react-hot-toast";
@@ -30,7 +31,7 @@ import {
   Globe,
   Sparkles,
 } from "lucide-react";
-import Confetti from "react-confetti";
+import { lazyWithRetry as lazy } from "../../shared/utils/lazyWithRetry";
 import { ReattemptOptions } from "../../shared/components/ReattemptOptions";
 import { mapQuestionToFrontend } from "../../shared/types/index.js";
 import { normalizeTestQuestions } from "../../shared/utils/testClassification";
@@ -38,6 +39,205 @@ import CutoffBenchmarkCard from "./components/CutoffBenchmarkCard";
 import SectionWiseScorecard from "./components/SectionWiseScorecard";
 import TestSolutionsList from "./components/TestSolutionsList";
 import TestLeaderboardTab from "./components/TestLeaderboardTab";
+
+// react-confetti is only rendered for the 6-second celebration burst when the
+// score is >=90%. It was previously an eager import, so every result page paid
+// for a dependency it almost never renders. Lazy-loaded; the <Suspense> fallback
+// below is `null` so the confetti can never block the result page.
+const Confetti = lazy(() => import("react-confetti"));
+
+// ---------------------------------------------------------------------------
+// Pure derivation helpers — module scope.
+//
+// These were previously defined *inside* the component, below its two early
+// returns (`if (loading)` / `if (error || !result)`). That made them impossible
+// to reference from a useMemo that had to be declared above those early returns
+// (rules-of-hooks). All of them are pure functions of their arguments and of the
+// `result` object, so hoisting them changes no behaviour — only identity.
+// ---------------------------------------------------------------------------
+
+const normalizeResultOption = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const normalized = String(value).trim();
+  if (/^[A-Za-z]$/.test(normalized)) {
+    return normalized.toUpperCase().charCodeAt(0) - 65;
+  }
+  return /^-?\d+(\.\d+)?$/.test(normalized) ? Number(normalized) : null;
+};
+
+const answersMatch = (userAns, correctAns) => {
+  if (Array.isArray(userAns) || Array.isArray(correctAns)) {
+    const selected = (Array.isArray(userAns) ? userAns : [userAns])
+      .map(normalizeResultOption)
+      .filter((value) => value !== null)
+      .sort((a, b) => a - b);
+    const correct = (Array.isArray(correctAns) ? correctAns : [correctAns])
+      .map(normalizeResultOption)
+      .filter((value) => value !== null)
+      .sort((a, b) => a - b);
+    return (
+      selected.length === correct.length &&
+      selected.every((value, index) => value === correct[index])
+    );
+  }
+  const selected = normalizeResultOption(userAns);
+  const correct = normalizeResultOption(correctAns);
+  return selected !== null && correct !== null && selected === correct;
+};
+
+const isSkippedQuestion = (q) => {
+  const ans = q.userAnswer ?? q.selectedOption ?? q.user_answer ?? q.userChoice;
+  return (
+    ans === undefined ||
+    ans === null ||
+    ans === "" ||
+    (Array.isArray(ans) && ans.length === 0) ||
+    ans === -1 ||
+    ans === "-1"
+  );
+};
+
+const isCorrectQuestion = (q) => {
+  if (isSkippedQuestion(q)) return false;
+  const userAns =
+    q.userAnswer ?? q.selectedOption ?? q.user_answer ?? q.userChoice;
+  const correctAns =
+    q.correctOption ??
+    q.correct_option ??
+    q.correct_option_id ??
+    q.correctOptionId ??
+    q.correctAnswer ??
+    q.correct_answer ??
+    q.correct ??
+    q.answer;
+  return (
+    correctAns !== undefined &&
+    correctAns !== null &&
+    answersMatch(userAns, correctAns)
+  );
+};
+
+const isWrongQuestion = (q) => {
+  if (isSkippedQuestion(q)) return false;
+  return !isCorrectQuestion(q);
+};
+
+const buildSubjectBreakdown = (result) => {
+  if (!result?.questions) return {};
+  const breakdown = {};
+
+  const defaultMarks = Number(
+    result.positiveMarks ??
+      result.positive_marks ??
+      result.marksPerQuestion ??
+      result.marks_per_question ??
+      2,
+  );
+  const defaultNeg = Number(
+    result.negativeMarks ??
+      result.negative_marks ??
+      (defaultMarks > 0
+        ? defaultMarks === 2
+          ? 0.5
+          : defaultMarks === 1
+            ? 0.33
+            : Number((defaultMarks * 0.25).toFixed(2))
+        : 0.5),
+  );
+
+  result.questions.forEach((q) => {
+    const section = q.section || q.subject || "General";
+
+    const qMarks = Number(
+      q.marks && !isNaN(q.marks) && Number(q.marks) > 0
+        ? q.marks
+        : defaultMarks,
+    );
+    const qNeg = Number(
+      q.negativeMarks !== undefined &&
+        q.negativeMarks !== null &&
+        !isNaN(q.negativeMarks) &&
+        Number(q.negativeMarks) >= 0
+        ? q.negativeMarks
+        : defaultNeg !== undefined &&
+            defaultNeg !== null &&
+            !isNaN(defaultNeg) &&
+            Number(defaultNeg) >= 0
+          ? defaultNeg
+          : qMarks === 2
+            ? 0.5
+            : qMarks === 1
+              ? 0.33
+              : Number((qMarks * 0.25).toFixed(2)),
+    );
+
+    if (!breakdown[section]) {
+      breakdown[section] = {
+        correct: 0,
+        wrong: 0,
+        unattempted: 0,
+        total: 0,
+        timeSpent: 0,
+        score: 0,
+        maxScore: 0,
+        positiveMarks: qMarks,
+        negativeMarks: qNeg,
+      };
+    }
+    breakdown[section].total++;
+    breakdown[section].maxScore += qMarks;
+
+    const qTime = Number(q.timeTaken || q.timeSpent || 0);
+    breakdown[section].timeSpent += qTime;
+
+    if (isSkippedQuestion(q)) {
+      breakdown[section].unattempted++;
+    } else if (isCorrectQuestion(q)) {
+      breakdown[section].correct++;
+      breakdown[section].score += qMarks;
+    } else {
+      breakdown[section].wrong++;
+      breakdown[section].score -= qNeg;
+    }
+  });
+
+  // If per-question times sum to 0, check sectionTimers/sectionTimings or overall timeSpent
+  const sectionTimers = result.sectionTimers || result.sectionTimings || {};
+  Object.keys(breakdown).forEach((sec) => {
+    if (breakdown[sec].timeSpent === 0 && sectionTimers[sec]) {
+      breakdown[sec].timeSpent = Number(sectionTimers[sec]);
+    }
+  });
+
+  const totalCalculatedTime = Object.values(breakdown).reduce(
+    (s, b) => s + b.timeSpent,
+    0,
+  );
+  const overallTotalTime = Number(result.timeSpent || result.timeTaken || 0);
+  if (
+    totalCalculatedTime === 0 &&
+    overallTotalTime > 0 &&
+    result.questions.length > 0
+  ) {
+    Object.keys(breakdown).forEach((sec) => {
+      const ratio = breakdown[sec].total / result.questions.length;
+      breakdown[sec].timeSpent = Math.round(overallTotalTime * ratio);
+    });
+  }
+
+  return breakdown;
+};
+
+/** Buckets questions into all/attempted/correct/wrong/skipped/marked counts. */
+const countStatuses = (list) => ({
+  all: list.length,
+  attempted: list.filter((q) => !isSkippedQuestion(q)).length,
+  correct: list.filter((q) => isCorrectQuestion(q)).length,
+  wrong: list.filter((q) => isWrongQuestion(q)).length,
+  skipped: list.filter((q) => isSkippedQuestion(q)).length,
+  marked: list.filter((q) => q.isMarked || q.is_marked).length,
+});
 
 function TestResult() {
   const routeParams = useParams();
@@ -120,10 +320,19 @@ function TestResult() {
     }, 50);
   };
 
+  // Only trust an attempt number the server actually supplied. The old
+  // fallback (`attemptIdFromState ? 2 : 1`) guessed attempt 1 whenever the
+  // payload carried neither attemptNumber nor attemptCount, so a user on
+  // their 4th attempt was handed `?attempt=2` and could overwrite a real
+  // attempt record. When the server omits it we omit the param too and let
+  // the backend assign the next number.
   const nextAttemptNumber =
-    (result?.attemptNumber ||
-      result?.attemptCount ||
-      (attemptIdFromState ? 2 : 1)) + 1;
+    result?.attemptNumber || result?.attemptCount
+      ? (result.attemptNumber || result.attemptCount) + 1
+      : null;
+  const attemptLabel = nextAttemptNumber
+    ? `Attempt #${nextAttemptNumber}`
+    : "a new attempt";
 
   const handleRealReattempt = () => {
     setShowReattemptModal(true);
@@ -134,19 +343,28 @@ function TestResult() {
     const seriesSlug = result?.seriesSlug || seriesId || "pyp";
     const targetTestId = result?.testId || result?.id || testId;
     navigate(
-      `/${seriesSlug}/tests/${targetTestId}?attempt=${nextAttemptNumber}`,
+      `/${seriesSlug}/tests/${targetTestId}${
+        nextAttemptNumber ? `?attempt=${nextAttemptNumber}` : ""
+      }`,
       {
         state: {
           isReattempt: true,
-          attemptNumber: nextAttemptNumber,
+          ...(nextAttemptNumber ? { attemptNumber: nextAttemptNumber } : {}),
         },
       },
     );
   };
 
   useEffect(() => {
-    const handleResize = () =>
-      setWinSize({ w: window.innerWidth, h: window.innerHeight });
+    const handleResize = () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      // Equality guard: winSize only feeds the confetti canvas, but it is
+      // component state, so an unguarded setState re-rendered this whole page
+      // (~25 array passes each time) up to 60x/second while a window was dragged.
+      // Returning `prev` keeps React's bail-out and skips the re-render entirely.
+      setWinSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+    };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -166,55 +384,37 @@ function TestResult() {
       if (pct >= 90 && !confettiShownRef.current.has(attemptKey)) {
         confettiShownRef.current.add(attemptKey);
         setShowConfetti(true);
-        confettiTimerRef.current = setTimeout(
-          () => setShowConfetti(false),
-          6000,
-        );
       }
     }
+    // NOTE: no cleanup here on purpose. This effect only *decides* whether the
+    // overlay is shown; its lifetime is the auto-hide timer's, which is owned by
+    // the effect below. A cleanup here used to clear the one and only timer
+    // while leaving showConfetti===true, so any dependency change inside the 6s
+    // window (result refetch, attemptIdFromState undefined -> id) pinned the
+    // confetti canvas on the page forever — confettiShownRef then blocked any
+    // re-arm.
+  }, [result?.score, result?.totalQuestions, attemptIdFromState, testId]);
+
+  // Auto-hide is bound to showConfetti alone, so it is unaffected by any of the
+  // identity dependencies above and always runs its full 6s.
+  useEffect(() => {
+    if (!showConfetti) return undefined;
+    confettiTimerRef.current = setTimeout(() => setShowConfetti(false), 6000);
     return () => {
       if (confettiTimerRef.current) {
         clearTimeout(confettiTimerRef.current);
         confettiTimerRef.current = null;
       }
     };
-  }, [result?.score, result?.totalQuestions, attemptIdFromState, testId]);
+  }, [showConfetti]);
 
-  // Canonical option normalization + comparison. Defined above the data-fetch
-  // effect and the loading/error early returns: fetchResult's async
-  // continuation (missing-score recompute) closes over this render's bindings,
-  // so these must be initialized on every render, including the first one
-  // that returns early while loading.
-  const normalizeResultOption = (value) => {
-    if (value === undefined || value === null || value === "") return null;
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    const normalized = String(value).trim();
-    if (/^[A-Za-z]$/.test(normalized)) {
-      return normalized.toUpperCase().charCodeAt(0) - 65;
-    }
-    return /^-?\d+(\.\d+)?$/.test(normalized) ? Number(normalized) : null;
-  };
-
-  const answersMatch = (userAns, correctAns) => {
-    if (Array.isArray(userAns) || Array.isArray(correctAns)) {
-      const selected = (Array.isArray(userAns) ? userAns : [userAns])
-        .map(normalizeResultOption)
-        .filter((value) => value !== null)
-        .sort((a, b) => a - b);
-      const correct = (Array.isArray(correctAns) ? correctAns : [correctAns])
-        .map(normalizeResultOption)
-        .filter((value) => value !== null)
-        .sort((a, b) => a - b);
-      return (
-        selected.length === correct.length &&
-        selected.every((value, index) => value === correct[index])
-      );
-    }
-    const selected = normalizeResultOption(userAns);
-    const correct = normalizeResultOption(correctAns);
-    return selected !== null && correct !== null && selected === correct;
-  };
-
+  // Canonical option normalization + comparison now live at module scope
+  // (normalizeResultOption / answersMatch / isSkippedQuestion / isCorrectQuestion
+  // / isWrongQuestion / buildSubjectBreakdown). They were previously rebound on
+  // every render purely so that fetchResult's async continuation could close over
+  // them — module scope satisfies that requirement trivially and additionally
+  // lets them be used from the useMemo derivations below, which must be declared
+  // above the loading/error early returns.
   useEffect(() => {
     const controller = new AbortController();
     const fetchResult = async () => {
@@ -468,6 +668,183 @@ function TestResult() {
     };
   }, [loading, result]);
 
+  // -------------------------------------------------------------------------
+  // Memoized derivations.
+  //
+  // These MUST sit above the `if (loading)` / `if (error || !result)` early
+  // returns below (rules-of-hooks). Before this change they ran inline in the
+  // render body, so every render — including the ~60/sec the resize listener
+  // used to trigger while a window was dragged — re-ran ~25 filter/map/reduce/
+  // sort passes over the questions array.
+  //
+  // Every helper they close over is a module-scope pure function, so the memo
+  // keys below are complete and the produced values are byte-identical to the
+  // inline versions they replace.
+  // -------------------------------------------------------------------------
+
+  // Stable identity for the question list: `result.questions || []` produced a
+  // fresh array every render, which would defeat every useMemo keyed on `questions`.
+  const questions = useMemo(() => result?.questions || [], [result]);
+
+  const subjectBreakdown = useMemo(
+    () => buildSubjectBreakdown(result),
+    [result],
+  );
+
+  const calculatedCorrect = useMemo(
+    () => questions.filter((q) => isCorrectQuestion(q)).length,
+    [questions],
+  );
+  const calculatedWrong = useMemo(
+    () => questions.filter((q) => isWrongQuestion(q)).length,
+    [questions],
+  );
+  const calculatedSkipped = useMemo(
+    () => questions.filter((q) => isSkippedQuestion(q)).length,
+    [questions],
+  );
+
+  // Unique sections list
+  const resultSections = useMemo(
+    () =>
+      Array.from(
+        new Set(questions.map((q) => q.section || q.subject || "General")),
+      ).filter(Boolean),
+    [questions],
+  );
+
+  // Questions in currently active section filter
+  const questionsInActiveSection = useMemo(
+    () =>
+      !solutionSectionFilter || solutionSectionFilter === "all"
+        ? questions
+        : questions.filter(
+            (q) =>
+              (q.section || q.subject || "General") === solutionSectionFilter,
+          ),
+    [questions, solutionSectionFilter],
+  );
+
+  const globalStatusCounts = useMemo(
+    () => countStatuses(questions),
+    [questions],
+  );
+
+  const statusCounts = useMemo(
+    () => countStatuses(questionsInActiveSection),
+    [questionsInActiveSection],
+  );
+
+  // Per-question time analysis
+  const questionTimeData = useMemo(
+    () =>
+      questions.map((q, i) => ({
+        index: i + 1,
+        time: q.timeTaken || q.timeSpent || 0,
+        section: q.section || q.subject || "General",
+        correct: isCorrectQuestion(q),
+        skipped: isSkippedQuestion(q),
+      })),
+    [questions],
+  );
+
+  const activeQuestionsWithTime = useMemo(
+    () => questionTimeData.filter((q) => q.time > 0),
+    [questionTimeData],
+  );
+  const attemptedQuestions = useMemo(
+    () => questionTimeData.filter((q) => !q.skipped),
+    [questionTimeData],
+  );
+
+  // Shared accuracy list — the inline version recomputed this identical
+  // Object.entries().map() twice per render (strongest + weakest), on top of the
+  // same mapping already done for `subjectAccuracies`.
+  const subjectAccuracyList = useMemo(
+    () =>
+      Object.entries(subjectBreakdown).map(([subject, data]) => {
+        const attempted = data.correct + data.wrong;
+        return {
+          subject,
+          accuracy:
+            attempted > 0 ? Math.round((data.correct / attempted) * 100) : 0,
+        };
+      }),
+    [subjectBreakdown],
+  );
+
+  const strongestSubject = useMemo(
+    () =>
+      subjectAccuracyList.length > 0
+        ? [...subjectAccuracyList].sort((a, b) => b.accuracy - a.accuracy)[0]
+        : undefined,
+    [subjectAccuracyList],
+  );
+  const rawWeakest = useMemo(
+    () =>
+      subjectAccuracyList.length > 0
+        ? [...subjectAccuracyList].sort((a, b) => a.accuracy - b.accuracy)[0]
+        : undefined,
+    [subjectAccuracyList],
+  );
+  const weakestSubject =
+    rawWeakest && rawWeakest.subject !== strongestSubject?.subject
+      ? rawWeakest
+      : null;
+
+  // Section Scorecard data with high-precision analytics
+  const subjectAccuracies = useMemo(
+    () =>
+      Object.entries(subjectBreakdown).map(([subject, data]) => {
+        const attempted = data.correct + data.wrong;
+        // Accuracy %: Ratio of correct answers out of attempted questions (standard exam metric)
+        const accuracy =
+          attempted > 0 ? Math.round((data.correct / attempted) * 100) : 0;
+        // Attempt Rate %: Ratio of attempted questions out of total questions in section
+        const attemptRatePct =
+          data.total > 0 ? Math.round((attempted / data.total) * 100) : 0;
+        // Average speed per attempted/visited question
+        const avgSecSpeed =
+          attempted > 0
+            ? Math.round(data.timeSpent / attempted)
+            : data.total > 0
+              ? Math.round(data.timeSpent / data.total)
+              : 0;
+
+        return {
+          subject,
+          accuracy,
+          attemptRatePct,
+          correct: data.correct,
+          wrong: data.wrong,
+          unattempted: data.unattempted,
+          total: data.total,
+          score: data.score,
+          maxScore:
+            data.maxScore ||
+            data.total *
+              (data.positiveMarks ||
+                result?.marksPerQuestion ||
+                result?.positiveMarks ||
+                2),
+          timeSpent: data.timeSpent,
+          avgSpeed: avgSecSpeed,
+          positiveMarks:
+            data.positiveMarks ||
+            result?.marksPerQuestion ||
+            result?.positiveMarks ||
+            2,
+          negativeMarks:
+            data.negativeMarks !== undefined
+              ? data.negativeMarks
+              : result?.negativeMarks !== undefined
+                ? result?.negativeMarks
+                : 0.5,
+        };
+      }),
+    [subjectBreakdown, result],
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center dark:bg-gray-900">
@@ -518,150 +895,6 @@ function TestResult() {
     return "text-red-600 dark:text-red-400";
   };
 
-  const isSkippedQuestion = (q) => {
-    const ans =
-      q.userAnswer ?? q.selectedOption ?? q.user_answer ?? q.userChoice;
-    return (
-      ans === undefined ||
-      ans === null ||
-      ans === "" ||
-      (Array.isArray(ans) && ans.length === 0) ||
-      ans === -1 ||
-      ans === "-1"
-    );
-  };
-
-  const isCorrectQuestion = (q) => {
-    if (isSkippedQuestion(q)) return false;
-    const userAns =
-      q.userAnswer ?? q.selectedOption ?? q.user_answer ?? q.userChoice;
-    const correctAns =
-      q.correctOption ??
-      q.correct_option ??
-      q.correct_option_id ??
-      q.correctOptionId ??
-      q.correctAnswer ??
-      q.correct_answer ??
-      q.correct ??
-      q.answer;
-    return (
-      correctAns !== undefined &&
-      correctAns !== null &&
-      answersMatch(userAns, correctAns)
-    );
-  };
-
-  const isWrongQuestion = (q) => {
-    if (isSkippedQuestion(q)) return false;
-    return !isCorrectQuestion(q);
-  };
-
-  const getSubjectBreakdown = () => {
-    if (!result?.questions) return {};
-    const breakdown = {};
-
-    const defaultMarks = Number(
-      result.positiveMarks ??
-        result.positive_marks ??
-        result.marksPerQuestion ??
-        result.marks_per_question ??
-        2,
-    );
-    const defaultNeg = Number(
-      result.negativeMarks ??
-        result.negative_marks ??
-        (defaultMarks > 0
-          ? defaultMarks === 2
-            ? 0.5
-            : defaultMarks === 1
-              ? 0.33
-              : Number((defaultMarks * 0.25).toFixed(2))
-          : 0.5),
-    );
-
-    result.questions.forEach((q) => {
-      const section = q.section || q.subject || "General";
-
-      const qMarks = Number(
-        q.marks && !isNaN(q.marks) && Number(q.marks) > 0
-          ? q.marks
-          : defaultMarks,
-      );
-      const qNeg = Number(
-        q.negativeMarks !== undefined &&
-          q.negativeMarks !== null &&
-          !isNaN(q.negativeMarks) &&
-          Number(q.negativeMarks) >= 0
-          ? q.negativeMarks
-          : defaultNeg !== undefined &&
-              defaultNeg !== null &&
-              !isNaN(defaultNeg) &&
-              Number(defaultNeg) >= 0
-            ? defaultNeg
-            : qMarks === 2
-              ? 0.5
-              : qMarks === 1
-                ? 0.33
-                : Number((qMarks * 0.25).toFixed(2)),
-      );
-
-      if (!breakdown[section]) {
-        breakdown[section] = {
-          correct: 0,
-          wrong: 0,
-          unattempted: 0,
-          total: 0,
-          timeSpent: 0,
-          score: 0,
-          maxScore: 0,
-          positiveMarks: qMarks,
-          negativeMarks: qNeg,
-        };
-      }
-      breakdown[section].total++;
-      breakdown[section].maxScore += qMarks;
-
-      const qTime = Number(q.timeTaken || q.timeSpent || 0);
-      breakdown[section].timeSpent += qTime;
-
-      if (isSkippedQuestion(q)) {
-        breakdown[section].unattempted++;
-      } else if (isCorrectQuestion(q)) {
-        breakdown[section].correct++;
-        breakdown[section].score += qMarks;
-      } else {
-        breakdown[section].wrong++;
-        breakdown[section].score -= qNeg;
-      }
-    });
-
-    // If per-question times sum to 0, check sectionTimers/sectionTimings or overall timeSpent
-    const sectionTimers = result.sectionTimers || result.sectionTimings || {};
-    Object.keys(breakdown).forEach((sec) => {
-      if (breakdown[sec].timeSpent === 0 && sectionTimers[sec]) {
-        breakdown[sec].timeSpent = Number(sectionTimers[sec]);
-      }
-    });
-
-    const totalCalculatedTime = Object.values(breakdown).reduce(
-      (s, b) => s + b.timeSpent,
-      0,
-    );
-    const overallTotalTime = Number(result.timeSpent || result.timeTaken || 0);
-    if (
-      totalCalculatedTime === 0 &&
-      overallTotalTime > 0 &&
-      result.questions.length > 0
-    ) {
-      Object.keys(breakdown).forEach((sec) => {
-        const ratio = breakdown[sec].total / result.questions.length;
-        breakdown[sec].timeSpent = Math.round(overallTotalTime * ratio);
-      });
-    }
-
-    return breakdown;
-  };
-
   const getFilteredQuestions = () => {
     if (!result.questions) return [];
     let list = result.questions;
@@ -702,17 +935,6 @@ function TestResult() {
     setExpandedSolutions((prev) => ({ ...prev, [qId]: !prev[qId] }));
   };
 
-  const questions = result.questions || [];
-  const subjectBreakdown = getSubjectBreakdown();
-
-  const calculatedCorrect = questions.filter((q) =>
-    isCorrectQuestion(q),
-  ).length;
-  const calculatedWrong = questions.filter((q) => isWrongQuestion(q)).length;
-  const calculatedSkipped = questions.filter((q) =>
-    isSkippedQuestion(q),
-  ).length;
-
   // Prefer backend values when available (they are the authoritative source from the scoring engine)
   const backendCorrect = result.correct ?? result.correctAnswers ?? 0;
   const backendWrong = result.wrong ?? result.wrongAnswers ?? 0;
@@ -734,31 +956,6 @@ function TestResult() {
       : correctCount + wrongCount > 0
         ? (correctCount / (correctCount + wrongCount)) * 100
         : 0;
-
-  const strongestSubject = Object.entries(subjectBreakdown)
-    .map(([subject, data]) => {
-      const attempted = data.correct + data.wrong;
-      return {
-        subject,
-        accuracy:
-          attempted > 0 ? Math.round((data.correct / attempted) * 100) : 0,
-      };
-    })
-    .sort((a, b) => b.accuracy - a.accuracy)[0];
-  const rawWeakest = Object.entries(subjectBreakdown)
-    .map(([subject, data]) => {
-      const attempted = data.correct + data.wrong;
-      return {
-        subject,
-        accuracy:
-          attempted > 0 ? Math.round((data.correct / attempted) * 100) : 0,
-      };
-    })
-    .sort((a, b) => a.accuracy - b.accuracy)[0];
-  const weakestSubject =
-    rawWeakest && rawWeakest.subject !== strongestSubject?.subject
-      ? rawWeakest
-      : null;
 
   const handleSolutionMode = () => {
     const seriesSlug = result?.seriesSlug || seriesId || "pyp";
@@ -823,7 +1020,7 @@ function TestResult() {
         return next;
       });
       if (import.meta.env.DEV)
-        console.warn("API report fallback:", err?.message);
+        logger.warn("API report fallback:", err?.message);
       toast.error("Failed to report question. Please try again.", {
         id: `report-${qId}`,
       });
@@ -902,53 +1099,6 @@ function TestResult() {
     { id: "leaderboard", label: "Leaderboard", icon: Trophy },
   ];
 
-  // Unique sections list
-  const resultSections = Array.from(
-    new Set(questions.map((q) => q.section || q.subject || "General")),
-  ).filter(Boolean);
-
-  // Questions in currently active section filter
-  const questionsInActiveSection =
-    !solutionSectionFilter || solutionSectionFilter === "all"
-      ? questions
-      : questions.filter(
-          (q) =>
-            (q.section || q.subject || "General") === solutionSectionFilter,
-        );
-
-  const globalStatusCounts = {
-    all: questions.length,
-    attempted: questions.filter((q) => !isSkippedQuestion(q)).length,
-    correct: questions.filter((q) => isCorrectQuestion(q)).length,
-    wrong: questions.filter((q) => isWrongQuestion(q)).length,
-    skipped: questions.filter((q) => isSkippedQuestion(q)).length,
-    marked: questions.filter((q) => q.isMarked || q.is_marked).length,
-  };
-
-  const statusCounts = {
-    all: questionsInActiveSection.length,
-    attempted: questionsInActiveSection.filter((q) => !isSkippedQuestion(q))
-      .length,
-    correct: questionsInActiveSection.filter((q) => isCorrectQuestion(q))
-      .length,
-    wrong: questionsInActiveSection.filter((q) => isWrongQuestion(q)).length,
-    skipped: questionsInActiveSection.filter((q) => isSkippedQuestion(q))
-      .length,
-    marked: questionsInActiveSection.filter((q) => q.isMarked || q.is_marked)
-      .length,
-  };
-
-  // Per-question time analysis
-  const questionTimeData = questions.map((q, i) => ({
-    index: i + 1,
-    time: q.timeTaken || q.timeSpent || 0,
-    section: q.section || q.subject || "General",
-    correct: isCorrectQuestion(q),
-    skipped: isSkippedQuestion(q),
-  }));
-
-  const activeQuestionsWithTime = questionTimeData.filter((q) => q.time > 0);
-  const attemptedQuestions = questionTimeData.filter((q) => !q.skipped);
   const totalOverallTime =
     result.timeSpent ||
     result.timeTaken ||
@@ -978,56 +1128,6 @@ function TestResult() {
       : null;
 
   // Section Scorecard data with high-precision analytics
-  const subjectAccuracies = Object.entries(subjectBreakdown).map(
-    ([subject, data]) => {
-      const attempted = data.correct + data.wrong;
-      // Accuracy %: Ratio of correct answers out of attempted questions (standard exam metric)
-      const accuracy =
-        attempted > 0 ? Math.round((data.correct / attempted) * 100) : 0;
-      // Attempt Rate %: Ratio of attempted questions out of total questions in section
-      const attemptRatePct =
-        data.total > 0 ? Math.round((attempted / data.total) * 100) : 0;
-      // Average speed per attempted/visited question
-      const avgSecSpeed =
-        attempted > 0
-          ? Math.round(data.timeSpent / attempted)
-          : data.total > 0
-            ? Math.round(data.timeSpent / data.total)
-            : 0;
-
-      return {
-        subject,
-        accuracy,
-        attemptRatePct,
-        correct: data.correct,
-        wrong: data.wrong,
-        unattempted: data.unattempted,
-        total: data.total,
-        score: data.score,
-        maxScore:
-          data.maxScore ||
-          data.total *
-            (data.positiveMarks ||
-              result?.marksPerQuestion ||
-              result?.positiveMarks ||
-              2),
-        timeSpent: data.timeSpent,
-        avgSpeed: avgSecSpeed,
-        positiveMarks:
-          data.positiveMarks ||
-          result?.marksPerQuestion ||
-          result?.positiveMarks ||
-          2,
-        negativeMarks:
-          data.negativeMarks !== undefined
-            ? data.negativeMarks
-            : result?.negativeMarks !== undefined
-              ? result?.negativeMarks
-              : 0.5,
-      };
-    },
-  );
-
   const formatScoreValue = (val) => {
     if (val === undefined || val === null || isNaN(val)) return "0";
     const num = Number(val);
@@ -1044,20 +1144,22 @@ function TestResult() {
         />
       </Helmet>
       {showConfetti && (
-        <Confetti
-          width={winSize.w}
-          height={winSize.h}
-          recycle={false}
-          numberOfPieces={400}
-          colors={[
-            "#667eea",
-            "#764ba2",
-            "#fbbf24",
-            "#22c55e",
-            "#ef4444",
-            "#3b82f6",
-          ]}
-        />
+        <Suspense fallback={null}>
+          <Confetti
+            width={winSize.w}
+            height={winSize.h}
+            recycle={false}
+            numberOfPieces={400}
+            colors={[
+              "#667eea",
+              "#764ba2",
+              "#fbbf24",
+              "#22c55e",
+              "#ef4444",
+              "#3b82f6",
+            ]}
+          />
+        </Suspense>
       )}
 
       {/* ═══ TOP BAR ═══ */}
@@ -1601,9 +1703,9 @@ function TestResult() {
                             Mistake Notebook
                           </span>
                         </div>
-                        <h4 className="text-sm font-extrabold text-white">
+                        <h3 className="text-sm font-extrabold text-white">
                           Re-Practice Incorrect Questions
-                        </h4>
+                        </h3>
                         <p className="text-white/90 text-xs mt-0.5">
                           {wrongCount > 0
                             ? `Directly re-practice all ${wrongCount} incorrect questions from this test in Practice Lab.`
@@ -1892,7 +1994,7 @@ function TestResult() {
               <br />
               This will start a fresh test session and be recorded as{" "}
               <span className="font-bold text-indigo-600 dark:text-indigo-400">
-                Attempt #{nextAttemptNumber}
+                {attemptLabel}
               </span>
               .
             </p>
@@ -1912,7 +2014,9 @@ function TestResult() {
                   Target Attempt
                 </span>
                 <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
-                  Attempt #{nextAttemptNumber}
+                  {nextAttemptNumber
+                    ? `Attempt #${nextAttemptNumber}`
+                    : "Assigned on start"}
                 </span>
               </div>
             </div>
@@ -1937,7 +2041,7 @@ function TestResult() {
                 onClick={confirmReattempt}
                 className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-sm hover:from-emerald-500 hover:to-teal-500 shadow-md hover:shadow-lg transition-all"
               >
-                Yes, Start Attempt #{nextAttemptNumber}
+                Yes, Start {attemptLabel}
               </button>
             </div>
           </div>

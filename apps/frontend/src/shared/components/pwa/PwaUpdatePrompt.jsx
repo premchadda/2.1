@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useLocation } from "react-router-dom";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { RefreshCw, X, Sparkles } from "lucide-react";
@@ -7,11 +8,17 @@ export default function PwaUpdatePrompt() {
   const location = useLocation();
   const [deferredUpdate, setDeferredUpdate] = useState(false);
 
+  // Holds the hourly update-check timer so it can be cleared on unmount.
+  // Without this the interval leaked, and under StrictMode's double-invoked
+  // effects two intervals were registered per mount.
+  const updateIntervalRef = useRef(null);
+
   const swHookResult = useRegisterSW?.({
     onRegistered(r) {
       // Check for updates every 60 minutes
       if (r) {
-        setInterval(
+        if (updateIntervalRef.current) clearInterval(updateIntervalRef.current);
+        updateIntervalRef.current = setInterval(
           () => {
             r.update();
           },
@@ -20,12 +27,21 @@ export default function PwaUpdatePrompt() {
       }
     },
     onRegisterError(error) {
-      console.error("[PWA SW Registration Error]", error);
+      logger.error("[PWA SW Registration Error]", error);
     },
   }) || {
     needRefresh: [false, () => {}],
     updateServiceWorker: () => {},
   };
+
+  useEffect(() => {
+    return () => {
+      if (updateIntervalRef.current) {
+        clearInterval(updateIntervalRef.current);
+        updateIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   const [needRefresh, setNeedRefresh] = swHookResult.needRefresh || [
     false,

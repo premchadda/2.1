@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   Plus,
@@ -82,7 +83,7 @@ export default function NavigationManager() {
         );
       }
     } catch (error) {
-      console.error("Failed to fetch navigation items:", error);
+      logger.error("Failed to fetch navigation items:", error);
       toast.error("Failed to load navigation items");
     } finally {
       setLoading(false);
@@ -122,7 +123,7 @@ export default function NavigationManager() {
         resetForm();
       }
     } catch (error) {
-      console.error("Failed to save navigation item:", error);
+      logger.error("Failed to save navigation item:", error);
       toast.error("Failed to save navigation item");
     }
   };
@@ -166,7 +167,7 @@ export default function NavigationManager() {
         fetchNavItems();
       }
     } catch (error) {
-      console.error("Failed to delete navigation item:", error);
+      logger.error("Failed to delete navigation item:", error);
       toast.error("Failed to delete navigation item");
     }
   };
@@ -180,7 +181,7 @@ export default function NavigationManager() {
       if (response.data?.success) fetchNavItems();
       else toast.error("Failed to toggle visibility");
     } catch (error) {
-      console.error("Failed to toggle visibility:", error);
+      logger.error("Failed to toggle visibility:", error);
       toast.error("Failed to toggle visibility");
     }
   };
@@ -201,7 +202,7 @@ export default function NavigationManager() {
       ]);
       fetchNavItems();
     } catch (error) {
-      console.error("Failed to reorder:", error);
+      logger.error("Failed to reorder:", error);
       toast.error("Failed to reorder — refreshing");
       fetchNavItems();
     }
@@ -223,7 +224,7 @@ export default function NavigationManager() {
       ]);
       fetchNavItems();
     } catch (error) {
-      console.error("Failed to reorder:", error);
+      logger.error("Failed to reorder:", error);
       toast.error("Failed to reorder — refreshing");
       fetchNavItems();
     }

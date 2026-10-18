@@ -244,84 +244,6 @@ router.delete(
 );
 
 // ===== SUBJECTS MANAGEMENT =====
-router.get(
-  "/subjects",
-  asyncHandler(async (req, res) => {
-    const subjects = await dbHelpers.find("subjects", { isActive: true });
-    res.json({ success: true, data: subjects });
-  }),
-);
-
-router.post(
-  "/subjects",
-  asyncHandler(async (req, res) => {
-    const { name, title, slug, icon, description, isActive, is_active } =
-      req.body;
-    const subjectName = (name || title || "").trim();
-    if (!subjectName) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Subject name is required" });
-    }
-    const subjectSlug = (
-      slug ||
-      subjectName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "")
-    ).trim();
-    const payload = {
-      name: subjectName,
-      slug: subjectSlug,
-      icon: icon || null,
-      description: description || null,
-      is_active: isActive ?? is_active ?? true,
-      created_at: new Date().toISOString(),
-    };
-    const newSubject = await dbHelpers.insertOne("subjects", payload);
-    res.status(201).json({ success: true, data: newSubject });
-  }),
-);
-
-router.put(
-  "/subjects/:id",
-  asyncHandler(async (req, res) => {
-    const { parentId, isActive, ...rest } = req.body;
-    const updated = await dbHelpers.updateById("subjects", req.params.id, {
-      ...rest,
-      parent_id:
-        parentId === "" || parentId === undefined || parentId === null
-          ? null
-          : Number(parentId),
-      is_active: isActive,
-      updatedAt: new Date().toISOString(),
-    });
-    if (!updated) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Subject not found" });
-    }
-    res.json({ success: true, data: updated });
-  }),
-);
-
-router.delete(
-  "/subjects/:id",
-  asyncHandler(async (req, res) => {
-    const deleted = await dbHelpers.softDelete(
-      "subjects",
-      req.params.id,
-      req.user.id,
-    );
-    if (!deleted) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Subject not found" });
-    }
-    res.json({ success: true, message: "Subject moved to trash" });
-  }),
-);
-
 // ===== BANNERS MANAGEMENT =====
 router.get(
   "/banners",
@@ -880,11 +802,6 @@ Do not include markdown codeblocks or other commentary.`;
     });
   }),
 );
-
-const updateQuizHandler = handleUpdateQuiz;
-
-router.put("/quizzes/:id", updateQuizHandler);
-router.patch("/quizzes/:id", updateQuizHandler);
 
 router.delete(
   "/quizzes/:id",

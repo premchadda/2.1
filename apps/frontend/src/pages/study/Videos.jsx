@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Link, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
@@ -81,6 +82,7 @@ const VideoCard = ({ video, index = 0, progress = null }) => {
             alt={video.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             loading="lazy"
+            decoding="async"
             onError={() => setThumbFailed(true)}
           />
         )}
@@ -194,6 +196,7 @@ const TrendingCard = ({ video, progress = null }) => {
           alt={video.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
+          decoding="async"
         />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
           <div className="w-9 h-9 rounded-full bg-white/95 dark:bg-slate-900/95 flex items-center justify-center">
@@ -356,7 +359,7 @@ function Videos() {
         }
       } catch (err) {
         if (err.name !== "AbortError" && err.name !== "CanceledError") {
-          console.error("Failed to fetch videos:", err);
+          logger.error("Failed to fetch videos:", err);
           setError("Failed to load video content. Please try again.");
         }
       } finally {

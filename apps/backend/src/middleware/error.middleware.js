@@ -57,7 +57,7 @@ export class RateLimitError extends AppError {
  * Catches all errors and returns consistent JSON responses
  * In production, raw error messages are sanitized to prevent information leaks
  */
-export const errorHandler = (err, req, res, next) => {
+export const errorHandler = (err, req, res, _next) => {
   const isProduction = process.env.NODE_ENV === "production";
 
   if (isProduction) {

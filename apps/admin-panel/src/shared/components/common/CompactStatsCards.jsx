@@ -1,5 +1,4 @@
 import { HelpCircle, Link2, Layers, BookOpen, Bookmark } from "lucide-react";
-import { useTheme } from "../../context/ThemeContext";
 
 const DEFAULT_STATS = [
   {

@@ -57,5 +57,4 @@ export { default as SEO } from "./SEO.jsx";
 // Question Features
 export { default as QuestionNotes } from "./QuestionNotes.jsx";
 export { default as QuestionDiscussions } from "./QuestionDiscussions.jsx";
-export { default as PassageGroup } from "./PassageGroup.jsx";
 export { groupQuestionsByPassage } from "../utils/passageUtils";

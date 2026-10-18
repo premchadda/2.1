@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, X, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 
 /**
  * Reusable confirm dialog. Replaces the inconsistent mix of `window.confirm`

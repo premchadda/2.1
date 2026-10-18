@@ -1,4 +1,5 @@
 import { toast } from "react-hot-toast";
+import { logger } from "@trstprep/shared-config";
 
 /**
  * Copy text to system clipboard with fallback and toast notification.
@@ -31,7 +32,7 @@ export const copyToClipboard = async (text, label) => {
     toast.success(message);
     return true;
   } catch (err) {
-    console.error("Failed to copy to clipboard:", err);
+    logger.error("Failed to copy to clipboard:", err);
     toast.error("Failed to copy to clipboard");
     return false;
   }

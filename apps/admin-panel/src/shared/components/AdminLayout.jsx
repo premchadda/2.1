@@ -9,37 +9,13 @@ import {
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  BookOpen,
-  Video,
-  Settings,
   LogOut,
   Menu,
   X,
-  FolderTree,
   ChevronRight,
-  Tag,
-  Navigation,
-  Info,
-  Layers,
-  Trash2,
-  Ticket,
-  Bell,
-  Star,
   Search,
   ChevronDown,
   BarChart3,
-  Trophy,
-  Clock,
-  HelpCircle,
-  Database,
-  Activity,
-  Gift,
-  Brain,
-  Image,
-  UserCheck,
-  CreditCard,
-  AlertTriangle,
-  Zap,
   User,
   Crown,
   Moon,
@@ -48,10 +24,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../providers/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import adminNavConfig, {
-  getFlatNavItems,
-  getBreadcrumbs,
-} from "../config/adminNavConfig";
+import adminNavConfig, { getFlatNavItems } from "../config/adminNavConfig";
 import { Logo, PageTransition } from "./index.jsx";
 // Heavy shell extras split out so the initial admin bundle stays lean:
 // CommandPalette (~search + nav index) and AdminBottomNav load on demand.
@@ -78,7 +51,7 @@ export default function AdminLayout() {
   const [expandedSections, setExpandedSections] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [_mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -178,6 +151,28 @@ export default function AdminLayout() {
     };
   }, []);
 
+  const isActive = useCallback(
+    (path) => {
+      if (path === "/admin" || path === "/admin/") {
+        return (
+          location.pathname === "/admin" || location.pathname === "/admin/"
+        );
+      }
+      const cleanPath = path.endsWith("/") ? path.slice(0, -1) : path;
+      const cleanLoc =
+        location.pathname.endsWith("/") && location.pathname.length > 1
+          ? location.pathname.slice(0, -1)
+          : location.pathname;
+      return cleanLoc === cleanPath || cleanLoc.startsWith(cleanPath + "/");
+    },
+    [location.pathname],
+  );
+
+  // Get current page info
+  const currentPage = useMemo(() => {
+    return getFlatNavItems().find((item) => isActive(item.path));
+  }, [isActive]);
+
   // Auto-expand section containing current path (functional setState to
   // avoid stale expandedSections closure)
   useEffect(() => {
@@ -191,7 +186,7 @@ export default function AdminLayout() {
           : { ...prev, [currentCategory.id]: true },
       );
     }
-  }, [location.pathname]);
+  }, [isActive]);
 
   const canViewItem = useCallback(
     (item) => {
@@ -270,18 +265,6 @@ export default function AdminLayout() {
     navigate("/login");
   };
 
-  const isActive = (path) => {
-    if (path === "/admin" || path === "/admin/") {
-      return location.pathname === "/admin" || location.pathname === "/admin/";
-    }
-    const cleanPath = path.endsWith("/") ? path.slice(0, -1) : path;
-    const cleanLoc =
-      location.pathname.endsWith("/") && location.pathname.length > 1
-        ? location.pathname.slice(0, -1)
-        : location.pathname;
-    return cleanLoc === cleanPath || cleanLoc.startsWith(cleanPath + "/");
-  };
-
   const toggleSection = (sectionId) => {
     setExpandedSections((prev) => ({
       ...prev,
@@ -289,17 +272,7 @@ export default function AdminLayout() {
     }));
   };
 
-  // Get current page info
-  const currentPage = useMemo(() => {
-    return getFlatNavItems().find((item) => isActive(item.path));
-  }, [location.pathname]);
-
-  // Breadcrumbs
-  const breadcrumbs = useMemo(() => {
-    return getBreadcrumbs(location.pathname);
-  }, [location.pathname]);
-
-  const renderNavItem = (item, categoryColor) => {
+  const renderNavItem = (item, _categoryColor) => {
     const active = isActive(item.path);
 
     return (

@@ -8,16 +8,16 @@
  * - Template-based imports
  */
 
-import { pool } from '../../infrastructure/database/postgres-helpers.js'
-import { universalImport } from '../../services/import/enhancedImporter.js'
+import { universalImport } from "../../services/import/enhancedImporter.js";
 
 const bulkImportService = {
   /**
    * Get import statistics.
    */
   async getStats() {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
       const result = await client.query(`
@@ -32,11 +32,11 @@ const bulkImportService = {
         from import_logs
         GROUP BY source
         ORDER BY last_import DESC
-      `)
+      `);
 
-      return result.rows
+      return result.rows;
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -44,21 +44,25 @@ const bulkImportService = {
    * Get recent imports.
    */
   async getRecentImports(limit = 20) {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
-      const result = await client.query(`
+      const result = await client.query(
+        `
         SELECT il.*, u.name as imported_by_name
         FROM import_logs il
         LEFT JOIN users u ON il.imported_by = u.id
         ORDER BY il.created_at DESC
         LIMIT $1
-      `, [limit])
+      `,
+        [limit],
+      );
 
-      return result.rows
+      return result.rows;
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -66,20 +70,24 @@ const bulkImportService = {
    * Get import details by ID.
    */
   async getImportById(id) {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
-      const result = await client.query(`
+      const result = await client.query(
+        `
         SELECT il.*, u.name as imported_by_name
         FROM import_logs il
         LEFT JOIN users u ON il.imported_by = u.id
         WHERE il.id = $1
-      `, [id])
+      `,
+        [id],
+      );
 
-      return result.rows[0] || null
+      return result.rows[0] || null;
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -87,47 +95,48 @@ const bulkImportService = {
    * Validate import file before actual import.
    */
   async validateFile(fileBuffer, filename) {
-    const { detectFormat, normalizeToClassX, parseExcelData, parseCSVData } = await import('../../services/import/enhancedImporter.js')
+    const { detectFormat, normalizeToClassX, parseExcelData, parseCSVData } =
+      await import("../../services/import/enhancedImporter.js");
 
-    let data
-    let format
+    let data;
+    let format;
 
-    if (filename.endsWith('.json')) {
-      data = JSON.parse(fileBuffer.toString('utf-8'))
-      format = detectFormat(filename, data)
-    } else if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) {
-      data = await parseExcelData(fileBuffer, filename)
-      format = 'excel'
-    } else if (filename.endsWith('.csv')) {
-      data = parseCSVData(fileBuffer.toString('utf-8'))
-      format = 'csv'
+    if (filename.endsWith(".json")) {
+      data = JSON.parse(fileBuffer.toString("utf-8"));
+      format = detectFormat(filename, data);
+    } else if (filename.endsWith(".xlsx") || filename.endsWith(".xls")) {
+      data = await parseExcelData(fileBuffer, filename);
+      format = "excel";
+    } else if (filename.endsWith(".csv")) {
+      data = parseCSVData(fileBuffer.toString("utf-8"));
+      format = "csv";
     } else {
-      throw new Error('Unsupported file format')
+      throw new Error("Unsupported file format");
     }
 
-    const rows = normalizeToClassX(data, format)
+    const rows = normalizeToClassX(data, format);
 
     return {
       format,
       totalRows: rows.length,
       sampleRows: rows.slice(0, 5),
       validation: this.validateRows(rows),
-    }
+    };
   },
 
   /**
    * Validate a batch of rows.
    */
   validateRows(rows) {
-    const errors = []
-    let validCount = 0
+    const errors = [];
+    let validCount = 0;
 
     for (let i = 0; i < rows.length; i++) {
-      const row = rows[i]
-      const rowErrors = []
+      const row = rows[i];
+      const rowErrors = [];
 
       if (!row.question && !row.question_text) {
-        rowErrors.push('Missing question text')
+        rowErrors.push("Missing question text");
       }
 
       const options = [
@@ -135,23 +144,23 @@ const bulkImportService = {
         row.option_2,
         row.option_3,
         row.option_4,
-      ].filter(o => o && String(o).trim())
+      ].filter((o) => o && String(o).trim());
 
       if (options.length < 2) {
-        rowErrors.push('At least 2 options required')
+        rowErrors.push("At least 2 options required");
       }
 
       if (!row.answer && row.correct_option === undefined) {
-        rowErrors.push('Missing correct answer')
+        rowErrors.push("Missing correct answer");
       }
 
       if (rowErrors.length > 0) {
         errors.push({
           row: i + 1,
           errors: rowErrors,
-        })
+        });
       } else {
-        validCount++
+        validCount++;
       }
     }
 
@@ -160,14 +169,14 @@ const bulkImportService = {
       valid: validCount,
       invalid: rows.length - validCount,
       errors: errors.slice(0, 100),
-    }
+    };
   },
 
   /**
    * Import questions from file buffer.
    */
   async importFile(fileBuffer, filename, config = {}) {
-    return universalImport(fileBuffer, filename, config)
+    return universalImport(fileBuffer, filename, config);
   },
 
   /**
@@ -176,30 +185,32 @@ const bulkImportService = {
   getSupportedFormats() {
     return [
       {
-        extension: '.json',
-        name: 'JSON',
-        description: 'ClassX or custom JSON format',
-        mimeTypes: ['application/json'],
+        extension: ".json",
+        name: "JSON",
+        description: "ClassX or custom JSON format",
+        mimeTypes: ["application/json"],
       },
       {
-        extension: '.xlsx',
-        name: 'Excel',
-        description: 'Excel spreadsheet (.xlsx)',
-        mimeTypes: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        extension: ".xlsx",
+        name: "Excel",
+        description: "Excel spreadsheet (.xlsx)",
+        mimeTypes: [
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ],
       },
       {
-        extension: '.xls',
-        name: 'Excel (Legacy)',
-        description: 'Legacy Excel format (.xls)',
-        mimeTypes: ['application/vnd.ms-excel'],
+        extension: ".xls",
+        name: "Excel (Legacy)",
+        description: "Legacy Excel format (.xls)",
+        mimeTypes: ["application/vnd.ms-excel"],
       },
       {
-        extension: '.csv',
-        name: 'CSV',
-        description: 'Comma-separated values',
-        mimeTypes: ['text/csv'],
+        extension: ".csv",
+        name: "CSV",
+        description: "Comma-separated values",
+        mimeTypes: ["text/csv"],
       },
-    ]
+    ];
   },
 
   /**
@@ -208,37 +219,37 @@ const bulkImportService = {
   getTemplate() {
     return {
       headers: [
-        'question',
-        'option_1',
-        'option_2',
-        'option_3',
-        'option_4',
-        'answer',
-        'explanation',
-        'difficulty',
-        'marks',
-        'negative_marks',
-        'subject',
-        'topic',
+        "question",
+        "option_1",
+        "option_2",
+        "option_3",
+        "option_4",
+        "answer",
+        "explanation",
+        "difficulty",
+        "marks",
+        "negative_marks",
+        "subject",
+        "topic",
       ],
       sampleRows: [
         {
-          question: 'What is 2 + 2?',
-          option_1: '3',
-          option_2: '4',
-          option_3: '5',
-          option_4: '6',
-          answer: '2',
-          explanation: '2 + 2 = 4',
-          difficulty: 'easy',
+          question: "What is 2 + 2?",
+          option_1: "3",
+          option_2: "4",
+          option_3: "5",
+          option_4: "6",
+          answer: "2",
+          explanation: "2 + 2 = 4",
+          difficulty: "easy",
           marks: 1,
           negative_marks: 0.5,
-          subject: 'Mathematics',
-          topic: 'Basic Arithmetic',
+          subject: "Mathematics",
+          topic: "Basic Arithmetic",
         },
       ],
-    }
+    };
   },
-}
+};
 
-export default bulkImportService
+export default bulkImportService;

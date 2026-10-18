@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
@@ -225,7 +226,7 @@ export default function StagesManager() {
         setAllStages(response.data.data);
       }
     } catch (error) {
-      console.error("Failed to fetch stages:", error);
+      logger.error("Failed to fetch stages:", error);
     } finally {
       setLoading(false);
     }
@@ -244,7 +245,7 @@ export default function StagesManager() {
         setStageDetails(response.data.data);
       }
     } catch (error) {
-      console.error("Failed to fetch stage details:", error);
+      logger.error("Failed to fetch stage details:", error);
     } finally {
       setDetailsLoading(false);
     }
@@ -282,7 +283,7 @@ export default function StagesManager() {
         fetchStages();
       }
     } catch (error) {
-      console.error("Failed to link stage to series:", error);
+      logger.error("Failed to link stage to series:", error);
       toast.error("Failed to link stage to series");
     }
   };
@@ -308,7 +309,7 @@ export default function StagesManager() {
         fetchStages();
       }
     } catch (error) {
-      console.error("Failed to unlink stage from series:", error);
+      logger.error("Failed to unlink stage from series:", error);
       toast.error("Failed to unlink stage from series");
     }
   };
@@ -339,7 +340,7 @@ export default function StagesManager() {
         fetchAllStages();
       }
     } catch (error) {
-      console.error("Failed to save:", error);
+      logger.error("Failed to save:", error);
       toast.error("Failed to save");
     }
   };
@@ -442,7 +443,7 @@ export default function StagesManager() {
       toast.success("Stage deleted");
       fetchStages();
     } catch (error) {
-      console.error("Failed to delete:", error);
+      logger.error("Failed to delete:", error);
       toast.error("Failed to delete");
     }
   };
@@ -483,7 +484,7 @@ export default function StagesManager() {
       await adminAPI.updateStage(stageId, { examIds: updatedExamIds });
       fetchStages();
     } catch (error) {
-      console.error("Failed to link stage:", error);
+      logger.error("Failed to link stage:", error);
     }
   };
 
@@ -515,7 +516,7 @@ export default function StagesManager() {
       await adminAPI.updateStage(stageId, { examIds: updatedExamIds });
       fetchStages();
     } catch (error) {
-      console.error("Failed to unlink stage:", error);
+      logger.error("Failed to unlink stage:", error);
     }
   };
 
@@ -546,7 +547,7 @@ export default function StagesManager() {
         setTestSeries(response.data.data || []);
       }
     } catch (error) {
-      console.error("Failed to fetch test series:", error);
+      logger.error("Failed to fetch test series:", error);
       setTestSeries([]);
     } finally {
       setSeriesLoading(false);
@@ -628,7 +629,7 @@ export default function StagesManager() {
       const failedCount = results.filter((r) => r.status === "rejected").length;
       results
         .filter((r) => r.status === "rejected")
-        .forEach((r) => console.error("Failed to link stage:", r.reason));
+        .forEach((r) => logger.error("Failed to link stage:", r.reason));
 
       setSelectedStages(new Set());
       await fetchStages();
@@ -636,7 +637,7 @@ export default function StagesManager() {
         `Bulk link complete: ${successCount} linked, ${failedCount} failed.`,
       );
     } catch (error) {
-      console.error("Bulk link Error:", error);
+      logger.error("Bulk link Error:", error);
       toast.error("Bulk link operation failed.");
     } finally {
       setBulkLinking(false);
@@ -679,7 +680,7 @@ export default function StagesManager() {
       const failedCount = results.filter((r) => r.status === "rejected").length;
       results
         .filter((r) => r.status === "rejected")
-        .forEach((r) => console.error("Failed to unlink stage:", r.reason));
+        .forEach((r) => logger.error("Failed to unlink stage:", r.reason));
 
       setSelectedStages(new Set());
       await fetchStages();
@@ -687,7 +688,7 @@ export default function StagesManager() {
         `Bulk unlink complete: ${successCount} unlinked, ${failedCount} failed.`,
       );
     } catch (error) {
-      console.error("Bulk unlink Error:", error);
+      logger.error("Bulk unlink Error:", error);
       toast.error("Bulk unlink operation failed.");
     } finally {
       setBulkLinking(false);
@@ -728,7 +729,7 @@ export default function StagesManager() {
         await adminAPI.updateStage(stageId, { examIds: updatedExamIds });
         await fetchStages();
       } catch (error) {
-        console.error("Quick link failed:", error);
+        logger.error("Quick link failed:", error);
         toast.error("Quick link failed.");
       }
     },

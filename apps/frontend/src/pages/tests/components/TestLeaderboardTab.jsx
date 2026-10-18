@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import PropTypes from "prop-types";
 import { Trophy, Crown, Sparkles, Users, Search } from "lucide-react";
 import { apiClient } from "../../../shared/lib/dataService";
@@ -178,7 +179,7 @@ export default function TestLeaderboardTab({
         }
       } catch (err) {
         if (!isMounted) return;
-        console.error("Leaderboard fetch error:", err);
+        logger.error("Leaderboard fetch error:", err);
         // Fallback to result data
         if (result) {
           const userRank = result.rank || 1;

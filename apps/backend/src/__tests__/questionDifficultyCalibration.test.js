@@ -19,7 +19,6 @@ const {
   predictQuestionDifficulty,
   calibrateQuestionById,
   BLOOMS_LEVELS,
-  scoreToLevel,
 } = await import("../modules/questions/questionDifficulty.service.js");
 
 describe("AI Question Difficulty Calibration & Bloom's Taxonomy Engine", () => {

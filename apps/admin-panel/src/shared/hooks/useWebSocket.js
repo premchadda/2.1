@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { io } from "socket.io-client";
 import { API_BASE_URL, DEV_SOCKET_FALLBACK_URL } from "../lib/apiBase.js";
 
@@ -81,12 +82,12 @@ export const useWebSocket = (enabled = true) => {
     const handleConnectError = (error) => {
       errorCount++;
       if (errorCount <= 3) {
-        console.warn(
+        logger.warn(
           `[WebSocket] Connection failed (${errorCount}):`,
           error.message,
         );
       } else if (errorCount === 10) {
-        console.warn(
+        logger.warn(
           "[WebSocket] Still retrying — server unreachable, check VITE_SOCKET_URL / API_BASE_URL",
         );
       }

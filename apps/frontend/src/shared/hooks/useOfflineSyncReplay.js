@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { toast } from "react-hot-toast";
 import { indexedDBAttemptVault } from "../lib/offline/IndexedDBAttemptVault";
 import { api } from "../lib/dataService";
@@ -66,7 +67,7 @@ export function useOfflineSyncReplay(attemptId, options = {}) {
       return res;
     } catch (err) {
       if (import.meta.env.DEV)
-        console.warn("[useOfflineSyncReplay] Sync error:", err);
+        logger.warn("[useOfflineSyncReplay] Sync error:", err);
       return null;
     } finally {
       setIsSyncing(false);

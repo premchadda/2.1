@@ -1,20 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  act,
+  waitFor,
+} from "@testing-library/react";
 import SocraticHintModal from "../pages/tests/components/SocraticHintModal";
+
+const { api } = vi.hoisted(() => ({
+  api: { post: vi.fn() },
+}));
 
 vi.mock("../shared/lib/dataService", () => ({
   api: {
-    post: vi.fn().mockResolvedValue({
-      data: {
-        success: true,
-        data: {
-          hint: "💡 **Concept Clue**: Use Bayes Theorem to decompose conditional likelihood.",
-          tier: 1,
-          penaltyFactor: 0.05,
-          eliminatedOptionIndices: [],
-        },
-      },
-    }),
+    post: (...args) => api.post(...args),
   },
 }));
 
@@ -27,6 +27,17 @@ describe("SocraticHintModal Component", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    api.post.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          hint: "💡 **Concept Clue**: Use Bayes Theorem to decompose conditional likelihood.",
+          tier: 1,
+          penaltyFactor: 0.05,
+          eliminatedOptionIndices: [],
+        },
+      },
+    });
   });
 
   it("does not render when isOpen is false", () => {
@@ -75,10 +86,24 @@ describe("SocraticHintModal Component", () => {
     });
 
     const approachBtn = screen.getByText("Approach Clue").closest("button");
-    fireEvent.click(approachBtn);
+    // Switching tiers refetches the hint; wrap so the resolved state lands
+    // inside act() instead of after the test body finishes.
+    await act(async () => {
+      fireEvent.click(approachBtn);
+    });
+    expect(api.post).toHaveBeenCalledWith(
+      "/api/intelligence/questions/q-401/socratic-hint",
+      expect.objectContaining({ tier: 2 }),
+    );
 
     const eliminationBtn = screen.getByText("Elimination").closest("button");
-    fireEvent.click(eliminationBtn);
+    await act(async () => {
+      fireEvent.click(eliminationBtn);
+    });
+    expect(api.post).toHaveBeenCalledWith(
+      "/api/intelligence/questions/q-401/socratic-hint",
+      expect.objectContaining({ tier: 3 }),
+    );
   });
 
   it("toggles between English and Hindi languages", async () => {

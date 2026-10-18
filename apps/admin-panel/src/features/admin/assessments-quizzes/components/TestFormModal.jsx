@@ -11,11 +11,7 @@ import {
   FileText,
 } from "lucide-react";
 import SECTION_PRESETS from "../../../../shared/config/sectionPresets.js";
-import {
-  getSeriesId,
-  getSectionId,
-  getSectionName,
-} from "./questionHelpers.js";
+import { getSeriesId } from "./questionHelpers.js";
 import {
   coerceArray,
   getEntityId,
@@ -23,7 +19,6 @@ import {
   normalizeKey,
 } from "../../../../shared/utils/questionHelpers";
 import {
-  getCategoryLabel,
   getCategoryPath,
   getCategoryPathLabel,
   resolveTestCategoryTabId,
@@ -652,6 +647,7 @@ export default function TestFormModal({
                       className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-xs sm:text-sm bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
                       placeholder="auto-generated-from-title"
                     />
+
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 break-all">
                       URL Slug:{" "}
                       <span className="font-mono font-semibold text-indigo-600 dark:text-indigo-400">
@@ -769,6 +765,7 @@ export default function TestFormModal({
                       }
                       contextLabel={contextLabel}
                     />
+
                     {editingId && (
                       <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200 dark:border-gray-700">
                         <label
@@ -918,6 +915,7 @@ export default function TestFormModal({
                             }
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-xs bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
                           />
+
                           <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
                             Exact date & time when the live test becomes active
                           </p>
@@ -945,6 +943,7 @@ export default function TestFormModal({
                             }
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-xs bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
                           />
+
                           <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
                             When the live contest window closes
                           </p>
@@ -1001,6 +1000,7 @@ export default function TestFormModal({
                           }}
                           className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer shrink-0"
                         />
+
                         <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white transition-colors select-none">
                           {label}
                         </span>
@@ -1028,6 +1028,7 @@ export default function TestFormModal({
                           "Test Subcategory",
                           relationshipSummary.testSubcategory,
                         ],
+
                         ["Test Sections", relationshipSummary.sections],
                       ].map(([label, value]) => (
                         <div

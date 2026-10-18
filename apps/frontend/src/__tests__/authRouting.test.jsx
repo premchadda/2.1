@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { ROUTER_FUTURE_FLAGS } from "../test/routerFutureFlags";
 
 // Mutable auth state so each test can describe a different bootstrap scenario.
 const auth = vi.hoisted(() => ({
@@ -34,7 +35,7 @@ const DashboardStub = () => <div data-testid="dashboard-stub">dashboard</div>;
 function renderLanding(path = "/") {
   const route = createRoute(path, <LandingStub />);
   return render(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter initialEntries={[path]} future={ROUTER_FUTURE_FLAGS}>
       <Routes>
         <Route path={route.path} element={route.element} />
         <Route path="/dashboard" element={<DashboardStub />} />

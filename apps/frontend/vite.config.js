@@ -113,8 +113,11 @@ export default defineConfig(({ mode }) => {
 
   return {
     clearScreen: false,
-    esbuild:
-      mode === "production" ? { drop: ["console", "debugger"] } : undefined,
+    // Only `debugger` is dropped in production. `console` calls are intentionally
+    // KEPT: they carry real diagnostics (PWA SW-registration failures, public-settings
+    // fallbacks, proxy errors) that are otherwise invisible in deployed browsers.
+    // Do not re-add "console" here without routing those calls through a logger first.
+    esbuild: mode === "production" ? { drop: ["debugger"] } : undefined,
     plugins: [
       suppressProxyErrors(),
       react(),
@@ -122,7 +125,13 @@ export default defineConfig(({ mode }) => {
         ? [visualizer({ open: true, filename: "stats.html", gzipSize: true })]
         : []),
       VitePWA({
-        registerType: "autoUpdate",
+        // "prompt" (NOT "autoUpdate"): with autoUpdate the generated SW client calls
+        // window.location.reload() unconditionally on the `activated` event, which can
+        // fire mid-exam and destroy an in-progress attempt. It also never fires
+        // `onNeedRefresh`, leaving PwaUpdatePrompt.jsx's isInActiveTest deferral dead.
+        // "prompt" surfaces the update through the prompt component so the author's
+        // active-test guard can decide when it is safe to reload.
+        registerType: "prompt",
         includeAssets: ["favicon.svg"],
         manifest: {
           id: "/",

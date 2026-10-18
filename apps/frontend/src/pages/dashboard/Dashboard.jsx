@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../../shared/providers/AuthContext";
@@ -325,7 +326,7 @@ function Dashboard() {
           setDashboardCache(activeUserId, cachePayload);
         }
       } catch (err) {
-        console.error(
+        logger.error(
           "[Dashboard] Error fetching dashboard data:",
           err?.message ?? err,
         );
@@ -1238,7 +1239,7 @@ function Dashboard() {
                     📚
                   </div>
                   {(() => {
-                    const prefs = getOnboardingPrefs();
+                    const prefs = getOnboardingPrefs(user);
                     if (prefs && prefs.selectedExam) {
                       return (
                         <p className="text-gray-700 dark:text-gray-200 text-sm mb-1 font-semibold">

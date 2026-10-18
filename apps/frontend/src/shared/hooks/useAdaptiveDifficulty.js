@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adaptiveDifficultyAPI } from "../lib/adaptiveDifficultyAPI";
 
@@ -44,7 +45,7 @@ export function useAdaptiveDifficulty(topicId) {
       queryClient.setQueryData(["adaptive-difficulty", topicId], newData);
     },
     onError: (err) => {
-      console.error("[useAdaptiveDifficulty] submit failed:", err.message);
+      logger.error("[useAdaptiveDifficulty] submit failed:", err.message);
     },
   });
 

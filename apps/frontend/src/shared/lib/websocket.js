@@ -1,4 +1,5 @@
 import { io } from "socket.io-client";
+import { logger } from "@trstprep/shared-config";
 
 let socket = null;
 
@@ -82,7 +83,7 @@ export const initWebSocket = ({
 
     socket.on("connect_error", (err) => {
       if (import.meta.env.DEV)
-        console.warn("[WebSocket] Connection error:", err.message);
+        logger.warn("[WebSocket] Connection error:", err.message);
     });
 
     if (onReconnect) {
@@ -94,7 +95,7 @@ export const initWebSocket = ({
     if (onReconnectError) {
       socket.on("reconnect_error", (err) => {
         if (import.meta.env.DEV)
-          console.warn("[WebSocket] Reconnection error:", err.message);
+          logger.warn("[WebSocket] Reconnection error:", err.message);
         onReconnectError(err);
       });
     }
@@ -105,7 +106,7 @@ export const initWebSocket = ({
     return socket;
   } catch (err) {
     if (import.meta.env.DEV)
-      console.warn("[WebSocket] Failed to initialize:", err);
+      logger.warn("[WebSocket] Failed to initialize:", err);
     return null;
   }
 };
@@ -173,7 +174,7 @@ export const disconnectWebSocket = () => {
 export const joinTestRoom = (testId) => {
   if (!socket?.connected) {
     if (import.meta.env.DEV)
-      console.warn("[WebSocket] Cannot join room - not connected");
+      logger.warn("[WebSocket] Cannot join room - not connected");
     return;
   }
   socket.emit("live-tests:join", { testId });

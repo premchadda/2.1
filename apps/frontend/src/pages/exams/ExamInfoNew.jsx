@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
@@ -367,7 +368,7 @@ function ExamInfoNew() {
         }
       } catch (pypErr) {
         if (import.meta.env.DEV)
-          console.warn("Failed to fetch previous year papers", pypErr);
+          logger.warn("Failed to fetch previous year papers", pypErr);
         if (!signal?.aborted) setPypPapers([]);
       }
 
@@ -379,7 +380,7 @@ function ExamInfoNew() {
           setFaqs(Array.isArray(faqData) ? faqData : []);
         }
       } catch (faqErr) {
-        if (import.meta.env.DEV) console.warn("Failed to fetch FAQs", faqErr);
+        if (import.meta.env.DEV) logger.warn("Failed to fetch FAQs", faqErr);
         if (!signal?.aborted) setFaqs([]);
       }
 
@@ -389,7 +390,7 @@ function ExamInfoNew() {
         allExamInfo = infoRes.data?.data || [];
       } catch (err) {
         if (import.meta.env.DEV)
-          console.warn("Failed to fetch exam info from DB", err);
+          logger.warn("Failed to fetch exam info from DB", err);
       }
 
       // Try to find the specific exam info
@@ -485,7 +486,7 @@ function ExamInfoNew() {
       }
     } catch (err) {
       if (err.name !== "AbortError") {
-        console.error("Error fetching exam data:", err?.message ?? err);
+        logger.error("Error fetching exam data:", err?.message ?? err);
         setError("Failed to load exam information");
       }
     } finally {

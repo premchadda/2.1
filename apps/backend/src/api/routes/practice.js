@@ -512,60 +512,12 @@ function parsePositiveInt(value) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-function toNullableInt(value) {
-  if (
-    value === undefined ||
-    value === null ||
-    value === "undefined" ||
-    value === "null" ||
-    value === ""
-  ) {
-    return null;
-  }
-  const parsed = parseInt(value, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
 function normalizeOptionIndex(raw) {
   if (raw === undefined || raw === null || raw === "") return null;
   const numeric = Number(raw);
   if (Number.isInteger(numeric) && numeric >= 0) return numeric;
   const letter = String(raw).trim().toUpperCase();
   return /^[A-Z]$/.test(letter) ? letter.charCodeAt(0) - 65 : null;
-}
-
-/**
- * Get the correct option index for a question (handles multiple field names).
- */
-async function getCorrectOption(questionId) {
-  const r = await pool.query(
-    `
-    SELECT correct_option, correct_answer, options
-    FROM questions WHERE id = $1
-  `,
-    [questionId],
-  );
-  if (!r.rows.length) return null;
-  const row = dbHelpers.toCamel(r.rows[0]);
-  const raw = row.correctOption ?? row.correctAnswer;
-  if (raw !== undefined && raw !== null && raw !== "") {
-    const n = Number(raw);
-    if (Number.isFinite(n) && Number.isInteger(n)) return n;
-    const s = String(raw).trim().toUpperCase();
-    if (/^[A-D]$/.test(s)) return s.charCodeAt(0) - 65;
-  }
-  const opts = Array.isArray(row.options) ? row.options : [];
-  if (opts.length > 0) {
-    const idx = opts.findIndex((o) => {
-      if (typeof o === "object" && o !== null) {
-        if (o.isCorrect || o.is_correct) return true;
-        if (raw && (o.text === raw || o.id === raw)) return true;
-      }
-      return o === raw;
-    });
-    if (idx !== -1) return idx;
-  }
-  return null;
 }
 
 /**

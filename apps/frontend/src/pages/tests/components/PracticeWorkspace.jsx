@@ -219,21 +219,25 @@ export default function PracticeWorkspace({
     if (loading || finishing || isChecked) return;
 
     const timer = setInterval(() => {
-      setQuestionTimes((prev) => {
-        const current = prev[currentIdx] || 0;
-        const updated = { ...prev, [currentIdx]: current + 1 };
-        try {
-          const activeId =
-            session?.id ?? session?.sessionId ?? session?.session_id;
-          if (activeId) {
-            localStorage.setItem(
-              `practice_session_times_${activeId}`,
-              JSON.stringify(updated),
-            );
-          }
-        } catch {}
-        return updated;
-      });
+      // Persist OUTSIDE the setState updater. Updaters must be pure — React may
+      // invoke them more than once and may discard the render, which made the
+      // old localStorage write neither exactly-once nor guaranteed.
+      const prev = questionTimesRef.current;
+      const next = { ...prev, [currentIdx]: (prev[currentIdx] || 0) + 1 };
+      // Keep the ref in sync immediately so two ticks inside one frame cannot
+      // both read the same stale value.
+      questionTimesRef.current = next;
+      try {
+        const activeId =
+          session?.id ?? session?.sessionId ?? session?.session_id;
+        if (activeId) {
+          localStorage.setItem(
+            `practice_session_times_${activeId}`,
+            JSON.stringify(next),
+          );
+        }
+      } catch {}
+      setQuestionTimes(next);
     }, 1000);
 
     return () => clearInterval(timer);
@@ -482,10 +486,6 @@ export default function PracticeWorkspace({
   const accuracy =
     answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;
 
-  useEffect(() => {
-    loadQuestion(currentIdx);
-  }, [currentIdx]);
-
   // Debounced autosave of the current index so a reload resumes at the
   // right question. Fires ~2s after the index settles.
   useEffect(() => {
@@ -504,102 +504,122 @@ export default function PracticeWorkspace({
     return () => clearTimeout(timer);
   }, [currentIdx, activeSessionId]);
 
-  const loadQuestion = async (idx) => {
-    const loadId = ++loadIdRef.current;
-    try {
-      if (
-        activeSessionId === undefined ||
-        activeSessionId === null ||
-        activeSessionId === ""
-      ) {
-        throw new Error("Practice session ID is missing");
-      }
-      setAiTutorResponse(null);
+  const loadQuestion = useCallback(
+    async (idx) => {
+      const loadId = ++loadIdRef.current;
+      try {
+        if (
+          activeSessionId === undefined ||
+          activeSessionId === null ||
+          activeSessionId === ""
+        ) {
+          throw new Error("Practice session ID is missing");
+        }
+        setAiTutorResponse(null);
 
-      // Restore previously saved answer state if question was visited or answered
-      const prev = userSelectionsRef.current[idx];
-      if (prev && prev.isChecked) {
-        setSelectedOption(prev.selectedOption ?? null);
-        setIsChecked(true);
-        setCheckResult(prev.checkResult ?? null);
-      } else {
-        setSelectedOption(prev?.selectedOption ?? null);
-        setIsChecked(false);
-        setCheckResult(null);
-      }
+        // Restore previously saved answer state if question was visited or answered
+        const prev = userSelectionsRef.current[idx];
+        if (prev && prev.isChecked) {
+          setSelectedOption(prev.selectedOption ?? null);
+          setIsChecked(true);
+          setCheckResult(prev.checkResult ?? null);
+        } else {
+          setSelectedOption(prev?.selectedOption ?? null);
+          setIsChecked(false);
+          setCheckResult(null);
+        }
 
-      // Check if question is already available in cache for instant render
-      let q = questionCacheRef.current[idx] || questionCache[idx];
-      if (q) {
+        // Check if question is already available in cache for instant render
+        // questionCacheRef is re-synced from questionCache on every render, so the ref
+        // alone is current — reading the state here would force questionCache into
+        // this callback's deps and create a render loop (see deps note below).
+        let q = questionCacheRef.current[idx];
+        if (q) {
+          if (loadId !== loadIdRef.current) return;
+          setQuestion(q);
+        } else {
+          setLoading(true);
+          q = await practiceAPI.getQuestion(activeSessionId, idx);
+          if (loadId !== loadIdRef.current) return;
+          setQuestion(q);
+          const nextCache = { ...questionCacheRef.current, [idx]: q };
+          questionCacheRef.current = nextCache;
+          setQuestionCache(nextCache);
+          setLoading(false);
+        }
+
+        // If question carried userAnswer from backend (e.g. after refresh or resuming) and local state didn't have it:
+        if (!userSelectionsRef.current[idx] && q?.userAnswer) {
+          const ua = q.userAnswer;
+          const restored = {
+            selectedOption: ua.selectedOption ?? null,
+            isChecked:
+              !ua.isSkipped &&
+              ua.selectedOption !== null &&
+              ua.selectedOption !== undefined,
+            isSkipped: Boolean(ua.isSkipped),
+            isCorrect: Boolean(ua.isCorrect),
+            checkResult: {
+              isCorrect: Boolean(ua.isCorrect),
+              correctOption: ua.correctOption,
+              explanation: ua.explanation,
+              explanationHi: ua.explanationHi,
+            },
+          };
+          userSelectionsRef.current = {
+            ...userSelectionsRef.current,
+            [idx]: restored,
+          };
+          setUserSelections((prev) => ({ ...prev, [idx]: restored }));
+          if (restored.isChecked) {
+            setSelectedOption(restored.selectedOption);
+            setIsChecked(true);
+            setCheckResult(restored.checkResult);
+            const newAns = {
+              ...answerResultsRef.current,
+              [idx]: Boolean(ua.isCorrect),
+            };
+            answerResultsRef.current = newAns;
+            setAnswerResults(newAns);
+          }
+        }
+
+        // Fetch supplementary learning data asynchronously in the background
+        if (q?.id) {
+          const bgLoadId = loadId;
+          Promise.all([
+            practiceAPI.getExplanations(q.id).catch(() => null),
+            practiceAPI.getApproaches(q.id).catch(() => []),
+            practiceAPI.getSimilarQuestions(q.id).catch(() => []),
+          ]).then(([expl, apprs, sim]) => {
+            if (bgLoadId !== loadIdRef.current) return;
+            setExplanations(expl);
+            setApproaches(apprs || []);
+            setSimilarQs(sim || []);
+          });
+        }
+      } catch {
         if (loadId !== loadIdRef.current) return;
-        setQuestion(q);
-      } else {
-        setLoading(true);
-        q = await practiceAPI.getQuestion(activeSessionId, idx);
-        if (loadId !== loadIdRef.current) return;
-        setQuestion(q);
-        const nextCache = { ...questionCacheRef.current, [idx]: q };
-        questionCacheRef.current = nextCache;
-        setQuestionCache(nextCache);
+        toast.error("Failed to load question");
         setLoading(false);
       }
+    },
+    // activeSessionId is a real dependency: it is populated asynchronously, and
+    // without it in the array the first question was never loaded once the id
+    // resolved while currentIdx stayed 0.
+    //
+    // `questionCache` is intentionally NOT a dependency: loadQuestion writes it
+    // via setQuestionCache, so depending on it would re-fire this effect on
+    // every cache write and spin. questionCacheRef is re-synced from state on
+    // every render, so reading the ref is always current.
+    [activeSessionId],
+  );
 
-      // If question carried userAnswer from backend (e.g. after refresh or resuming) and local state didn't have it:
-      if (!userSelectionsRef.current[idx] && q?.userAnswer) {
-        const ua = q.userAnswer;
-        const restored = {
-          selectedOption: ua.selectedOption ?? null,
-          isChecked:
-            !ua.isSkipped &&
-            ua.selectedOption !== null &&
-            ua.selectedOption !== undefined,
-          isSkipped: Boolean(ua.isSkipped),
-          isCorrect: Boolean(ua.isCorrect),
-          checkResult: {
-            isCorrect: Boolean(ua.isCorrect),
-            correctOption: ua.correctOption,
-            explanation: ua.explanation,
-            explanationHi: ua.explanationHi,
-          },
-        };
-        userSelectionsRef.current = {
-          ...userSelectionsRef.current,
-          [idx]: restored,
-        };
-        setUserSelections((prev) => ({ ...prev, [idx]: restored }));
-        if (restored.isChecked) {
-          setSelectedOption(restored.selectedOption);
-          setIsChecked(true);
-          setCheckResult(restored.checkResult);
-          const newAns = {
-            ...answerResultsRef.current,
-            [idx]: Boolean(ua.isCorrect),
-          };
-          answerResultsRef.current = newAns;
-          setAnswerResults(newAns);
-        }
-      }
-
-      // Fetch supplementary learning data asynchronously in the background
-      if (q?.id) {
-        const bgLoadId = loadId;
-        Promise.all([
-          practiceAPI.getExplanations(q.id).catch(() => null),
-          practiceAPI.getApproaches(q.id).catch(() => []),
-          practiceAPI.getSimilarQuestions(q.id).catch(() => []),
-        ]).then(([expl, apprs, sim]) => {
-          if (bgLoadId !== loadIdRef.current) return;
-          setExplanations(expl);
-          setApproaches(apprs || []);
-          setSimilarQs(sim || []);
-        });
-      }
-    } catch {
-      if (loadId !== loadIdRef.current) return;
-      toast.error("Failed to load question");
-      setLoading(false);
-    }
-  };
+  // Declared after loadQuestion — referencing it in a dep array above would hit
+  // the temporal dead zone during render.
+  useEffect(() => {
+    loadQuestion(currentIdx);
+  }, [currentIdx, activeSessionId, loadQuestion]);
 
   const handlePreviousQuestion = () => {
     if (currentIdx > 0 && !loading && !finishing) {
@@ -1216,9 +1236,9 @@ export default function PracticeWorkspace({
                   {activeExplTab === "text" && (
                     <div className="space-y-4 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
                       <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-                        <h5 className="font-bold text-slate-900 dark:text-slate-100 text-xs uppercase tracking-wider mb-1 text-indigo-600">
+                        <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs uppercase tracking-wider mb-1 text-indigo-600">
                           Step-by-Step Solution
-                        </h5>
+                        </h4>
                         <MathRenderer
                           content={
                             (isHi &&

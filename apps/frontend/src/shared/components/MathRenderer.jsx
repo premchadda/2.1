@@ -1,6 +1,85 @@
 import { useEffect, useRef, useState } from "react";
-import "katex/dist/katex.min.css";
+// `?url` makes Vite emit katex.min.css as a standalone asset and hand us its
+// hashed URL, WITHOUT pulling it into any CSS bundle for this module's importers.
+import katexCssHref from "katex/dist/katex.min.css?url";
 import { sanitizeHtml, decodeHtmlEntities } from "../lib/htmlSanitizer";
+
+/**
+ * KaTeX stylesheet is injected lazily, exactly once, inside the same dynamic
+ * `import("katex")` resolution below (see loadKatex()).
+ *
+ * NOTE: this file used to carry a top-level `import "katex/dist/katex.min.css"`,
+ * which put the ~23KB stylesheet into the initial CSS graph for every route that
+ * imports MathRenderer — even routes with no math at all. A comment in main.jsx
+ * claimed "KaTeX CSS loaded dynamically in MathRenderer only when needed"; that
+ * was factually wrong. Both the JS and the CSS are now lazy.
+ *
+ * No flash of unstyled math: the <link> request starts in the same tick that
+ * katex resolves, and we await it before renderToString() output is committed,
+ * so KaTeX markup is never painted without its stylesheet.
+ *
+ * …but that await is BOUNDED. An unbounded wait is a correctness bug, not just a
+ * test annoyance:
+ *   - In the browser, a stalled/slow/blocked CSS request (flaky CDN, offline
+ *     reload, aggressive proxy) would leave the question permanently blank —
+ *     `setHtml` never runs, so the candidate sees nothing at all.
+ *   - In happy-dom/jsdom the <link> never fires load or error AT ALL, so every
+ *     MathRenderer test rendered empty (6 suites, incl. PracticeSessionCanvas,
+ *     ReattemptMode, TestPaperPdfExport).
+ * The stylesheet is a small same-origin build asset (not a third-party CDN), so
+ * in practice it is already in the HTTP cache by the time any math renders and
+ * resolves on the `load` path. This timeout is only the worst-case ceiling.
+ */
+const KATEX_STYLESHEET_TIMEOUT_MS = 300;
+
+let katexStylesheetPromise = null;
+
+function ensureKatexStylesheet() {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return Promise.resolve();
+  }
+  if (!katexStylesheetPromise) {
+    katexStylesheetPromise = new Promise((resolve) => {
+      if (document.getElementById("katex-stylesheet")) {
+        resolve();
+        return;
+      }
+      const link = document.createElement("link");
+      link.id = "katex-stylesheet";
+      link.rel = "stylesheet";
+      link.href = katexCssHref;
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(finish, KATEX_STYLESHEET_TIMEOUT_MS);
+      link.onload = finish;
+      link.onerror = finish;
+      document.head.appendChild(link);
+    });
+  }
+  return katexStylesheetPromise;
+}
+
+let katexModulePromise = null;
+let katexInstance = null;
+
+function loadKatex() {
+  if (katexInstance) return Promise.resolve(katexInstance);
+  if (!katexModulePromise) {
+    katexModulePromise = Promise.all([
+      import("katex"),
+      ensureKatexStylesheet(),
+    ]).then(([mod]) => {
+      katexInstance = mod.default ?? mod;
+      return katexInstance;
+    });
+  }
+  return katexModulePromise;
+}
 
 // Maps common Unicode superscripts, subscripts, Greek letters, and math symbols to LaTeX
 const UNICODE_MATH_MAP = [
@@ -355,6 +434,21 @@ function formatExplanationTables(htmlString) {
   }
 }
 
+function hasMathMarkup(str) {
+  if (!str) return false;
+  return /[$|\\]|\u2212|[×÷±≠≤≥≈∞°]|[²³⁴⁵⁶⁷⁸⁹⁰⁺⁻ⁿ]|[₀₁₂₃₄₅₆₇₈₉ₙ]|√|<table/i.test(
+    str,
+  );
+}
+
+function formatAndSanitize(decodedInput, katex, display) {
+  const renderedMath = katex
+    ? processAndRenderMath(decodedInput, katex, display)
+    : decodedInput;
+  const formattedTables = formatExplanationTables(renderedMath);
+  return sanitizeHtml(formattedTables);
+}
+
 export default function MathRenderer({
   text,
   content,
@@ -363,33 +457,49 @@ export default function MathRenderer({
   className = "",
 }) {
   const ref = useRef(null);
-  const [html, setHtml] = useState("");
-
   const rawInput =
     text ?? content ?? (typeof children === "string" ? children : "") ?? "";
+
+  const [html, setHtml] = useState(() => {
+    if (!rawInput) return "";
+    const decodedInput = decodeHtmlEntities(String(rawInput));
+    if (katexInstance || !hasMathMarkup(decodedInput)) {
+      return formatAndSanitize(decodedInput, katexInstance, display);
+    }
+    return formatAndSanitize(decodedInput, null, display);
+  });
 
   useEffect(() => {
     if (!rawInput) {
       setHtml("");
       return;
     }
-    let cancelled = false;
     const decodedInput = decodeHtmlEntities(String(rawInput));
+    if (!hasMathMarkup(decodedInput)) {
+      setHtml((prev) => {
+        const next = formatAndSanitize(decodedInput, null, display);
+        return prev === next ? prev : next;
+      });
+      return;
+    }
 
-    // KaTeX is loaded dynamically for efficient bundle size
-    import("katex")
-      .then(({ default: katex }) => {
+    if (katexInstance) {
+      const next = formatAndSanitize(decodedInput, katexInstance, display);
+      setHtml((prev) => (prev === next ? prev : next));
+      return;
+    }
+
+    let cancelled = false;
+    loadKatex()
+      .then((katex) => {
         if (cancelled) return;
-        const renderedMath = processAndRenderMath(decodedInput, katex, display);
-        const formattedTables = formatExplanationTables(renderedMath);
-        const sanitized = sanitizeHtml(formattedTables);
-        setHtml(sanitized);
+        const next = formatAndSanitize(decodedInput, katex, display);
+        setHtml((prev) => (prev === next ? prev : next));
       })
       .catch(() => {
         if (!cancelled) {
-          const formattedTables = formatExplanationTables(decodedInput);
-          const sanitized = sanitizeHtml(formattedTables);
-          setHtml(sanitized);
+          const next = formatAndSanitize(decodedInput, null, display);
+          setHtml((prev) => (prev === next ? prev : next));
         }
       });
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -58,7 +59,7 @@ export default function Notifications() {
       setNotifications(response.data?.data || []);
     } catch (err) {
       if (signal?.aborted) return;
-      console.error("Failed to fetch notifications:", err);
+      logger.error("Failed to fetch notifications:", err);
       setError("Failed to load notifications. Please try again.");
       setNotifications([]);
     } finally {
@@ -75,7 +76,7 @@ export default function Notifications() {
         ),
       );
     } catch (err) {
-      console.error("Failed to mark as read:", err);
+      logger.error("Failed to mark as read:", err);
       toast.error("Failed to update notification");
     }
   };
@@ -137,7 +138,7 @@ export default function Notifications() {
         prev.map((n) => ({ ...n, isRead: true, read: true })),
       );
     } catch (err) {
-      console.error("Failed to mark all as read:", err);
+      logger.error("Failed to mark all as read:", err);
       toast.error("Failed to mark all as read");
     }
   };
@@ -149,7 +150,7 @@ export default function Notifications() {
         prev.filter((n) => n._id !== id && n.id !== id),
       );
     } catch (err) {
-      console.error("Failed to delete notification:", err);
+      logger.error("Failed to delete notification:", err);
       toast.error("Failed to delete notification");
     }
   };
@@ -165,7 +166,7 @@ export default function Notifications() {
         await clearAllNotifications();
         setNotifications([]);
       } catch (err) {
-        console.error("Failed to clear notifications:", err);
+        logger.error("Failed to clear notifications:", err);
         toast.error("Failed to clear notifications");
       }
     }
@@ -354,9 +355,9 @@ export default function Notifications() {
         ) : filteredNotifications.length === 0 ? (
           <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-xl">
             <Bell className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
               No notifications
-            </h3>
+            </h2>
             <p className="text-gray-500 dark:text-gray-400">
               {filter === "unread"
                 ? "You have read all your notifications"
@@ -375,7 +376,18 @@ export default function Notifications() {
                 <div
                   key={notification._id || notification.id}
                   onClick={() => handleNotificationClick(notification)}
-                  className={`bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl transition-all duration-200 border border-gray-100 dark:border-gray-700/60 group ${
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Open notification: ${notification.title || "Notification"}`}
+                  onKeyDown={(e) => {
+                    // Ignore keys that originate from the nested action buttons.
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleNotificationClick(notification);
+                    }
+                  }}
+                  className={`w-full text-left bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl transition-all duration-200 border border-gray-100 dark:border-gray-700/60 group outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset ${
                     targetUrl
                       ? "cursor-pointer hover:shadow-lg hover:border-brand-start/40 hover:-translate-y-0.5"
                       : "hover:shadow-md"
@@ -425,10 +437,13 @@ export default function Notifications() {
                         </div>
                         <div
                           className="flex items-center gap-1 flex-shrink-0"
+                          role="presentation"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {isUnread && (
                             <button
+                              type="button"
+                              aria-label="Mark notification as read"
                               onClick={() =>
                                 markAsRead(notification._id || notification.id)
                               }
@@ -439,6 +454,8 @@ export default function Notifications() {
                             </button>
                           )}
                           <button
+                            type="button"
+                            aria-label="Delete notification"
                             onClick={() =>
                               handleDeleteNotification(
                                 notification._id || notification.id,

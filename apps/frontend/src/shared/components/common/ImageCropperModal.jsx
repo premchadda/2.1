@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useId, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import Cropper from "react-easy-crop";
 import { X, Check } from "lucide-react";
@@ -178,7 +179,7 @@ export default function ImageCropperModal({
       );
       onCropComplete(croppedImageBase64);
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       toast.error("Failed to crop image");
     } finally {
       setIsProcessing(false);

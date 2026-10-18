@@ -369,9 +369,13 @@ router.delete("/:id", protect, async (req, res) => {
 // @route   POST /api/notifications/subscribe
 // @desc    Subscribe email to notifications / coming soon alerts
 // @access  Public
+// NOTE: this handler is a stub — it validates the email and reports success
+// without persisting anything. The previously-accepted category/itemId/feature
+// params were read but never stored, so they were dropped rather than left
+// looking live. See docs/AUDIT.md before relying on this endpoint.
 router.post("/subscribe", async (req, res) => {
   try {
-    const { email, category, itemId, feature } = req.body;
+    const { email } = req.body;
     if (!email) {
       return res
         .status(400)

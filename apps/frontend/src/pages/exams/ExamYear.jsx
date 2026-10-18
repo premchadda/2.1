@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useParams, Link } from "react-router-dom";
 import {
   Calendar,
@@ -56,7 +57,7 @@ export default function ExamYear() {
         err?.code === "ERR_CANCELED"
       )
         return;
-      console.error("Failed to fetch exam year data:", err);
+      logger.error("Failed to fetch exam year data:", err);
       setExamData(null);
       setError(
         "We could not load information for this exam/year. Please try again.",

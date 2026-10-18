@@ -1783,8 +1783,19 @@ export default function FundamentalsGym({ onBack }) {
           <div
             key={cat.id}
             onClick={() => setSelectedCategory(cat)}
+            role="button"
+            tabIndex={0}
+            aria-label={`Open reference table: ${cat.title}`}
+            onKeyDown={(e) => {
+              // Ignore keys that originate from the nested drill-setup button.
+              if (e.target !== e.currentTarget) return;
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setSelectedCategory(cat);
+              }
+            }}
             style={{ animationDelay: `${idx * 45}ms` }}
-            className="animate-slide-in-up bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 p-3 sm:p-5 shadow-xs hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-lg hover:-translate-y-1 active:scale-[0.97] transition-all duration-200 cursor-pointer flex flex-col group"
+            className="animate-slide-in-up bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 p-3 sm:p-5 shadow-xs hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-lg hover:-translate-y-1 active:scale-[0.97] transition-all duration-200 cursor-pointer flex flex-col group outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset"
           >
             <div className="flex-1">
               <div className="flex items-start justify-between mb-2 sm:mb-3.5">
@@ -1795,9 +1806,9 @@ export default function FundamentalsGym({ onBack }) {
                   View Table
                 </span>
               </div>
-              <h3 className="font-extrabold text-slate-900 dark:text-white text-[13px] sm:text-[15px] leading-snug mb-1 sm:mb-1.5 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
+              <h2 className="font-extrabold text-slate-900 dark:text-white text-[13px] sm:text-[15px] leading-snug mb-1 sm:mb-1.5 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
                 {cat.title}
-              </h3>
+              </h2>
               <p className="hidden sm:block text-[11px] text-slate-500 dark:text-gray-400 leading-relaxed line-clamp-2 mb-3">
                 {cat.description}
               </p>

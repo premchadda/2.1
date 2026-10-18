@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useNavigate } from "react-router-dom";
 import { Search, X, ChevronDown, ArrowRight } from "lucide-react";
 import { searchAll, isCancel } from "../../lib/dataService";
@@ -187,7 +188,7 @@ export default function NavbarSearch({ isOpen, onClose }) {
         return;
       if (searchGenerationRef.current !== generation) return;
       if (import.meta.env.DEV)
-        console.warn("Backend search failed, showing local results only:", err);
+        logger.warn("Backend search failed, showing local results only:", err);
     }
 
     const combined = [...localResults, ...contentResults].slice(0, 8);

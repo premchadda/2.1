@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useNavigate, useLocation, Navigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "../../../shared/providers/AuthContext";
@@ -173,7 +174,7 @@ function Login() {
         });
       }
     } catch (err) {
-      console.error("Admin login error:", err);
+      logger.error("Admin login error:", err);
       setError("An unexpected connection error occurred. Please try again.");
     } finally {
       setLoading(false);

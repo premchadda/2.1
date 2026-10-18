@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { ChevronDown, ChevronUp, SlidersHorizontal, X } from "lucide-react";
 import SearchInput from "../ui/SearchInput";
 
@@ -252,6 +252,7 @@ export const CompactCheckbox = ({ checked, onChange, label }) => (
       onChange={(e) => onChange?.(e.target.checked)}
       className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300 dark:border-gray-700"
     />
+
     <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
       {label}
     </span>

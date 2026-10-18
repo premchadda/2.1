@@ -22,10 +22,27 @@ router.get("/:id", async (req, res, next) => {
     // studyGroups.js.
     if (id === "categories") return next();
 
-    const result = await dbHelpers.query(
-      `SELECT id, title, content, category, date, language, is_active, is_deleted, deleted_at, deleted_by, created_at, updated_at, slug, excerpt, category_id, exam_id, image_asset_id, author_id, published_at, is_featured, view_count, metadata FROM current_affairs WHERE id = $1 AND is_active = true`,
+    let result = await dbHelpers.query(
+      `SELECT id, title, content, category, date, language, is_active, is_deleted, deleted_at, deleted_by, created_at, updated_at, slug, excerpt, category_id, exam_id, image_asset_id, author_id, published_at, is_featured, view_count, metadata 
+       FROM current_affairs 
+       WHERE (id::text = $1 OR slug = $1) AND is_active = true AND (is_deleted = false OR is_deleted IS NULL)`,
       [id],
     );
+
+    // If not found in current_affairs table, fall back to study_materials (the source of the public listing)
+    if (result.rows.length === 0) {
+      result = await dbHelpers.query(
+        `SELECT id, slug, title, description as content, description, category, icon, color, bg,
+                COALESCE(date, created_at) as date, is_active, created_at, updated_at,
+                public_id, type, url, file_path, metadata
+         FROM study_materials
+         WHERE (id::text = $1 OR public_id = $1 OR slug = $1)
+           AND is_active = true
+           AND (is_deleted = false OR is_deleted IS NULL)
+           AND ('current-affairs' = ANY(tags) OR type = 'current-affairs')`,
+        [id],
+      );
+    }
 
     if (result.rows.length === 0) {
       return res
@@ -149,13 +166,23 @@ router.post("/:id/quiz/attempt", protect, async (req, res) => {
  */
 router.get("/categories", async (req, res) => {
   try {
-    const result = await dbHelpers.query(
-      `SELECT DISTINCT category FROM current_affairs WHERE is_active = true ORDER BY category`,
+    const caCategories = await dbHelpers.query(
+      `SELECT DISTINCT category FROM current_affairs WHERE is_active = true AND category IS NOT NULL ORDER BY category`,
     );
+    const smCategories = await dbHelpers.query(
+      `SELECT DISTINCT category FROM study_materials WHERE is_active = true AND ('current-affairs' = ANY(tags) OR type = 'current-affairs') AND category IS NOT NULL ORDER BY category`,
+    );
+
+    const merged = Array.from(
+      new Set([
+        ...caCategories.rows.map((r) => r.category),
+        ...smCategories.rows.map((r) => r.category),
+      ]),
+    ).filter(Boolean);
 
     res.json({
       success: true,
-      data: result.rows.map((r) => r.category),
+      data: merged,
     });
   } catch (error) {
     res

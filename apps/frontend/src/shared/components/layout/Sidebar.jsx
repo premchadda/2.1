@@ -57,8 +57,11 @@ function Sidebar({ isOpen, onClose }) {
         aria-modal="true"
         aria-label="Navigation menu"
         aria-hidden={!isOpen}
-        className={`fixed inset-y-0 top-0 bottom-0 right-0 h-screen h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-64 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl z-[10002] flex flex-col overflow-hidden transition-transform duration-300 ease-in-out ${
-          isOpen ? "translate-x-0" : "translate-x-full"
+        // React 18 has no boolean `inert` support, so pass it as a string —
+        // it reaches the DOM and makes the closed drawer unfocusable.
+        inert={isOpen ? undefined : ""}
+        className={`fixed inset-y-0 top-0 bottom-0 right-0 h-screen h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-64 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl z-[10002] flex flex-col overflow-hidden transition-[transform,visibility] duration-300 ease-in-out ${
+          isOpen ? "translate-x-0 visible" : "translate-x-full invisible"
         }`}
       >
         <div className="flex h-14 min-h-14 items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">

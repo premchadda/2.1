@@ -207,7 +207,7 @@ describe("VectorSearchService", () => {
           errors: [],
         });
 
-      const result = await vectorSearchService.indexAllUnindexed(10);
+      await vectorSearchService.indexAllUnindexed(10);
       expect(mockFindUnindexed).toHaveBeenCalledWith(10, null);
       expect(spy).toHaveBeenCalledWith([50, 51]);
 

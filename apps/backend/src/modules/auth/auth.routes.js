@@ -1,6 +1,3 @@
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import { Router } from "express";
 import {
   generateCsrfToken,
@@ -14,7 +11,6 @@ import {
   authRateLimiter,
   protect,
   optionalAuth,
-  setCachedSession,
 } from "../../middleware/auth.middleware.js";
 import { lockoutMiddleware } from "../../middleware/lockout.middleware.js";
 import { validateBody } from "../../middleware/validation/inputValidation.js";
@@ -27,11 +23,7 @@ import {
 } from "../../api/validators/auth.validator.js";
 import { botProtectionMiddleware } from "../../middleware/botProtection.middleware.js";
 import { isFeatureEnabled } from "../../services/SettingsService.js";
-import {
-  responseCache,
-  invalidateResponseCache,
-  swrCache,
-} from "../../middleware/responseCache.middleware.js";
+import { swrCache } from "../../middleware/responseCache.middleware.js";
 import { getUserEnrollmentsSummary } from "../../services/EnrollmentService.js";
 import { getAttemptedTestsPayload } from "../../shared/utils/attempt-utils.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
@@ -190,8 +182,6 @@ router.get(
     )(req, res, next),
   async (req, res) => {
     try {
-      const t0 = Date.now();
-
       // PERF: Use user already loaded by protect middleware (avoids redundant DB query)
       const user = req.user;
 

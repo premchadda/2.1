@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Link } from "react-router-dom";
 import Breadcrumb from "../../../shared/components/common/Breadcrumb";
 import { toast } from "react-hot-toast";
@@ -161,7 +162,7 @@ function SystemHealthMonitor() {
 
       if (showToast) toast.success("System health refreshed");
     } catch (error) {
-      console.error("Failed to fetch system health:", error);
+      logger.error("Failed to fetch system health:", error);
       setFetchError(true);
       if (showToast) toast.error("Failed to fetch system health");
     } finally {

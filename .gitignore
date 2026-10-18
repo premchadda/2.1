@@ -194,9 +194,10 @@ $(*)
 # QMS file (misplaced)
 qms.jsx
 
-# Standalone tools
-archify/
-agent-skills/
+# Standalone tools & Content pipeline
+tools/
+content-pipeline/
+scripts/audits/
 
 # Certificates and private keys
 *.key

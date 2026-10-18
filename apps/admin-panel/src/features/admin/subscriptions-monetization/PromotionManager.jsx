@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   Megaphone,
@@ -82,7 +83,7 @@ export default function PromotionManager() {
       ) {
         return;
       }
-      console.error("Error fetching promotions:", error);
+      logger.error("Error fetching promotions:", error);
       toast.error("Failed to load promotions");
       setPromotions([]);
     } finally {

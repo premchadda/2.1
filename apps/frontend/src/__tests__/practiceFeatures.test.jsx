@@ -4,6 +4,15 @@ import { formatPyqSourceLabel } from "../shared/lib/questionUtils.js";
 import PracticeWorkspace from "../pages/tests/components/PracticeWorkspace";
 import BottomNav from "../shared/components/layout/BottomNav";
 import { BrowserRouter, MemoryRouter } from "react-router-dom";
+import { ROUTER_FUTURE_FLAGS } from "../test/routerFutureFlags";
+
+// PracticeWorkspace/BottomNav read the auth context. These suites render them
+// bare (no AuthProvider), which trips the intentional DEV-only fallback warn
+// from shared/providers/useAuth.js on every render. A stable stub keeps the
+// output clean without booting the real provider.
+vi.mock("../shared/providers/AuthContext", () => ({
+  useAuth: () => ({ user: null, isAuthenticated: false }),
+}));
 
 // Mock practiceAPI
 const mockGetQuestion = vi.fn();
@@ -176,7 +185,7 @@ describe("PracticeWorkspace Question Palette & Next/Previous navigation", () => 
 
   it("renders desktop question palette with question numbers and PYP badge", async () => {
     render(
-      <BrowserRouter>
+      <BrowserRouter future={ROUTER_FUTURE_FLAGS}>
         <PracticeWorkspace session={sampleSession} />
       </BrowserRouter>,
     );
@@ -204,7 +213,7 @@ describe("PracticeWorkspace Question Palette & Next/Previous navigation", () => 
 
   it("allows navigating questions via Next and Previous buttons and Palette jumping", async () => {
     render(
-      <BrowserRouter>
+      <BrowserRouter future={ROUTER_FUTURE_FLAGS}>
         <PracticeWorkspace session={sampleSession} />
       </BrowserRouter>,
     );
@@ -377,7 +386,7 @@ describe("PracticeWorkspace Language Persistence & Hindi Rendering", () => {
     });
 
     render(
-      <BrowserRouter>
+      <BrowserRouter future={ROUTER_FUTURE_FLAGS}>
         <PracticeWorkspace
           session={{
             id: "sess-lang",
@@ -452,7 +461,7 @@ describe("PracticeWorkspace Language Persistence & Hindi Rendering", () => {
     });
 
     render(
-      <BrowserRouter>
+      <BrowserRouter future={ROUTER_FUTURE_FLAGS}>
         <PracticeWorkspace
           session={{
             id: "sess-q2",
@@ -520,7 +529,7 @@ describe("PracticeWorkspace Language Persistence & Hindi Rendering", () => {
     mockGetQuestion.mockResolvedValue(sampleQ);
 
     render(
-      <BrowserRouter>
+      <BrowserRouter future={ROUTER_FUTURE_FLAGS}>
         <PracticeWorkspace
           session={{
             id: "sess-no-double-q",
@@ -575,7 +584,7 @@ describe("PracticeWorkspace Language Persistence & Hindi Rendering", () => {
     });
 
     render(
-      <BrowserRouter>
+      <BrowserRouter future={ROUTER_FUTURE_FLAGS}>
         <PracticeWorkspace
           session={{
             id: "sess-history",
@@ -638,7 +647,7 @@ describe("PracticeWorkspace Language Persistence & Hindi Rendering", () => {
     mockGetQuestion.mockResolvedValue(sampleQ);
 
     const { unmount } = render(
-      <BrowserRouter>
+      <BrowserRouter future={ROUTER_FUTURE_FLAGS}>
         <PracticeWorkspace
           session={{
             id: "sess-body-class",
@@ -673,7 +682,10 @@ describe("PracticeWorkspace Language Persistence & Hindi Rendering", () => {
   it("hides mobile BottomNav in practice mode and on /practice/session", () => {
     // Normal route: BottomNav renders
     const { unmount: unmount1 } = render(
-      <MemoryRouter initialEntries={["/dashboard"]}>
+      <MemoryRouter
+        initialEntries={["/dashboard"]}
+        future={ROUTER_FUTURE_FLAGS}
+      >
         <BottomNav />
       </MemoryRouter>,
     );
@@ -684,7 +696,10 @@ describe("PracticeWorkspace Language Persistence & Hindi Rendering", () => {
 
     // On /practice/session: BottomNav returns null (hidden)
     const { unmount: unmount2 } = render(
-      <MemoryRouter initialEntries={["/practice/session"]}>
+      <MemoryRouter
+        initialEntries={["/practice/session"]}
+        future={ROUTER_FUTURE_FLAGS}
+      >
         <BottomNav />
       </MemoryRouter>,
     );
@@ -696,7 +711,7 @@ describe("PracticeWorkspace Language Persistence & Hindi Rendering", () => {
     // When practice-session-active class is on document.body: BottomNav returns null
     document.body.classList.add("practice-session-active");
     const { unmount: unmount3 } = render(
-      <MemoryRouter initialEntries={["/practice"]}>
+      <MemoryRouter initialEntries={["/practice"]} future={ROUTER_FUTURE_FLAGS}>
         <BottomNav />
       </MemoryRouter>,
     );

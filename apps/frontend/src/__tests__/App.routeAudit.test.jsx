@@ -1,10 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { initProPassAuth } from "@trstprep/shared-hooks";
 import App from "../App";
 import { ThemeProvider } from "../shared/context/ThemeContext";
 import { HelmetProvider } from "react-helmet-async";
+import { ROUTER_FUTURE_FLAGS } from "../test/routerFutureFlags";
 
 vi.mock("@react-oauth/google", () => ({
   GoogleOAuthProvider: ({ children }) => children,
@@ -15,22 +17,32 @@ vi.mock("../shared/providers/AuthContext", () => ({
   AuthProvider: ({ children }) => children,
 }));
 
+// main.jsx wires this at the app root. These suites import App directly, so
+// repeat the wiring — otherwise /pass renders useProPass's degraded path and
+// warns "AuthContext not initialized" on every render.
+initProPassAuth(() => ({ user: null }));
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false } },
 });
 
-const renderRoute = (route) =>
-  render(
+const renderRoute = async (route) => {
+  const result = render(
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <MemoryRouter initialEntries={[route]}>
+          <MemoryRouter initialEntries={[route]} future={ROUTER_FUTURE_FLAGS}>
             <App />
           </MemoryRouter>
         </ThemeProvider>
       </QueryClientProvider>
     </HelmetProvider>,
   );
+  // Drain mount-time fetches inside act() so their state updates are not
+  // reported as un-acted (and so the audit is not timing-dependent).
+  await act(async () => {});
+  return result;
+};
 
 // Every static route from App.jsx (params filled with plausible sample values)
 const staticRoutes = [
@@ -138,7 +150,7 @@ describe("Full route audit: every static route renders or redirects without cras
   it.each(staticRoutes)(
     "route %s mounts without error boundary",
     async (route) => {
-      const { container } = renderRoute(route);
+      const { container } = await renderRoute(route);
       expect(container).toBeTruthy();
       // RouteErrorBoundary renders this text on chunk failure / render crash
       expect(

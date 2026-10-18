@@ -359,10 +359,10 @@ function PerformanceInsights() {
             <ScrollReveal>
               <Card variant="elevated" className="h-full">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <PieChart className="w-4 h-4 text-brand-start" />
                     Subject-wise Performance
-                  </h3>
+                  </h2>
                 </div>
                 {loadingPerf ? (
                   <LoadingPlaceholder />

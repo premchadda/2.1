@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Lock, CheckCircle, AlertCircle } from "lucide-react";
 import api from "../../shared/lib/api";
+import { getErrorMessage } from "../../shared/lib/apiClient.js";
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -65,7 +66,7 @@ export default function ResetPassword() {
       setConfirmPassword("");
       navigateTimerRef.current = setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to reset password.");
+      setError(getErrorMessage(err) || "Failed to reset password.");
     } finally {
       setLoading(false);
       submittingRef.current = false;

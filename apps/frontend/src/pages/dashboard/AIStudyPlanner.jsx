@@ -482,10 +482,10 @@ function AIStudyPlanner() {
           <Card variant="gradient" size="lg" className="mb-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-yellow-300" />
                   AI-Powered Schedule
-                </h3>
+                </h2>
                 <p className="text-white/70 text-sm mt-1">
                   {recommendations.length > 0
                     ? `${recommendations.length} personalized recommendations ready based on your performance`

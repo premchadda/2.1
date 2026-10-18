@@ -9,6 +9,7 @@
 // Admin enrollment flows already delegate to adminAPI (shared/lib/api/),
 // which re-exports this instance — keep that delegation.
 import axios from "axios";
+import { logger } from "@trstprep/shared-config";
 import { API_BASE_URL } from "./apiBase.js";
 import {
   getCsrfToken,
@@ -41,13 +42,24 @@ export const setMemoryRefreshToken = (token) => {
 const readStoredToken = () => {
   if (memoryToken) return memoryToken;
   try {
-    return (
-      (typeof sessionStorage !== "undefined" &&
-        sessionStorage.getItem("trstprep_token")) ||
-      (typeof localStorage !== "undefined" &&
-        localStorage.getItem("trstprep_token")) ||
-      null
-    );
+    const sessionTok =
+      typeof sessionStorage !== "undefined"
+        ? sessionStorage.getItem("trstprep_token")
+        : null;
+    if (sessionTok) return sessionTok;
+
+    if (typeof localStorage !== "undefined") {
+      const legacyTok = localStorage.getItem("trstprep_token");
+      if (legacyTok) {
+        // Migrate to session storage and scrub from persistent localStorage
+        if (typeof sessionStorage !== "undefined") {
+          sessionStorage.setItem("trstprep_token", legacyTok);
+        }
+        localStorage.removeItem("trstprep_token");
+        return legacyTok;
+      }
+    }
+    return null;
   } catch {
     return memoryToken || null;
   }
@@ -56,13 +68,24 @@ const readStoredToken = () => {
 const readStoredRefreshToken = () => {
   if (memoryRefreshToken) return memoryRefreshToken;
   try {
-    return (
-      (typeof sessionStorage !== "undefined" &&
-        sessionStorage.getItem("trstprep_refresh_token")) ||
-      (typeof localStorage !== "undefined" &&
-        localStorage.getItem("trstprep_refresh_token")) ||
-      null
-    );
+    const sessionRefresh =
+      typeof sessionStorage !== "undefined"
+        ? sessionStorage.getItem("trstprep_refresh_token")
+        : null;
+    if (sessionRefresh) return sessionRefresh;
+
+    if (typeof localStorage !== "undefined") {
+      const legacyRefresh = localStorage.getItem("trstprep_refresh_token");
+      if (legacyRefresh) {
+        // Migrate to session storage and scrub from persistent localStorage
+        if (typeof sessionStorage !== "undefined") {
+          sessionStorage.setItem("trstprep_refresh_token", legacyRefresh);
+        }
+        localStorage.removeItem("trstprep_refresh_token");
+        return legacyRefresh;
+      }
+    }
+    return null;
   } catch {
     return memoryRefreshToken || null;
   }
@@ -74,23 +97,17 @@ const persistRotatedTokens = (newToken, newRefreshToken) => {
       memoryToken = newToken;
       if (typeof sessionStorage !== "undefined")
         sessionStorage.setItem("trstprep_token", newToken);
-      // Mirror to localStorage ONLY when a legacy entry already exists,
-      // to avoid orphaning active sessions (never create new entries).
-      if (
-        typeof localStorage !== "undefined" &&
-        localStorage.getItem("trstprep_token")
-      )
-        localStorage.setItem("trstprep_token", newToken);
+      // Clean up any remaining legacy localStorage copy
+      if (typeof localStorage !== "undefined")
+        localStorage.removeItem("trstprep_token");
     }
     if (newRefreshToken) {
       memoryRefreshToken = newRefreshToken;
       if (typeof sessionStorage !== "undefined")
         sessionStorage.setItem("trstprep_refresh_token", newRefreshToken);
-      if (
-        typeof localStorage !== "undefined" &&
-        localStorage.getItem("trstprep_refresh_token")
-      )
-        localStorage.setItem("trstprep_refresh_token", newRefreshToken);
+      // Clean up any remaining legacy localStorage copy
+      if (typeof localStorage !== "undefined")
+        localStorage.removeItem("trstprep_refresh_token");
     }
   } catch {
     // ignore storage access errors
@@ -361,7 +378,7 @@ export const fetchFromAPI = async (endpoint, options = {}) => {
     const response = await apiClient(config);
     return response.data;
   } catch (error) {
-    if (import.meta.env.DEV) console.error(`API Error (${endpoint}):`, error);
+    if (import.meta.env.DEV) logger.error(`API Error (${endpoint}):`, error);
     if (error.response?.data)
       throw new DataError(
         error.response.data.message || "Request failed",

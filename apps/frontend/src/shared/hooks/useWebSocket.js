@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import {
   initWebSocket,
   getSocket,
@@ -72,12 +73,12 @@ export const useWebSocket = (enabled = true, url = null) => {
     const handleConnectError = (error) => {
       errorCount++;
       if (errorCount <= 3 && import.meta.env.DEV) {
-        console.warn(
+        logger.warn(
           `[WebSocket] Connection failed (${errorCount}/5):`,
           error.message,
         );
       } else if (errorCount === 5 && import.meta.env.DEV) {
-        console.warn(
+        logger.warn(
           "[WebSocket] Stopping reconnection attempts — server unreachable",
         );
       }

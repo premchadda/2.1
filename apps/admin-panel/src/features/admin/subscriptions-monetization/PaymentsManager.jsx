@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   CreditCard,
@@ -83,7 +84,7 @@ export default function PaymentsManager() {
           setTotalPages(body.totalPages || 1);
         }
       } catch (error) {
-        console.error("Failed to fetch transactions:", error);
+        logger.error("Failed to fetch transactions:", error);
         toast.error("Failed to load transactions");
       } finally {
         setLoading(false);
@@ -99,7 +100,7 @@ export default function PaymentsManager() {
         setStats(response.data.data);
       }
     } catch (error) {
-      console.error("Failed to fetch payment stats:", error);
+      logger.error("Failed to fetch payment stats:", error);
     }
   }, []);
 
@@ -140,7 +141,7 @@ export default function PaymentsManager() {
         toast.error(response.data?.message || "Refund failed");
       }
     } catch (error) {
-      console.error("Refund failed:", error);
+      logger.error("Refund failed:", error);
       toast.error(error.response?.data?.message || "Failed to process refund");
     } finally {
       setRefunding(false);

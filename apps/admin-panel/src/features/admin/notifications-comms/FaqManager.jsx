@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   Plus,
@@ -40,7 +41,7 @@ export default function FaqManager() {
         setFaqs(response.data.data || []);
       }
     } catch (error) {
-      console.error("Failed to fetch FAQs:", error);
+      logger.error("Failed to fetch FAQs:", error);
       // Don't fall back to fake data — show empty state so admin knows to add real FAQs
       setFaqs([]);
     } finally {
@@ -65,7 +66,7 @@ export default function FaqManager() {
         toast.success(editingId ? "FAQ updated!" : "FAQ created!");
       }
     } catch (error) {
-      console.error("Failed to save FAQ:", error);
+      logger.error("Failed to save FAQ:", error);
       toast.error("Failed to save FAQ");
     }
   };
@@ -97,7 +98,7 @@ export default function FaqManager() {
         fetchFaqs();
       }
     } catch (error) {
-      console.error("Failed to delete FAQ:", error);
+      logger.error("Failed to delete FAQ:", error);
       toast.error("Failed to delete FAQ");
     }
   };
@@ -113,7 +114,7 @@ export default function FaqManager() {
         fetchFaqs();
       }
     } catch (error) {
-      console.error("Failed to toggle FAQ:", error);
+      logger.error("Failed to toggle FAQ:", error);
     }
   };
 

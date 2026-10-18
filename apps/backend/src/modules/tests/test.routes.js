@@ -1039,6 +1039,7 @@ router.put("/:testId/autosave", protect, async (req, res) => {
       markedForReview,
       sectionTimers,
       currentSection,
+      clientSeq,
     } = req.body;
     if (!attemptId) {
       return res
@@ -1084,6 +1085,28 @@ router.put("/:testId/autosave", protect, async (req, res) => {
     const normalizedAnswers = await normalizeSubmittedAnswers(answers);
     const nowIso = new Date().toISOString();
 
+    // --- Monotonic autosave ordering guard ---------------------------------
+    // The client fires overlapping autosaves (30s interval + navigation/pause/
+    // visibility) with no ordering guarantee, so a slow earlier request can
+    // land after a faster later one and permanently lose newer answers.
+    // Clients MAY send an increasing `clientSeq`; when present we reject any
+    // payload older than what is already persisted. Clients that omit it keep
+    // the original last-write-wins behaviour, so this is backward compatible.
+    // NOTE: `attempts.client_seq` has no migration yet — dbHelpers.updateById
+    // runs filterToExistingColumns(), so the column is silently dropped until
+    // a migration adds it. Without it the stored value reads back as 0 and the
+    // guard degrades safely to no-op (never a false skip). A migration is
+    // required to make this durable across requests.
+    const incomingClientSeq =
+      Number.isInteger(clientSeq) && clientSeq > 0 ? clientSeq : null;
+    const storedClientSeq = Number(attempt.clientSeq ?? 0) || 0;
+
+    if (incomingClientSeq !== null && incomingClientSeq < storedClientSeq) {
+      // Respond success so the client does not enter an error/retry loop on a
+      // payload that was legitimately superseded.
+      return res.json({ success: true, skipped: "stale_autosave" });
+    }
+
     const updated = await dbHelpers.updateById("attempts", internalAttemptId, {
       answers: normalizedAnswers,
       timeSpent: Number(timeSpent || 0),
@@ -1092,6 +1115,11 @@ router.put("/:testId/autosave", protect, async (req, res) => {
         sectionTimers && typeof sectionTimers === "object" ? sectionTimers : {},
       currentSection:
         typeof currentSection === "string" ? currentSection : null,
+      // Only carried when supplied, so a client that omits clientSeq never
+      // resets an already-persisted sequence.
+      ...(incomingClientSeq !== null
+        ? { clientSeq: incomingClientSeq, client_seq: incomingClientSeq }
+        : {}),
       lastActivityAt: nowIso,
       last_activity_at: nowIso,
       lastHeartbeatAt: nowIso,

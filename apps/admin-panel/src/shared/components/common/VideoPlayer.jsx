@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   X,
@@ -122,7 +123,7 @@ export default function VideoPlayer({ isOpen, onClose, videoData }) {
         setIsFullscreen(false);
       }
     } catch (error) {
-      console.error("Fullscreen error:", error);
+      logger.error("Fullscreen error:", error);
     }
   };
 

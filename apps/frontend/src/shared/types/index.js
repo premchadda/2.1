@@ -133,10 +133,13 @@ function isProPassActive(isProUser, expiryDate) {
 }
 
 export function mapUserToFrontend(backendUser) {
-  const isProUser =
-    backendUser.is_pro !== undefined
-      ? backendUser.is_pro
-      : backendUser.isProUser || backendUser.is_pro_user || false;
+  // Read ONLY the backend-derived Pro flag. The backend computes it exactly
+  // once, canonically, in `isProUserHelper(decryptedUser) || isAdmin`
+  // (apps/backend/src/middleware/auth.middleware.js:658-665). There is no
+  // `users.is_pro` column, so preferring that raw name contradicted the
+  // backend's documented invariant AND shadowed the derived value — every Pro
+  // gate (AuthProvider.hasProPass() trusts this field) inherited the bug.
+  const isProUser = backendUser.isProUser ?? backendUser.is_pro_user ?? false;
   const proPassExpiry =
     backendUser.pro_expiry ||
     backendUser.proExpiry ||

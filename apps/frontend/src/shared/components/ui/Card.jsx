@@ -1,71 +1,97 @@
-import { twMerge } from 'tailwind-merge'
+import { twMerge } from "tailwind-merge";
 
 const variants = {
-  default: 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700',
-  elevated: 'bg-white dark:bg-gray-800 shadow-card hover:shadow-hover-card',
-  gradient: 'bg-gradient-to-br from-brand-start to-brand-end text-white',
-  outline: 'bg-transparent border-2 border-brand-start dark:border-indigo-500',
-  ghost: 'bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50',
-}
+  default:
+    "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700",
+  elevated: "bg-white dark:bg-gray-800 shadow-card hover:shadow-hover-card",
+  gradient: "bg-gradient-to-br from-brand-start to-brand-end text-white",
+  outline: "bg-transparent border-2 border-brand-start dark:border-indigo-500",
+  ghost: "bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50",
+};
 
 const sizes = {
-  sm: 'p-3',
-  md: 'p-4',
-  lg: 'p-6',
-  xl: 'p-8',
-}
+  sm: "p-3",
+  md: "p-4",
+  lg: "p-6",
+  xl: "p-8",
+};
 
 function Card({
   children,
-  variant = 'default',
-  size = 'md',
+  variant = "default",
+  size = "md",
   padding,
   hover = false,
-  className = '',
+  className = "",
   onClick,
   ...props
 }) {
+  const classes = twMerge(
+    "rounded-xl transition-all duration-300",
+    variants[variant] || variants.default,
+    sizes[size] || sizes.md,
+    padding || "",
+    hover && "hover:shadow-hover-card hover:-translate-y-0.5",
+    // cursor-pointer only when there is actually a click target — a pointer
+    // cursor with no handler is a false affordance.
+    onClick && "cursor-pointer",
+    className,
+  );
+
+  // Clickable cards must be real controls so keyboard and screen-reader users
+  // can activate them; presentational cards stay non-interactive divs.
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className={twMerge(classes, "w-full text-left")}
+        onClick={onClick}
+        {...props}
+      >
+        {children}
+      </button>
+    );
+  }
+
+  return (
+    <div className={classes} {...props}>
+      {children}
+    </div>
+  );
+}
+
+function CardHeader({ children, className = "", ...props }) {
   return (
     <div
-      className={twMerge(
-        'rounded-xl transition-all duration-300',
-        variants[variant] || variants.default,
-        sizes[size] || sizes.md,
-        padding || '',
-        hover && 'cursor-pointer hover:shadow-hover-card hover:-translate-y-0.5',
-        className,
-      )}
-      onClick={onClick}
+      className={twMerge("flex items-center justify-between mb-3", className)}
       {...props}
     >
       {children}
     </div>
-  )
+  );
 }
 
-function CardHeader({ children, className = '', ...props }) {
+function CardBody({ children, className = "", ...props }) {
   return (
-    <div className={twMerge('flex items-center justify-between mb-3', className)} {...props}>
+    <div className={twMerge("", className)} {...props}>
       {children}
     </div>
-  )
+  );
 }
 
-function CardBody({ children, className = '', ...props }) {
+function CardFooter({ children, className = "", ...props }) {
   return (
-    <div className={twMerge('', className)} {...props}>
+    <div
+      className={twMerge(
+        "mt-4 pt-4 border-t border-gray-100 dark:border-gray-700",
+        className,
+      )}
+      {...props}
+    >
       {children}
     </div>
-  )
+  );
 }
 
-function CardFooter({ children, className = '', ...props }) {
-  return (
-    <div className={twMerge('mt-4 pt-4 border-t border-gray-100 dark:border-gray-700', className)} {...props}>
-      {children}
-    </div>
-  )
-}
-
-export { Card, CardHeader, CardBody, CardFooter }
-export default Card
+export { Card, CardHeader, CardBody, CardFooter };
+export default Card;

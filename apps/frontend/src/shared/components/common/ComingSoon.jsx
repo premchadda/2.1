@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Link } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import {
@@ -26,6 +27,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../providers/AuthContext";
 import { apiClient } from "../../lib/api.js";
+import { getErrorStatus } from "../../lib/apiClient.js";
 
 // Icon mapping for string-based icon selection
 const ICON_MAP = {
@@ -109,9 +111,9 @@ function ComingSoon({
       setSubscribed(true);
       toast.success("You will be notified when this feature launches!");
     } catch (error) {
-      console.error("Subscription failed:", error);
+      logger.error("Subscription failed:", error);
       // If user is already subscribed, that's still a success
-      if (error.response?.status === 409 || error.response?.status === 400) {
+      if (getErrorStatus(error) === 409 || getErrorStatus(error) === 400) {
         setSubscribed(true);
         toast.success("You are already subscribed to updates!");
       } else {

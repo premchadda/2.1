@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { logger } from "@trstprep/shared-config";
 import {
   FileText,
   Download,
@@ -43,7 +44,7 @@ export default function PreviousYearPapers() {
         }
       } catch (error) {
         if (error.name !== "AbortError")
-          console.error("Failed to fetch stats:", error);
+          logger.error("Failed to fetch stats:", error);
       }
     };
     fetchStats();

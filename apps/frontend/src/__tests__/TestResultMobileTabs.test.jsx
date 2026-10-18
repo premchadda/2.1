@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import TestLeaderboardTab from "../pages/tests/components/TestLeaderboardTab";
 import TestResult from "../pages/tests/TestResult";
+import { ROUTER_FUTURE_FLAGS } from "../test/routerFutureFlags";
 
 // Mock apiClient
 vi.mock("../shared/lib/dataService", () => ({
@@ -162,7 +163,10 @@ describe("TestResult Mobile Tabs", () => {
   it("renders 3 mobile tabs: 1. Analysis, 2. Solution, 3. Leaderboard", async () => {
     render(
       <HelmetProvider>
-        <MemoryRouter initialEntries={["/ssc-cgl/tests/test-123/result"]}>
+        <MemoryRouter
+          initialEntries={["/ssc-cgl/tests/test-123/result"]}
+          future={ROUTER_FUTURE_FLAGS}
+        >
           <Routes>
             <Route
               path="/:seriesSlug/tests/:testId/result"
@@ -226,7 +230,10 @@ describe("TestResult Mobile Tabs", () => {
   it("only displays language button when solution tab is active and toggles language", async () => {
     render(
       <HelmetProvider>
-        <MemoryRouter initialEntries={["/ssc-cgl/tests/test-123/result"]}>
+        <MemoryRouter
+          initialEntries={["/ssc-cgl/tests/test-123/result"]}
+          future={ROUTER_FUTURE_FLAGS}
+        >
           <Routes>
             <Route
               path="/:seriesSlug/tests/:testId/result"
@@ -278,7 +285,10 @@ describe("TestResult Mobile Tabs", () => {
   it("renders back to series as emoji on solution tab and text on other tabs", async () => {
     render(
       <HelmetProvider>
-        <MemoryRouter initialEntries={["/ssc-cgl/tests/test-123/result"]}>
+        <MemoryRouter
+          initialEntries={["/ssc-cgl/tests/test-123/result"]}
+          future={ROUTER_FUTURE_FLAGS}
+        >
           <Routes>
             <Route
               path="/:seriesSlug/tests/:testId/result"
@@ -313,7 +323,10 @@ describe("TestResult Mobile Tabs", () => {
   it("renders solution tab with one row of section filter and a filter button that applies across all sections", async () => {
     render(
       <HelmetProvider>
-        <MemoryRouter initialEntries={["/ssc-cgl/tests/test-123/result"]}>
+        <MemoryRouter
+          initialEntries={["/ssc-cgl/tests/test-123/result"]}
+          future={ROUTER_FUTURE_FLAGS}
+        >
           <Routes>
             <Route
               path="/:seriesSlug/tests/:testId/result"

@@ -3,13 +3,24 @@ import { useAuth } from "../../providers/AuthContext";
 import { TrstprepLoading } from "../common/TrstprepLoading";
 
 function ProtectedRoute({ children, adminOnly = false }) {
-  const { user, loading, authResolved } = useAuth();
+  const { user, authResolved } = useAuth();
   const location = useLocation();
 
-  // Only block if we do NOT have an existing/cached user session
-  // and initial authentication resolution is still in flight.
-  // When a user session exists from cache, children render in 1ms while /me revalidates.
-  if (!user && (loading || !authResolved)) {
+  // Gate on the AUTHORITATIVE resolution (`authResolved`), never on the
+  // presence of a cached user.
+  //
+  // `user` is seeded from storage by AuthProvider's getInitialUser() as an
+  // optimistic hint — AuthProvider's own comment says a cached user is only a
+  // hint and protected routes must wait for /api/auth/me. The old condition
+  // (`!user && (loading || !authResolved)`) short-circuited on that hint, so
+  // when the server session had died but the profile was still cached the full
+  // protected shell rendered under the dead user's identity — a burst of doomed
+  // protected API calls, then a pop to /login.
+  //
+  // `authResolved` flips true exactly once /api/auth/me settles (or a login
+  // completes), which is the only trustworthy "should I render protected UI?"
+  // answer available.
+  if (!authResolved) {
     return (
       <TrstprepLoading
         fullscreen

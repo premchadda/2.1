@@ -108,7 +108,7 @@ const replaySpool = () => {
 };
 
 const createTransporter = () => {
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
+  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
 
   if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
     return nodemailer.createTransport({

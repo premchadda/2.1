@@ -8,6 +8,8 @@
 // (return false so the Vite proxy same-origin fallback still works locally).
 // PROD builds must also never point these vars at localhost (throws).
 
+import { logger } from "@trstprep/shared-config";
+
 const REQUIRED_ENV_VARS = ["VITE_API_URL", "VITE_ADMIN_SITE_URL"];
 const OPTIONAL_ENV_VARS_WITH_FALLBACK = ["VITE_BACKEND_URL", "VITE_SOCKET_URL"];
 // Documented-but-optional vars (warn-only when unset, never throw):
@@ -30,7 +32,7 @@ export function validateEnvVars() {
     return !value || value === "undefined";
   });
   if (missingOptional.length > 0) {
-    console.warn(
+    logger.warn(
       "[Admin Env Validation] Optional (fallback exists):",
       missingOptional.join(", "),
     );
@@ -40,20 +42,20 @@ export function validateEnvVars() {
     return !value || value === "undefined";
   });
   if (missingDocumented.length > 0) {
-    console.warn(
+    logger.warn(
       "[Admin Env Validation] Optional documented vars unset (warn-only, features degrade gracefully):",
       missingDocumented.join(", "),
     );
   }
 
   if (missing.length > 0) {
-    console.error("[Admin Env Validation] Missing:", missing.join(", "));
+    logger.error("[Admin Env Validation] Missing:", missing.join(", "));
     if (import.meta.env.PROD) {
       // In production, missing env vars are a hard error
       throw new Error("Missing required env vars: " + missing.join(", "));
     }
     // In dev, warn only — return false so the caller can decide
-    console.warn(
+    logger.warn(
       "[Admin Env Validation] Continuing in dev mode with missing vars:",
       missing.join(", "),
     );

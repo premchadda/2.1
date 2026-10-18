@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { authAPI, userAPI } from "../lib/dataService.js";
-import { logger } from "../lib/logger.js";
+import { logger } from "@trstprep/shared-config";
 import { mapUserToFrontend } from "../types";
 import { useWebSocket, clearWebSocket } from "../hooks/useWebSocket";
 import { toast } from "react-hot-toast";
 import { getQueryClient } from "../lib/queryClientRegistry.js";
-import { getCsrfToken, setCsrfToken } from "@trstprep/shared-config";
+import { getCsrfToken } from "@trstprep/shared-config";
 import { AuthContext } from "./AuthContextCore.js";
 import {
   applyAuthSession,

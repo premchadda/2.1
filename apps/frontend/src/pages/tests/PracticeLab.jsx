@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   useSearchParams,
@@ -13,6 +13,7 @@ import Breadcrumb from "../../shared/components/common/Breadcrumb";
 import FundamentalsGym from "./components/FundamentalsGym";
 import PracticeWorkspace from "./components/PracticeWorkspace";
 import PracticeTopicTree from "./components/PracticeTopicTree";
+import ClickableCard from "../../shared/components/ui/ClickableCard.jsx";
 import { useProPass } from "@trstprep/shared-hooks";
 import SEO from "../../shared/components/SEO";
 
@@ -38,6 +39,7 @@ import {
   RotateCcw,
   Check,
 } from "lucide-react";
+import { getErrorMessage } from "../../shared/lib/apiClient.js";
 
 // ════════════════════════════════════════════════════════════════════════════
 // SUBPAGE & SCREEN ROUTING MAPS
@@ -116,6 +118,41 @@ const getSubjectIcon = (subject) => {
   if (name.includes("computer")) return "💻";
   if (name.includes("gk") || name.includes("general knowledge")) return "🏛️";
   return "📖";
+};
+
+// Static style map for practice-set cards. Module scope so its identity is
+// stable — ChapterDetailView's getAvailableSets is memoized and closes over it.
+const practiceSetStyles = {
+  quick: {
+    bg: "bg-indigo-50 dark:bg-indigo-900/30",
+    border: "border-indigo-200 dark:border-indigo-800",
+    text: "text-indigo-700 dark:text-indigo-300",
+    btn: "bg-indigo-600 hover:bg-indigo-700",
+  },
+  easy: {
+    bg: "bg-emerald-50 dark:bg-emerald-900/20",
+    border: "border-emerald-200 dark:border-emerald-800",
+    text: "text-emerald-700 dark:text-emerald-300",
+    btn: "bg-emerald-600 hover:bg-emerald-700",
+  },
+  medium: {
+    bg: "bg-amber-50 dark:bg-amber-900/20",
+    border: "border-amber-200 dark:border-amber-800",
+    text: "text-amber-700 dark:text-amber-300",
+    btn: "bg-amber-500 hover:bg-amber-600",
+  },
+  hard: {
+    bg: "bg-red-50 dark:bg-red-900/20",
+    border: "border-red-200 dark:border-red-800",
+    text: "text-red-700 dark:text-red-300",
+    btn: "bg-red-600 hover:bg-red-700",
+  },
+  full: {
+    bg: "bg-purple-50 dark:bg-purple-900/20",
+    border: "border-purple-200 dark:border-purple-800",
+    text: "text-purple-700 dark:text-purple-300",
+    btn: "bg-purple-600 hover:bg-purple-700",
+  },
 };
 
 export default function PracticeLab() {
@@ -421,9 +458,7 @@ export default function PracticeLab() {
       setActiveSession(session);
       navigateScreen("session");
     } catch (err) {
-      toast.error(
-        err?.response?.data?.error || "Failed to start practice session",
-      );
+      toast.error(getErrorMessage(err) || "Failed to start practice session");
     }
   };
 
@@ -781,7 +816,16 @@ function ChooseExamModal({ onSelectExam, onClose }) {
             <div
               key={exam.id}
               onClick={() => onSelectExam(exam)}
-              className="p-3.5 sm:p-4 bg-slate-50 dark:bg-gray-900/80 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 dark:hover:border-indigo-800 border border-slate-200 dark:border-gray-700 rounded-xl sm:rounded-2xl cursor-pointer transition flex items-center justify-between group gap-3"
+              role="button"
+              tabIndex={0}
+              aria-label={`Select target exam: ${exam.name}`}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectExam(exam);
+                }
+              }}
+              className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-900/80 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 dark:hover:border-indigo-800 border border-slate-200 dark:border-gray-700 rounded-xl sm:rounded-2xl cursor-pointer transition flex items-center justify-between group gap-3 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset"
             >
               <div className="min-w-0 flex-1">
                 <div className="font-extrabold text-slate-900 dark:text-white text-sm sm:text-base group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition truncate">
@@ -826,45 +870,57 @@ function ExamPracticeHub({
 
   // The tree is pruned by the backend to subjects, chapters, and topics that
   // contain active practice questions. Keep the UI on that same source of truth.
-  const dbSubjects = Array.isArray(treeData?.subjects) ? treeData.subjects : [];
-  const subjectsList = [
-    {
-      id: "all",
-      slug: "all",
-      label: "All Subjects",
-      icon: "📚",
-      questionCount: dbSubjects.reduce(
-        (total, subject) =>
-          total +
-          (subject.chapters || []).reduce(
-            (chapterTotal, chapter) =>
-              chapterTotal +
-              (chapter.topics || []).reduce(
-                (topicTotal, topic) => topicTotal + getQuestionCount(topic),
-                0,
-              ),
-            0,
-          ),
-        0,
-      ),
-    },
-    ...dbSubjects.map((subject) => ({
-      id: String(subject.id),
-      slug: subject.slug,
-      label: subject.name || subject.title || "Untitled subject",
-      icon: subject.icon || getSubjectIcon(subject),
-      chapters: subject.chapters || [],
-      questionCount: (subject.chapters || []).reduce(
-        (total, chapter) =>
-          total +
-          (chapter.topics || []).reduce(
-            (topicTotal, topic) => topicTotal + getQuestionCount(topic),
-            0,
-          ),
-        0,
-      ),
-    })),
-  ];
+  // Memoized so its identity is stable: the inline `[]` fallback allocated a new
+  // array on every render, which would have invalidated every memo keyed on it.
+  const dbSubjects = useMemo(
+    () => (Array.isArray(treeData?.subjects) ? treeData.subjects : []),
+    [treeData?.subjects],
+  );
+
+  // Walked the full taxonomy (subject -> chapter -> topic, calling
+  // getQuestionCount per topic) on EVERY render before. Sibling practice
+  // components run 1Hz interval timers, so any sibling state change re-ran this.
+  const subjectsList = useMemo(
+    () => [
+      {
+        id: "all",
+        slug: "all",
+        label: "All Subjects",
+        icon: "📚",
+        questionCount: dbSubjects.reduce(
+          (total, subject) =>
+            total +
+            (subject.chapters || []).reduce(
+              (chapterTotal, chapter) =>
+                chapterTotal +
+                (chapter.topics || []).reduce(
+                  (topicTotal, topic) => topicTotal + getQuestionCount(topic),
+                  0,
+                ),
+              0,
+            ),
+          0,
+        ),
+      },
+      ...dbSubjects.map((subject) => ({
+        id: String(subject.id),
+        slug: subject.slug,
+        label: subject.name || subject.title || "Untitled subject",
+        icon: subject.icon || getSubjectIcon(subject),
+        chapters: subject.chapters || [],
+        questionCount: (subject.chapters || []).reduce(
+          (total, chapter) =>
+            total +
+            (chapter.topics || []).reduce(
+              (topicTotal, topic) => topicTotal + getQuestionCount(topic),
+              0,
+            ),
+          0,
+        ),
+      })),
+    ],
+    [dbSubjects],
+  );
 
   const [activeSubject, setActiveSubject] = useState(() => {
     if (initialSubjectSlug && dbSubjects.length > 0) {
@@ -889,35 +945,44 @@ function ExamPracticeHub({
     }
   }, [initialSubjectSlug, dbSubjects]);
 
-  const sourceSubjects =
-    activeSubject === "all"
-      ? dbSubjects
-      : dbSubjects.filter(
-          (subject) => String(subject.id) === String(activeSubject),
-        );
-  const chaptersList = sourceSubjects
-    .flatMap((subject) =>
-      (subject.chapters || []).map((c) => ({
-        ...c,
-        subjectSlug: subject.slug,
-        subjectId: subject.id,
-        subjectName: subject.name || subject.title,
-      })),
-    )
-    .map((chapter) => {
-      const count = (chapter.topics || []).reduce(
-        (total, topic) => total + getQuestionCount(topic),
-        0,
-      );
-      return {
-        ...chapter,
-        title: chapter.name || chapter.title || "Untitled chapter",
-        count,
-        badge: count > 30 ? "High Yield" : "Core Concept",
-        tag: count > 50 ? "Most Asked" : "Essential",
-      };
-    })
-    .filter((chapter) => chapter.count > 0);
+  const sourceSubjects = useMemo(
+    () =>
+      activeSubject === "all"
+        ? dbSubjects
+        : dbSubjects.filter(
+            (subject) => String(subject.id) === String(activeSubject),
+          ),
+    [dbSubjects, activeSubject],
+  );
+
+  // Same tree walk as subjectsList, but reshaped for the chapter browser.
+  const chaptersList = useMemo(
+    () =>
+      sourceSubjects
+        .flatMap((subject) =>
+          (subject.chapters || []).map((c) => ({
+            ...c,
+            subjectSlug: subject.slug,
+            subjectId: subject.id,
+            subjectName: subject.name || subject.title,
+          })),
+        )
+        .map((chapter) => {
+          const count = (chapter.topics || []).reduce(
+            (total, topic) => total + getQuestionCount(topic),
+            0,
+          );
+          return {
+            ...chapter,
+            title: chapter.name || chapter.title || "Untitled chapter",
+            count,
+            badge: count > 30 ? "High Yield" : "Core Concept",
+            tag: count > 50 ? "Most Asked" : "Essential",
+          };
+        })
+        .filter((chapter) => chapter.count > 0),
+    [sourceSubjects],
+  );
   const currentSubjectObj =
     subjectsList.find((s) => String(s.id) === String(activeSubject)) ||
     subjectsList[1] ||
@@ -1117,11 +1182,11 @@ function ExamPracticeHub({
         <div className="w-full md:col-span-9 flex flex-col md:max-h-[calc(100vh-80px)]">
           {/* Chapter Cards Header — fixed, doesn't scroll */}
           <div className="flex items-center justify-between mb-5 flex-shrink-0">
-            <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center">
+            <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center">
               <span className="text-xl mr-2">{currentSubjectObj.icon}</span>{" "}
               {currentSubjectObj.label} Practice Drills ({chaptersList.length}{" "}
               Chapters)
-            </h3>
+            </h2>
             <span className="text-xs font-bold text-slate-400 dark:text-gray-500 bg-slate-100 dark:bg-gray-700 px-3 py-1 rounded-full">
               Syllabus Aligned
             </span>
@@ -1140,8 +1205,20 @@ function ExamPracticeHub({
                   <div
                     key={ch.id}
                     onClick={() => onStartChapter(ch)}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Start practice for chapter: ${ch.title}`}
+                    onKeyDown={(e) => {
+                      // Ignore keys that originate from the nested
+                      // "Start Practice" button.
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onStartChapter(ch);
+                      }
+                    }}
                     style={{ animationDelay: `${Math.min(idx, 8) * 40}ms` }}
-                    className="animate-slide-in-up bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-gray-700 p-4 sm:p-5 md:p-6 hover:border-indigo-400 dark:hover:border-indigo-800 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99] transition-all duration-200 cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-5 group"
+                    className="animate-slide-in-up bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-gray-700 p-4 sm:p-5 md:p-6 hover:border-indigo-400 dark:hover:border-indigo-800 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99] transition-all duration-200 cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-5 group outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset"
                   >
                     <div className="min-w-0">
                       <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
@@ -1152,9 +1229,9 @@ function ExamPracticeHub({
                           {ch.tag}
                         </span>
                       </div>
-                      <h4 className="font-extrabold text-slate-900 dark:text-white text-[15px] sm:text-base mb-0.5 sm:mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition line-clamp-2">
+                      <h3 className="font-extrabold text-slate-900 dark:text-white text-[15px] sm:text-base mb-0.5 sm:mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition line-clamp-2">
                         {ch.title}
-                      </h4>
+                      </h3>
                       <p className="text-[11px] sm:text-xs font-bold text-slate-400 dark:text-gray-500">
                         {ch.count} Practice Questions
                       </p>
@@ -1410,107 +1487,80 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
     });
   };
 
-  const practiceSetStyles = {
-    quick: {
-      bg: "bg-indigo-50 dark:bg-indigo-900/30",
-      border: "border-indigo-200 dark:border-indigo-800",
-      text: "text-indigo-700 dark:text-indigo-300",
-      btn: "bg-indigo-600 hover:bg-indigo-700",
-    },
-    easy: {
-      bg: "bg-emerald-50 dark:bg-emerald-900/20",
-      border: "border-emerald-200 dark:border-emerald-800",
-      text: "text-emerald-700 dark:text-emerald-300",
-      btn: "bg-emerald-600 hover:bg-emerald-700",
-    },
-    medium: {
-      bg: "bg-amber-50 dark:bg-amber-900/20",
-      border: "border-amber-200 dark:border-amber-800",
-      text: "text-amber-700 dark:text-amber-300",
-      btn: "bg-amber-500 hover:bg-amber-600",
-    },
-    hard: {
-      bg: "bg-red-50 dark:bg-red-900/20",
-      border: "border-red-200 dark:border-red-800",
-      text: "text-red-700 dark:text-red-300",
-      btn: "bg-red-600 hover:bg-red-700",
-    },
-    full: {
-      bg: "bg-purple-50 dark:bg-purple-900/20",
-      border: "border-purple-200 dark:border-purple-800",
-      text: "text-purple-700 dark:text-purple-300",
-      btn: "bg-purple-600 hover:bg-purple-700",
-    },
-  };
-
-  const getAvailableSets = (topic) => {
-    if (!topic) return [];
-    // Fallback: synthesize practice sets from the question count when the
-    // backend does not return an explicit practiceSets array.
-    if (!Array.isArray(topic.practiceSets)) {
-      const total = Number(
-        topic.questionCount ?? topicStats?.questionCount ?? 0,
-      );
-      if (!Number.isFinite(total) || total <= 0) return [];
-      const synth = [
-        {
-          id: "quick",
-          label: "⚡ Quick Drill",
-          description: "Rapid revision",
-          count: Math.min(10, total),
-          difficulty: "mixed",
-        },
-        {
-          id: "standard",
-          label: "📝 Standard Set",
-          description: "Balanced practice",
-          count: Math.min(20, total),
-          difficulty: "mixed",
-        },
-        {
-          id: "full",
-          label: "📚 Full Topic",
-          description: "Every available question",
-          count: total,
-          difficulty: "mixed",
-        },
-      ].filter(
-        (s, i, arr) =>
-          s.count > 0 && arr.findIndex((x) => x.count === s.count) === i,
-      );
-      return synth.map((practiceSet) => ({
-        ...practiceSet,
-        ...practiceSetStyles[practiceSet.id],
-        count: practiceSet.count,
-        desc: `${practiceSet.count} question${practiceSet.count === 1 ? "" : "s"} · ${practiceSet.description}`,
-      }));
-    }
-    if (!chapterData) return [];
-
-    return topic.practiceSets
-      .map((practiceSet) => {
-        const available =
-          practiceSet.difficulty === "easy"
-            ? topic.easyCount
-            : practiceSet.difficulty === "medium"
-              ? topic.mediumCount
-              : practiceSet.difficulty === "hard"
-                ? topic.hardCount
-                : topic.questionCount;
-        const count =
-          practiceSet.count === null
-            ? available
-            : Math.min(Number(practiceSet.count) || 0, available);
-        return {
+  // getAvailableSets is memoized, so the static style map it closes over must
+  // have a stable identity — it previously lived inside the component, which
+  // allocated a fresh object literal on every render.
+  const getAvailableSets = useCallback(
+    (topic) => {
+      if (!topic) return [];
+      // Fallback: synthesize practice sets from the question count when the
+      // backend does not return an explicit practiceSets array.
+      if (!Array.isArray(topic.practiceSets)) {
+        const total = Number(
+          topic.questionCount ?? topicStats?.questionCount ?? 0,
+        );
+        if (!Number.isFinite(total) || total <= 0) return [];
+        const synth = [
+          {
+            id: "quick",
+            label: "⚡ Quick Drill",
+            description: "Rapid revision",
+            count: Math.min(10, total),
+            difficulty: "mixed",
+          },
+          {
+            id: "standard",
+            label: "📝 Standard Set",
+            description: "Balanced practice",
+            count: Math.min(20, total),
+            difficulty: "mixed",
+          },
+          {
+            id: "full",
+            label: "📚 Full Topic",
+            description: "Every available question",
+            count: total,
+            difficulty: "mixed",
+          },
+        ].filter(
+          (s, i, arr) =>
+            s.count > 0 && arr.findIndex((x) => x.count === s.count) === i,
+        );
+        return synth.map((practiceSet) => ({
           ...practiceSet,
           ...practiceSetStyles[practiceSet.id],
-          label: `${practiceSet.icon || ""} ${practiceSet.label}`.trim(),
-          count,
-          desc: `${count} question${count === 1 ? "" : "s"} · ${practiceSet.description || "Practice from this topic"}`,
-        };
-      })
-      .filter((practiceSet) => practiceSet.count > 0);
-  };
+          count: practiceSet.count,
+          desc: `${practiceSet.count} question${practiceSet.count === 1 ? "" : "s"} · ${practiceSet.description}`,
+        }));
+      }
+      if (!chapterData) return [];
+
+      return topic.practiceSets
+        .map((practiceSet) => {
+          const available =
+            practiceSet.difficulty === "easy"
+              ? topic.easyCount
+              : practiceSet.difficulty === "medium"
+                ? topic.mediumCount
+                : practiceSet.difficulty === "hard"
+                  ? topic.hardCount
+                  : topic.questionCount;
+          const count =
+            practiceSet.count === null
+              ? available
+              : Math.min(Number(practiceSet.count) || 0, available);
+          return {
+            ...practiceSet,
+            ...practiceSetStyles[practiceSet.id],
+            label: `${practiceSet.icon || ""} ${practiceSet.label}`.trim(),
+            count,
+            desc: `${count} question${count === 1 ? "" : "s"} · ${practiceSet.description || "Practice from this topic"}`,
+          };
+        })
+        .filter((practiceSet) => practiceSet.count > 0);
+    },
+    [topicStats?.questionCount, chapterData],
+  );
 
   const handleStartSet = (practiceSet) => {
     if (!currentTopic?.id || !practiceSet?.count) {
@@ -1998,8 +2048,20 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
                   <div
                     key={ps.id}
                     onClick={() => handleStartSet(ps)}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Start practice set: ${ps.label}`}
+                    onKeyDown={(e) => {
+                      // Ignore keys that originate from the nested
+                      // "Start Practice" button.
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleStartSet(ps);
+                      }
+                    }}
                     style={{ animationDelay: `${idx * 45}ms` }}
-                    className={`${ps.bg} border ${ps.border} rounded-2xl sm:rounded-3xl p-4 sm:p-5 cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group`}
+                    className={`${ps.bg} border ${ps.border} rounded-2xl sm:rounded-3xl p-4 sm:p-5 cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset`}
                   >
                     <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
                       <h4
@@ -2091,6 +2153,49 @@ function PracticeHubDashboard({
     retry: 1,
   });
 
+  // Declared above the `isLoading` early return below (rules-of-hooks).
+  // Previously these ran inline in the render body, so the ENTIRE flattened
+  // topic list was rebuilt plus two full .filter() passes over it on every
+  // render — while sibling practice components run 1Hz interval timers.
+  const curriculumTopics = useMemo(
+    () =>
+      (treeData?.subjects || []).flatMap((subject) =>
+        (subject.chapters || []).flatMap((chapter) =>
+          (chapter.topics || []).map((topic) => ({
+            ...topic,
+            subjectName: subject.name,
+            chapterName: chapter.name,
+            subjectId: subject.id,
+            chapterId: chapter.id,
+          })),
+        ),
+      ),
+    [treeData?.subjects],
+  );
+
+  const weakTopics = useMemo(
+    () => (Array.isArray(dash?.weakTopics) ? dash.weakTopics : []),
+    [dash?.weakTopics],
+  );
+
+  const weakTopicMap = useMemo(
+    () => new Map(weakTopics.map((topic) => [String(topic.topicId), topic])),
+    [weakTopics],
+  );
+
+  const recommendedTopics = useMemo(
+    () =>
+      [
+        ...curriculumTopics.filter((topic) =>
+          weakTopicMap.has(String(topic.id)),
+        ),
+        ...curriculumTopics.filter(
+          (topic) => !weakTopicMap.has(String(topic.id)),
+        ),
+      ].slice(0, 4),
+    [curriculumTopics, weakTopicMap],
+  );
+
   if (isLoading || !dash) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-8 flex justify-center">
@@ -2101,25 +2206,6 @@ function PracticeHubDashboard({
 
   const streak = dash.streak || {};
   const mistakeCount = Number(mistakesData?.count ?? dash?.mistakesCount ?? 0);
-  const curriculumTopics = (treeData?.subjects || []).flatMap((subject) =>
-    (subject.chapters || []).flatMap((chapter) =>
-      (chapter.topics || []).map((topic) => ({
-        ...topic,
-        subjectName: subject.name,
-        chapterName: chapter.name,
-        subjectId: subject.id,
-        chapterId: chapter.id,
-      })),
-    ),
-  );
-  const weakTopics = Array.isArray(dash.weakTopics) ? dash.weakTopics : [];
-  const weakTopicMap = new Map(
-    weakTopics.map((topic) => [String(topic.topicId), topic]),
-  );
-  const recommendedTopics = [
-    ...curriculumTopics.filter((topic) => weakTopicMap.has(String(topic.id))),
-    ...curriculumTopics.filter((topic) => !weakTopicMap.has(String(topic.id))),
-  ].slice(0, 4);
 
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-4 py-5 sm:py-8 space-y-4 sm:space-y-8">
@@ -2197,7 +2283,17 @@ function PracticeHubDashboard({
         {/* Hub 1: Fundamentals */}
         <div
           onClick={onOpenFundamentals}
-          className="animate-slide-in-up relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 text-white cursor-pointer hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 group flex flex-col justify-between shadow-md"
+          role="button"
+          tabIndex={0}
+          aria-label="Open the Fundamentals calculation gym"
+          onKeyDown={(e) => {
+            if (e.target !== e.currentTarget) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onOpenFundamentals();
+            }
+          }}
+          className="animate-slide-in-up relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 text-white cursor-pointer hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 group flex flex-col justify-between shadow-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-inset"
         >
           {/* Ambient background effects */}
           <div className="absolute -right-8 -top-8 w-28 h-28 sm:w-36 sm:h-36 bg-purple-400/30 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
@@ -2211,9 +2307,9 @@ function PracticeHubDashboard({
                 Calculation Gym
               </span>
             </div>
-            <h3 className="text-sm sm:text-xl font-extrabold mb-1">
+            <h2 className="text-sm sm:text-xl font-extrabold mb-1">
               Fundamentals
-            </h3>
+            </h2>
             <p className="text-[11px] sm:text-xs text-indigo-100/90 leading-relaxed mb-4 sm:mb-6">
               Tables (1–30), Squares (1–50), Cubes, Roots, Fractions ↔ %, Ratios
               & Triplets for 5x exam calculation speed.
@@ -2227,8 +2323,18 @@ function PracticeHubDashboard({
         {/* Hub 2: Exam & Concept Practice */}
         <div
           onClick={onOpenExamPractice}
+          role="button"
+          tabIndex={0}
+          aria-label="Open Exam and Concepts practice"
+          onKeyDown={(e) => {
+            if (e.target !== e.currentTarget) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onOpenExamPractice();
+            }
+          }}
           style={{ animationDelay: "60ms" }}
-          className="animate-slide-in-up relative overflow-hidden bg-gradient-to-br from-blue-50/80 via-white to-sky-50/50 dark:from-slate-800/95 dark:via-gray-800 dark:to-blue-950/30 rounded-2xl sm:rounded-3xl border border-blue-200/80 dark:border-blue-900/40 p-3.5 sm:p-6 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 group flex flex-col justify-between shadow-xs"
+          className="animate-slide-in-up relative overflow-hidden bg-gradient-to-br from-blue-50/80 via-white to-sky-50/50 dark:from-slate-800/95 dark:via-gray-800 dark:to-blue-950/30 rounded-2xl sm:rounded-3xl border border-blue-200/80 dark:border-blue-900/40 p-3.5 sm:p-6 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 group flex flex-col justify-between shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
         >
           {/* Ambient background effects */}
           <div className="absolute -right-8 -top-8 w-28 h-28 sm:w-36 sm:h-36 bg-blue-500/15 dark:bg-blue-400/15 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
@@ -2260,8 +2366,18 @@ function PracticeHubDashboard({
         {/* Hub 3: Smart AI Practice */}
         <div
           onClick={() => onLaunchSmart("weak_topic")}
+          role="button"
+          tabIndex={0}
+          aria-label="Start a Smart Practice drill built from your weak topics"
+          onKeyDown={(e) => {
+            if (e.target !== e.currentTarget) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onLaunchSmart("weak_topic");
+            }
+          }}
           style={{ animationDelay: "120ms" }}
-          className="animate-slide-in-up relative overflow-hidden bg-gradient-to-br from-purple-50/80 via-white to-fuchsia-50/50 dark:from-slate-800/95 dark:via-gray-800 dark:to-purple-950/30 rounded-2xl sm:rounded-3xl border border-purple-200/80 dark:border-purple-900/40 p-3.5 sm:p-6 cursor-pointer hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 group flex flex-col justify-between shadow-xs"
+          className="animate-slide-in-up relative overflow-hidden bg-gradient-to-br from-purple-50/80 via-white to-fuchsia-50/50 dark:from-slate-800/95 dark:via-gray-800 dark:to-purple-950/30 rounded-2xl sm:rounded-3xl border border-purple-200/80 dark:border-purple-900/40 p-3.5 sm:p-6 cursor-pointer hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 group flex flex-col justify-between shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-inset"
         >
           {/* Ambient background effects */}
           <div className="absolute -right-8 -top-8 w-28 h-28 sm:w-36 sm:h-36 bg-purple-500/15 dark:bg-purple-400/15 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
@@ -2293,12 +2409,27 @@ function PracticeHubDashboard({
           onClick={
             mistakeCount > 0 ? () => onLaunchSmart("mistakes") : undefined
           }
+          role={mistakeCount > 0 ? "button" : undefined}
+          tabIndex={mistakeCount > 0 ? 0 : -1}
+          aria-label={
+            mistakeCount > 0
+              ? `Re-practice ${mistakeCount} past mistakes`
+              : undefined
+          }
+          onKeyDown={(e) => {
+            if (mistakeCount === 0) return;
+            if (e.target !== e.currentTarget) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onLaunchSmart("mistakes");
+            }
+          }}
           style={{ animationDelay: "180ms" }}
           className={`animate-slide-in-up relative overflow-hidden bg-gradient-to-br from-amber-50/80 via-white to-orange-50/50 dark:from-slate-800/95 dark:via-gray-800 dark:to-amber-950/30 rounded-2xl sm:rounded-3xl border border-amber-200/80 dark:border-amber-900/40 p-3.5 sm:p-6 transition-all duration-300 group flex flex-col justify-between shadow-xs ${
             mistakeCount > 0
               ? "cursor-pointer hover:border-amber-400 dark:hover:border-amber-500 hover:shadow-xl hover:-translate-y-1 active:scale-[0.98]"
               : "opacity-90 cursor-default"
-          }`}
+          } outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-inset`}
         >
           {/* Ambient background effects */}
           <div className="absolute -right-8 -top-8 w-28 h-28 sm:w-36 sm:h-36 bg-amber-500/15 dark:bg-amber-400/15 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
@@ -2358,9 +2489,10 @@ function PracticeHubDashboard({
               const weakTopic = weakTopicMap.get(String(topic.id));
               const mode = weakTopic ? "weak_topic" : "learn";
               return (
-                <div
+                <ClickableCard
                   key={topic.id}
                   onClick={() => onLaunchSmart(mode, topic.id)}
+                  aria-label={`Start ${weakTopic ? "smart drill for weak topic" : "practice"}: ${topic.name}`}
                   style={{ animationDelay: `${idx * 45}ms` }}
                   className="animate-slide-in-up p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-800 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] cursor-pointer transition-all duration-200 shadow-2xs"
                 >
@@ -2381,7 +2513,7 @@ function PracticeHubDashboard({
                   <p className="text-[10px] sm:text-xs text-slate-400 dark:text-gray-500 truncate">
                     {topic.subjectName} · {topic.chapterName}
                   </p>
-                </div>
+                </ClickableCard>
               );
             })}
           </div>
@@ -2532,9 +2664,9 @@ function MistakesView({ onBack, onPracticeMistakes }) {
       ) : (
         <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700">
           <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <h4 className="text-base font-bold text-slate-800 dark:text-white">
+          <h2 className="text-base font-bold text-slate-800 dark:text-white">
             No pending mistakes
-          </h4>
+          </h2>
           <p className="text-xs text-slate-500 mt-1">
             Questions you answer incorrectly will appear here for revision.
           </p>
@@ -2856,9 +2988,9 @@ function PracticeCompleteScreen({ summary, onDashboard, onRestartSession }) {
 
         {/* Concept Mastery Breakdown */}
         <div className="text-left bg-slate-50 dark:bg-gray-900 p-5 rounded-2xl border border-slate-100 dark:border-gray-700 space-y-2">
-          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-gray-200 mb-3">
+          <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-gray-200 mb-3">
             Concept Mastery Update
-          </h4>
+          </h3>
           {conceptUpdates.length > 0 ? (
             conceptUpdates.map((concept, index) => (
               <div

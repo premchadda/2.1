@@ -78,7 +78,7 @@ export const practiceAPI = {
         `/api/practice/sessions/${getSessionId(sessionId)}/questions/${idx}/skip`,
         payload,
       )
-      .then((r) => r.data),
+      .then((r) => r.data?.data),
 
   getBookmarks: (page = 1, limit = 20) =>
     apiClient

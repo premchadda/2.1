@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { useAuth } from "../../providers/AuthContext";
@@ -56,7 +57,7 @@ export default function NavbarNotifications() {
           error?.code === "ERR_CANCELED"
         )
           return;
-        console.error("Failed to fetch notifications:", error);
+        logger.error("Failed to fetch notifications:", error);
         setNotifications([]);
         setUnreadCount(0);
       }
@@ -87,7 +88,7 @@ export default function NavbarNotifications() {
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
-      console.error("Failed to mark notification as read:", error);
+      logger.error("Failed to mark notification as read:", error);
     }
   };
 
@@ -148,7 +149,7 @@ export default function NavbarNotifications() {
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
     } catch (error) {
-      console.error("Failed to mark all notifications as read:", error);
+      logger.error("Failed to mark all notifications as read:", error);
     }
   };
 

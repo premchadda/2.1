@@ -1,4 +1,5 @@
 import express from "express";
+import fs from "fs";
 import { parseAssetId } from "../../shared/utils/parseAssetId.js";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import {
@@ -6,7 +7,10 @@ import {
   resolveAssetAccessUrl,
   storeUploadedAssetFile,
 } from "../../infrastructure/storage/storageProvider.js";
-import { upload } from "../../infrastructure/storage/upload.js";
+import {
+  upload,
+  validateFileContent,
+} from "../../infrastructure/storage/upload.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
 
@@ -355,6 +359,26 @@ const handleAssetUpload = async (req, res) => {
     }
 
     const mimeType = req.file.mimetype || "application/octet-stream";
+
+    // Magic-number check. The multer fileFilter trusts the client-supplied
+    // Content-Type, so a spoofed mimetype (e.g. an .html or .svg payload sent as
+    // image/png) would otherwise be written to disk and served from /uploads.
+    // validateFileContent inspects the real leading bytes and deletes the file on
+    // mismatch, so the stored blob matches the declared type.
+    if (req.file.path && !validateFileContent(req.file.path, mimeType)) {
+      try {
+        fs.promises.unlink(req.file.path);
+      } catch {
+        /* best-effort cleanup */
+      }
+      logger.warn(
+        `[Assets] Rejected upload ${req.file.originalname}: content does not match ${mimeType}`,
+      );
+      return res.status(400).json({
+        success: false,
+        message: "File content does not match its declared type",
+      });
+    }
 
     // Accept optional scope: a test-scoped upload stores under
     // assets/tests/<testId>/ (or assets/series/<id>/tests/<id>/) so every

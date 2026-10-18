@@ -1,38 +1,9 @@
 import { useState, useEffect, useMemo, useRef, memo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
-import {
-  Plus,
-  Edit2,
-  Trash2,
-  X,
-  Save,
-  BookOpen,
-  FileText,
-  CheckCircle,
-  Upload,
-  Download,
-  Eye,
-  EyeOff,
-  ChevronLeft,
-  ChevronRight,
-  Settings,
-  Hash,
-  Clock,
-  ClipboardList,
-  ScrollText,
-  Sparkles,
-  Layers,
-  ArrowLeft,
-  Activity,
-  AlertTriangle,
-  Sun,
-  Moon,
-  History,
-  RotateCcw,
-} from "lucide-react";
-import sanitizeHtml, { isSafeImageUrl } from "../../../shared/lib/sanitizeHtml";
-import { logger } from "../../../shared/lib/logger";
+import { Trash2, Save, FileText, CheckCircle, Hash, Clock } from "lucide-react";
+
 import { adminAPI, questionsAPI } from "../../../shared/lib/dataService";
 import { useExamCategories } from "../../../shared/hooks/useExamCategories";
 import { toast } from "react-hot-toast";
@@ -45,10 +16,9 @@ import {
   buildCategorySelectionRefs,
 } from "../../../shared/utils/questionHelpers";
 import { getCategoryLabel } from "../../../shared/utils/categoryHelpers.js";
-import { DIFFICULTY_LEVELS } from "../../../shared/config/difficultyConfig.js";
+
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
-import EmptyState from "../../../shared/components/ui/EmptyState";
-import { Badge } from "./components/Badge";
+
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { CategoryTabBar } from "./components/CategoryTabBar";
 import { BulkImportModal } from "./components/BulkImportModal";
@@ -66,32 +36,22 @@ import TestListingDrill from "./components/TestListingDrill";
 import QuestionDetailList from "./components/QuestionDetailList";
 import SeriesWorkspaceModal from "./components/SeriesWorkspaceModal";
 import { auditQuestionsList } from "./components/auditHelpers";
-import MathRenderer from "../../../shared/components/MathRenderer";
+
 import {
   QUESTION_CATEGORIES,
   QUESTION_CAT_TO_TEST_CAT_MAP,
-  TEST_CAT_TO_QUESTION_CAT,
   QUESTION_CATEGORY_ALIASES,
 } from "../../../shared/config/questionCategories.js";
+
 import {
-  QUESTION_TYPES,
-  STATUS_OPTIONS,
-} from "../../../shared/config/questionConstants.js";
-import {
-  getTestCategoryValues,
-  getSeriesCategoryValues,
   getSeriesId,
   getTestId,
   getQuestionId,
   getTestSeriesIdFromTest,
   getTestIdFromQuestion,
-  getTestSeriesIdFromQuestion,
   getSeriesExamId,
   getSeriesExamCategoryId,
   getStageIdFromTest,
-  getSectionId,
-  getSectionName,
-  sectionValueMatches,
   normalizeQuestion,
   valueMatchesRefs,
   buildExamCategoryRefs,
@@ -508,7 +468,7 @@ function QuestionsManager() {
         }
       }
     } catch (error) {
-      console.error("Failed to fetch questions page:", error);
+      logger.error("Failed to fetch questions page:", error);
     }
   };
 
@@ -538,7 +498,7 @@ function QuestionsManager() {
           }
         }
       } catch (err) {
-        console.error("Failed to load questions for test:", err);
+        logger.error("Failed to load questions for test:", err);
       } finally {
         if (isMounted) setTestQuestionsLoading(false);
       }
@@ -617,7 +577,7 @@ function QuestionsManager() {
           );
         }
       } catch (error) {
-        console.error("Failed to fetch data:", error);
+        logger.error("Failed to fetch data:", error);
         toast.error("Failed to load data");
       } finally {
         setLoading(false);
@@ -669,7 +629,7 @@ function QuestionsManager() {
         const sectionsData = extractArray(sectionsRes);
         if (sectionsData !== null) setSections(sectionsData);
       } catch (err) {
-        console.error("Failed to load taxonomies:", err);
+        logger.error("Failed to load taxonomies:", err);
       }
     };
 
@@ -1475,7 +1435,7 @@ function QuestionsManager() {
       setEditingId(null);
       setFormData(DEFAULT_FORM_DATA);
     } catch (error) {
-      console.error("Failed to save question:", error);
+      logger.error("Failed to save question:", error);
       toast.error("Failed to save question");
     } finally {
       setSaving(false);
@@ -1524,6 +1484,7 @@ function QuestionsManager() {
           </button>
         </div>
       ),
+
       {
         duration: 5000,
         position: "bottom-right",
@@ -1535,7 +1496,7 @@ function QuestionsManager() {
       try {
         await adminAPI.deleteQuestion(id);
       } catch (error) {
-        console.error("Failed to delete question:", error);
+        logger.error("Failed to delete question:", error);
         setQuestions((prev) => [...prev, deletedQuestion]);
         toast.error("Failed to delete question from server");
       }
@@ -1559,7 +1520,7 @@ function QuestionsManager() {
       setSelectedIds([]);
       toast.success(`${selectedIds.length} questions deleted`);
     } catch (error) {
-      console.error("Bulk delete failed:", error);
+      logger.error("Bulk delete failed:", error);
       toast.error("Failed to delete questions");
     }
   };
@@ -1594,7 +1555,7 @@ function QuestionsManager() {
       toast.success(`${succeeded} updated, ${failed} failed`);
       setSelectedIds([]);
     }
-    if (failed > 0) console.error("Bulk difficulty partial failure:", results);
+    if (failed > 0) logger.error("Bulk difficulty partial failure:", results);
   };
 
   const handleToggleStatus = async (question) => {
@@ -1615,7 +1576,7 @@ function QuestionsManager() {
         `Question ${newStatus === "active" ? "activated" : "deactivated"}!`,
       );
     } catch (error) {
-      console.error("Failed to toggle status:", error);
+      logger.error("Failed to toggle status:", error);
       toast.error("Failed to update status");
     }
   };
@@ -1636,7 +1597,7 @@ function QuestionsManager() {
       const testsData = testsRes.data?.data || testsRes.data || [];
       setTestsList(Array.isArray(testsData) ? testsData : []);
     } catch (err) {
-      console.error("Failed to refresh tests list:", err);
+      logger.error("Failed to refresh tests list:", err);
     }
   };
 
@@ -1756,7 +1717,7 @@ function QuestionsManager() {
       resetTestForm();
       await refreshTests();
     } catch (error) {
-      console.error("Failed to save test:", error);
+      logger.error("Failed to save test:", error);
 
       // Extract validation errors if present
       const validationErrors = error.response?.data?.error?.errors;
@@ -1810,7 +1771,7 @@ function QuestionsManager() {
       setShowTestBulkUpload(false);
       await refreshTests();
     } catch (error) {
-      console.error("Bulk test upload failed:", error);
+      logger.error("Bulk test upload failed:", error);
       toast.error(error.response?.data?.message || "Failed to upload tests");
     }
   };
@@ -1863,7 +1824,7 @@ function QuestionsManager() {
         });
       }
     } catch (err) {
-      console.error("Bulk import failed:", err);
+      logger.error("Bulk import failed:", err);
       throw new Error(err.response?.data?.message || "Import failed");
     }
   };
@@ -1896,7 +1857,7 @@ function QuestionsManager() {
 
       toast.success("Questions exported successfully!");
     } catch (err) {
-      console.error("Export failed:", err);
+      logger.error("Export failed:", err);
       toast.error("Failed to export questions");
     }
   };
@@ -1916,7 +1877,7 @@ function QuestionsManager() {
         );
       }
     } catch (err) {
-      console.error("Failed to load trash:", err);
+      logger.error("Failed to load trash:", err);
     }
   };
 
@@ -1954,7 +1915,7 @@ function QuestionsManager() {
         );
       }
     } catch (err) {
-      console.error("Restore failed:", err);
+      logger.error("Restore failed:", err);
       toast.error("Failed to restore question");
     }
   };
@@ -2028,18 +1989,21 @@ function QuestionsManager() {
             value={categoryStats.total.toLocaleString()}
             color="indigo"
           />
+
           <StatsCard
             icon={CheckCircle}
             label="Active"
             value={categoryStats.active.toLocaleString()}
             color="green"
           />
+
           <StatsCard
             icon={Clock}
             label="Drafts"
             value={categoryStats.draft.toLocaleString()}
             color="yellow"
           />
+
           <StatsCard
             icon={Hash}
             label="MCQ Questions"
@@ -2301,6 +2265,7 @@ function QuestionsManager() {
                   "All test subcategories",
               }}
             />,
+
             document.body,
           )}
 

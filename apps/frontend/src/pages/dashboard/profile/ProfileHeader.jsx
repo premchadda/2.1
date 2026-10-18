@@ -353,9 +353,9 @@ function ProfileHeader({
 
             <div className="lg:w-80 xl:w-96 flex-shrink-0 bg-slate-900/60 backdrop-blur-xl rounded-2xl p-4 border border-white/20 shadow-2xl">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-bold text-white/90 uppercase tracking-wider">
+                <h2 className="text-xs font-bold text-white/90 uppercase tracking-wider">
                   Your Progress
-                </h3>
+                </h2>
                 <TrendingUp className="w-4 h-4 text-green-400" />
               </div>
               <div className="grid grid-cols-5 gap-2">

@@ -17,6 +17,8 @@
  *    access type and the user's subscription status.
  */
 
+import { logger } from "@trstprep/shared-config";
+
 /**
  * Checks if a user has active Pro subscription / privileges.
  *
@@ -153,7 +155,7 @@ export const getTestEntitlement = ({ test, user, series = null }) => {
       testSeriesKey &&
       String(seriesKey) !== String(testSeriesKey)
     ) {
-      console.warn("[Entitlement] test/series context mismatch:", {
+      logger.warn("[Entitlement] test/series context mismatch:", {
         seriesKey,
         testSeriesKey,
       });

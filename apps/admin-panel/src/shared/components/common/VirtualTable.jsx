@@ -1,6 +1,6 @@
 import { VariableSizeList as List } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
-import { useState, useCallback, forwardRef } from "react";
+import { useState, forwardRef } from "react";
 import {
   Edit,
   Trash2,
@@ -8,7 +8,6 @@ import {
   EyeOff,
   ChevronUp,
   ChevronDown,
-  LayoutGrid,
   List as ListIcon,
 } from "lucide-react";
 

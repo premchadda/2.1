@@ -1,8 +1,9 @@
 import express from "express";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
-import { protect, admin } from "../../middleware/auth.middleware.js";
+import { protect } from "../../middleware/auth.middleware.js";
 import { idsMatch } from "../../services/core/common.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import { sanitizeUserContent } from "../../middleware/htmlSanitizer.js";
 
 const router = express.Router();
 
@@ -89,69 +90,80 @@ router.get("/question/:questionId", async (req, res) => {
   }
 });
 
-router.post("/question/:questionId", protect, async (req, res) => {
-  try {
-    const content = String(req.body?.content || "").trim();
-    if (!content) {
-      return res
-        .status(400)
-        .json({ success: false, message: "content is required" });
+// Discussion bodies/replies are user-authored rich text. Sanitize AFTER protect().
+router.post(
+  "/question/:questionId",
+  protect,
+  sanitizeUserContent(),
+  async (req, res) => {
+    try {
+      const content = String(req.body?.content || "").trim();
+      if (!content) {
+        return res
+          .status(400)
+          .json({ success: false, message: "content is required" });
+      }
+
+      const inserted = await dbHelpers.insertOne("questionDiscussions", {
+        questionId: Number(req.params.questionId),
+        userId: req.user.id,
+        content,
+        upvotes: 0,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      res.status(201).json({ success: true, data: inserted });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
     }
+  },
+);
 
-    const inserted = await dbHelpers.insertOne("questionDiscussions", {
-      questionId: Number(req.params.questionId),
-      userId: req.user.id,
-      content,
-      upvotes: 0,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
+router.post(
+  "/:discussionId/replies",
+  protect,
+  sanitizeUserContent(),
+  async (req, res) => {
+    try {
+      const content = String(req.body?.content || "").trim();
+      if (!content) {
+        return res
+          .status(400)
+          .json({ success: false, message: "content is required" });
+      }
 
-    res.status(201).json({ success: true, data: inserted });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+      const discussion = await dbHelpers.findById(
+        "questionDiscussions",
+        req.params.discussionId,
+      );
+      if (!discussion) {
+        return res
+          .status(404)
+          .json({ success: false, message: "discussion not found" });
+      }
 
-router.post("/:discussionId/replies", protect, async (req, res) => {
-  try {
-    const content = String(req.body?.content || "").trim();
-    if (!content) {
-      return res
-        .status(400)
-        .json({ success: false, message: "content is required" });
+      const inserted = await dbHelpers.insertOne("discussionReplies", {
+        discussionId: discussion.id || discussion._id,
+        userId: req.user.id,
+        content,
+        upvotes: 0,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      res.status(201).json({ success: true, data: inserted });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
     }
-
-    const discussion = await dbHelpers.findById(
-      "questionDiscussions",
-      req.params.discussionId,
-    );
-    if (!discussion) {
-      return res
-        .status(404)
-        .json({ success: false, message: "discussion not found" });
-    }
-
-    const inserted = await dbHelpers.insertOne("discussionReplies", {
-      discussionId: discussion.id || discussion._id,
-      userId: req.user.id,
-      content,
-      upvotes: 0,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-
-    res.status(201).json({ success: true, data: inserted });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+  },
+);
 
 router.post("/:discussionId/upvote", protect, async (req, res) => {
   try {
@@ -247,58 +259,61 @@ router.post("/replies/:replyId/upvote", protect, async (req, res) => {
 // @route   PUT /api/discussions/:discussionId
 // @desc    Edit a discussion post
 // @access  Private
-router.put("/:discussionId", protect, async (req, res) => {
-  try {
-    const { content } = req.body;
-    if (!content || !String(content).trim()) {
-      return res
-        .status(400)
-        .json({ success: false, message: "content is required" });
-    }
+router.put(
+  "/:discussionId",
+  protect,
+  sanitizeUserContent(),
+  async (req, res) => {
+    try {
+      const { content } = req.body;
+      if (!content || !String(content).trim()) {
+        return res
+          .status(400)
+          .json({ success: false, message: "content is required" });
+      }
 
-    const discussion = await dbHelpers.findById(
-      "questionDiscussions",
-      req.params.discussionId,
-    );
-    if (!discussion) {
-      return res
-        .status(404)
-        .json({ success: false, message: "discussion not found" });
-    }
+      const discussion = await dbHelpers.findById(
+        "questionDiscussions",
+        req.params.discussionId,
+      );
+      if (!discussion) {
+        return res
+          .status(404)
+          .json({ success: false, message: "discussion not found" });
+      }
 
-    // Check ownership or admin
-    if (
-      String(discussion.userId) !== String(req.user.id) &&
-      !req.user.isAdmin
-    ) {
-      return res
-        .status(403)
-        .json({
+      // Check ownership or admin
+      if (
+        String(discussion.userId) !== String(req.user.id) &&
+        !req.user.isAdmin
+      ) {
+        return res.status(403).json({
           success: false,
           message: "not authorized to edit this discussion",
         });
+      }
+
+      const updated = await dbHelpers.updateById(
+        "questionDiscussions",
+        req.params.discussionId,
+        {
+          content: String(content).trim(),
+          updatedAt: new Date().toISOString(),
+        },
+      );
+
+      res.json({
+        success: true,
+        data: updated,
+        message: "Discussion updated successfully",
+      });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
     }
-
-    const updated = await dbHelpers.updateById(
-      "questionDiscussions",
-      req.params.discussionId,
-      {
-        content: String(content).trim(),
-        updatedAt: new Date().toISOString(),
-      },
-    );
-
-    res.json({
-      success: true,
-      data: updated,
-      message: "Discussion updated successfully",
-    });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+  },
+);
 
 // @route   DELETE /api/discussions/:discussionId
 // @desc    Delete a discussion post (soft delete)
@@ -320,12 +335,10 @@ router.delete("/:discussionId", protect, async (req, res) => {
       String(discussion.userId) !== String(req.user.id) &&
       !req.user.isAdmin
     ) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "not authorized to delete this discussion",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "not authorized to delete this discussion",
+      });
     }
 
     await dbHelpers.softDelete(
@@ -345,52 +358,60 @@ router.delete("/:discussionId", protect, async (req, res) => {
 // @route   PUT /api/discussions/replies/:replyId
 // @desc    Edit a reply
 // @access  Private
-router.put("/replies/:replyId", protect, async (req, res) => {
-  try {
-    const { content } = req.body;
-    if (!content || !String(content).trim()) {
-      return res
-        .status(400)
-        .json({ success: false, message: "content is required" });
+router.put(
+  "/replies/:replyId",
+  protect,
+  sanitizeUserContent(),
+  async (req, res) => {
+    try {
+      const { content } = req.body;
+      if (!content || !String(content).trim()) {
+        return res
+          .status(400)
+          .json({ success: false, message: "content is required" });
+      }
+
+      const reply = await dbHelpers.findById(
+        "discussionReplies",
+        req.params.replyId,
+      );
+      if (!reply) {
+        return res
+          .status(404)
+          .json({ success: false, message: "reply not found" });
+      }
+
+      // Check ownership or admin
+      if (String(reply.userId) !== String(req.user.id) && !req.user.isAdmin) {
+        return res
+          .status(403)
+          .json({
+            success: false,
+            message: "not authorized to edit this reply",
+          });
+      }
+
+      const updated = await dbHelpers.updateById(
+        "discussionReplies",
+        req.params.replyId,
+        {
+          content: String(content).trim(),
+          updatedAt: new Date().toISOString(),
+        },
+      );
+
+      res.json({
+        success: true,
+        data: updated,
+        message: "Reply updated successfully",
+      });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
     }
-
-    const reply = await dbHelpers.findById(
-      "discussionReplies",
-      req.params.replyId,
-    );
-    if (!reply) {
-      return res
-        .status(404)
-        .json({ success: false, message: "reply not found" });
-    }
-
-    // Check ownership or admin
-    if (String(reply.userId) !== String(req.user.id) && !req.user.isAdmin) {
-      return res
-        .status(403)
-        .json({ success: false, message: "not authorized to edit this reply" });
-    }
-
-    const updated = await dbHelpers.updateById(
-      "discussionReplies",
-      req.params.replyId,
-      {
-        content: String(content).trim(),
-        updatedAt: new Date().toISOString(),
-      },
-    );
-
-    res.json({
-      success: true,
-      data: updated,
-      message: "Reply updated successfully",
-    });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+  },
+);
 
 // @route   DELETE /api/discussions/replies/:replyId
 // @desc    Delete a reply (soft delete)
@@ -409,12 +430,10 @@ router.delete("/replies/:replyId", protect, async (req, res) => {
 
     // Check ownership or admin
     if (String(reply.userId) !== String(req.user.id) && !req.user.isAdmin) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "not authorized to delete this reply",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "not authorized to delete this reply",
+      });
     }
 
     await dbHelpers.softDelete(

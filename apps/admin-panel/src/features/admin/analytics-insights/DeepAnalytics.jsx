@@ -8,16 +8,12 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
   Line,
   AreaChart,
   Area,
-  Cell,
   Legend,
-  PieChart,
-  Pie,
 } from "recharts";
-import { apiClient, adminAPI } from "../../../shared/lib/dataService";
+import { apiClient } from "../../../shared/lib/dataService";
 import { toast } from "react-hot-toast";
 import {
   TrendingUp,
@@ -29,26 +25,13 @@ import {
   GitBranch,
   Activity,
   ArrowDownRight,
-  ArrowUpRight,
-  Filter,
   AlertTriangle,
-  CheckCircle2,
-  Sparkles,
-  HelpCircle,
-  Layers,
-  Calendar,
-  ChevronRight,
   Zap,
   Brain,
-  Clock,
   ShieldCheck,
   Flame,
-  Search,
   X,
   Copy,
-  BookOpen,
-  PieChart as PieIcon,
-  BarChart3,
   Gauge,
 } from "lucide-react";
 import SearchInput from "../../../shared/components/ui/SearchInput";
@@ -61,6 +44,7 @@ const STAGE_COLORS = [
   "#f59e0b",
   "#ec4899",
 ];
+
 const TIER_COLORS = {
   highly_engaged:
     "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
@@ -402,6 +386,7 @@ export default function DeepAnalytics() {
             <RefreshCw
               className={`w-3.5 h-3.5 ${refreshing || loading ? "animate-spin text-indigo-600 dark:text-indigo-400" : "text-gray-500 dark:text-gray-400"}`}
             />
+
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
@@ -763,6 +748,7 @@ export default function DeepAnalytics() {
                           stopColor="#6366f1"
                           stopOpacity={0.35}
                         />
+
                         <stop
                           offset="95%"
                           stopColor="#6366f1"
@@ -776,6 +762,7 @@ export default function DeepAnalytics() {
                     <Tooltip
                       contentStyle={{ borderRadius: 12, fontSize: 12 }}
                     />
+
                     <Area
                       type="monotone"
                       dataKey="count"
@@ -804,6 +791,7 @@ export default function DeepAnalytics() {
                     <Tooltip
                       contentStyle={{ borderRadius: 12, fontSize: 12 }}
                     />
+
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                     <Bar
                       dataKey="attempts"
@@ -811,6 +799,7 @@ export default function DeepAnalytics() {
                       fill="#10b981"
                       radius={[4, 4, 0, 0]}
                     />
+
                     <Line
                       type="monotone"
                       dataKey="avg_score"

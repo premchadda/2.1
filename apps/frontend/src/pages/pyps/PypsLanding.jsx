@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Users } from "lucide-react";
 import { apiClient } from "../../shared/lib/dataService";
@@ -46,7 +47,7 @@ function PypsLanding() {
       });
     } catch (error) {
       if (error.name === "AbortError" || signal?.aborted) return;
-      console.error("PYP categories fetch error:", error);
+      logger.error("PYP categories fetch error:", error);
     } finally {
       if (!signal?.aborted) setLoadingCats(false);
     }
@@ -68,7 +69,7 @@ function PypsLanding() {
       setFadeKey((k) => k + 1);
     } catch (error) {
       if (error.name === "AbortError" || signal?.aborted) return;
-      console.error("PYP category exams fetch error:", error);
+      logger.error("PYP category exams fetch error:", error);
       setExams([]);
     } finally {
       if (!signal?.aborted) setLoadingExams(false);

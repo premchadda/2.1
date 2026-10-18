@@ -1,17 +1,9 @@
 import express from "express";
 import { testService } from "./test.service.js";
-import {
-  addJob,
-  QUEUE_NAMES,
-} from "../../infrastructure/queue/queueManager.js";
-import {
-  dbHelpers,
-  pool,
-} from "../../infrastructure/database/postgres-helpers.js";
+import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { emitBroadcastEvent } from "../../infrastructure/events/eventBus.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
 import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
-import { validateBody } from "../../middleware/validation/inputValidation.js";
 import { moderationService } from "../../services/core/moderationService.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 

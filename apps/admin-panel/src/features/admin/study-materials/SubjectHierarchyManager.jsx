@@ -13,12 +13,10 @@ import {
   FolderOpen,
   Tag,
   Layers,
-  AlertCircle,
-  CheckCircle,
 } from "lucide-react";
 import { apiClient } from "../../../shared/lib/dataService.js";
 import { toast } from "react-hot-toast";
-import { logger } from "../../../shared/lib/logger.js";
+import { logger } from "@trstprep/shared-config";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 import {
   validateForm,
@@ -889,6 +887,7 @@ export default function SubjectHierarchyManager() {
                       }
                       className="w-4 h-4 text-indigo-600 rounded border-gray-300 dark:border-gray-600 focus:ring-indigo-500"
                     />
+
                     <label
                       htmlFor="isActive"
                       className="text-sm font-medium text-gray-700 dark:text-gray-300"

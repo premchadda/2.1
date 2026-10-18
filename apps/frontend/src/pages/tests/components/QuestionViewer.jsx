@@ -260,15 +260,26 @@ export default function QuestionViewer({
             <img
               alt={`Question ${currentQuestion + 1}`}
               src={questionImageUrl}
-              className="max-h-60 w-full object-contain rounded cursor-zoom-in"
+              className="max-h-60 w-full object-contain rounded cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
               loading="lazy"
+              role="button"
+              tabIndex={0}
+              aria-label={`Zoom in on the diagram for question ${currentQuestion + 1}`}
               onClick={() => setShowImageZoom(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setShowImageZoom(true);
+                }
+              }}
             />
             <button
+              type="button"
               onClick={() => setShowImageZoom(true)}
+              aria-label="Zoom question diagram"
               className="absolute top-2 right-2 w-7 h-7 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center transition-colors cursor-pointer"
             >
-              <ZoomIn className="w-3.5 h-3.5 text-white" />
+              <ZoomIn className="w-3.5 h-3.5 text-white" aria-hidden="true" />
             </button>
           </div>
         )}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import {
@@ -27,6 +28,7 @@ import { toast } from "react-hot-toast";
 import MathRenderer from "../../shared/components/MathRenderer";
 import sanitizeHtml from "../../shared/lib/sanitizeHtml";
 import QuestionDetailModal from "./components/QuestionDetailModal";
+import ClickableCard from "../../shared/components/ui/ClickableCard.jsx";
 
 // Bookmark ids already warned about an unknown itemType (module scope so the
 // warn-once guard survives re-renders; getLink runs during render).
@@ -82,7 +84,7 @@ export default function Bookmarks() {
             err?.code !== "ERR_CANCELED" &&
             !cancelledRef.current
           ) {
-            console.error("Error fetching bookmarks:", err?.message ?? err);
+            logger.error("Error fetching bookmarks:", err?.message ?? err);
             if (!cancelledRef.current)
               setError("Failed to load saved items. Please try again.");
           }
@@ -120,7 +122,7 @@ export default function Bookmarks() {
             !controller.signal.aborted &&
             !cancelledRef.current
           ) {
-            console.error(
+            logger.error(
               "Failed to fetch reported questions:",
               err?.message ?? err,
             );
@@ -155,7 +157,7 @@ export default function Bookmarks() {
       }
     } catch (err) {
       if (!cancelledRef.current) {
-        console.error("Failed to fetch bookmarks:", err?.message ?? err);
+        logger.error("Failed to fetch bookmarks:", err?.message ?? err);
         setError("Failed to load saved items.");
         setBookmarks([]);
       }
@@ -190,7 +192,7 @@ export default function Bookmarks() {
       }
     } catch (err) {
       if (!cancelledRef.current) {
-        console.error("Failed to load more bookmarks:", err?.message ?? err);
+        logger.error("Failed to load more bookmarks:", err?.message ?? err);
         toast.error("Failed to load more items.");
       }
     } finally {
@@ -205,7 +207,7 @@ export default function Bookmarks() {
       setTotalCount((prev) => Math.max(0, prev - 1));
       toast.success("Question removed from saved list");
     } catch (err) {
-      console.error("Failed to remove bookmark:", err?.message ?? err);
+      logger.error("Failed to remove bookmark:", err?.message ?? err);
       toast.error("Failed to remove item.");
     }
   };
@@ -219,7 +221,7 @@ export default function Bookmarks() {
         ),
       );
     } catch (err) {
-      console.error("Failed to update bookmark note:", err?.message ?? err);
+      logger.error("Failed to update bookmark note:", err?.message ?? err);
       throw err;
     }
   };
@@ -377,7 +379,7 @@ export default function Bookmarks() {
         const key = `${bookmark.itemType || "unknown"}:${bookmark.itemId || bookmark.id || "?"}`;
         if (!unknownTypeWarned.has(key)) {
           unknownTypeWarned.add(key);
-          console.warn(
+          logger.warn(
             `[Bookmarks] Unknown bookmark itemType: ${bookmark.itemType}`,
           );
           toast.error(
@@ -652,9 +654,9 @@ export default function Bookmarks() {
             {!user && (
               <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6">
                 <Bookmark className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">
+                <h2 className="text-base font-bold text-gray-900 dark:text-white mb-1">
                   Sign in to Access Saved Questions
-                </h3>
+                </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-4">
                   Log in to review your bookmarked doubts, test your active
                   recall, and see verified solutions.
@@ -722,9 +724,10 @@ export default function Bookmarks() {
                         ).toLowerCase();
 
                         return (
-                          <div
+                          <ClickableCard
                             key={b._id || b.id}
                             onClick={() => setActiveModalIndex(idx)}
+                            aria-label={`Open bookmark: ${qText.slice(0, 80)}`}
                             className="group bg-white dark:bg-gray-800 rounded-xl p-3.5 sm:p-4 border border-gray-200/80 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all duration-150 cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
                           >
                             <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -778,7 +781,7 @@ export default function Bookmarks() {
                                 <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                               </span>
                             </div>
-                          </div>
+                          </ClickableCard>
                         );
                       })}
                     </div>
@@ -805,9 +808,10 @@ export default function Bookmarks() {
                         ).toLowerCase();
 
                         return (
-                          <div
+                          <ClickableCard
                             key={b._id || b.id}
                             onClick={() => setActiveModalIndex(idx)}
+                            aria-label={`Open bookmark: ${qText.slice(0, 80)}`}
                             className="group bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200/80 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all duration-150 cursor-pointer flex flex-col justify-between space-y-3"
                           >
                             <div className="space-y-2">
@@ -849,7 +853,7 @@ export default function Bookmarks() {
                                 <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                               </span>
                             </div>
-                          </div>
+                          </ClickableCard>
                         );
                       })}
                     </div>

@@ -1,4 +1,3 @@
-import { Pool } from "pg";
 import dotenv from "dotenv";
 import { setTimeout as sleep } from "timers/promises";
 import crypto, { randomUUID } from "crypto";
@@ -20,7 +19,6 @@ import { getRedisClient, isRedisReady } from "../cache/redisClient.js";
 
 const ENCRYPTION_ALGORITHM = "aes-256-gcm";
 const GCM_IV_LENGTH = 12;
-const GCM_AUTH_TAG_LENGTH = 16;
 
 // Configurable default row limit for query helpers. Override via the
 // DEFAULT_QUERY_LIMIT env var (falls back to 1000 to avoid loading whole
@@ -161,9 +159,6 @@ const prepareDbValues = (table, dbData) => {
 // Always require SSL for Supabase connections
 // CRIT-01 FIX: SSL certificate validation enabled in production
 // Only skip validation in development environments
-const isDev =
-  process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
-
 if (process.env.PG_SSL_REJECT_UNAUTHORIZED === "false") {
   if (process.env.NODE_ENV === "production") {
     console.error(
@@ -1309,12 +1304,10 @@ class PostgresHelpers {
    * @param {object} data - Record data
    * @param {string} entityType - Entity type for prefix (defaults to collection name)
    */
-  async insertWithPublicId(collection, data, entityType = null) {
-    const type = entityType || collection;
-    const prefix = ENTITY_PREFIXES[type] || "ent_";
-
+  async insertWithPublicId(collection, data) {
     // For UUID + GENERATED pattern, we set public_id_uuid, not public_id
-    // The GENERATED column will compute public_id = prefix + uuid automatically
+    // The GENERATED column will compute public_id = prefix + uuid automatically,
+    // so the prefix is resolved by the database and never needed here.
     let uuid = data.publicIdUuid || data.public_id_uuid;
 
     // If caller provided a prefixed ID, extract the UUID
@@ -1914,7 +1907,6 @@ class PostgresHelpers {
   }
 
   async softDelete(collection, id, userId) {
-    const table = this.getTableName(collection);
     // USE STANDARDIZED SOFT-DELETE PATTERN (Migration 032)
     // Keep is_deleted and is_active/isActive in sync to support consistent queries.
     return await this.updateById(collection, id, {

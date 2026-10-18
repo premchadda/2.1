@@ -23,7 +23,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
-import multer from "multer";
 
 import {
   pool,
@@ -63,6 +62,8 @@ import logger from "./infrastructure/logger/logger.js";
 import testsRoutes from "./modules/tests/test.routes.js";
 import questionsRoutes from "./api/routes/questions.js";
 import studyRoutes from "./api/routes/study.js";
+import assetRoutes from "./api/routes/assets.js";
+import { describeIntegrations } from "./integrations/optionalIntegrations.js";
 import usersRoutes from "./modules/users/user.routes.js";
 import examEnrollmentRoutes from "./modules/users/exam-enrollment.routes.js";
 import studyMaterialEnrollmentRoutes from "./modules/users/study-material-enrollment.routes.js";
@@ -147,7 +148,6 @@ import {
 import {
   monitoringMiddleware,
   metricsHandler,
-  errorTrackingMiddleware,
 } from "./middleware/monitoring.js";
 import { messageBroker } from "./infrastructure/events/messageBroker.js";
 import { registerUserEventSubscribers } from "./modules/users/userEventSubscribers.js";
@@ -676,11 +676,6 @@ const UPLOAD_RATE_LIMIT_MAX = parseInt(
   process.env.UPLOAD_RATE_LIMIT_MAX || "10",
   10,
 );
-const MAX_UPLOAD_FILE_SIZE = parseInt(
-  process.env.MAX_UPLOAD_FILE_SIZE || String(50 * 1024 * 1024),
-  10,
-);
-
 const uploadLimiter = rateLimit({
   windowMs: UPLOAD_RATE_LIMIT_WINDOW_MS,
   max: UPLOAD_RATE_LIMIT_MAX,
@@ -691,30 +686,6 @@ const uploadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => isUserAdminRequest(req),
-});
-
-const fileUpload = multer({
-  limits: { fileSize: MAX_UPLOAD_FILE_SIZE },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-      "application/pdf",
-      "video/mp4",
-      "video/webm",
-      "video/avi",
-    ];
-    if (allowedTypes.includes(file.mimetype)) cb(null, true);
-    else
-      cb(
-        new Error(
-          "Invalid file type. Only images, PDFs, and videos are allowed.",
-        ),
-        false,
-      );
-  },
 });
 
 app.use("/api/admin/assets/upload", uploadLimiter);
@@ -985,6 +956,7 @@ app.get("/api/health", async (req, res) => {
       dbHealth: cleanDbHealth,
       redis: cleanRedisHealth,
       queues: cleanQueueHealth,
+      integrations: describeIntegrations(),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
@@ -1124,7 +1096,7 @@ app.use("/api/test-categories", validateCsrfToken, testCategoryRoutes);
 app.use("/api/exam-categories", examCategoryRoutes);
 app.use("/api/bookmarks", validateCsrfToken, bookmarksRoutes);
 app.use("/api/notifications", validateCsrfToken, notificationsRoutes);
-app.use("/api/achievements", achievementsRoutes);
+app.use("/api/achievements", validateCsrfToken, achievementsRoutes);
 app.use("/api/blogs", blogRoutes);
 app.use("/api/blog", blogRoutes);
 app.use("/api/referrals", validateCsrfToken, referralsRoutes);
@@ -1149,7 +1121,7 @@ app.use("/api/pyps", pypHierarchyRoutes);
 // once that page migrates to /admin/leaderboards/*.
 app.use("/api/leaderboards/admin", adminLimiter, leaderboardAdminRoutes);
 app.use("/api/enrollments", validateCsrfToken, enrollmentsAdminRoutes);
-app.use("/api/community", communityRoutes);
+app.use("/api/community", validateCsrfToken, communityRoutes);
 app.use("/api/analytics", validateCsrfToken, analyticsRoutes);
 app.use("/api/fortspy", fortskyRoutes);
 app.use("/api/import", adminLimiter, importRoutes);
@@ -1180,6 +1152,7 @@ app.use("/api/question-builder", questionBuilderRoutes);
 app.use("/api/test-builder", testBuilderRoutes);
 app.use("/api/sections", sectionRoutes);
 app.use("/api/study-materials", studyRoutes);
+app.use("/api/assets", assetRoutes);
 
 // Certificate Generation & Verification Engine
 app.get("/api/certificates/:attemptId", protect, async (req, res) => {

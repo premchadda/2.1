@@ -73,6 +73,26 @@ function QuestionNotes({
     }
   }, [isOpen]);
 
+  // Escape closes the panel; restore focus to whatever opened it on close.
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEsc = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEsc);
+    const prevFocused = document.activeElement;
+    return () => {
+      document.removeEventListener("keydown", handleEsc);
+      if (
+        prevFocused &&
+        typeof prevFocused.focus === "function" &&
+        document.contains(prevFocused)
+      ) {
+        prevFocused.focus();
+      }
+    };
+  }, [isOpen, onClose]);
+
   const handleSave = useCallback(() => {
     const trimmed = draft.trim();
     if (!trimmed) return;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createPortal } from "react-dom";
 import { practiceAPI } from "../../../shared/lib/practiceAPI";
@@ -55,7 +55,31 @@ export default function KnowledgeVaultModal({ questionId, isOpen, onClose }) {
   const [collection, setCollection] = useState("Default");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const dialogRef = useRef(null);
   const queryClient = useQueryClient();
+
+  // Escape-to-close + move focus into the dialog on open, restore it on close.
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEsc = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEsc);
+
+    const prevFocused = document.activeElement;
+    dialogRef.current?.focus();
+
+    return () => {
+      document.removeEventListener("keydown", handleEsc);
+      if (
+        prevFocused &&
+        typeof prevFocused.focus === "function" &&
+        document.contains(prevFocused)
+      ) {
+        prevFocused.focus();
+      }
+    };
+  }, [isOpen, onClose]);
 
   const { data: vaultItems } = useQuery({
     queryKey: ["practice-vault-items"],
@@ -93,23 +117,34 @@ export default function KnowledgeVaultModal({ questionId, isOpen, onClose }) {
     <div
       role="dialog"
       aria-modal="true"
+      aria-labelledby="knowledge-vault-title"
       className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-md overflow-y-auto animate-fade-in"
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         className="bg-white dark:bg-gray-800 w-full max-w-[95vw] sm:max-w-lg rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-100 dark:border-gray-700 overflow-hidden my-auto max-h-[90vh] max-h-[90dvh] overflow-y-auto animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="font-bold text-slate-900 flex items-center text-base">
-            <Bookmark className="w-5 h-5 text-indigo-600 mr-2" /> Add to
-            Knowledge Vault
+          <h3
+            id="knowledge-vault-title"
+            className="font-bold text-slate-900 flex items-center text-base"
+          >
+            <Bookmark
+              className="w-5 h-5 text-indigo-600 mr-2"
+              aria-hidden="true"
+            />{" "}
+            Add to Knowledge Vault
           </h3>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close dialog"
             className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 

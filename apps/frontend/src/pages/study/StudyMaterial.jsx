@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../../shared/providers/AuthContext";
@@ -228,7 +229,7 @@ function StudyMaterial() {
         setPopularMaterials(popular);
       } catch (err) {
         if (err.name !== "AbortError") {
-          console.error("Failed to fetch study materials:", err);
+          logger.error("Failed to fetch study materials:", err);
           setError("Failed to load study materials. Please try again.");
         }
       } finally {
@@ -691,7 +692,17 @@ function StudyMaterial() {
                       {/* Category Container Header */}
                       <div
                         onClick={() => toggleGroup(groupName)}
-                        className="flex items-center justify-between cursor-pointer select-none group"
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={isExpanded}
+                        aria-label={`${isExpanded ? "Collapse" : "Expand"} ${groupName}`}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            toggleGroup(groupName);
+                          }
+                        }}
+                        className="flex items-center justify-between cursor-pointer select-none group outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset rounded-xl"
                       >
                         <div className="flex items-center gap-3.5 sm:gap-4">
                           <div

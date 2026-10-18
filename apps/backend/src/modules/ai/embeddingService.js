@@ -145,97 +145,6 @@ async function generateEmbedding(text, options = {}) {
 }
 
 /**
- * Generate embeddings for multiple texts in batch.
- * Same retry/timeout contract as generateEmbedding (1): { timeoutMs, retries }.
- */
-async function generateEmbeddingsBatch(texts, options = {}) {
-  const startTime = Date.now();
-  const timeoutMs = options.timeoutMs || 30000;
-  const retries = options.retries ?? 1;
-
-  if (!texts || !Array.isArray(texts) || texts.length === 0) {
-    throw new Error("Texts array is required for batch embedding generation");
-  }
-  const batchApiKey = resolveEmbeddingKey();
-  if (!batchApiKey) {
-    throw new Error(
-      "Embedding API key is not configured (set AI_API_KEY or OPENROUTER_API_KEY or OPENAI_API_KEY)",
-    );
-  }
-
-  const truncatedTexts = texts.map((text) =>
-    (text || "").substring(0, EMBEDDING_CONFIG.maxTokensPerChunk),
-  );
-
-  let lastError = null;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const response = await fetch(`${EMBEDDING_CONFIG.baseUrl}/embeddings`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${batchApiKey}`,
-        },
-        body: JSON.stringify({
-          model: EMBEDDING_CONFIG.embeddingModel,
-          input: truncatedTexts,
-        }),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        const err = new Error(
-          `Embedding API error: ${response.status} - ${error}`,
-        );
-        err.status = response.status;
-        lastError = err;
-        if (
-          !TRANSIENT_EMBEDDING_STATUSES.has(response.status) ||
-          attempt >= retries
-        )
-          throw err;
-        await sleep(response.status === 429 ? 1000 : 500 * (attempt + 1));
-        continue;
-      }
-
-      const data = await response.json();
-      const latencyMs = Date.now() - startTime;
-
-      if (!Array.isArray(data?.data) || data.data.length === 0) {
-        throw new Error("Embedding API returned no vectors");
-      }
-      return {
-        embeddings: data.data.map((d) => assertEmbeddingVector(d?.embedding)),
-        tokens:
-          data?.usage?.total_tokens ||
-          truncatedTexts.reduce((n, t) => n + estimateTokens(t), 0),
-        latencyMs,
-      };
-    } catch (error) {
-      const isNetwork = !error?.status || error.status === 0;
-      lastError = error;
-      if (isNetwork && attempt < retries) {
-        await sleep(500 * (attempt + 1));
-        continue;
-      }
-      const latencyMs = Date.now() - startTime;
-      throw {
-        message: error.message,
-        status: error.status,
-        latencyMs,
-      };
-    }
-  }
-  const latencyMs = Date.now() - startTime;
-  throw {
-    message: lastError?.message || "Batch embedding generation failed",
-    status: lastError?.status,
-    latencyMs,
-  };
-}
-
-/**
  * Build search text from question data.
  */
 async function buildQuestionSearchText(questionId) {
@@ -402,8 +311,6 @@ const embeddingService = {
    * Index content with embedding.
    */
   async indexContent(contentType, contentId, text = null) {
-    const startTime = Date.now();
-
     // Build search text if not provided
     const searchText = text || (await buildSearchText(contentType, contentId));
     if (!searchText) {

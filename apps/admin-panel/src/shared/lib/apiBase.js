@@ -7,10 +7,11 @@
  * (validateEnvVars, called at app init) throws the hard error for a missing
  * var. This module never throws at import time: a module-evaluation throw
  * white-screens the whole bundle before any error boundary can render, so
- * a missing var degrades to same-origin "" with a loud console.error and
+ * a missing var degrades to same-origin "" with a loud logger.error and
  * each request then fails visibly. In DEV, "" is returned so the Vite
  * dev-server proxy (same-origin /api) keeps working without extra config.
  */
+import { logger } from "@trstprep/shared-config";
 
 /**
  * DEV-only fallback origins. Only ever use these behind an
@@ -48,7 +49,7 @@ export const API_BASE_URL = (() => {
     // NOTE: localhost-served builds (e.g. `vite preview`) still return ""
     // via the branch above for same-origin proxy use.
     if (import.meta.env?.PROD) {
-      console.error(
+      logger.error(
         "[Admin apiBase] VITE_API_URL is not set — falling back to same-origin '/api'. Set VITE_API_URL to point the admin panel at the backend.",
       );
     }

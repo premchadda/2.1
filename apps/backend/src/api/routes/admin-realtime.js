@@ -8,7 +8,6 @@ import {
 import { getProPassPrice } from "./admin-helpers.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
-import logger from "../../infrastructure/logger/logger.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();

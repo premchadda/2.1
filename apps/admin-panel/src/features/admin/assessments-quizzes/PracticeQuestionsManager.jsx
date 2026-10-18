@@ -1,35 +1,23 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import {
   Plus,
   Edit2,
   Trash2,
   X,
-  Save,
   BookOpen,
-  FileText,
   CheckCircle,
   Upload,
   Download,
   Eye,
-  EyeOff,
-  ChevronLeft,
-  ChevronRight,
-  Hash,
-  Clock,
   Sparkles,
   Layers,
-  ArrowLeft,
-  Filter,
   AlertTriangle,
   Copy,
   Check,
   RefreshCw,
   Search,
   BookMarked,
-  HelpCircle,
-  MoreVertical,
-  ArrowRight,
-  Tag,
   Lightbulb,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
@@ -41,10 +29,7 @@ import { Badge } from "./components/Badge";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 import EmptyState from "../../../shared/components/ui/EmptyState";
 import { DIFFICULTY_LEVELS } from "../../../shared/config/difficultyConfig.js";
-import {
-  QUESTION_TYPES,
-  STATUS_OPTIONS,
-} from "../../../shared/config/questionConstants.js";
+import { QUESTION_TYPES } from "../../../shared/config/questionConstants.js";
 import { isSafeImageUrl } from "../../../shared/lib/sanitizeHtml.js";
 
 const DEFAULT_FORM_DATA = {
@@ -161,7 +146,7 @@ export default function PracticeQuestionsManager() {
       ) {
         return;
       }
-      console.error("Failed to load practice questions data:", err);
+      logger.error("Failed to load practice questions data:", err);
       toast.error("Failed to load practice questions");
     } finally {
       if (!signal?.aborted) {
@@ -489,6 +474,7 @@ export default function PracticeQuestionsManager() {
           ? q.optionsHi || q.options_hi
           : ["", "", "", ""]),
       ],
+
       correctOption: Array.isArray(rawCorrect) ? [...rawCorrect] : rawCorrect,
       explanation: q.explanation || "",
       explanationHi: q.explanationHi || q.explanation_hi || "",
@@ -589,7 +575,7 @@ export default function PracticeQuestionsManager() {
       setShowFormModal(false);
       fetchAllData();
     } catch (err) {
-      console.error("Failed to save practice question:", err);
+      logger.error("Failed to save practice question:", err);
       toast.error(err.response?.data?.message || "Failed to save question");
     } finally {
       setSaving(false);
@@ -616,7 +602,7 @@ export default function PracticeQuestionsManager() {
         prev.filter((item) => (item.id || item._id) !== id),
       );
     } catch (err) {
-      console.error("Delete question error:", err);
+      logger.error("Delete question error:", err);
       toast.error("Failed to delete question");
     }
   };
@@ -704,7 +690,7 @@ export default function PracticeQuestionsManager() {
         fetchAllData();
       }
     } catch (err) {
-      console.error("[PracticeQuestionsManager] Bulk status error:", err);
+      logger.error("[PracticeQuestionsManager] Bulk status error:", err);
       toast.error("Failed to update status for selected questions");
     }
   };
@@ -759,7 +745,7 @@ export default function PracticeQuestionsManager() {
       setShowBulkImport(false);
       fetchAllData();
     } catch (err) {
-      console.error("Failed to bulk import practice questions:", err);
+      logger.error("Failed to bulk import practice questions:", err);
       toast.error(
         err.response?.data?.message || "Failed to import practice questions",
       );
@@ -799,7 +785,7 @@ export default function PracticeQuestionsManager() {
         toast.error("AI generation completed without saving questions");
       }
     } catch (err) {
-      console.error("AI Question generator error:", err);
+      logger.error("AI Question generator error:", err);
       toast.error(
         err.response?.data?.message || "Failed to generate questions with AI",
       );
@@ -832,6 +818,7 @@ export default function PracticeQuestionsManager() {
       "Explanation",
       "Status",
     ];
+
     const rows = filteredQuestions.map((q) => [
       q.id || q._id,
       getSubjectName(q.subject || q.subject_id),
@@ -946,18 +933,21 @@ export default function PracticeQuestionsManager() {
           value={stats.total}
           color="indigo"
         />
+
         <StatsCard
           icon={CheckCircle}
           label="Active In Practice Lab"
           value={stats.active}
           color="green"
         />
+
         <StatsCard
           icon={AlertTriangle}
           label="Draft / Incomplete"
           value={stats.drafts}
           color="yellow"
         />
+
         <StatsCard
           icon={Layers}
           label="Subjects Covered"
@@ -1047,6 +1037,7 @@ export default function PracticeQuestionsManager() {
               }}
               className="w-full pl-9 pr-8 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white placeholder-gray-400 outline-none focus:border-amber-500 transition"
             />
+
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
@@ -1871,6 +1862,7 @@ export default function PracticeQuestionsManager() {
                                   : "Mark as correct answer"
                               }
                             />
+
                             <span className="w-6 text-xs font-bold text-gray-500 font-mono text-center">
                               {String.fromCharCode(65 + i)}
                             </span>
@@ -1893,6 +1885,7 @@ export default function PracticeQuestionsManager() {
                                   : "border-gray-300 dark:border-gray-700 focus:border-amber-500"
                               }`}
                             />
+
                             {formData.options.length > 2 && (
                               <button
                                 type="button"

@@ -6,6 +6,7 @@ import {
   useSearchParams,
   Navigate,
 } from "react-router-dom";
+import { logger } from "@trstprep/shared-config";
 import { Suspense } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
@@ -32,11 +33,13 @@ const LegacyPypsExamRedirect = () => {
 // --- Core Entry Pages ---
 // Home and Dashboard are lazy-loaded to reduce initial bundle size; they are
 // heavy pages (Home ~ catalog queries, Dashboard ~ analytics + series cards)
-// that should not block the initial chunk. Login stays eager as it is a tiny
-// modal and beneficial for LCP when unauthenticated users land on /.
-import Login from "./features/auth/Login";
+// that should not block the initial chunk. Login is lazy for the same reason:
+// it is ~743 lines and pulls in AnimatedHero (~692 lines of canvas/rAF code),
+// so eager-importing it charged every visitor for a modal reachable only at
+// /login, /signup or via location.state.backgroundLocation.
 const Home = lazy(() => import("./pages/public/Home"));
 const Dashboard = lazy(() => import("./pages/dashboard/Dashboard"));
+const Login = lazy(() => import("./features/auth/Login"));
 
 // --- Public Pages (lazy) ---
 const About = lazy(() => import("./pages/public/About"));
@@ -148,7 +151,7 @@ function AdminPanelRedirect() {
     import.meta.env.VITE_ADMIN_URL ||
     (import.meta.env.PROD ? window.location.origin : "http://localhost:3002");
   if (import.meta.env.PROD && !import.meta.env.VITE_ADMIN_URL) {
-    console.error(
+    logger.error(
       "VITE_ADMIN_URL is not set; falling back to same-origin for admin redirect.",
     );
   }
@@ -338,11 +341,10 @@ const layoutRoutes = [
     pageKey: "achievements",
   }),
   createRoute("/error-500", <ServerError />),
-  // Offline fallback (PWA): served when navigations fail without connectivity.
-  // NOTE (follow-up): to serve this page from the service worker itself, add
-  // a workbox offline-fallback handler for navigations (NetworkOnly +
-  // catch → precached /offline). navigateFallback currently serves
-  // /index.html, so this route covers in-app offline states only.
+  // Offline fallback (PWA). Workbox is configured with
+  // navigateFallback: "/index.html", so an offline navigation to /offline IS
+  // served the precached shell: the SPA boots, React Router matches this route
+  // and renders <Offline />. This route is fully functional offline.
   createRoute("/offline", <Offline />),
 ];
 

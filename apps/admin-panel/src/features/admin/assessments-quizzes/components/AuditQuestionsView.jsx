@@ -8,8 +8,6 @@ import {
   ShieldAlert,
   AlertCircle,
   Info,
-  HelpCircle,
-  Sparkles,
 } from "lucide-react";
 import Badge from "./Badge";
 import {
@@ -154,6 +152,7 @@ export default function AuditQuestionsView({ questions = [], onEditQuestion }) {
               placeholder="Search audit issues or questions..."
               className="w-full pl-9 pr-8 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
+
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}

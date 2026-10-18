@@ -14,6 +14,7 @@ import { apiClient } from "../lib/dataService";
 import { useAuth } from "../providers/AuthContext";
 import { handleAvatarError } from "../utils/avatarFallback.js";
 import toast from "react-hot-toast";
+import { getErrorMessage, getErrorStatus } from "../lib/apiClient.js";
 
 function formatTimestamp(ts) {
   const d = new Date(ts);
@@ -203,7 +204,7 @@ function QuestionDiscussions({
       const res = await apiClient.get(endpoint, { params: { limit: 50 } });
       setComments(res.data?.data || res.data?.comments || []);
     } catch (err) {
-      if (err?.response?.status === 404) {
+      if (getErrorStatus(err) === 404) {
         setComments([]);
       } else {
         setError("Failed to load discussions");
@@ -225,6 +226,26 @@ function QuestionDiscussions({
       textareaRef.current.focus();
     }
   }, [isOpen]);
+
+  // Escape closes the panel; restore focus to whatever opened it on close.
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEsc = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEsc);
+    const prevFocused = document.activeElement;
+    return () => {
+      document.removeEventListener("keydown", handleEsc);
+      if (
+        prevFocused &&
+        typeof prevFocused.focus === "function" &&
+        document.contains(prevFocused)
+      ) {
+        prevFocused.focus();
+      }
+    };
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (listRef.current) {
@@ -252,7 +273,7 @@ function QuestionDiscussions({
       setDraft("");
       toast.success("Comment posted");
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to post comment");
+      toast.error(getErrorMessage(err) || "Failed to post comment");
     } finally {
       setSubmitting(false);
     }

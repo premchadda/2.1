@@ -8,7 +8,6 @@
  * - Search indexing management
  */
 
-import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import QuestionSearchIndex from "../../data/models/search/QuestionSearchIndex.js";
 import AiGenerationLog from "../../data/models/ai/AiGenerationLog.js";
 import logger from "../../infrastructure/logger/logger.js";

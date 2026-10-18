@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Helmet } from "react-helmet-async";
 import {
   ChevronDown,
@@ -35,7 +36,7 @@ export default function Faq() {
         }));
       } catch (err) {
         // Log error but don't use fallback - let the UI handle empty state
-        console.error("FAQ API error:", err.message);
+        logger.error("FAQ API error:", err.message);
         throw err; // Re-throw to trigger error state
       }
     },

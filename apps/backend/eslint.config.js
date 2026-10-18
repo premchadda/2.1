@@ -33,9 +33,26 @@ export default [
       "no-empty": "error",
       "no-unused-vars": [
         "warn",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          // CRITICAL: the codebase strips answer keys before sending rows to the
+          // client, e.g.
+          //   const { correctAnswer, correct_option, isCorrect, ...safe } = q;
+          //   return safe;
+          // Those bindings are "unused" on purpose — destructuring them IS the
+          // removal. Ignoring them is what stops correct answers leaking to the
+          // browser; do NOT set this to false or delete those bindings.
+          ignoreRestSiblings: true,
+        },
       ],
-      eqeqeq: ["warn", "always"],
+      // "smart" (not "always") so the deliberate nullish idiom `v != null`
+      // — which asserts "neither null nor undefined" — is allowed. The
+      // codebase uses it ~60x on request bodies and DB rows where a value may
+      // arrive as either null or undefined; rewriting those to `!== null &&
+      // !== undefined` is noise and typo-prone for zero behaviour change.
+      // Plain `a == b` comparisons are still reported.
+      eqeqeq: ["warn", "smart"],
       "no-var": "warn",
       "prefer-const": "warn",
       camelcase: "off",

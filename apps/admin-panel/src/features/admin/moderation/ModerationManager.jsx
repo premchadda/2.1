@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   Flag,
-  Search,
   CheckCircle,
   Clock,
   Eye,
@@ -13,31 +13,20 @@ import {
   ChevronRight,
   X,
   BarChart3,
-  TrendingUp,
   Bookmark,
   BookOpen,
   FileText,
   Video,
-  User,
-  Tag,
   HelpCircle,
   Download,
   RefreshCw,
   LayoutGrid,
   LayoutList,
   Copy,
-  ExternalLink,
   CheckCircle2,
-  ShieldAlert,
-  Sparkles,
-  Filter,
-  Layers,
-  Award,
 } from "lucide-react";
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
   BarChart,
   Bar,
   PieChart,
@@ -196,7 +185,7 @@ export default function ModerationManager() {
       );
       setSavedItems(res.data?.data || []);
     } catch (err) {
-      console.warn("Fetch admin saved items error:", err?.message);
+      logger.warn("Fetch admin saved items error:", err?.message);
       setSavedItems([]);
     } finally {
       setSavedLoading(false);
@@ -211,7 +200,7 @@ export default function ModerationManager() {
       });
       setReportedQuestions(res.data?.data || []);
     } catch (err) {
-      console.warn("Fetch reported questions error:", err?.message);
+      logger.warn("Fetch reported questions error:", err?.message);
       setReportedQuestions([]);
     } finally {
       setReportedLoading(false);
@@ -233,7 +222,7 @@ export default function ModerationManager() {
         setTotalDoubts(res.data?.total || 0);
         setTotalPages(res.data?.totalPages || 1);
       } catch (error) {
-        console.error("Failed to fetch doubts:", error);
+        logger.error("Failed to fetch doubts:", error);
         setDoubts([]);
       } finally {
         setDoubtsLoading(false);
@@ -430,6 +419,7 @@ export default function ModerationManager() {
       "Difficulty",
       "Bookmarked Date",
     ];
+
     const rows = savedItems.map((item) => [
       item.id || item.itemId,
       item.itemType || "question",
@@ -527,6 +517,7 @@ export default function ModerationManager() {
             <RefreshCw
               className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-indigo-600" : ""}`}
             />
+
             <span>Refresh</span>
           </button>
 
@@ -946,6 +937,7 @@ export default function ModerationManager() {
                       <Tooltip
                         contentStyle={{ borderRadius: 12, fontSize: 12 }}
                       />
+
                       <Bar
                         dataKey="count"
                         fill="#6366F1"
@@ -1487,6 +1479,7 @@ export default function ModerationManager() {
                       <Tooltip
                         contentStyle={{ borderRadius: 12, fontSize: 12 }}
                       />
+
                       <Bar
                         dataKey="count"
                         fill="#8B5CF6"

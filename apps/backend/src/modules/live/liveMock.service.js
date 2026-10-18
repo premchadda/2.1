@@ -9,7 +9,6 @@
  * - Results publication
  */
 
-import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import {
   resolveQuestionMarks,
   scoreMcqAnswer,

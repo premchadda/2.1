@@ -305,9 +305,9 @@ export default function SeriesLeaderboard() {
                     <Trophy className="w-10 h-10" />
                   </div>
                   <div>
-                    <h3 className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">
+                    <h2 className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">
                       Your standing
-                    </h3>
+                    </h2>
                     <div className="flex items-baseline gap-2">
                       <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-gray-900 dark:text-white font-outfit">
                         Rank #{userRank.rank}

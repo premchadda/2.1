@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import api from "../../shared/lib/api";
 import { isCancel } from "../../shared/lib/dataService";
+import { getErrorMessage } from "../../shared/lib/apiClient.js";
 
 export default function EmailVerification() {
   const [searchParams] = useSearchParams();
@@ -84,7 +85,7 @@ export default function EmailVerification() {
       if (isCancel(error) || signal?.aborted) return;
       setStatus("error");
       setMessage(
-        error.response?.data?.message ||
+        getErrorMessage(error) ||
           "Verification failed. The link may have expired.",
       );
     }
@@ -115,7 +116,7 @@ export default function EmailVerification() {
     } catch (error) {
       setStatus("error");
       setMessage(
-        error.response?.data?.message || "Failed to resend verification email.",
+        getErrorMessage(error) || "Failed to resend verification email.",
       );
     }
   };

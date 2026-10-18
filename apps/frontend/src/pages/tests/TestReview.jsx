@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useNavigate, useLocation, useParams, Link } from "react-router-dom";
 import {
   LayoutGrid,
@@ -145,7 +146,7 @@ export default function TestReview() {
           }
         } catch (err) {
           if (err.name !== "AbortError") {
-            console.error("Failed to fetch test review data:", err);
+            logger.error("Failed to fetch test review data:", err);
             setError("Failed to fetch test review data");
           }
         } finally {
@@ -1016,10 +1017,10 @@ export default function TestReview() {
                 {/* Detailed Explanation */}
                 {currentQuestion.explanation && (
                   <div className="bg-gradient-to-br from-indigo-50/80 to-sky-50/80 dark:from-indigo-900/30 dark:to-sky-900/30 border border-indigo-200/80 dark:border-indigo-800/60 p-5 sm:p-6 rounded-2xl shadow-xs">
-                    <h3 className="font-extrabold text-indigo-950 dark:text-indigo-200 text-sm sm:text-base mb-3 flex items-center gap-2">
+                    <h2 className="font-extrabold text-indigo-950 dark:text-indigo-200 text-sm sm:text-base mb-3 flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                       Detailed Solution & Explanation
-                    </h3>
+                    </h2>
                     <div className="text-gray-800 dark:text-gray-200 text-sm sm:text-base leading-relaxed">
                       <MathRenderer
                         text={sanitizeHtml(currentQuestion.explanation)}

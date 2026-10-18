@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
@@ -21,7 +22,7 @@ import {
 } from "lucide-react";
 import { useExamCategories } from "../../../shared/hooks/useExamCategories";
 import { adminAPI } from "../../../shared/lib/dataService.js";
-import { coerceArray } from "../../../shared/utils/questionHelpers.js";
+
 import { toast } from "react-hot-toast";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 
@@ -56,6 +57,7 @@ function getStageExamIdList(stage) {
     ...(stage.exam_slug != null ? [stage.exam_slug] : []),
     ...(stage.examSlug != null ? [stage.examSlug] : []),
   ];
+
   return rawList.filter((id) => id !== null && id !== undefined && id !== "");
 }
 
@@ -412,7 +414,7 @@ export default function TestSeriesManager() {
         setOrphanedTests(response.data.data || []);
       }
     } catch (error) {
-      console.error("Failed to fetch orphaned tests:", error);
+      logger.error("Failed to fetch orphaned tests:", error);
     }
   };
 
@@ -425,7 +427,7 @@ export default function TestSeriesManager() {
         );
       }
     } catch (error) {
-      console.error("Failed to fetch stages:", error);
+      logger.error("Failed to fetch stages:", error);
     }
   };
 
@@ -450,7 +452,7 @@ export default function TestSeriesManager() {
         toast.error(response.data.message || "Failed to load test series");
       }
     } catch (error) {
-      console.error("Failed to fetch series:", error);
+      logger.error("Failed to fetch series:", error);
       const msg =
         error.response?.data?.message ||
         error.message ||
@@ -582,7 +584,7 @@ export default function TestSeriesManager() {
         toast.success(editingId ? "Series updated!" : "Series created!");
       }
     } catch (error) {
-      console.error("Failed to save series:", error);
+      logger.error("Failed to save series:", error);
       const errorMsg =
         error.response?.data?.message ||
         (editingId ? "Failed to update series" : "Failed to create series");
@@ -625,7 +627,7 @@ export default function TestSeriesManager() {
         fetchSeries();
       }
     } catch (error) {
-      console.error("Failed to delete series:", error);
+      logger.error("Failed to delete series:", error);
       toast.error("Failed to delete series");
     }
   };
@@ -666,7 +668,7 @@ export default function TestSeriesManager() {
         );
       }
     } catch (error) {
-      console.error("Bulk delete failed:", error);
+      logger.error("Bulk delete failed:", error);
       toast.error("Failed to delete some series");
       fetchSeries();
     }
@@ -677,7 +679,7 @@ export default function TestSeriesManager() {
       await adminAPI.updateTestSeries(id, { isActive: !currentStatus });
       fetchSeries();
     } catch (error) {
-      console.error("Failed to toggle status:", error);
+      logger.error("Failed to toggle status:", error);
       toast.error("Failed to update series status");
     }
   };
@@ -687,7 +689,7 @@ export default function TestSeriesManager() {
       await adminAPI.updateTestSeries(id, { isPinned: !currentPin });
       fetchSeries();
     } catch (error) {
-      console.error("Failed to toggle pin:", error);
+      logger.error("Failed to toggle pin:", error);
       toast.error("Failed to update series pin status");
     }
   };
@@ -726,7 +728,7 @@ export default function TestSeriesManager() {
       ]);
       fetchSeries();
     } catch (error) {
-      console.error("Failed to move series:", error);
+      logger.error("Failed to move series:", error);
       toast.error("Failed to reorder series");
       fetchSeries();
     }
@@ -783,7 +785,7 @@ export default function TestSeriesManager() {
         toast.success("Stage linkage updated successfully");
       }
     } catch (error) {
-      console.error("Failed to update stages:", error);
+      logger.error("Failed to update stages:", error);
       toast.error("Failed to update stage linkage");
     } finally {
       setEditingStagesId(null);
@@ -840,7 +842,7 @@ export default function TestSeriesManager() {
         fetchSeries();
       }
     } catch (error) {
-      console.error("Failed to reassign test:", error);
+      logger.error("Failed to reassign test:", error);
       toast.error("Failed to reassign test");
     }
   };
@@ -1186,6 +1188,7 @@ export default function TestSeriesManager() {
                     cursor: "pointer",
                   }}
                 />
+
                 <span
                   style={{
                     fontSize: "12px",
@@ -1224,6 +1227,7 @@ export default function TestSeriesManager() {
                         cursor: "pointer",
                       }}
                     />
+
                     {/* Main Info - Left Side */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -1343,6 +1347,7 @@ export default function TestSeriesManager() {
                                           }
                                           className="hidden"
                                         />
+
                                         <span className="text-xs">
                                           {stage.icon || "🎯"} {stage.name}
                                         </span>
@@ -1597,6 +1602,7 @@ export default function TestSeriesManager() {
                     }}
                     className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
                   />
+
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-mono">
                     URL: /test-series/{formData.slug || "your-slug"}
                   </p>
@@ -1739,6 +1745,7 @@ export default function TestSeriesManager() {
                           }}
                           className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
                         />
+
                         <span className="text-sm text-gray-800 dark:text-gray-200">
                           {stage.icon} {stage.name}
                         </span>
@@ -1794,6 +1801,7 @@ export default function TestSeriesManager() {
                       }
                       className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
                     />
+
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Pro Only
                     </span>
@@ -1807,6 +1815,7 @@ export default function TestSeriesManager() {
                       }
                       className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
                     />
+
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Active
                     </span>
@@ -1820,6 +1829,7 @@ export default function TestSeriesManager() {
                       }
                       className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
                     />
+
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Pin to Top
                     </span>

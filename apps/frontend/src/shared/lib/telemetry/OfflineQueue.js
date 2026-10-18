@@ -1,3 +1,5 @@
+import { logger } from "@trstprep/shared-config";
+
 class OfflineQueue {
   constructor(attemptId) {
     this.storageKey = `trstprep_telemetry_offline_${attemptId}`;
@@ -11,17 +13,17 @@ class OfflineQueue {
     try {
       const queue = this.getAll();
       queue.push(event);
-      
+
       // Limit queue length to 1000 events to prevent localStorage quota exhaustion
       const MAX_OFFLINE_EVENTS = 1000;
       if (queue.length > MAX_OFFLINE_EVENTS) {
         queue.shift(); // Evict the oldest event (FIFO)
         this.incrementDroppedCount();
       }
-      
+
       localStorage.setItem(this.storageKey, JSON.stringify(queue));
     } catch (err) {
-      console.error('[Telemetry OfflineQueue] Failed to enqueue event:', err);
+      logger.error("[Telemetry OfflineQueue] Failed to enqueue event:", err);
     }
   }
 
@@ -33,7 +35,7 @@ class OfflineQueue {
       const data = localStorage.getItem(this.storageKey);
       return data ? JSON.parse(data) : [];
     } catch (err) {
-      console.error('[Telemetry OfflineQueue] Failed to read queue:', err);
+      logger.error("[Telemetry OfflineQueue] Failed to read queue:", err);
       return [];
     }
   }
@@ -54,7 +56,7 @@ class OfflineQueue {
     try {
       localStorage.removeItem(this.storageKey);
     } catch (err) {
-      console.error('[Telemetry OfflineQueue] Failed to clear queue:', err);
+      logger.error("[Telemetry OfflineQueue] Failed to clear queue:", err);
     }
   }
 
@@ -70,7 +72,7 @@ class OfflineQueue {
    */
   getDroppedCount() {
     try {
-      return parseInt(localStorage.getItem(this.droppedKey) || '0', 10);
+      return parseInt(localStorage.getItem(this.droppedKey) || "0", 10);
     } catch {
       return 0;
     }
@@ -84,7 +86,10 @@ class OfflineQueue {
       const count = this.getDroppedCount() + 1;
       localStorage.setItem(this.droppedKey, String(count));
     } catch (err) {
-      console.error('[Telemetry OfflineQueue] Failed to increment dropped count:', err);
+      logger.error(
+        "[Telemetry OfflineQueue] Failed to increment dropped count:",
+        err,
+      );
     }
   }
 

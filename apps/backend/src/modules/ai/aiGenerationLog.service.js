@@ -39,7 +39,7 @@ const aiGenerationLogService = {
 
   async getUsageByPeriod(start, end) {
     const { pool } =
-      await import("../../../infrastructure/database/postgres-helpers.js");
+      await import("../../infrastructure/database/postgres-helpers.js");
     const client = await pool.connect();
     try {
       // Physical columns are snake_case (tokens_input/tokens_output/cost_usd)

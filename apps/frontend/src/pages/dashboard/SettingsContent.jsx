@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { userAPI, authAPI } from "../../shared/lib/dataService";
@@ -23,6 +24,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { ToggleSwitch, SectionLabel, Cell } from "./ProfilePrimitives";
+import { getErrorMessage, getErrorStatus } from "../../shared/lib/apiClient.js";
 
 // Settings Content Component (integrated into Profile)
 function SettingsContent({
@@ -107,8 +109,8 @@ function SettingsContent({
         },
       });
     } catch (error) {
-      console.error("Failed to update password:", error?.message ?? error);
-      toast.error(error.response?.data?.message || "Failed to update password");
+      logger.error("Failed to update password:", error?.message ?? error);
+      toast.error(getErrorMessage(error) || "Failed to update password");
     } finally {
       setSaving(false);
     }
@@ -182,9 +184,9 @@ function SettingsContent({
         state: { from: "/", message: "Account deactivated" },
       });
     } catch (error) {
-      console.error("Failed to deactivate account:", error?.message ?? error);
+      logger.error("Failed to deactivate account:", error?.message ?? error);
       toast.error(
-        error?.response?.data?.message ||
+        getErrorMessage(error) ||
           "Failed to deactivate account. Please try again.",
       );
     }
@@ -204,10 +206,9 @@ function SettingsContent({
       await logout();
       navigate("/login", { state: { from: "/", message: "Account deleted" } });
     } catch (error) {
-      console.error("Failed to delete account:", error?.message ?? error);
+      logger.error("Failed to delete account:", error?.message ?? error);
       toast.error(
-        error?.response?.data?.message ||
-          "Failed to delete account. Please try again.",
+        getErrorMessage(error) || "Failed to delete account. Please try again.",
       );
     }
   };
@@ -218,8 +219,8 @@ function SettingsContent({
       const res = await userAPI.getSessions();
       setSessions(res.data?.data || []);
     } catch (err) {
-      console.error("Failed to load active sessions:", err?.message ?? err);
-      if (err?.response?.status && err.response.status !== 401) {
+      logger.error("Failed to load active sessions:", err?.message ?? err);
+      if (getErrorStatus(err) && getErrorStatus(err) !== 401) {
         toast.error("Failed to load sessions");
       }
     } finally {
@@ -235,7 +236,7 @@ function SettingsContent({
         prev.filter((s) => s.id !== sessionId && s.sessionId !== sessionId),
       );
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       toast.error("Failed to revoke session");
     } finally {
       setSessionsLoading(false);
@@ -357,6 +358,7 @@ function SettingsContent({
               sub="Results, reports, updates"
               right={
                 <ToggleSwitch
+                  label="Email Notifications"
                   checked={notifications.email}
                   onChange={(v) => handleNotificationChange("email", v)}
                 />
@@ -367,6 +369,7 @@ function SettingsContent({
               sub="Mobile & desktop alerts"
               right={
                 <ToggleSwitch
+                  label="Push Notifications"
                   checked={notifications.push}
                   onChange={(v) => handleNotificationChange("push", v)}
                 />
@@ -377,6 +380,7 @@ function SettingsContent({
               sub="Critical updates"
               right={
                 <ToggleSwitch
+                  label="SMS Alerts"
                   checked={notifications.sms}
                   onChange={(v) => handleNotificationChange("sms", v)}
                 />
@@ -391,6 +395,7 @@ function SettingsContent({
               sub="Remind to study"
               right={
                 <ToggleSwitch
+                  label="Daily Study Goal"
                   checked={notifications.testReminders}
                   onChange={(v) => handleNotificationChange("testReminders", v)}
                 />
@@ -401,6 +406,7 @@ function SettingsContent({
               sub="Performance summary"
               right={
                 <ToggleSwitch
+                  label="Weekly Report"
                   checked={notifications.weeklyReport}
                   onChange={(v) => handleNotificationChange("weeklyReport", v)}
                 />
@@ -411,6 +417,7 @@ function SettingsContent({
               sub="New features & offers"
               right={
                 <ToggleSwitch
+                  label="Promotional"
                   checked={notifications.promotional}
                   onChange={(v) => handleNotificationChange("promotional", v)}
                 />
@@ -451,6 +458,7 @@ function SettingsContent({
               sub="Let others see scores"
               right={
                 <ToggleSwitch
+                  label="Show Progress"
                   checked={privacy.showProgress}
                   onChange={(v) => handlePrivacyChange({ showProgress: v })}
                 />
@@ -461,6 +469,7 @@ function SettingsContent({
               sub="Show name on rank lists"
               right={
                 <ToggleSwitch
+                  label="Leaderboard"
                   checked={privacy.showOnLeaderboard}
                   onChange={(v) =>
                     handlePrivacyChange({ showOnLeaderboard: v })
@@ -473,6 +482,7 @@ function SettingsContent({
               sub="Receive study invites"
               right={
                 <ToggleSwitch
+                  label="Allow Messages"
                   checked={privacy.allowMessages}
                   onChange={(v) => handlePrivacyChange({ allowMessages: v })}
                 />
@@ -587,7 +597,11 @@ function SettingsContent({
             label="Dark Mode"
             sub="Toggle theme"
             right={
-              <ToggleSwitch checked={isDarkMode} onChange={toggleDarkMode} />
+              <ToggleSwitch
+                label="Dark Mode"
+                checked={isDarkMode}
+                onChange={toggleDarkMode}
+              />
             }
           />
           <SectionLabel>Language</SectionLabel>

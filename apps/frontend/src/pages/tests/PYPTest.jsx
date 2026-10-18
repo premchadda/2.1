@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Helmet } from "react-helmet-async";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -84,10 +85,10 @@ const PYPTest = () => {
         } catch (startErr) {
           // Non-fatal: test can still be displayed without a tracked attempt
           if (import.meta.env.DEV)
-            console.warn("Could not start PYP attempt:", startErr.message);
+            logger.warn("Could not start PYP attempt:", startErr.message);
         }
       } catch (error) {
-        console.error("Error loading PYP test:", error?.message ?? error);
+        logger.error("Error loading PYP test:", error?.message ?? error);
         toast.error("Failed to load test");
       } finally {
         setLoading(false);
@@ -242,7 +243,7 @@ const PYPTest = () => {
         state: { attemptId: submittedAttemptId },
       });
     } catch (error) {
-      console.error("Error submitting test:", error?.message ?? error);
+      logger.error("Error submitting test:", error?.message ?? error);
       toast.error("Error submitting test");
     } finally {
       setIsSubmitting(false);

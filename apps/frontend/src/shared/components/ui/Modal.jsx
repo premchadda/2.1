@@ -46,6 +46,9 @@ function Modal({
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handleEsc);
+    // Remember the *previous* inline value so a nested scroll-lock holder
+    // (another modal that mounted first) is not clobbered when this one closes.
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     const prevFocused = document.activeElement;
@@ -57,7 +60,11 @@ function Modal({
 
     return () => {
       document.removeEventListener("keydown", handleEsc);
-      document.body.style.overflow = "";
+      // Only release our own lock — if something else took over in the
+      // meantime, leave its value alone.
+      if (document.body.style.overflow === "hidden") {
+        document.body.style.overflow = previousOverflow;
+      }
       if (
         prevFocused &&
         typeof prevFocused.focus === "function" &&
@@ -130,10 +137,15 @@ function Modal({
               )}
               {showClose && (
                 <button
+                  type="button"
+                  aria-label="Close dialog"
                   onClick={onClose}
                   className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
-                  <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                  <X
+                    className="w-5 h-5 text-gray-500 dark:text-gray-400"
+                    aria-hidden="true"
+                  />
                 </button>
               )}
             </div>

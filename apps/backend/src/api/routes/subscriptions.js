@@ -1,7 +1,6 @@
 import express from "express";
 import subscriptionService, {
   FEATURES,
-  SUBSCRIPTION_PLANS,
 } from "../../services/SubscriptionService.js";
 import { protect } from "../../middleware/auth.middleware.js";
 import { pool } from "../../infrastructure/database/postgres-helpers.js";

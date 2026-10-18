@@ -5,7 +5,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import AdminLayout from "./shared/components/AdminLayout";
 import ProtectedRoute from "./shared/components/ProtectedRoute";
 import { GlobalConfirmHost } from "./shared/components/common/ConfirmModal";
@@ -198,6 +198,7 @@ function App() {
               path="section"
               element={<Navigate to="/admin/sections" replace />}
             />
+
             <Route path="quizzes" element={<QuizzesManager />} />
             <Route path="categories" element={<CategoriesManager />} />
 
@@ -206,10 +207,12 @@ function App() {
               path="subject-hierarchy"
               element={<SubjectHierarchyManager />}
             />
+
             <Route
               path="subjects"
               element={<Navigate to="/admin/study-materials" replace />}
             />
+
             <Route
               path="subject-relations"
               element={
@@ -219,12 +222,14 @@ function App() {
                 />
               }
             />
+
             <Route path="email-templates" element={<EmailTemplatesManager />} />
             {/* Canonical: /admin/users?tab=roles — keep legacy path as redirect */}
             <Route
               path="roles-permissions"
               element={<Navigate to="/admin/users?tab=roles" replace />}
             />
+
             <Route
               path="audit-trail"
               element={
@@ -235,6 +240,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             {/* Canonical hub: /admin/study-materials?tab=topics|curriculum */}
             <Route
               path="topics"
@@ -242,6 +248,7 @@ function App() {
                 <Navigate to="/admin/study-materials?tab=topics" replace />
               }
             />
+
             <Route
               path="curriculum"
               element={
@@ -266,6 +273,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="live-proctoring"
               element={
@@ -276,6 +284,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="live-proctoring/:liveTestId"
               element={
@@ -286,6 +295,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route path="enrollments" element={<EnrollmentsManager />} />
             <Route path="results" element={<ResultsManager />} />
 
@@ -318,6 +328,7 @@ function App() {
               path="leaderboards"
               element={<LeaderboardResultsUnified />}
             />
+
             <Route path="deep-analytics" element={<DeepAnalytics />} />
             <Route path="content-management" element={<ContentManagement />} />
             <Route path="system-health" element={<SystemHealthMonitor />} />
@@ -338,10 +349,12 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="terminal"
               element={<Navigate to="/admin/logs" replace />}
             />
+
             <Route
               path="backups"
               element={
@@ -359,6 +372,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route path="activity-log" element={<UserActivityLog />} />
             <Route path="recycle-bin" element={<RecycleBin />} />
             <Route path="settings" element={<AdminSettings />} />
@@ -376,6 +390,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="moderation"
               element={
@@ -390,6 +405,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="two-factor"
               element={
@@ -407,6 +423,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="*"
               element={

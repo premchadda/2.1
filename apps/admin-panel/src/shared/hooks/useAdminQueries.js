@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { adminAPI, apiClient } from "../lib/dataService.js";
 
 const stableStringify = (obj) => {
@@ -18,12 +18,14 @@ export const ADMIN_QUERY_KEYS = {
     "test-series",
     stableStringify({ includeInactive: true, ...params }),
   ],
+
   tests: (params = {}) => ["admin", "tests", stableStringify(params)],
   testCategories: (params = {}) => [
     "admin",
     "test-categories",
     stableStringify(params),
   ],
+
   stages: ["admin", "stages"],
   sections: (params = {}) => ["admin", "sections", stableStringify(params)],
   questionStats: ["admin", "question-stats"],
@@ -32,6 +34,7 @@ export const ADMIN_QUERY_KEYS = {
     "questions",
     stableStringify(params),
   ],
+
   sessions: (search = "") => ["admin", "sessions", String(search || "")],
   sessionStats: ["admin", "sessions", "stats"],
   users: (params = {}) => ["admin", "users", stableStringify(params)],

@@ -4,10 +4,14 @@ import {
   mapTestToFrontend,
   mapQuestionToFrontend,
 } from "../types/index.js";
+import { logger } from "@trstprep/shared-config";
 import {
   apiClient,
   ValidationError,
   AuthenticationError,
+  NotFoundError,
+  ForbiddenError,
+  getErrorStatus,
 } from "./apiClient.js";
 import { authAPI } from "./authAPI.js";
 import { seriesAPI } from "./seriesAPI.js";
@@ -25,6 +29,10 @@ export {
   ValidationError,
   AuthenticationError,
   NotFoundError,
+  ForbiddenError,
+  getErrorMessage,
+  getErrorStatus,
+  getErrorDetails,
   apiClient,
   fetchFromAPI,
   api,
@@ -183,12 +191,25 @@ class DataService {
           return data;
         } catch (error) {
           lastError = error;
-          console.error(`Fetch attempt ${attempt} failed for ${key}:`, error);
+          logger.error(`Fetch attempt ${attempt} failed for ${key}:`, error);
 
-          if (
+          // Retry only what a retry can actually fix.
+          //
+          // The shared error mapper types NotFoundError / ForbiddenError as
+          // DataError subclasses, so they used to fall through this guard and
+          // burn 3 identical requests plus ~3s of exponential backoff before
+          // the caller ever saw a 404/403 — which is deterministic. The generic
+          // status-range test below covers any other unmapped 4xx.
+          const status = getErrorStatus(error);
+          const isClientError =
+            (typeof status === "number" && status >= 400 && status < 500) ||
             error instanceof ValidationError ||
-            error instanceof AuthenticationError
-          ) {
+            error instanceof AuthenticationError ||
+            error instanceof NotFoundError ||
+            error instanceof ForbiddenError;
+
+          if (isClientError) {
+            this.retryAttempts.delete(key);
             throw error;
           }
 
@@ -256,7 +277,7 @@ class DataService {
           const response = await userAPI.getAnalytics();
           return response.data?.data || response.data || null;
         } catch (err) {
-          if (err?.response?.status === 401 || err?.status === 401) return null;
+          if (getErrorStatus(err) === 401) return null;
           throw err;
         }
       },
@@ -275,48 +296,6 @@ class DataService {
         const response = await testsAPI.getAll();
         const data = response.data?.data || response.data || [];
         return data.map(mapTestToFrontend);
-      },
-      options,
-    );
-  }
-
-  async getQuestions(options = {}) {
-    // Student-app guard: /api/admin/questions is admin-only. Fail fast with a
-    // friendly error instead of surfacing a raw 403 to learners. Admin callers
-    // live in the admin panel; the student app should use getQuestionsByTestId.
-    const cachedUser = (() => {
-      try {
-        for (const key of ["trstprep_user", "user", "trstprep_auth_user"]) {
-          const raw =
-            (typeof localStorage !== "undefined" &&
-              localStorage.getItem(key)) ||
-            (typeof sessionStorage !== "undefined" &&
-              sessionStorage.getItem(key));
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            const u = parsed?.user || parsed?.data?.user || parsed;
-            if (u && typeof u === "object") return u;
-          }
-        }
-      } catch {
-        // ignore parse errors — fall through to the network call
-      }
-      return null;
-    })();
-    const isAdmin =
-      cachedUser?.isAdmin === true || cachedUser?.role === "admin";
-    if (!isAdmin) {
-      throw new ValidationError(
-        "Question bank browsing is not available in the student app. Open the question from its test instead.",
-      );
-    }
-    const key = this.cache.generateKey("/admin/questions");
-    return this.fetchWithCache(
-      key,
-      async () => {
-        const response = await questionsAPI.getAll();
-        const data = response.data?.data || response.data || [];
-        return data.map(mapQuestionToFrontend);
       },
       options,
     );
@@ -468,7 +447,7 @@ class DataService {
         } catch (err) {
           // Fall back to searching the cached list below.
           if (import.meta.env.DEV)
-            console.warn(
+            logger.warn(
               `[DataService] Direct fetch failed for test "${id}", falling back to cached list:`,
               err,
             );
@@ -585,7 +564,7 @@ class DataService {
 
       return result;
     } catch (error) {
-      console.error("Mutation failed:", error);
+      logger.error("Mutation failed:", error);
       throw error;
     }
   }
@@ -598,7 +577,14 @@ export { dataService };
 // Convenience methods from dataService
 export const getTestSeries = (...args) => dataService.getTestSeries(...args);
 export const getTests = (...args) => dataService.getTests(...args);
-export const getQuestions = (...args) => dataService.getQuestions(...args);
+// NOTE: there is deliberately NO `getQuestions` export. It called
+// /api/admin/questions — an admin-only route — and its `isAdmin` guard read
+// localStorage keys ("trstprep_user", "user", "trstprep_auth_user") that this
+// app never writes (the profile is stored under USER_CACHE_KEY =
+// "trstprep_user_profile", see providers/authSession.js). So it threw for
+// EVERYONE including a real admin, and had it ever passed it would have put the
+// student app on an admin-only route. The student app uses
+// getQuestionsByTestId(); admin callers live in apps/admin-panel.
 export const getStudyMaterials = (...args) =>
   dataService.getStudyMaterials(...args);
 export const getExamCategories = (...args) =>

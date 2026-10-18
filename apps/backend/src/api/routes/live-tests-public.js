@@ -1,8 +1,5 @@
 import express from "express";
-import {
-  pool,
-  dbHelpers,
-} from "../../infrastructure/database/postgres-helpers.js";
+import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 import responseCache from "../../middleware/responseCache.js";
 import { readQuery } from "../../../config/database-replicas.js";
@@ -17,14 +14,7 @@ router.get(
   responseCache({ ttl: 30, prefix: "res:public:live:", userScoped: false }),
   async (req, res) => {
     try {
-      const {
-        limit = 50,
-        page = 1,
-        type,
-        status,
-        category,
-        difficulty,
-      } = req.query;
+      const { limit = 50, page = 1, type, difficulty } = req.query;
       const parsedLimit = Math.min(parseInt(limit, 10) || 50, 100);
       const offset = ((parseInt(page, 10) || 1) - 1) * parsedLimit;
 

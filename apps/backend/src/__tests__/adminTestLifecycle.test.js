@@ -46,7 +46,6 @@ const {
   ALLOWED_TRANSITIONS,
   validatePublicationPrerequisites,
   shuffleQuestionsWithSeed,
-  mulberry32,
   default: adminTestsRouter,
 } = await import("../api/routes/admin-tests.js");
 

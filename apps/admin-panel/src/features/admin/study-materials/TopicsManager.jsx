@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   Plus,
@@ -50,7 +51,7 @@ export default function TopicsManager() {
         setChapters(chaptersRes.data.data);
       }
     } catch (error) {
-      console.error("Failed to fetch data:", error);
+      logger.error("Failed to fetch data:", error);
     } finally {
       setLoading(false);
     }
@@ -63,7 +64,7 @@ export default function TopicsManager() {
         setTopics(response.data.data);
       }
     } catch (error) {
-      console.error("Failed to fetch topics:", error);
+      logger.error("Failed to fetch topics:", error);
     }
   };
 
@@ -104,7 +105,7 @@ export default function TopicsManager() {
       fetchTopics();
       resetForm();
     } catch (error) {
-      console.error("Failed to save topic:", error);
+      logger.error("Failed to save topic:", error);
       toast.error("Failed to save topic");
     }
   };
@@ -121,7 +122,7 @@ export default function TopicsManager() {
       toast.success("Topic deleted successfully");
       fetchTopics();
     } catch (error) {
-      console.error("Failed to delete topic:", error);
+      logger.error("Failed to delete topic:", error);
       toast.error("Failed to delete topic");
     }
   };

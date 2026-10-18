@@ -1,6 +1,6 @@
 # Trstprep — Master Audit Report (Consolidated)
 
-> Generated: 2026-09-19.
+> Generated: 2026-09-19. **Amended 2026-10-18.**
 > This file is the single consolidated audit. It merges every audit report
 > previously scattered across docs/, scripts/, and the repo root, verbatim.
 > The original files were removed after merging — this is now the source of truth.
@@ -8,6 +8,34 @@
 > Fresh re-verification: after merging, the backend was re-audited. See
 > Part G — Consolidated Findings & Re-check (2026-09-19) at the end for the
 > current open/closed status of every issue.
+
+> ### ⚠️ Historical-reference notice (added 2026-10-18)
+>
+> This document is a **historical audit record**. Several files it cites were
+> subsequently deleted during a dead-code / route-ownership cleanup, so
+> **file paths and line numbers below may no longer exist**. Specifically removed:
+>
+> | Removed path                                                                                                                                                   | Replaced by                                                                      |
+> | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+> | `api/routes/admin-routes-index.js`                                                                                                                             | `api/routes/admin.js` (single mount of `/api/admin`; `mountAdminRoutes` removed) |
+> | `api/routes/public-data.routes.js`                                                                                                                             | split into `*-public.js` routers under `api/routes/public-routes-index.js`       |
+> | `middleware/upload-validation.js`                                                                                                                              | `infrastructure/storage/upload.js` (`validateFileContent`) — strictly stronger   |
+> | `middleware/queryCache.js`                                                                                                                                     | removed; no callers                                                              |
+> | `infrastructure/database/auditTrailManager.js`                                                                                                                 | removed; writes go through `auditMiddleware` → `audit_logs`                      |
+> | `services/core/TestAttemptController.js`                                                                                                                       | `modules/attempts/attempt.service.js` + `shared/utils/scoreAttempt.js`           |
+> | `utils/canonicalTaxonomy.js`, `utils/db-config.js`, `shared/config.js`, `db/csrf-token-store.js`, `shared/utils/errorCodes.js`, `shared/utils/api-response.js` | removed; no callers                                                              |
+> | `api/middleware/`, `api/validators/test.validator.js`, `api/validators/upload.validator.js`                                                                    | removed; unreferenced barrels                                                    |
+> | `modules/sections/section.controller.js`                                                                                                                       | `modules/sections/section.routes.js`                                             |
+>
+> Where this document states an issue is open **against one of those files**, it
+> is now void. Two claims were also confirmed false and are superseded:
+> (a) "two `responseCache` implementations" — there is one implementation plus a
+> 9-line re-export alias; (b) "`test/attempt/question.controller.js` are unmounted
+> dead code" — all are wired as sub-routers.
+>
+> Current-state facts live in `AGENTS.md` and `docs/REPO_BRAIN.html`. Route-shape
+> regressions are now guarded by
+> `apps/backend/src/__tests__/routeGraph.test.js`.
 
 ---
 
@@ -3159,11 +3187,11 @@ Now I have all the information needed. Here is the comprehensive audit report.
 
 ### MEDIUM
 
-| Lines            | Issue                                                                     | Detail                                                                                                                                                                                                                                                                                                                                |
-| ---------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 46               | **Verification token not URL-encoded in GET request**                     | `api.get(\`/api/auth/verify-email?token=${verificationToken}\`)` — the token is interpolated directly into the URL without `encodeURIComponent()`. If the token contains `&`, `=`, `?`, or `#`, the URL will be malformed and the token will be truncated or corrupted. Should be: `?token=${encodeURIComponent(verificationToken)}`. |
-| 72-73            | **Resend sets status to `'verifying'`, replacing entire UI with spinner** | `setStatus('verifying')` during resend causes the full spinner UI (lines 106-111) to replace the pending/error state with the email input. The user loses visibility of the resend form and has no idea how long the operation will take. Should use a separate loading state for resend.                                             |
-| 140-141, 188-189 | **No loading indicator during resend API call**                           | The resend button is disabled only when `resendTimer > 0`. While the API call is in progress (before the response), there is no spinner or "Sending..." text. The user can click the button multiple times thinking it didn't work.                                                                                                   |
+| Lines            | Issue                                                                     | Detail                                                                                                                                                                                                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 46               | **Verification token not URL-encoded in GET request**                     | `api.get(\`/api/auth/verify-email?token=${verificationToken}\`)`— the token is interpolated directly into the URL without`encodeURIComponent()`. If the token contains `&`, `=`, `?`, or `#`, the URL will be malformed and the token will be truncated or corrupted. Should be: `?token=${encodeURIComponent(verificationToken)}`. |
+| 72-73            | **Resend sets status to `'verifying'`, replacing entire UI with spinner** | `setStatus('verifying')` during resend causes the full spinner UI (lines 106-111) to replace the pending/error state with the email input. The user loses visibility of the resend form and has no idea how long the operation will take. Should use a separate loading state for resend.                                           |
+| 140-141, 188-189 | **No loading indicator during resend API call**                           | The resend button is disabled only when `resendTimer > 0`. While the API call is in progress (before the response), there is no spinner or "Sending..." text. The user can click the button multiple times thinking it didn't work.                                                                                                 |
 
 ### LOW
 

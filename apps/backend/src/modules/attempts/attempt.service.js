@@ -1,15 +1,11 @@
 import { AttemptRepository } from "./attempt.repository.js";
 import { TestRepository } from "../tests/test.repository.js";
-import { QuestionRepository } from "../questions/question.repository.js";
 import {
   addJob,
   QUEUE_NAMES,
 } from "../../infrastructure/queue/queueManager.js";
 import { emitDomainEvent } from "../../infrastructure/events/eventBus.js";
-import {
-  dbHelpers,
-  pool,
-} from "../../infrastructure/database/postgres-helpers.js";
+import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import logger from "../../infrastructure/logger/logger.js";
 import {
   resolveQuestionMarks,
@@ -18,7 +14,6 @@ import {
 
 const repo = new AttemptRepository();
 const testRepo = new TestRepository();
-const questionRepo = new QuestionRepository();
 
 const ATTEMPT_LIMITS = {
   FREE_MAX: 3,

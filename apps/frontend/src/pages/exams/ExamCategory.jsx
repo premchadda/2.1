@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowRight, Calendar, ChevronDown, ChevronUp } from "lucide-react";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
@@ -190,7 +191,7 @@ export default function ExamCategory() {
       setExamSeriesCounts(seriesCounts);
     } catch (err) {
       if (err.name !== "AbortError") {
-        console.error("Error fetching category data:", err);
+        logger.error("Error fetching category data:", err);
         setError("Failed to load category information");
       }
     } finally {
@@ -315,8 +316,23 @@ export default function ExamCategory() {
                 >
                   {/* Exam Type Header */}
                   <div
-                    className="p-5 md:p-6 cursor-pointer relative overflow-hidden group"
+                    className="p-5 md:p-6 cursor-pointer relative overflow-hidden group outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-start"
                     onClick={() => toggleExamYears(examId)}
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={Boolean(isExpanded)}
+                    aria-label={`${isExpanded ? "Hide" : "Show"} years for ${
+                      exam.title || "exam"
+                    }`}
+                    onKeyDown={(e) => {
+                      // Ignore keys that originate from the nested
+                      // "Explore Exam" button.
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleExamYears(examId);
+                      }
+                    }}
                   >
                     <div
                       className={`absolute -right-20 -top-20 w-64 h-64 bg-gradient-to-br ${config.color} opacity-0 group-hover:opacity-10 rounded-full blur-3xl transition-opacity duration-500`}
@@ -333,9 +349,9 @@ export default function ExamCategory() {
                         </div>
                         <div className="flex-1 min-w-0 pr-4">
                           <div className="flex items-center gap-3 mb-1">
-                            <h3 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-brand-start group-hover:to-brand-end transition-all line-clamp-1">
+                            <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-brand-start group-hover:to-brand-end transition-all line-clamp-1">
                               {exam.title}
-                            </h3>
+                            </h2>
                             {seriesCount > 0 && (
                               <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider bg-brand-light dark:bg-brand-dark/30 text-brand-start uppercase flex-shrink-0">
                                 Hot
@@ -396,10 +412,10 @@ export default function ExamCategory() {
                     {isExpanded && (
                       <div className="border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 p-5 md:p-6">
                         <div className="flex items-center justify-between mb-5">
-                          <h4 className="text-[13px] font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                          <h3 className="text-[13px] font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider flex items-center gap-2">
                             <Calendar className="w-3.5 h-3.5" />
                             Select Year to Prepare
-                          </h4>
+                          </h3>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">

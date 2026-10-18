@@ -63,6 +63,35 @@ function getLocalStore() {
   return typeof localStorage !== "undefined" ? localStorage : undefined;
 }
 
+// Extract a human-readable message from an error response body.
+//
+// The backend is not consistent about the key it uses. Most routes answer
+// with `{ success: false, error: "<message>" }` — api/routes/practice.js uses
+// `error:` 121 times vs `message:` 3 times — while a minority use
+// `{ message: "..." }`, and the documented error envelope is
+// `{ success: false, error: { message, code, field } }`.
+//
+// Preference order: `message` → string `error` → `error.message` → the
+// transport-level fallback (axios' own message). Without the `error` key every
+// real backend failure degrades to "Request failed with status code 4xx".
+// Object-shaped `error` values are unwrapped to `.message` so a message is
+// never rendered as "[object Object]".
+function extractErrorMessage(data, fallback) {
+  if (data && typeof data === "object") {
+    if (typeof data.message === "string" && data.message) return data.message;
+    const err = data.error;
+    if (typeof err === "string" && err) return err;
+    if (
+      err &&
+      typeof err === "object" &&
+      typeof err.message === "string" &&
+      err.message
+    )
+      return err.message;
+  }
+  return fallback;
+}
+
 // Warn-once flag for the empty-baseURL same-origin fallback (see JSDoc).
 let warnedEmptyBaseURL = false;
 function warnEmptyBaseURLOnce() {
@@ -146,12 +175,44 @@ export function createApiClient(options = {}) {
   // Last successfully rotated bearer token — applied to queued replays so
   // they do not retry with the expired token that triggered the 401.
   let lastRefreshedToken = null;
+  // Bumped by resetAuthState(). An in-flight refresh compares the generation it
+  // started with against the current one, so a refresh that completes *after*
+  // a logout / account switch discards its rotated token instead of replaying
+  // the previous session's bearer.
+  let authGeneration = 0;
   const processQueue = (error) => {
     failedQueue.forEach(({ resolve, reject }) =>
       error ? reject(error) : resolve(),
     );
     failedQueue = [];
   };
+
+  /**
+   * Clears every piece of per-instance auth state held by this client:
+   * the cached rotated bearer token, the in-flight refresh flag, the
+   * generation counter, and anything parked on the refresh queue.
+   *
+   * WHY this exists — the backend prefers the `Authorization` header over the
+   * httpOnly session cookie (see apps/backend/src/middleware/auth.middleware.js),
+   * so a bearer token retained from a *previous* login wins over the cookie of
+   * the account that just signed in. Without an explicit reset, a queued
+   * 401-replay triggered after a logout re-injects the old account's token:
+   * a cross-account stale-token leak. Call this on logout and before any
+   * login / account switch.
+   *
+   * Fully optional and non-breaking: consumers that never call it keep the
+   * previous behaviour exactly. Pending queued replays are rejected (not
+   * orphaned) so no promise is left hanging forever.
+   */
+  const resetAuthState = () => {
+    authGeneration += 1;
+    lastRefreshedToken = null;
+    isRefreshing = false;
+    processQueue(
+      new AuthenticationError("Session changed — please sign in again", null),
+    );
+  };
+
   const applyReplayAuth = (requestConfig) => {
     requestConfig.headers = requestConfig.headers || {};
     if (lastRefreshedToken) {
@@ -195,9 +256,10 @@ export function createApiClient(options = {}) {
         // AuthenticationError (carries .status) instead of the raw axios error.
         const st = err?.response?.status ?? status;
         const typed = new AuthenticationError(
-          err?.response?.data?.message ||
-            err?.message ||
-            "Session expired — please sign in again",
+          extractErrorMessage(
+            err?.response?.data,
+            err?.message || "Session expired — please sign in again",
+          ),
           err?.response?.data ?? null,
         );
         if (typed.status === undefined && st) typed.status = st;
@@ -218,6 +280,7 @@ export function createApiClient(options = {}) {
         originalRequest._authRefreshAttempted = true;
         if (!isRefreshing) {
           isRefreshing = true;
+          const refreshGeneration = authGeneration;
           try {
             const fallbackRefreshToken =
               safeStorageGet(getSessionStore(), "trstprep_refresh_token") ||
@@ -229,6 +292,20 @@ export function createApiClient(options = {}) {
             const refreshRes = await instance.post(refreshUrl, refreshPayload, {
               _authRefreshAttempted: true,
             });
+            // resetAuthState() ran while this refresh was in flight (logout /
+            // account switch). The rotated token belongs to the previous
+            // session — discard it rather than replaying a stale bearer, and
+            // let the caller establish the new session instead.
+            if (authGeneration !== refreshGeneration) {
+              isRefreshing = false;
+              const staleSessionError = new AuthenticationError(
+                "Session changed — please sign in again",
+                null,
+              );
+              processQueue(staleSessionError);
+              onAuthFailure?.(staleSessionError, { isRefreshFailure: true });
+              return Promise.reject(staleSessionError);
+            }
             const newAccessToken =
               refreshRes?.data?.data?.token || refreshRes?.data?.token;
             const newRefreshToken =
@@ -276,6 +353,17 @@ export function createApiClient(options = {}) {
             processQueue(null);
             return instance(originalRequest);
           } catch (refreshError) {
+            // A reset during the in-flight refresh already cleared the auth
+            // state; do not clobber the *new* session's refresh flag or queue.
+            if (authGeneration !== refreshGeneration) {
+              processQueue(
+                new AuthenticationError(
+                  "Session changed — please sign in again",
+                  null,
+                ),
+              );
+              return Promise.reject(refreshError);
+            }
             isRefreshing = false;
             // The rotated token (if any) failed — drop it so later auth
             // state reads fall back to the cookie session / re-login.
@@ -284,9 +372,11 @@ export function createApiClient(options = {}) {
             const typedRefreshError =
               refreshStatus === 401 || refreshStatus === 419
                 ? new AuthenticationError(
-                    refreshError?.response?.data?.message ||
+                    extractErrorMessage(
+                      refreshError?.response?.data,
                       refreshError?.message ||
-                      "Session expired — please sign in again",
+                        "Session expired — please sign in again",
+                    ),
                     refreshError?.response?.data ?? null,
                   )
                 : refreshError;
@@ -308,7 +398,12 @@ export function createApiClient(options = {}) {
 
       if (error.response) {
         const { status: st, data } = error.response;
-        const message = data?.message || error.message || "Unknown error";
+        // Backend answers with `error:` (not `message:`) in most routes — read
+        // both so the real reason surfaces instead of axios' generic text.
+        const message = extractErrorMessage(
+          data,
+          error.message || "Unknown error",
+        );
         let mappedError;
         switch (st) {
           case 400:
@@ -351,6 +446,11 @@ export function createApiClient(options = {}) {
       return Promise.reject(new NetworkError("Request failed", error.message));
     },
   );
+  // Opt-in escape hatch for logout / account switch: forget the rotated
+  // bearer token, the in-flight refresh flag and the queued replays so a
+  // previous account's Authorization header can never outrank the new
+  // session's cookie. Consumers that don't call it are unaffected.
+  instance.resetAuthState = resetAuthState;
   return instance;
 }
 export default createApiClient;

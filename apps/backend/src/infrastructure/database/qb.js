@@ -40,16 +40,8 @@ export const snakeToCamel = (row) => {
   return out;
 };
 
-const SENSITIVE_USER_COLUMNS = new Set([
-  "password",
-  "refresh_token",
-  "refresh_token_version",
-  "otp",
-  "otp_secret",
-  "email_verification_token",
-  "reset_token",
-]);
-// Safe explicit columns for users table (excludes sensitive)
+// Safe explicit columns for users table (allowlist — a deny-list cannot keep up
+// with columns added later, so anything not named here is never selected).
 const SAFE_USER_COLUMNS = [
   "id",
   "name",

@@ -81,6 +81,16 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
     return () => clearInterval(timer);
   }, []);
 
+  // Escape closes the Socratic AI drawer (it is a modal drawer).
+  useEffect(() => {
+    if (!aiDrawerOpen) return;
+    const handleEsc = (e) => {
+      if (e.key === "Escape") setAiDrawerOpen(false);
+    };
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, [aiDrawerOpen]);
+
   // Reset per-question state when a different session is loaded — without
   // this, switching sessions reuses the previous session's answers/timer.
   useEffect(() => {
@@ -492,7 +502,11 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
           </div>
 
           {/* OPTIONS LIST */}
-          <div className="space-y-3 pt-2">
+          <div
+            role="radiogroup"
+            aria-label="Answer options"
+            className="space-y-3 pt-2"
+          >
             {(currentQ.options || []).map((optText, idx) => {
               const isSelected = selectedOpt === idx;
               const isStruck = qStruck.has(idx);
@@ -531,42 +545,52 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
               }
 
               return (
-                <div
-                  key={idx}
-                  onClick={() => !isStruck && handleSelectOption(idx)}
-                  className={`group relative flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${optionStyle} ${
-                    isStruck
-                      ? "opacity-30 line-through cursor-not-allowed bg-slate-100 dark:bg-slate-900"
-                      : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                    {/* Option Label Letter */}
-                    <div
-                      className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
-                        isSelected
-                          ? "bg-indigo-600 text-white"
-                          : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
-                      }`}
-                    >
-                      {String.fromCharCode(65 + idx)}
-                    </div>
+                <div key={idx} className="relative group">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={isSelected}
+                    disabled={isStruck}
+                    onClick={() => handleSelectOption(idx)}
+                    className={`w-full text-left flex items-center justify-between p-4 pr-12 rounded-2xl border transition-all cursor-pointer ${optionStyle} ${
+                      isStruck
+                        ? "opacity-30 line-through cursor-not-allowed bg-slate-100 dark:bg-slate-900"
+                        : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                      {/* Option Label Letter */}
+                      <div
+                        className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                          isSelected
+                            ? "bg-indigo-600 text-white"
+                            : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                        }`}
+                      >
+                        {String.fromCharCode(65 + idx)}
+                      </div>
 
-                    <div className="text-xs md:text-sm leading-relaxed">
-                      <MathRenderer content={sanitizeHtml(optText)} />
+                      <div className="text-xs md:text-sm leading-relaxed">
+                        <MathRenderer content={sanitizeHtml(optText)} />
+                      </div>
                     </div>
-                  </div>
+                  </button>
 
-                  {/* Strike-out option helper button */}
+                  {/* Strike-out option helper button. Sibling of the radio (not a
+                      nested button — invalid HTML) and always visible below the sm
+                      breakpoint, where touch devices have no hover to reveal it. */}
                   <button
                     type="button"
                     onClick={(e) => toggleStrikeOption(qId, idx, e)}
+                    aria-label={
+                      isStruck ? "Un-strike option" : "Cross out option"
+                    }
                     title={
                       isStruck ? "Un-strike option" : "Cross out wrong option"
                     }
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 opacity-0 group-hover:opacity-100 transition-opacity ml-2"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 transition-opacity"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-3.5 h-3.5" aria-hidden="true" />
                   </button>
                 </div>
               );

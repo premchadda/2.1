@@ -1,18 +1,14 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   Plus,
   Edit,
   Trash2,
-  X,
   Save,
   FileText,
   ExternalLink,
   BookOpen,
-  Clock,
-  Zap,
-  Layers,
-  ChevronRight,
   Check,
   User,
   Calendar,
@@ -71,7 +67,7 @@ export default function ExamInfoManager() {
         setCategories(response.data.data);
       }
     } catch (error) {
-      console.error("Failed to fetch categories:", error);
+      logger.error("Failed to fetch categories:", error);
     }
   };
 
@@ -83,7 +79,7 @@ export default function ExamInfoManager() {
         setExamInfoList(response.data.data);
       }
     } catch (error) {
-      console.error("Failed to fetch exam info:", error);
+      logger.error("Failed to fetch exam info:", error);
     } finally {
       setLoading(false);
     }
@@ -121,7 +117,7 @@ export default function ExamInfoManager() {
         resetForm();
       }
     } catch (error) {
-      console.error("Failed to save exam info:", error);
+      logger.error("Failed to save exam info:", error);
       toast.error(
         "Failed to save: " + (error.response?.data?.message || error.message),
       );
@@ -163,7 +159,7 @@ export default function ExamInfoManager() {
         fetchExamInfo();
       }
     } catch (error) {
-      console.error("Failed to delete exam info:", error);
+      logger.error("Failed to delete exam info:", error);
     }
   };
 
@@ -729,6 +725,7 @@ export default function ExamInfoManager() {
                               }
                               className="sr-only peer"
                             />
+
                             <div className="w-10 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
                           </label>
                           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">

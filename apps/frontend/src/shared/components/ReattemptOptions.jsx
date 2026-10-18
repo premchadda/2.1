@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../lib/dataService";
 import {
@@ -13,6 +14,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { getErrorMessage } from "../lib/apiClient.js";
 
 export function ReattemptOptions({
   testId,
@@ -38,7 +40,7 @@ export function ReattemptOptions({
         setHistory(response.data);
       } catch (err) {
         if (err.name !== "CanceledError" && err.code !== "ERR_CANCELED") {
-          console.error("Error fetching history:", err);
+          logger.error("Error fetching history:", err);
         }
       } finally {
         setLoading(false);
@@ -82,8 +84,8 @@ export function ReattemptOptions({
         });
       }
     } catch (err) {
-      console.error("Error creating reattempt:", err);
-      setError(err.response?.data?.error || "Failed to create reattempt");
+      logger.error("Error creating reattempt:", err);
+      setError(getErrorMessage(err) || "Failed to create reattempt");
     } finally {
       setCreating(null);
     }
@@ -271,7 +273,7 @@ export function WeakTopicsList({ testId, isProUser }) {
       );
       setWeakTopics(response.data.weakTopics || []);
     } catch (err) {
-      console.error("Error fetching weak topics:", err);
+      logger.error("Error fetching weak topics:", err);
     } finally {
       setLoading(false);
     }

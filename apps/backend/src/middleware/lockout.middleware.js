@@ -132,7 +132,7 @@ export const recordLoginAttempt = async (
   email,
   ipAddress,
   successful,
-  userAgent,
+  _userAgent,
 ) => {
   // Coerce null/undefined emails (e.g. 2FA-pending or phone-OTP flows) so the
   // insert never throws on toLowerCase and skips lockout counting.

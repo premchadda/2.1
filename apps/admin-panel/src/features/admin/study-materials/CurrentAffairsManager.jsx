@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { apiClient } from "../../../shared/lib/dataService.js";
 import { toast } from "react-hot-toast";
@@ -45,7 +46,7 @@ const CurrentAffairsManager = () => {
       const res = await apiClient.get("/admin/current-affairs");
       setArticles(res.data?.data || []);
     } catch (error) {
-      console.error("Error loading articles:", error);
+      logger.error("Error loading articles:", error);
       toast.error("Failed to load current affairs");
     } finally {
       setLoading(false);
@@ -95,7 +96,7 @@ const CurrentAffairsManager = () => {
       });
       setEditingId(null);
     } catch (error) {
-      console.error("Error saving article:", error);
+      logger.error("Error saving article:", error);
       toast.error(error.response?.data?.message || "Failed to save article");
     }
   };
@@ -111,7 +112,7 @@ const CurrentAffairsManager = () => {
       toast.success("Article deleted successfully");
       loadArticles();
     } catch (error) {
-      console.error("Error deleting article:", error);
+      logger.error("Error deleting article:", error);
       toast.error("Failed to delete article");
     }
   };

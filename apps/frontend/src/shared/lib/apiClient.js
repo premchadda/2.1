@@ -7,6 +7,7 @@ import {
   ValidationError,
   AuthenticationError,
   NotFoundError,
+  ForbiddenError,
 } from "@trstprep/shared-config";
 
 const apiUrl = (API_BASE_URL || "").replace(/\/api\/?$/, "");
@@ -15,8 +16,15 @@ const apiUrl = (API_BASE_URL || "").replace(/\/api\/?$/, "");
 // redirect should only fire when a real session expired — NOT when an
 // anonymous visitor browses public pages and a data GET returns 401.
 let sessionActive = false;
+// Bumped every time the identity flips (login / logout). A GET that is already
+// in flight under the previous identity must never be shared with a caller that
+// arrives after the flip — the cookie session it resolves against is no longer
+// the caller's.
+let authEpoch = 0;
 export const setSessionActive = (value) => {
-  sessionActive = value;
+  const next = Boolean(value);
+  if (next !== sessionActive) authEpoch += 1;
+  sessionActive = next;
 };
 
 // The shared factory wires up CSRF, error mapping, and 401/419 refresh. We
@@ -59,6 +67,59 @@ export {
   ValidationError,
   AuthenticationError,
   NotFoundError,
+  ForbiddenError,
+};
+
+// ============================================================
+// Typed-error readers
+// ------------------------------------------------------------
+// The shared response interceptor REPLACES the raw axios error with a typed
+// `DataError` subclass (packages/shared-config/src/apiClient.js). That typed
+// error carries:
+//   .message — backend text, resolved from `data.message` OR `data.error`
+//   .status  — the HTTP status code
+//   .details — the raw backend JSON body
+//   .code    — e.g. "VALIDATION_ERROR", "HTTP_418"
+// The original axios error — and therefore its `.response` — is NOT preserved.
+//
+// Reading `err.response?.data?.error` / `err.response?.status` therefore
+// ALWAYS evaluates to `undefined`, so every such call site silently fell back
+// to its generic string and hid the actionable backend reason ("No practice
+// questions match these filters", "PRO_REQUIRED", "Index out of range", ...).
+//
+// These helpers read the typed shape first and keep the legacy axios shape as
+// a fallback, so raw/unmapped errors (cancelled requests, AbortError, custom
+// throws) still behave exactly as before. Use them at every error-message and
+// error-status read site instead of poking `.response` directly.
+// ============================================================
+
+/** HTTP status for a typed or raw error. `undefined` when unknown. */
+export const getErrorStatus = (error) =>
+  error?.status ?? error?.response?.status;
+
+/** Backend JSON body for a typed or raw error. `null` when unknown. */
+export const getErrorDetails = (error) =>
+  error?.details ?? error?.response?.data ?? null;
+
+/**
+ * Best available human-readable message for an error.
+ * @param {*} error typed `DataError`, raw axios error, or anything
+ * @param {string} [fallback] returned only when nothing usable is found
+ * @returns {string}
+ */
+export const getErrorMessage = (error, fallback = "") => {
+  const details = getErrorDetails(error);
+  const candidates = [
+    error?.message,
+    details?.message,
+    // Backend routes overwhelmingly answer with `error:`, not `message:`.
+    typeof details?.error === "string" ? details.error : null,
+    typeof details === "string" ? details : null,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) return candidate;
+  }
+  return fallback;
 };
 
 // ============================================================
@@ -73,9 +134,37 @@ export {
 // ============================================================
 const inFlightGets = new Map();
 
+// The dedup key MUST cover everything about a call that changes the request or
+// the response shape. Keying on url+params alone meant a concurrent caller was
+// handed the first caller's in-flight promise and silently inherited its config
+// — e.g. usePublicSettings' deliberate `{ timeout: 4000 }` leaking onto a plain
+// concurrent GET (and vice-versa) — and, with no auth dimension, a request that
+// straddled a login boundary could be shared across two identities.
+const stableStringify = (value) => {
+  try {
+    return JSON.stringify(value) ?? "";
+  } catch {
+    // Circular / non-serialisable headers: fall back to an opaque key rather
+    // than risk two different requests colliding on one entry.
+    return "~unserializable~";
+  }
+};
+
 const buildGetKey = (url, config = {}) => {
-  const params = config.params ? JSON.stringify(config.params) : "";
-  return `${url}?${params}`;
+  const headers = config.headers
+    ? Object.entries(config.headers)
+        .filter(([name]) => String(name).toLowerCase() !== "x-csrf-token")
+        .sort(([a], [b]) => String(a).localeCompare(String(b)))
+    : null;
+  return [
+    authEpoch,
+    url,
+    config.params ? JSON.stringify(config.params) : "",
+    config.timeout ?? "",
+    config.responseType ?? "",
+    config.withCredentials ?? "",
+    headers ? stableStringify(Object.fromEntries(headers)) : "",
+  ].join("|");
 };
 
 const originalGet = apiClient.get.bind(apiClient);
@@ -141,10 +230,16 @@ export const fetchFromAPI = async (endpoint, options = {}) => {
       throw error;
     }
     // Fallback mapping for any remaining raw axios errors
-    const status = error?.status ?? error?.response?.status;
-    const data = error?.details ?? error?.response?.data;
+    const status = getErrorStatus(error);
+    const data = getErrorDetails(error);
+    // Prefer the backend body over axios' generic text ("Request failed with
+    // status code 500"), and read `error` as well as `message` because backend
+    // routes overwhelmingly answer with `error:`.
     const message =
-      data?.message || error?.message || `API Error (${endpoint})`;
+      data?.message ||
+      (typeof data?.error === "string" ? data.error : null) ||
+      error?.message ||
+      `API Error (${endpoint})`;
     let mapped;
     if (status === 400) mapped = new ValidationError(message, data);
     else if (status === 401 || status === 403)

@@ -69,41 +69,75 @@ These are real, graph-surfaced landmines. Check them every session:
    - Migrations 094–101 added (certificates, missing tables, soft-delete
      columns, exam_id type fix, RLS policies, duplicate table reconciliation,
      achievement consolidation).
-   - Migrations 102–146 added (attempt numbering, bookmarks, Node Engine V2
-     tables, practice redesign, `test_category_series` junction ensure,
-     webhook events, RLS waves, taxonomy cascades, lifecycle/shuffle seed,
-     performance backfills, audit follow-up, subject_topics index rename,
-     138 practice revision pipeline reconciliation, 139 user recommendations reconciliation,
-     140 practice_sessions/practice_answers updated_at column fix,
-     141 subject_videos FortSpy columns, 142 audit-drift hardening,
-     143 remaining drift fixes, 144 single-admin convergence, 145 convergence
-     backstops, 146 stale-bypass cleanup — next file is `147_*`).
-   - NOTE: the live DB has drifted ahead of shipped migrations (verified
-     Sept 2026 via information_schema) — e.g. `revision_queue.priority` is
-     INTEGER, `practice_answers` carries `is_skipped`/`time_taken_sec`/`mode`.
-     Always confirm against the live DB, not just migration files.
-   - Run `scripts/run-database-audit.js` first; do NOT assume tables/indexes
-     exist. Read/write split: write pool = `DATABASE_URL`, read pool =
-     `DATABASE_READ_URL` (falls back to primary).
-   - Per-request RLS identity: `protect()`/`optionalAuth`/`requireImageAuth`
-     establish `{userId, isAdmin}` via AsyncLocalStorage and both pools +
-     `withTransaction()` apply `app.current_user_id`/`app.is_admin` with
-     SET LOCAL (`config/database-replicas.js`, `applyIdentityGucs`). No
-     identity (workers, boot, public traffic) keeps the service-role path.
-   - Staged enforcement: migration 147 provisions NOLOGIN `trstprep_app` +
-     grants (additive, safe). Activation is ops-gated: `ALTER ROLE ...
-LOGIN PASSWORD`, set `DATABASE_APP_URL` (pools prefer it over
-     `DATABASE_URL`; unset = today's owner path), verify live with
-     `scripts/run-database-audit.js`, then deploy. Unset = RLS evaluates
-     but does not restrict.
 
-3. **Core abstractions you will likely touch (god nodes)**
+- Migrations 102–153 present (142 `.sql` files, numbered 0–153 with
+  retired gaps 004–017): attempt numbering, bookmarks, Node Engine V2
+  tables, practice redesign, `test_category_series` junction ensure,
+  webhook events, RLS waves, taxonomy cascades, lifecycle/shuffle seed,
+  performance backfills, audit follow-up, subject_topics index rename,
+  138 practice revision pipeline reconciliation, 139 user recommendations reconciliation,
+  140 practice_sessions/practice_answers updated_at column fix,
+  141 subject_videos FortSpy columns, 142 audit-drift hardening,
+  143 remaining drift fixes, 144 single-admin convergence, 145 convergence
+  backstops, 146 stale-bypass cleanup, 147 NOLOGIN `trstprep_app` role +
+  grants, 148 question section/active aggregate index, 149 CSRF + section
+  alias indexes, 150 tests(active,status,created) index, 151 test-category
+  and pro-flag reconciliation, 152 orphan-test retirement + junction dedupe,
+  153 test dedupe + category-link repair — next file is `154_*`).
+  - NOTE: the live DB has drifted ahead of shipped migrations (verified
+    Sept 2026 via information_schema) — e.g. `revision_queue.priority` is
+    INTEGER, `practice_answers` carries `is_skipped`/`time_taken_sec`/`mode`.
+    Always confirm against the live DB, not just migration files.
+  - Run `scripts/run-database-audit.js` first; do NOT assume tables/indexes
+    exist. Read/write split: write pool = `DATABASE_URL`, read pool =
+    `DATABASE_READ_URL` (falls back to primary).
+  - Per-request RLS identity: `protect()`/`optionalAuth`/`requireImageAuth`
+    establish `{userId, isAdmin}` via AsyncLocalStorage and both pools +
+    `withTransaction()` apply `app.current_user_id`/`app.is_admin` with
+    SET LOCAL (`config/database-replicas.js`, `applyIdentityGucs`). No
+    identity (workers, boot, public traffic) keeps the service-role path.
+  - Staged enforcement: migration 147 provisions NOLOGIN `trstprep_app` +
+    grants (additive, safe). Activation is ops-gated: `ALTER ROLE ...
+LOGIN PASSWORD`, set `DATABASE_APP_URL` (pools prefer it over
+    `DATABASE_URL`; unset = today's owner path), verify live with
+    `scripts/run-database-audit.js`, then deploy. Unset = RLS evaluates
+    but does not restrict.
+
+3. **Route ownership is load-bearing — never re-register a path**
+   `api/routes/admin.js` mounts 38 sub-routers in a fixed order, and Express
+   resolves the FIRST matching registration. Several resources were
+   historically declared in 2–3 files at once, where only the earliest mount
+   ever served requests and the rest was dead code (banners/FAQs, exam
+   categories, subjects/units/chapters/topics/subtopics). Current owners:
+   banners+FAQs → `admin-catalog.js`; exam-categories → `admin-categories.js`;
+   subjects/units/chapters/topics/subtopics → `admin-dynamic-content.js`;
+   `/api/exams/:slug/compare` → `modules/exams/exam.routes.js` (has a numeric-ID
+   fallback). Before adding an admin route, confirm no sibling router already
+   declares that verb+path. Verified state: 941 effective routes, 1 intentional
+   duplicate (`/api/live-tests`, also reachable via `/api/live-mock`).
+4. **Security middleware wiring**
+   `middleware/htmlSanitizer.js` is mounted via `sanitizeUserContent()` on the
+   user-authored routers only (`community.js`, `doubts.js`, `discussions.js`,
+   `studyGroups.js`). Do NOT extend it to admin curriculum/question content —
+   that path relies on KaTeX markup the strict allowlist would strip. It skips
+   values that do not look like markup, so math like `x < y` survives.
+   Upload magic-number checks live in `infrastructure/storage/upload.js`
+   (`validateFileContent`), applied in `admin-assets.js` — the old
+   `middleware/upload-validation.js` was deleted as strictly weaker.
+5. **Optional integrations**
+   `src/integrations/optionalIntegrations.js` lazily loads `modules/ai/pdfProcessor.js`
+   and `services/taxonomyClassifier.service.mjs` behind `ENABLE_PDF_INGESTION` /
+   `CLASSIFIER_ENDPOINT` + `ENABLE_TAXONOMY_CLASSIFIER`. They report state via
+   `GET /api/health` in non-production. Both need external infrastructure, so
+   they must stay gated — never mount them unconditionally.
+
+6. **Core abstractions you will likely touch (god nodes)**
    `PostgresHelpers` (283 edges), `DataService` (186), `pool` (143),
    `dbHelpers` (136), `protect()` (103), `admin()`, `useAuth()`,
    `apiClient`, `getRedisClient()`.
    Edits ripple across ~70 modules — trace edges in the graph before changing.
 
-4. **Write/guard rails**
+7. **Write/guard rails**
    Respect `aiRateLimiter`, publish to `MessageBroker` (Redis Pub/Sub +
    BullMQ), and write `audit_logs` entries (`audit_logs` is canonical —
    there is no `audit_trail` table). The admin router enforces

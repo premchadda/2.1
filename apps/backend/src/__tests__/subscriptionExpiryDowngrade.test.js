@@ -24,7 +24,7 @@ jest.unstable_mockModule("../services/core/notificationService.js", () => ({
   dispatchNotification: (...args) => mockDispatchNotification(...args),
 }));
 
-const { default: SubscriptionService, FREE_LIMITS } =
+const { default: SubscriptionService } =
   await import("../services/SubscriptionService.js");
 
 describe("Subscription & Plan Expiration Auto-Downgrade Engine", () => {

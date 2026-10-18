@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   Play,
@@ -66,7 +67,7 @@ function SecurityBadge({ isEncrypted, encryptionType }) {
   return (
     <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-emerald-600 dark:text-emerald-400 text-xs font-semibold shrink-0 shadow-sm backdrop-blur-sm">
       <Shield className="w-3.5 h-3.5 text-emerald-500" />
-      FortSpy {encryptionType || "AES-256"} Encrypted
+      {encryptionType || "AES-256"} Encrypted Stream
     </div>
   );
 }
@@ -393,6 +394,7 @@ function RelatedVideos({ videos, currentVideoId }) {
                     alt={video.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
+                    decoding="async"
                   />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex items-center justify-center">
@@ -668,7 +670,7 @@ export default function VideoDetail() {
         setError("Video not found");
       } catch (err) {
         if (!controller.signal.aborted) {
-          console.error("Failed to fetch video:", err);
+          logger.error("Failed to fetch video:", err);
           setError("Failed to load video. Please try again.");
         }
       } finally {
@@ -1131,8 +1133,8 @@ export default function VideoDetail() {
                 aria-label="About player sources"
               >
                 <title>
-                  Auto picks Embed, FortSpy or Native from the video URL.
-                  Override here if playback fails.
+                  Auto picks Embed or Native from the video URL. Override here
+                  if playback fails.
                 </title>
               </HelpCircle>
               <div ref={sourceMenuRef} className="relative shrink-0">
@@ -1150,7 +1152,6 @@ export default function VideoDetail() {
                         { value: "auto", label: "Auto Stream" },
                         { value: "youtube", label: "YouTube" },
                         { value: "native", label: "HTML5 Player" },
-                        { value: "fortspy", label: "Encrypted" },
                       ].find((m) => m.value === playerMode) || {
                         label: playerMode,
                       }
@@ -1184,11 +1185,6 @@ export default function VideoDetail() {
                         disabled: !youtubeId,
                       },
                       { value: "native", label: "HTML5 Player" },
-                      {
-                        value: "fortspy",
-                        label: "Encrypted",
-                        disabled: !video?.fortspyId,
-                      },
                     ].map((mode) => {
                       const selected = playerMode === mode.value;
                       return (
@@ -1414,9 +1410,9 @@ export default function VideoDetail() {
                     <div className="flex items-start gap-3">
                       <Shield className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
                       <div>
-                        <h4 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                          FortSpy Anti-Piracy Protection Active
-                        </h4>
+                        <h2 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                          DRM Anti-Piracy Protection Active
+                        </h2>
                         <p className="text-xs text-emerald-700 dark:text-emerald-400/90 mt-1 leading-relaxed">
                           This lecture stream is dynamically encrypted at the
                           pixel level via{" "}

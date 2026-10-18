@@ -9,9 +9,6 @@ import {
   Search,
   Filter,
   Download,
-  Clock,
-  CheckCircle,
-  ChevronRight,
 } from "lucide-react";
 import { useWebSocket } from "../../../shared/hooks/useWebSocket";
 import { toast } from "react-hot-toast";
@@ -194,6 +191,7 @@ export default function LiveTestMonitor() {
         "Last Seen (Timestamp)",
         "Last Seen (Readable)",
       ],
+
       ...entries.map((p) => [
         p.attemptId,
         p.userId || "",
@@ -203,6 +201,7 @@ export default function LiveTestMonitor() {
         new Date(p.lastSeen).toISOString(),
       ]),
     ];
+
     exportToCSV(`live_test_participants_${Date.now()}`, rows);
   };
 
@@ -424,6 +423,7 @@ export default function LiveTestMonitor() {
                     <span
                       className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${item.type === "join" ? "bg-emerald-500" : item.type === "submit" ? "bg-blue-500" : item.type === "leave" ? "bg-amber-500" : "bg-indigo-500"}`}
                     />
+
                     <div className="min-w-0 flex-1">
                       <p className="text-gray-800 dark:text-gray-200 font-medium leading-snug">
                         {item.message}

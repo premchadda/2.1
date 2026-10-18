@@ -1,6 +1,5 @@
 import { describe, it, expect } from "@jest/globals";
 import {
-  normalizeScorerOption,
   resolveQuestionMarks,
   scoreMcqAnswer,
 } from "../shared/utils/scoreAttempt.js";
@@ -54,7 +53,7 @@ describe("End-to-End Mock Test Engine Simulation", () => {
   });
 
   it("Phase 1: Validates Test Configuration and Instructions State", () => {
-    expect(mockTest.questions.length).toBe(100);
+    expect(mockTest.questions.length).toBe(totalQuestions);
     expect(mockTest.totalMarks).toBe(200);
 
     // Section distribution
@@ -295,6 +294,10 @@ describe("End-to-End Mock Test Engine Simulation", () => {
     const maxMarks = 200;
     const accuracy = Number(((77 / 87) * 100).toFixed(1)); // 77 / 87 = 88.5%
     expect(accuracy).toBe(88.5);
+
+    // Score as a percentage of the paper maximum
+    const scorePercent = Number(((score / maxMarks) * 100).toFixed(1));
+    expect(scorePercent).toBe(74.5);
 
     // Percentile computation against benchmark cohort of 5,000 students
     const cohortScores = [

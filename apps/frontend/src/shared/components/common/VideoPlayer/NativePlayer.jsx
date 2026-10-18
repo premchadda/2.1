@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import {
   Play,
   Pause,
@@ -113,7 +114,7 @@ export default function NativePlayer({
       import("../../../lib/api").then(({ default: api }) => {
         api.post(`/api/videos/${videoId}/view`).catch((err) => {
           if (import.meta.env.DEV)
-            console.warn("[NativePlayer] Failed to record view event:", err);
+            logger.warn("[NativePlayer] Failed to record view event:", err);
         });
       });
     }
@@ -145,16 +146,55 @@ export default function NativePlayer({
     [duration],
   );
 
+  const seekTo = useCallback(
+    (target) => {
+      const video = videoRef.current;
+      if (!video) return;
+      const from = video.currentTime;
+      const next = Math.max(0, Math.min(duration, target));
+      videoTelemetry.trackSeek(from, next);
+      video.currentTime = next;
+    },
+    [duration],
+  );
+
   const skip = useCallback(
     (seconds) => {
       const video = videoRef.current;
       if (!video) return;
-      const from = video.currentTime;
-      const target = Math.max(0, Math.min(duration, from + seconds));
-      videoTelemetry.trackSeek(from, target);
-      video.currentTime = target;
+      seekTo(video.currentTime + seconds);
     },
-    [duration],
+    [seekTo],
+  );
+
+  // Keyboard equivalent of dragging the seek bar: ±5s on arrows, Home/End jump
+  // to the very start / end of the video.
+  const handleSeekKeyDown = useCallback(
+    (e) => {
+      switch (e.key) {
+        case "ArrowRight":
+        case "ArrowUp":
+          e.preventDefault();
+          skip(5);
+          break;
+        case "ArrowLeft":
+        case "ArrowDown":
+          e.preventDefault();
+          skip(-5);
+          break;
+        case "Home":
+          e.preventDefault();
+          seekTo(0);
+          break;
+        case "End":
+          e.preventDefault();
+          seekTo(duration);
+          break;
+        default:
+          break;
+      }
+    },
+    [duration, seekTo, skip],
   );
 
   const changePlaybackRate = useCallback((rate) => {
@@ -196,6 +236,13 @@ export default function NativePlayer({
       setIsFullscreen(false);
     }
   }, []);
+
+  // Guard the slider ARIA values: video.duration is NaN until metadata loads.
+  const seekMax = Number.isFinite(duration) && duration > 0 ? duration : 0;
+  const seekNow =
+    Number.isFinite(currentTime) && currentTime > 0
+      ? Math.min(currentTime, seekMax || currentTime)
+      : 0;
 
   return (
     <div
@@ -302,7 +349,7 @@ export default function NativePlayer({
               <div className="flex items-center gap-2 mb-2">
                 <Lock className="w-4 h-4 text-emerald-400" aria-hidden="true" />
                 <span className="text-white text-xs font-semibold">
-                  FortSpy Protection
+                  Protected Stream
                 </span>
               </div>
               <p className="text-white/70 text-xs leading-relaxed">
@@ -324,8 +371,16 @@ export default function NativePlayer({
           className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent px-4 pt-8 pb-3 transition-all ${showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
         >
           <div
-            className="w-full h-1 bg-white/30 rounded-full mb-3 cursor-pointer group"
+            className="w-full h-1 bg-white/30 rounded-full mb-3 cursor-pointer group outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             onClick={handleSeek}
+            onKeyDown={handleSeekKeyDown}
+            role="slider"
+            tabIndex={0}
+            aria-label="Seek"
+            aria-valuemin={0}
+            aria-valuemax={seekMax}
+            aria-valuenow={seekNow}
+            aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
           >
             <div
               className="h-full bg-white rounded-full relative"
@@ -404,7 +459,7 @@ export default function NativePlayer({
               {isEncrypted && (
                 <div
                   className="ml-2 flex items-center gap-1 text-emerald-400"
-                  title="FortSpy Encrypted"
+                  title="Encrypted Stream"
                 >
                   <Shield className="w-3.5 h-3.5" aria-hidden="true" />
                 </div>

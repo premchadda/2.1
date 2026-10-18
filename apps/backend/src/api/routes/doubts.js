@@ -5,6 +5,7 @@ import { idsMatch } from "../../services/core/common.js";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import { sanitizeUserContent } from "../../middleware/htmlSanitizer.js";
 
 const router = express.Router();
 
@@ -166,47 +167,54 @@ router.get("/:id", async (req, res, next) => {
 // @route   POST /api/doubts
 // @desc    Create a new doubt/question
 // @access  Private
-router.post("/", protect, contentCreationLimiter, async (req, res) => {
-  try {
-    const { title, description, category, tags } = req.body;
+// Doubt titles/bodies/replies are user-authored rich text. Sanitize AFTER protect().
+router.post(
+  "/",
+  protect,
+  contentCreationLimiter,
+  sanitizeUserContent(),
+  async (req, res) => {
+    try {
+      const { title, description, category, tags } = req.body;
 
-    if (!title || !description) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Title and description required" });
+      if (!title || !description) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Title and description required" });
+      }
+
+      // Sanitize input (Issue #37)
+      const sanitizedData = sanitizeDoubtInput({
+        title,
+        description,
+        category,
+        tags,
+      });
+
+      const doubt = await dbHelpers.insertOne("doubts", {
+        ...sanitizedData,
+        userId: req.user.id,
+        userName: req.user.name,
+        userEmail: req.user.email,
+        status: "open",
+        isActive: true,
+        views: 0,
+        createdAt: new Date().toISOString(),
+      });
+
+      res.status(201).json({ success: true, data: sanitizeDoubt(doubt) });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
     }
-
-    // Sanitize input (Issue #37)
-    const sanitizedData = sanitizeDoubtInput({
-      title,
-      description,
-      category,
-      tags,
-    });
-
-    const doubt = await dbHelpers.insertOne("doubts", {
-      ...sanitizedData,
-      userId: req.user.id,
-      userName: req.user.name,
-      userEmail: req.user.email,
-      status: "open",
-      isActive: true,
-      views: 0,
-      createdAt: new Date().toISOString(),
-    });
-
-    res.status(201).json({ success: true, data: sanitizeDoubt(doubt) });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+  },
+);
 
 // @route   PUT /api/doubts/:id
 // @desc    Update a doubt
 // @access  Private (owner only)
-router.put("/:id", protect, async (req, res) => {
+router.put("/:id", protect, sanitizeUserContent(), async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, category, tags, status } = req.body;
@@ -276,7 +284,7 @@ router.delete("/:id", protect, async (req, res) => {
 // @route   POST /api/doubts/:id/reply
 // @desc    Add a reply/answer to a doubt
 // @access  Private
-router.post("/:id/reply", protect, async (req, res) => {
+router.post("/:id/reply", protect, sanitizeUserContent(), async (req, res) => {
   try {
     const { id } = req.params;
     const { content, isAnswer } = req.body;

@@ -1,36 +1,21 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   Trophy,
   Users,
-  TrendingUp,
-  Search,
   RefreshCw,
-  Loader,
   BarChart2,
   ChevronDown,
   ChevronRight,
   RotateCcw,
-  Play,
   Calendar,
   Globe,
   Clock,
   Target,
-  CheckCircle,
-  XCircle,
-  Layers,
   Zap,
-  Award,
-  Radio,
   Download,
-  Eye,
-  ArrowUpRight,
   Copy,
-  Filter,
-  Sparkles,
-  ShieldCheck,
-  CheckCircle2,
-  AlertCircle,
   X,
   Plus,
 } from "lucide-react";
@@ -38,8 +23,6 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  AreaChart,
-  Area,
   PieChart,
   Pie,
   Cell,
@@ -149,7 +132,7 @@ export default function LeaderboardResultsUnified() {
           },
         );
       } catch (err) {
-        console.warn("Realtime rankings fetch error:", err?.message);
+        logger.warn("Realtime rankings fetch error:", err?.message);
         if (showSpinner) toast.error("Failed to load real-time rankings");
       } finally {
         if (showSpinner) setRealtimeLoading(false);
@@ -170,7 +153,7 @@ export default function LeaderboardResultsUnified() {
       const res = await apiClient.get("/leaderboards/admin/list", { params });
       setLeaderboards(res.data?.data || []);
     } catch (err) {
-      console.warn("Leaderboards fetch error:", err?.message);
+      logger.warn("Leaderboards fetch error:", err?.message);
     } finally {
       setLoadingConfigs(false);
     }
@@ -181,7 +164,7 @@ export default function LeaderboardResultsUnified() {
       const res = await apiClient.get("/leaderboards/admin/stats");
       setStats(res.data?.data || null);
     } catch (err) {
-      console.warn("Stats fetch error:", err?.message);
+      logger.warn("Stats fetch error:", err?.message);
     }
   }, []);
 
@@ -195,7 +178,7 @@ export default function LeaderboardResultsUnified() {
         setAvailableTests(tests);
       }
     } catch (e) {
-      console.warn(
+      logger.warn(
         "Failed to load tests list for leaderboard filter:",
         e?.message,
       );
@@ -409,6 +392,7 @@ export default function LeaderboardResultsUnified() {
       "Percentile",
       "Last Attempt",
     ];
+
     const rows = filteredRealtimeRankings.map((r) => [
       r.rank,
       r.userId,
@@ -504,6 +488,7 @@ export default function LeaderboardResultsUnified() {
               <span
                 className={`w-2 h-2 rounded-full ${autoRefresh ? "bg-emerald-500 animate-pulse" : "bg-gray-400"}`}
               />
+
               <span>{autoRefresh ? "Live Auto-Sync" : "Sync Paused"}</span>
             </button>
           )}
@@ -516,6 +501,7 @@ export default function LeaderboardResultsUnified() {
             <RefreshCw
               className={`w-3.5 h-3.5 ${refreshing || realtimeLoading ? "animate-spin text-indigo-600" : ""}`}
             />
+
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
@@ -1009,6 +995,7 @@ export default function LeaderboardResultsUnified() {
                           <BarChart2
                             className={`w-3.5 h-3.5 ${actioning === lb.id + "_calc" ? "animate-spin" : ""}`}
                           />
+
                           <span>Recalculate</span>
                         </button>
                         <button

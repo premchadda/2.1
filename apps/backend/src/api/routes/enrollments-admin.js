@@ -270,7 +270,9 @@ router.delete("/admin/:userId/:seriesId", async (req, res) => {
 
 router.post("/admin/bulk-enroll", async (req, res) => {
   try {
-    const { userIds, seriesId, sendNotification } = req.body;
+    // NOTE: a `sendNotification` flag used to be accepted here and never acted
+    // on. It was removed rather than left implying notifications are sent.
+    const { userIds, seriesId } = req.body;
 
     if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
       return res.status(400).json({

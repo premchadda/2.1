@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../shared/providers/AuthContext";
 import {
@@ -320,7 +321,7 @@ function TestInstructions() {
               setSeries(currentSeries || null);
             }
           } catch (e) {
-            console.error("Failed to fetch series:", e);
+            logger.error("Failed to fetch series:", e);
           }
 
           // Use question count from test metadata
@@ -338,7 +339,7 @@ function TestInstructions() {
           }
         }
       } catch (error) {
-        console.error("Test instructions fetch error:", error);
+        logger.error("Test instructions fetch error:", error);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -400,7 +401,7 @@ function TestInstructions() {
             isReattempt,
           };
         } catch (err) {
-          if (import.meta.env.DEV) console.warn("Preload test error:", err);
+          if (import.meta.env.DEV) logger.warn("Preload test error:", err);
           return null;
         }
       })();

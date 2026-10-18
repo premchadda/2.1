@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import {
   Plus,
   Trash2,
@@ -52,7 +53,7 @@ export default function BackupsManager() {
         setFetchError(response.data?.message || "Failed to fetch backups");
       }
     } catch (error) {
-      console.error("Failed to fetch backups:", error);
+      logger.error("Failed to fetch backups:", error);
       setBackups([]);
       setFetchError(
         error.response?.data?.message ||
@@ -81,7 +82,7 @@ export default function BackupsManager() {
         toast.error(response.data?.message || "Failed to create backup");
       }
     } catch (error) {
-      console.error("Failed to create backup:", error);
+      logger.error("Failed to create backup:", error);
       toast.error("Failed to create backup");
     } finally {
       setCreating(false);
@@ -132,7 +133,7 @@ export default function BackupsManager() {
       }, 1000);
       toast.success("Backup downloaded successfully");
     } catch (error) {
-      console.error("Failed to download backup:", error);
+      logger.error("Failed to download backup:", error);
       if (isForbidden(error)) {
         toast.error("Admin privilege required to download backups");
       } else {
@@ -160,7 +161,7 @@ export default function BackupsManager() {
         toast.error(response.data?.message || "Failed to delete backup");
       }
     } catch (error) {
-      console.error("Failed to delete backup:", error);
+      logger.error("Failed to delete backup:", error);
       if (isForbidden(error)) {
         toast.error("Admin privilege required to delete backups");
       } else {
@@ -184,7 +185,7 @@ export default function BackupsManager() {
         toast.success("Backup restored successfully");
       }
     } catch (error) {
-      console.error("Failed to restore backup:", error);
+      logger.error("Failed to restore backup:", error);
       if (isForbidden(error)) {
         toast.error("Admin privilege required to restore backups");
       } else {

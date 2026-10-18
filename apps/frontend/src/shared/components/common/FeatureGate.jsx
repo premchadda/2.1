@@ -5,6 +5,7 @@ import { useState } from "react";
 import { api } from "../../lib/dataService.js";
 import { useAuth } from "../../providers/AuthContext";
 import { toast } from "react-hot-toast";
+import { getErrorStatus } from "../../lib/apiClient.js";
 
 /**
  * FeatureGate — wraps a page or section and shows "Coming Soon" if the
@@ -126,7 +127,7 @@ function SectionComingSoon({
       setSubscribed(true);
       toast.success("You will be notified when this is available!");
     } catch (error) {
-      if (error.response?.status === 409 || error.response?.status === 400) {
+      if (getErrorStatus(error) === 409 || getErrorStatus(error) === 400) {
         setSubscribed(true);
         toast.success("You are already subscribed!");
       } else {

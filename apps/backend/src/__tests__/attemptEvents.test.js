@@ -1,10 +1,6 @@
 import { jest } from "@jest/globals";
 
 describe("Attempt Events Logging and Question Resolution", () => {
-  let dbHelpers;
-  let findEntityByIdentifier;
-  let getInternalId;
-
   beforeEach(() => {
     jest.resetModules();
   });

@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BRAIN = join(ROOT, 'docs', 'REPO_BRAIN.html');
+const BRAIN_MD = join(ROOT, 'docs', 'REPO_BRAIN.md');
 const GRAPH = join(ROOT, 'graphify-out', 'graph.json');
 const REPORT = join(ROOT, 'graphify-out', 'GRAPH_REPORT.md');
 const CHECK_ONLY = process.argv.includes('--check');
@@ -170,51 +171,63 @@ for (const k of ['graph_nodes', 'backend_src_files', 'frontend_src_files', 'admi
   }
 }
 
-// ---------- apply to HTML ----------
-let html = readFileSync(BRAIN, 'utf8');
+// ---------- apply to HTML and Markdown ----------
 let changed = 0;
 let unchanged = 0;
 const seen = new Set();
-const staleKeys = new Set(); // span keys whose values differ (for CHECK_ONLY reporting)
-html = html.replace(/<span data-brain="([^"]+)"[^>]*>([^<]*)<\/span>/g,
-  (m, key, old) => {
-    const value = facts[key];
-    if (value === undefined) return m; // unknown key (e.g. literal examples in prose)
-    seen.add(key);
-    if (old === value) { unchanged++; return m; }
-    changed++;
-    staleKeys.add(key);
-    return m.replace(/>[^<]*</, `>${value}<`);
-  });
+const staleKeys = new Set();
 
-// title date (plain text — no spans inside <title>)
-const titleRe = /(<title>Trstprep V2\.1 — Repo Brain \(Updated )([^<]+?)(\)<\/title>)/;
-if (titleRe.test(html)) {
-  const cur = html.match(titleRe)[2];
-  if (cur !== facts.refreshed) {
-    html = html.replace(titleRe, `$1${facts.refreshed}$3`);
-    changed++;
-    staleKeys.add('title(refreshed)');
+const syncTarget = (filePath) => {
+  if (!existsSync(filePath)) return;
+  let text = readFileSync(filePath, 'utf8');
+  let fileChanged = 0;
+  text = text.replace(/<span data-brain="([^"]+)"[^>]*>([^<]*)<\/span>/g,
+    (m, key, old) => {
+      const value = facts[key];
+      if (value === undefined) return m;
+      seen.add(key);
+      if (old === value) { unchanged++; return m; }
+      changed++;
+      fileChanged++;
+      staleKeys.add(key);
+      return m.replace(/>[^<]*</, `>${value}<`);
+    });
+
+  if (filePath.endsWith('.html')) {
+    const titleRe = /(<title>Trstprep V2\.1 — Repo Brain \(Updated )([^<]+?)(\)<\/title>)/;
+    if (titleRe.test(text)) {
+      const cur = text.match(titleRe)[2];
+      if (cur !== facts.refreshed) {
+        text = text.replace(titleRe, `$1${facts.refreshed}$3`);
+        changed++;
+        fileChanged++;
+        staleKeys.add('title(refreshed)');
+      }
+    }
   }
-}
+
+  if (!CHECK_ONLY && fileChanged > 0) {
+    writeFileSync(filePath, text, 'utf8');
+  }
+};
+
+syncTarget(BRAIN);
+syncTarget(BRAIN_MD);
 
 const missing = Object.keys(facts).filter((k) => !seen.has(k) && k !== 'refreshed');
 if (missing.length) console.log(`[sync-repo-brain] note: no spans for keys: ${missing.join(', ')}`);
 
 if (!changed) {
-  console.log(`[sync-repo-brain] up to date (${unchanged} spans verified, ${seen.size} keys).`);
+  console.log(`[sync-repo-brain] up to date (${unchanged} spans verified across HTML & MD, ${seen.size} keys).`);
   process.exit(0);
 }
 if (CHECK_ONLY) {
-  // `head` is informational — it names the commit the numbers describe, and any
-  // new commit necessarily moves it. Enforce only the data spans.
   const enforced = [...staleKeys].filter((k) => k !== 'head');
   if (!enforced.length) {
-    console.log(`[sync-repo-brain] up to date (${unchanged} spans verified, ${seen.size} keys; head pointer is informational).`);
+    console.log(`[sync-repo-brain] up to date (${unchanged} spans verified across HTML & MD, ${seen.size} keys; head pointer is informational).`);
     process.exit(0);
   }
   console.log(`[sync-repo-brain] --check: ${changed} span(s) stale (${enforced.join(', ')}).`);
   process.exit(1);
 }
-writeFileSync(BRAIN, html, 'utf8');
-console.log(`[sync-repo-brain] refreshed ${changed} value(s) (${unchanged} already current): HEAD ${facts.head}, ${facts.graph_nodes} nodes / ${facts.graph_edges} edges / ${facts.graph_communities} communities, ${facts.migration_files} migrations.`);
+console.log(`[sync-repo-brain] refreshed ${changed} value(s) across HTML & MD (${unchanged} already current): HEAD ${facts.head}, ${facts.graph_nodes} nodes / ${facts.graph_edges} edges / ${facts.graph_communities} communities, ${facts.migration_files} migrations.`);

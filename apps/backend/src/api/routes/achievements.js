@@ -3,11 +3,9 @@ import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { protect } from "../../middleware/auth.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 import {
-  calculateAttemptXP,
   calculateUserLevel,
   getStreakFreezeStatus,
   applyStreakFreeze,
-  evaluateMilestoneBadges,
 } from "../../services/core/gamificationService.js";
 
 const router = express.Router();

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { adminAPI } from "../../../shared/lib/dataService";
 import { toast } from "react-hot-toast";
 import {
@@ -93,7 +94,7 @@ export default function RolePermissionsManager({
       }
     } catch (error) {
       if (signal.aborted) return;
-      console.error("Error fetching roles/permissions:", error);
+      logger.error("Error fetching roles/permissions:", error);
       toast.error("Failed to load data");
     } finally {
       if (!signal.aborted) setLoading(false);
@@ -230,7 +231,7 @@ export default function RolePermissionsManager({
       setEditingId(null);
       fetchData();
     } catch (error) {
-      console.error("Error saving role:", error);
+      logger.error("Error saving role:", error);
       toast.error(error.response?.data?.message || "Failed to save role");
     }
   };

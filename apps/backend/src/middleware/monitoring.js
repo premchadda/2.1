@@ -144,12 +144,10 @@ export const monitoringMiddleware = (req, res, next) => {
     .replace(/\/\d+/g, "/:id");
   trackBounded(memoryMetrics.requests.byPath, path, MAX_TRACKED_PATHS);
 
-  // Async Redis updates (fire and forget)
-  const redisUpdates = [
-    incrementRedisCounter(REDIS_KEYS.REQUESTS_TOTAL),
-    incrementRedisCounter(`${REDIS_KEYS.REQUESTS_BY_METHOD}${method}`),
-    incrementRedisCounter(`${REDIS_KEYS.REQUESTS_BY_PATH}${path}`),
-  ];
+  // Async Redis updates (fire and forget — incrementRedisCounter never rejects)
+  incrementRedisCounter(REDIS_KEYS.REQUESTS_TOTAL);
+  incrementRedisCounter(`${REDIS_KEYS.REQUESTS_BY_METHOD}${method}`);
+  incrementRedisCounter(`${REDIS_KEYS.REQUESTS_BY_PATH}${path}`);
 
   // Hook into response finish
   res.on("finish", async () => {

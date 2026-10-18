@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import TestReview from "../pages/tests/TestReview";
+import { ROUTER_FUTURE_FLAGS } from "../test/routerFutureFlags";
 
 // Mock dataService
 vi.mock("../shared/lib/dataService", () => ({
@@ -60,6 +61,7 @@ describe("Test Paper & PDF Solution Key Export Engine (TestReview.jsx)", () => {
             state: { testData },
           },
         ]}
+        future={ROUTER_FUTURE_FLAGS}
       >
         <Routes>
           <Route path="/test/:testId/review" element={<TestReview />} />

@@ -1,8 +1,5 @@
 import express from "express";
-import {
-  pool,
-  dbHelpers,
-} from "../../infrastructure/database/postgres-helpers.js";
+import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 import responseCache from "../../middleware/responseCache.js";
 import { readQuery } from "../../../config/database-replicas.js";

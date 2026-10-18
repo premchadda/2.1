@@ -43,25 +43,20 @@ function cleanupCsrfTokens() {
   }
 }
 
-// HMAC pepper for auth token hashing — never store raw token hash without pepper
+// Instance fallback pepper generated at boot if env var not configured (cryptographic isolation from JWT_SECRET)
+const DEFAULT_INSTANCE_PEPPER = crypto.randomBytes(32).toString("hex");
+
+// HMAC pepper for auth token hashing — never reuse JWT_SECRET
 const getCsrfPepper = () => {
   return (
     process.env.CSRF_HMAC_PEPPER ||
     process.env.CSRF_PEPPER ||
-    process.env.JWT_SECRET ||
-    ""
+    DEFAULT_INSTANCE_PEPPER
   );
 };
 
 const hashAuthToken = (authToken) => {
   const pepper = getCsrfPepper();
-  // Use HMAC-SHA256 with pepper; falls back gracefully if pepper missing (warned)
-  if (!pepper) {
-    console.warn(
-      "[CSRF] CSRF_HMAC_PEPPER/JWT_SECRET not set — using insecure hash",
-    );
-    return crypto.createHash("sha256").update(authToken).digest("hex");
-  }
   return crypto.createHmac("sha256", pepper).update(authToken).digest("hex");
 };
 

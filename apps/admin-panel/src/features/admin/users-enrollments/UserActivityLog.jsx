@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { logger } from "@trstprep/shared-config";
+import { useNavigate } from "react-router-dom";
 import { adminAPI } from "../../../shared/lib/dataService";
 import AdminPageHeader from "../../../shared/components/admin/AdminPageHeader";
 import SearchInput from "../../../shared/components/ui/SearchInput";
@@ -17,40 +18,28 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import {
   Activity,
   User,
   Clock,
-  Filter,
   Download,
-  Eye,
   RefreshCw,
-  CheckCircle2,
-  AlertCircle,
   Video,
   BookOpen,
-  Calendar,
   Layers,
   Sparkles,
-  ChevronRight,
   X,
   Radio,
-  FileText,
   UserPlus,
   Trophy,
   ArrowUpRight,
   LayoutList,
-  SlidersHorizontal,
-  Info,
-  ShieldAlert,
   BarChart3,
   PieChart as PieIcon,
   TrendingUp,
   Flame,
   Zap,
-  Target,
 } from "lucide-react";
 import { filterAndRank } from "../../../shared/utils/searchUtils";
 
@@ -176,7 +165,7 @@ export default function UserActivityLog() {
         if (isManualRefresh)
           toast.success("Activity log refreshed", { id: "activity-refresh" });
       } catch (error) {
-        console.error("Failed to fetch activity logs:", error);
+        logger.error("Failed to fetch activity logs:", error);
         if (isManualRefresh) toast.error("Failed to refresh activity log");
       } finally {
         setLoading(false);
@@ -244,6 +233,7 @@ export default function UserActivityLog() {
         item.type,
         item.userId,
       ],
+
       { threshold: 18 },
     );
   }, [activities, filterType, searchQuery]);
@@ -468,6 +458,7 @@ export default function UserActivityLog() {
               <span
                 className={`w-2 h-2 rounded-full ${isLivePolling ? "bg-emerald-500 animate-ping" : "bg-gray-400"}`}
               />
+
               <Radio className="w-3.5 h-3.5" />
               <span>{isLivePolling ? "Live Stream" : "Live Stream Off"}</span>
             </button>
@@ -481,6 +472,7 @@ export default function UserActivityLog() {
               <RefreshCw
                 className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-indigo-600" : ""}`}
               />
+
               <span className="hidden sm:inline">Refresh</span>
             </button>
 
@@ -715,6 +707,7 @@ export default function UserActivityLog() {
                           stopColor="#6366f1"
                           stopOpacity={0.4}
                         />
+
                         <stop
                           offset="95%"
                           stopColor="#6366f1"
@@ -733,6 +726,7 @@ export default function UserActivityLog() {
                           stopColor="#10b981"
                           stopOpacity={0.4}
                         />
+
                         <stop
                           offset="95%"
                           stopColor="#10b981"
@@ -745,17 +739,20 @@ export default function UserActivityLog() {
                       vertical={false}
                       stroke="#88888820"
                     />
+
                     <XAxis
                       dataKey="time"
                       tick={{ fontSize: 11, fill: "#888888" }}
                       axisLine={false}
                       tickLine={false}
                     />
+
                     <YAxis
                       tick={{ fontSize: 11, fill: "#888888" }}
                       axisLine={false}
                       tickLine={false}
                     />
+
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "#18181b",
@@ -765,6 +762,7 @@ export default function UserActivityLog() {
                         fontSize: "12px",
                       }}
                     />
+
                     <Area
                       type="monotone"
                       dataKey="total"
@@ -774,6 +772,7 @@ export default function UserActivityLog() {
                       fill="url(#colorTotal)"
                       name="Total Activity"
                     />
+
                     <Area
                       type="monotone"
                       dataKey="tests"
@@ -840,6 +839,7 @@ export default function UserActivityLog() {
                       className="w-2.5 h-2.5 rounded-full shrink-0"
                       style={{ backgroundColor: item.color }}
                     />
+
                     <span className="text-gray-600 dark:text-gray-300 font-medium truncate">
                       {item.name}
                     </span>
@@ -882,17 +882,20 @@ export default function UserActivityLog() {
                       vertical={false}
                       stroke="#88888820"
                     />
+
                     <XAxis
                       dataKey="hour"
                       tick={{ fontSize: 10, fill: "#888888" }}
                       axisLine={false}
                       tickLine={false}
                     />
+
                     <YAxis
                       tick={{ fontSize: 10, fill: "#888888" }}
                       axisLine={false}
                       tickLine={false}
                     />
+
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "#18181b",
@@ -902,6 +905,7 @@ export default function UserActivityLog() {
                         fontSize: "12px",
                       }}
                     />
+
                     <Bar
                       dataKey="events"
                       fill="#6366f1"

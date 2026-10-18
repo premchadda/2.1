@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -54,7 +55,7 @@ export default function ExamCompare() {
       }
     } catch (error) {
       if (error.name !== "AbortError") {
-        console.error("Failed to fetch exam compare data:", error);
+        logger.error("Failed to fetch exam compare data:", error);
         setExamData(null);
         setErrorMessage(
           "Comparison data could not be loaded. Please try again.",
@@ -174,9 +175,9 @@ export default function ExamCompare() {
           /* Error / Empty State — no fabricated fallback data */
           <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden p-8 text-center">
             <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               Comparison data unavailable
-            </h3>
+            </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
               {errorMessage ||
                 "Yearly comparison data has not been published for this exam yet."}

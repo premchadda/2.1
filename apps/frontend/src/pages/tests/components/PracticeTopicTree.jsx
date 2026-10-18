@@ -218,7 +218,20 @@ export default function PracticeTopicTree({
                           subjectId: currentSubject.id,
                         })
                       }
-                      className="group bg-slate-50/70 dark:bg-slate-900/40 hover:bg-white dark:hover:bg-slate-700/60 p-3 rounded-xl border border-slate-100 dark:border-slate-700/60 hover:border-indigo-300 dark:hover:border-indigo-500/50 transition-all duration-200 cursor-pointer flex items-center justify-between gap-3"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Practice topic: ${topic.name}`}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onSelectTopic?.({
+                            ...topic,
+                            chapterId: chapter.id,
+                            subjectId: currentSubject.id,
+                          });
+                        }
+                      }}
+                      className="group bg-slate-50/70 dark:bg-slate-900/40 hover:bg-white dark:hover:bg-slate-700/60 p-3 rounded-xl border border-slate-100 dark:border-slate-700/60 hover:border-indigo-300 dark:hover:border-indigo-500/50 transition-all duration-200 cursor-pointer flex items-center justify-between gap-3 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">

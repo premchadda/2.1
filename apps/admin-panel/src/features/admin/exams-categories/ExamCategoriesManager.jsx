@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   Plus,
@@ -43,7 +44,7 @@ export default function ExamCategoriesManager() {
         );
       }
     } catch (error) {
-      console.error("Failed to fetch categories:", error);
+      logger.error("Failed to fetch categories:", error);
     } finally {
       setLoading(false);
     }
@@ -75,7 +76,7 @@ export default function ExamCategoriesManager() {
         resetCategoryForm();
       }
     } catch (error) {
-      console.error("Failed to save category:", error);
+      logger.error("Failed to save category:", error);
       toast.error("Failed to save category");
     }
   };
@@ -142,7 +143,7 @@ export default function ExamCategoriesManager() {
         fetchCategories();
       }
     } catch (error) {
-      console.error("Failed to delete category:", error);
+      logger.error("Failed to delete category:", error);
       toast.error("Failed to delete category");
     }
   };

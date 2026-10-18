@@ -15,13 +15,9 @@ import {
   captureSession,
   invalidateSession,
   getUserSessions,
-  updateSessionActivity,
   parseUserAgent as parseUA,
 } from "../../services/SessionCaptureService.js";
-import {
-  logAuditEvent,
-  AUDIT_ACTIONS,
-} from "../../middleware/audit.middleware.js";
+import { logAuditEvent } from "../../middleware/audit.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const getClientIp = (req) => {
@@ -59,6 +55,7 @@ export const parseUserAgent = (ua = "") => {
 // ─── Auto-Schema Ensure ───────────────────────────────────────────────────────
 // Run at module load — creates or migrates the user_sessions table
 const ensureUserSessionsTable = async () => {
+  if (process.env.NODE_ENV === "test") return;
   try {
     // Note: id is VARCHAR not SERIAL — captureSession generates explicit
     // string ids like 'sess_<timestamp>_<random>'. If the table already
@@ -70,7 +67,7 @@ const ensureUserSessionsTable = async () => {
         WHERE table_schema = 'public' AND table_name = 'user_sessions' AND column_name = 'id'
       `);
       if (
-        idColCheck.rows.length > 0 &&
+        idColCheck?.rows?.length > 0 &&
         (idColCheck.rows[0].data_type === "integer" ||
           idColCheck.rows[0].data_type === "bigint")
       ) {
@@ -121,7 +118,7 @@ const ensureUserSessionsTable = async () => {
       FROM information_schema.columns
       WHERE table_schema = 'public' AND table_name = 'user_sessions'
     `);
-    const cols = colCheck.rows.map((r) => r.column_name);
+    const cols = colCheck?.rows ? colCheck.rows.map((r) => r.column_name) : [];
 
     if (cols.includes("userId")) {
       console.log(

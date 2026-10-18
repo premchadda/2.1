@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { logger } from "@trstprep/shared-config";
 import {
   X,
   BookOpen,
@@ -27,7 +28,7 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
           text: contentData?.excerpt || contentData?.description,
           url: window.location.href,
         })
-        .catch((err) => console.error("Share failed:", err));
+        .catch((err) => logger.error("Share failed:", err));
     }
   };
 

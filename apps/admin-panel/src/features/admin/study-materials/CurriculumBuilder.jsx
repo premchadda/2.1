@@ -6,7 +6,8 @@ import React, {
   useRef,
   memo,
 } from "react";
-import { createPortal } from "react-dom";
+import { logger } from "@trstprep/shared-config";
+
 import {
   Folder,
   Layers,
@@ -21,15 +22,8 @@ import {
   FileText,
   BookOpen,
   TestTube2,
-  X,
   Download,
-  ArrowUp,
-  ArrowDown,
   ExternalLink,
-  CheckCircle,
-  AlertCircle,
-  Settings,
-  Search,
   Check,
   Loader2,
 } from "lucide-react";
@@ -165,6 +159,7 @@ const SUBJECT_PALETTE_CB = [
   "#3b82f6",
   "#ef4444",
 ];
+
 const paletteColorCB = (name) => {
   let hash = 0;
   for (let i = 0; i < (name || "").length; i++)
@@ -352,6 +347,7 @@ function CurriculumBuilder() {
         ["/admin/topics", "topics"],
         ["/admin/subtopics", "subtopics"],
       ];
+
       const settled = await Promise.allSettled(
         endpoints.map(([url]) => fetchApi(url)),
       );
@@ -372,7 +368,7 @@ function CurriculumBuilder() {
         else showToast(msg, "error");
       }
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       if (!silent) setLoadError(error?.message || "Failed to load curriculum");
       else showToast("Failed to refresh curriculum data.", "error");
     }
@@ -676,6 +672,7 @@ function CurriculumBuilder() {
       "class note",
       "lecture note",
     ];
+
     const notes = pdfs.filter((pdf) => {
       // Check for explicit type field first (preferred method)
       const pdfType = (
@@ -754,6 +751,7 @@ function CurriculumBuilder() {
       chapterActiveItems[
         direction === "up" ? visibleIndex - 1 : visibleIndex + 1
       ];
+
     if (!neighborVisibleItem) return;
 
     const neighborActualIndex = fullItems.findIndex((i) => {
@@ -784,6 +782,7 @@ function CurriculumBuilder() {
         "class note",
         "lecture note",
       ];
+
       newNotes = newFullItems.filter((pdf) => {
         const pdfType = (
           pdf.type ||
@@ -836,7 +835,7 @@ function CurriculumBuilder() {
 
       showToast("Order saved");
     } catch (error) {
-      console.error("Reorder failed:", error);
+      logger.error("Reorder failed:", error);
       showToast("Reorder synchronization failed", "error");
     }
   };
@@ -912,7 +911,7 @@ function CurriculumBuilder() {
     }
 
     let url = "";
-    let payload = {
+    const payload = {
       slug: formData.slug,
       description: formData.description,
       icon: formData.icon,
@@ -1017,7 +1016,7 @@ function CurriculumBuilder() {
       setSlugError("");
       loadData(true); // silent — no full-page spinner
     } catch (error) {
-      console.error("Error saving:", error);
+      logger.error("Error saving:", error);
       showToast(
         "Failed to save. " + (error.response?.data?.message || ""),
         "error",
@@ -1124,7 +1123,7 @@ function CurriculumBuilder() {
       showToast(`${label} moved to recycle bin.`);
       loadData(true); // silent — no full-page spinner
     } catch (error) {
-      console.error("Error deleting:", error);
+      logger.error("Error deleting:", error);
       showToast("Failed to delete item.", "error");
     }
   };
@@ -1157,7 +1156,7 @@ function CurriculumBuilder() {
       setSelectedItemIds(new Set());
       loadData(true); // silent refresh
     } catch (error) {
-      console.error("Error bulk deleting:", error);
+      logger.error("Error bulk deleting:", error);
       showToast("Failed to delete some items.", "error");
     } finally {
       setLoading(false);
@@ -1249,7 +1248,7 @@ function CurriculumBuilder() {
       showToast("Order updated");
       loadData();
     } catch (error) {
-      console.error("Reorder failed:", error);
+      logger.error("Reorder failed:", error);
       showToast("Failed to reorder", "error");
     } finally {
       setReorderLoading((prev) => {
@@ -2574,7 +2573,7 @@ function CurriculumBuilder() {
         getLevelEmoji={getLevelEmoji}
         getEntityId={getEntityId}
         navigate={navigate}
-        reorderChapterResource={reorderChapterResource}
+        reorderChapterResource={handleReorderResource}
         chapterActiveItems={chapterActiveItems}
         chapterActiveTabConfig={chapterActiveTabConfig}
         getChapterTabCount={getChapterTabCount}
@@ -2592,11 +2591,11 @@ function CurriculumBuilder() {
         setFormData={setFormData}
         handleSave={handleSave}
         HIERARCHY_TABS={HIERARCHY_TABS}
-        subjects={subjects}
-        units={units}
-        chapters={chapters}
-        topics={topics}
-        subtopics={subtopics}
+        subjects={data.subjects}
+        units={data.units}
+        chapters={data.chapters}
+        topics={data.topics}
+        subtopics={data.subtopics}
         selectedSubject={selectedSubject}
         getEntityId={getEntityId}
         slugError={slugError}

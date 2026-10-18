@@ -1,5 +1,4 @@
 import { BaseRepository } from "../../infrastructure/repository/base.repository.js";
-import { pool } from "../../infrastructure/database/postgres-helpers.js";
 
 export class SectionRepository extends BaseRepository {
   constructor() {
@@ -15,23 +14,29 @@ export class SectionRepository extends BaseRepository {
        FROM test_sections ts
        WHERE ts.test_id = $1 OR ts.test_id IS NULL
        ORDER BY ts.display_order, ts.id`,
-      [testId]
+      [testId],
     );
   }
 
   async linkToTest(sectionId, testId) {
-    await this.executeRaw("UPDATE test_sections SET test_id = $1 WHERE id = $2", [testId, sectionId]);
+    await this.executeRaw(
+      "UPDATE test_sections SET test_id = $1 WHERE id = $2",
+      [testId, sectionId],
+    );
   }
 
   async unlinkFromTest(testId) {
-    await this.executeRaw("UPDATE test_sections SET test_id = NULL WHERE test_id = $1", [testId]);
+    await this.executeRaw(
+      "UPDATE test_sections SET test_id = NULL WHERE test_id = $1",
+      [testId],
+    );
   }
 
   async bulkLinkToTest(sectionIds, testId) {
     if (sectionIds.length > 0) {
       await this.executeRaw(
         "UPDATE test_sections SET test_id = $1 WHERE id = ANY($2::int[])",
-        [testId, sectionIds]
+        [testId, sectionIds],
       );
     }
   }

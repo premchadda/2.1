@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { toast } from "react-hot-toast";
 import { userAPI } from "../../../shared/lib/dataService";
 
@@ -90,7 +91,7 @@ export function useProfileForm({ user, refreshUser, setPersonalInfo }) {
         return true;
       }
     } catch (error) {
-      console.error("Failed to update profile:", error);
+      logger.error("Failed to update profile:", error);
       toast.error("Failed to update profile.");
     } finally {
       setSaving(false);

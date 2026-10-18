@@ -7,33 +7,28 @@ import {
   lazy,
   Suspense,
 } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { useSearchParams, Link } from "react-router-dom";
 import {
-  Check,
   CheckSquare,
   ChevronDown,
   ChevronRight,
   Clock,
   Edit,
   FileText,
-  Filter,
   FolderOpen,
   Layers,
   Plus,
-  Save,
-  Search,
   Shield,
   Trash2,
   Upload,
   X,
   Radio,
   BookOpen,
-  ExternalLink,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { logger } from "../../../shared/lib/logger";
-import { adminAPI, apiClient } from "../../../shared/lib/dataService";
+import { adminAPI } from "../../../shared/lib/dataService";
 import {
   coerceArray,
   idsEqual,
@@ -121,6 +116,7 @@ const TEST_CATEGORY_ALIASES = {
     "Previous Year Papers",
     "PYPs",
   ],
+
   "live-tests": ["live-tests", "live", "live test", "live tests", "Live Tests"],
 };
 
@@ -329,6 +325,7 @@ const buildCategorySelectionRefs = (categoryId, flatCategories = []) => {
   const queue = [
     ...(childrenByParent.get(String(getEntityId(seed) || "")) || []),
   ];
+
   let qHead = 0;
   const seen = new Set([
     String(
@@ -375,6 +372,7 @@ const categoryRecordMatchesRefs = (category, refs) =>
       category.label,
       category.categoryId,
     ],
+
     refs,
   );
 
@@ -616,6 +614,7 @@ const BulkUploadModal = ({
                 onChange={handleFileChange}
                 className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
               />
+
               <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed">
                 Supported columns include title, duration, totalQuestions,
                 totalMarks, difficulty, type, and tags.
@@ -867,7 +866,7 @@ function TestsManager() {
         setScopedSections(rows.map(normalizeSectionForForm));
       })
       .catch((err) => {
-        console.error("Failed to load scoped sections:", err);
+        logger.error("Failed to load scoped sections:", err);
         if (!cancelled) setScopedSections([]);
       })
       .finally(() => {
@@ -1784,7 +1783,7 @@ function TestsManager() {
         }
       }
     } catch (error) {
-      console.error("Preset error:", error);
+      logger.error("Preset error:", error);
       toast.error(error.response?.data?.message || "Failed to apply scheme");
     } finally {
       setSaving(false);
@@ -2065,6 +2064,7 @@ function TestsManager() {
               .filter((id) => !Number.isNaN(id)),
           ),
         ],
+
         ...(data.isLive && data.scheduledAt
           ? { scheduledAt: data.scheduledAt }
           : {}),
@@ -2125,7 +2125,7 @@ function TestsManager() {
       closeForm();
       await fetchData();
     } catch (error) {
-      console.error("Failed to save test:", error);
+      logger.error("Failed to save test:", error);
       toast.error(error.response?.data?.message || "Failed to save test");
     } finally {
       setSaving(false);
@@ -2253,7 +2253,7 @@ function TestsManager() {
       toast.success("Test deleted successfully");
       setDeleteTarget(null);
     } catch (error) {
-      console.error("Failed to delete test:", error);
+      logger.error("Failed to delete test:", error);
       toast.error("Failed to delete test");
     }
   };
@@ -2285,7 +2285,7 @@ function TestsManager() {
       );
       toast.success("Test published successfully");
     } catch (error) {
-      console.error("Failed to publish test:", error);
+      logger.error("Failed to publish test:", error);
       const backendErrors = error.response?.data?.errors;
       if (backendErrors && backendErrors.length > 0) {
         backendErrors.forEach((err) =>
@@ -2310,7 +2310,7 @@ function TestsManager() {
       );
       toast.success("Test unpublished (reverted to draft)");
     } catch (error) {
-      console.error("Failed to unpublish test:", error);
+      logger.error("Failed to unpublish test:", error);
       toast.error(error.response?.data?.message || "Failed to unpublish test");
     }
   };
@@ -2331,7 +2331,7 @@ function TestsManager() {
       window.URL.revokeObjectURL(url);
       toast.success("Tests exported successfully");
     } catch (error) {
-      console.error("Export failed:", error);
+      logger.error("Export failed:", error);
       toast.error("Failed to export tests");
     }
   };
@@ -2409,7 +2409,7 @@ function TestsManager() {
       toast.success(`Published ${selectedTestIds.length} test(s) successfully`);
       setSelectedTestIds([]);
     } catch (error) {
-      console.error("Bulk publish error:", error);
+      logger.error("Bulk publish error:", error);
       toast.error(
         error.response?.data?.message || "Failed to publish selected tests",
       );
@@ -2436,7 +2436,7 @@ function TestsManager() {
       toast.success(`Unpublished ${selectedTestIds.length} test(s)`);
       setSelectedTestIds([]);
     } catch (error) {
-      console.error("Bulk unpublish error:", error);
+      logger.error("Bulk unpublish error:", error);
       toast.error(
         error.response?.data?.message || "Failed to unpublish selected tests",
       );
@@ -2459,7 +2459,7 @@ function TestsManager() {
       setSelectedTestIds([]);
       setShowBulkDeleteConfirm(false);
     } catch (error) {
-      console.error("Bulk delete error:", error);
+      logger.error("Bulk delete error:", error);
       toast.error(
         error.response?.data?.message || "Failed to delete selected tests",
       );
@@ -2540,6 +2540,7 @@ function TestsManager() {
           tone="indigo"
           compact
         />
+
         <StatCard
           icon={Layers}
           value={filteredScopeStats.activeSeries}
@@ -2547,6 +2548,7 @@ function TestsManager() {
           tone="green"
           compact
         />
+
         <StatCard
           icon={FileText}
           value={filteredScopeStats.testCategories}
@@ -2554,6 +2556,7 @@ function TestsManager() {
           tone="amber"
           compact
         />
+
         <StatCard
           icon={Shield}
           value={filteredScopeStats.publishedTests}
@@ -3096,6 +3099,7 @@ function TestsManager() {
                             onChange={handleSelectAll}
                             className="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
                           />
+
                           <span>
                             {selectedTestIds.length} of {workspaceTests.length}{" "}
                             tests selected
@@ -3390,6 +3394,7 @@ function TestsManager() {
         seriesList={seriesList}
         selectedSeries={selectedSeries}
       />
+
       <BulkUploadModal
         isOpen={showBulkUpload}
         onClose={() => setShowBulkUpload(false)}
@@ -3398,6 +3403,7 @@ function TestsManager() {
         contextLabel={contextLabel}
         linkingInfo={linkingInfo}
       />
+
       <Suspense fallback={null}>
         <FullTestImportModal
           isOpen={showFullTestImport}

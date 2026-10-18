@@ -1,12 +1,8 @@
 import express from "express";
-import {
-  dbHelpers,
-  pool,
-} from "../../infrastructure/database/postgres-helpers.js";
+import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import Stage from "../../data/models/Stage.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
-import logger from "../../infrastructure/logger/logger.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 
 const router = express.Router();

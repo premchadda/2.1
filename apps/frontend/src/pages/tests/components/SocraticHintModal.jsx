@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import {
   Sparkles,
@@ -60,8 +60,32 @@ export default function SocraticHintModal({
   const [loading, setLoading] = useState(false);
   const [hintData, setHintData] = useState({});
   const [error, setError] = useState(null);
+  const dialogRef = useRef(null);
 
   const questionId = question?.id || question?._id;
+
+  // Escape-to-close + focus move on open, focus restore on close.
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEsc = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEsc);
+
+    const prevFocused = document.activeElement;
+    dialogRef.current?.focus();
+
+    return () => {
+      document.removeEventListener("keydown", handleEsc);
+      if (
+        prevFocused &&
+        typeof prevFocused.focus === "function" &&
+        document.contains(prevFocused)
+      ) {
+        prevFocused.focus();
+      }
+    };
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (!isOpen || !questionId) return;
@@ -134,6 +158,8 @@ export default function SocraticHintModal({
 
   return (
     <div
+      ref={dialogRef}
+      tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-labelledby="socratic-hint-title"

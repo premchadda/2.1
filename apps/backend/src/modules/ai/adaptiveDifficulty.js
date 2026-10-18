@@ -49,31 +49,6 @@ function scoreToLevel(score) {
   return "hard";
 }
 
-/**
- * Map a level label back to a representative score (midpoint).
- */
-function levelToScore(level) {
-  if (level === "easy") return 15;
-  if (level === "medium") return 50;
-  if (level === "hard") return 85;
-  return DEFAULT_DIFFICULTY;
-}
-
-/**
- * Compute the expected average time (seconds) for a question at a
- * given difficulty, based on global averages stored in the
- * `user_topic_stats` table.  Returns 0 when no data is available.
- */
-async function getAvgTimeForTopic(topicId) {
-  const result = await pool.query(
-    `SELECT AVG(total_time_spent_seconds / NULLIF(total_attempts, 0)) AS avg_time
-     FROM user_topic_stats
-     WHERE topic_id = $1 AND total_attempts > 0`,
-    [topicId],
-  );
-  return parseFloat(result.rows[0]?.avg_time || 0);
-}
-
 // ── Core public API ────────────────────────────────────────
 
 const adaptiveDifficultyService = {

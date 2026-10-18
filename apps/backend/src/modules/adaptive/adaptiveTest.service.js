@@ -8,7 +8,6 @@
  * - Adaptive scoring
  */
 
-import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import adaptiveDifficultyService from "../ai/adaptiveDifficulty.js";
 
 const adaptiveTestService = {

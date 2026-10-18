@@ -3,6 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "../src/App";
+import { ROUTER_FUTURE_FLAGS } from "../src/test/routerFutureFlags";
 
 vi.mock("../src/shared/providers/AuthContext", () => ({
   useAuth: () => ({ user: null, loading: false }),
@@ -32,6 +33,16 @@ vi.mock("../src/shared/lib/dataService", () => ({
   testsAPI: {
     getByTag: vi.fn().mockResolvedValue({ data: { data: [] } }),
   },
+  // usePublicSettings reads `api.get("/api/settings/public")`; without this the
+  // mock module has no `api` export and vitest throws inside the queryFn.
+  api: {
+    get: vi.fn().mockResolvedValue({ data: { data: {} } }),
+    post: vi.fn().mockResolvedValue({ data: { data: {} } }),
+  },
+  apiClient: {
+    get: vi.fn().mockResolvedValue({ data: { data: [] } }),
+    post: vi.fn().mockResolvedValue({ data: { data: {} } }),
+  },
   fetchFromAPI: vi.fn().mockResolvedValue({ success: true, data: [] }),
 }));
 
@@ -41,7 +52,7 @@ describe("App", () => {
       <HelmetProvider>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
               <App />
             </MemoryRouter>
           </ThemeProvider>

@@ -1,4 +1,5 @@
-import { apiClient } from "../apiClient.js";
+import { apiClient, getErrorStatus } from "../apiClient.js";
+import { logger } from "@trstprep/shared-config";
 import OfflineQueue from "./OfflineQueue.js";
 
 // Helper to generate self-contained UUIDs
@@ -198,7 +199,7 @@ class TelemetryService {
       this.retryCount = 0; // reset retry counter on successful flush
       this.isFlushing = false;
     } catch (err) {
-      console.error(
+      logger.error(
         "[TelemetryService] Failed to flush events, putting back in queue:",
         err,
       );
@@ -206,7 +207,7 @@ class TelemetryService {
       // Only re-queue on retryable failures (5xx / network). A 400/404 means
       // the payload itself was rejected — re-queuing would loop forever and
       // starve fresh events, so drop the batch instead.
-      const status = err?.status ?? err?.response?.status;
+      const status = getErrorStatus(err);
       const retryable =
         status === undefined ||
         status === null ||
@@ -278,6 +279,15 @@ class TelemetryService {
 
     // Limit events payload to 100 for sendBeacon too to prevent server rejection
     const batch = events.slice(0, 100);
+    // Anything past the 100-event beacon limit goes back on the queue, exactly
+    // as flush() does — not silently discarded. flushSync() is called from
+    // stop(), i.e. at test submit / unmount, which is when the queue is
+    // largest, so the old slice() threw away most of the attempt's telemetry
+    // with no accounting at all.
+    const remainder = events.slice(100);
+    if (remainder.length > 0) {
+      this.queue = [...remainder, ...this.queue];
+    }
     const batchUuid = generateUUID();
     const payloadEvents = batch.map((e) => ({
       ...e,
@@ -317,7 +327,7 @@ class TelemetryService {
       xhr.withCredentials = true;
       xhr.send(payload);
     } catch (err) {
-      console.error("[TelemetryService] Fallback sync flush failed:", err);
+      logger.error("[TelemetryService] Fallback sync flush failed:", err);
     }
   }
 
@@ -371,10 +381,10 @@ class TelemetryService {
         setTimeout(() => this.flushOfflineEvents(), 1000);
       }
     } catch (err) {
-      console.error("[TelemetryService] Failed to flush offline events:", err);
+      logger.error("[TelemetryService] Failed to flush offline events:", err);
       // Same retryable-only rule as flush(): drop poison batches (400/404)
       // from the offline queue so one bad payload can't block the queue.
-      const status = err?.status ?? err?.response?.status;
+      const status = getErrorStatus(err);
       const retryable =
         status === undefined ||
         status === null ||
@@ -423,7 +433,7 @@ class TelemetryService {
 
       if (attemptStatus && attemptStatus !== "active") {
         if (import.meta.env.DEV) {
-          console.warn(
+          logger.warn(
             `[TelemetryService] Heartbeat reported attempt status: ${attemptStatus}. Stopping telemetry.`,
           );
         }
@@ -442,7 +452,7 @@ class TelemetryService {
       }
     } catch (err) {
       if (import.meta.env.DEV)
-        console.warn("[TelemetryService] Heartbeat ping failed:", err.message);
+        logger.warn("[TelemetryService] Heartbeat ping failed:", err.message);
     }
   }
 

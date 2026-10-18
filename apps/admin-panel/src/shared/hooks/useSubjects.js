@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { adminAPI } from "../lib/dataService";
 
 let cachedSubjects = null;
@@ -72,7 +73,7 @@ export function useSubjects() {
       },
       (e) => {
         if (mounted) {
-          console.error("Failed to fetch subjects:", e);
+          logger.error("Failed to fetch subjects:", e);
           // Keep previously cached subjects (or [] only if never loaded) —
           // never present an error-shaped [] as truth.
           setSubjects(cachedSubjects || []);

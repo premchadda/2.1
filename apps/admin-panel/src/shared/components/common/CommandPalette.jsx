@@ -4,20 +4,13 @@ import {
   Search,
   X,
   Command,
-  ArrowRight,
   Sun,
   Moon,
   Activity,
   PlusCircle,
   Trash2,
-  Settings,
   History,
   FileText,
-  HelpCircle,
-  Users,
-  Shield,
-  Layers,
-  Sparkles,
   ExternalLink,
   ChevronRight,
 } from "lucide-react";
@@ -33,8 +26,6 @@ import {
   clearRecentSearches,
 } from "../../utils/searchUtils";
 import { DEV_FALLBACK_URL } from "../../lib/apiBase.js";
-
-const CMD_KEY = navigator.platform?.includes("Mac") ? "⌘" : "Ctrl";
 
 function HighlightedText({ text, query, className = "" }) {
   const parts = useMemo(() => getHighlightedParts(text, query), [text, query]);

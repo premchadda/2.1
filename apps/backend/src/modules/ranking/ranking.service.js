@@ -9,8 +9,6 @@
  * - Percentile calculation
  */
 
-import { pool } from "../../infrastructure/database/postgres-helpers.js";
-
 const rankingService = {
   /**
    * Get overall national ranking.

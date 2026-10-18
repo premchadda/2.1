@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { FileText, Search, Download, Eye, BarChart2, X } from "lucide-react";
 import { adminAPI } from "../../../shared/lib/dataService.js";
@@ -44,7 +45,7 @@ export default function ResultsManager() {
         setResults(response.data.data || []);
       }
     } catch (error) {
-      console.error("Failed to fetch results:", error);
+      logger.error("Failed to fetch results:", error);
       toast.error("Failed to load results");
       setResults([]);
     } finally {

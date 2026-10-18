@@ -8,9 +8,10 @@
  * Run: pnpm vitest run src/__tests__/a11y.labels.test.jsx
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
+import { ROUTER_FUTURE_FLAGS } from "../test/routerFutureFlags";
 import axe from "axe-core";
 
 afterEach(() => {
@@ -49,12 +50,12 @@ const runAxe = async (container) =>
     runOnly: { type: "rule", values: ["label", "form-field-multiple-labels"] },
   });
 
-describe("label association (axe, runtime)", () => {
+describe("label association (axe, runtime)", { timeout: 15000 }, () => {
   it("ForgotPassword: every control has a real accessible name", async () => {
     const { default: ForgotPassword } =
       await import("../pages/auth/ForgotPassword.jsx");
     const { container } = render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <ForgotPassword />
       </MemoryRouter>,
     );
@@ -69,7 +70,7 @@ describe("label association (axe, runtime)", () => {
     const { default: ResetPassword } =
       await import("../pages/auth/ResetPassword.jsx");
     const { container } = render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <ResetPassword />
       </MemoryRouter>,
     );
@@ -86,7 +87,7 @@ describe("label association (axe, runtime)", () => {
   it("Contact: all fields labelled and axe-clean", async () => {
     const { default: Contact } = await import("../pages/public/Contact.jsx");
     const { container } = render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <HelmetProvider>
           <Contact />
         </HelmetProvider>
@@ -95,6 +96,10 @@ describe("label association (axe, runtime)", () => {
     expect(screen.getByLabelText(/^name/i)).toBeTruthy();
     expect(screen.getByLabelText(/email/i)).toBeTruthy();
     expect(screen.getByLabelText(/message/i)).toBeTruthy();
+
+    // Contact fetches its contact-info block on mount; let that settle inside
+    // act() before axe snapshots the DOM.
+    await act(async () => {});
 
     const results = await runAxe(container);
     expect(results.violations).toEqual([]);

@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Helmet } from "react-helmet-async";
 import { Mail, Phone, MapPin, Send, Loader2 } from "lucide-react";
 import api from "../../shared/lib/api";
+import { getErrorMessage } from "../../shared/lib/apiClient.js";
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -39,7 +41,7 @@ export default function Contact() {
       }
     } catch (error) {
       if (error.name === "AbortError" || signal?.aborted) return;
-      console.error("Failed to fetch contact info:", error);
+      logger.error("Failed to fetch contact info:", error);
     }
   };
 
@@ -59,8 +61,7 @@ export default function Contact() {
       }
     } catch (err) {
       setError(
-        err.response?.data?.message ||
-          "Failed to send message. Please try again.",
+        getErrorMessage(err) || "Failed to send message. Please try again.",
       );
     } finally {
       setLoading(false);

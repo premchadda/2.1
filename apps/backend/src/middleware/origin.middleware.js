@@ -41,15 +41,6 @@ export const secretsEqual = (provided, configured) => {
 // cookies.
 // ============================================================
 
-const TRUSTED_ORIGINS = (
-  process.env.ALLOWED_ORIGINS ||
-  process.env.CORS_ORIGIN ||
-  ""
-)
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
-
 const WEBHOOK_PREFIXES = ["/api/payments/webhook", "/api/webhooks"];
 
 // Explicit allowlist for vercel deployments — wildcard *.vercel.app removed (too permissive)

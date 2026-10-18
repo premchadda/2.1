@@ -5,8 +5,6 @@ import {
   ingestProctoringTelemetry,
   getAttemptProctoringReport,
   clearTelemetryCache,
-  VIOLATION_WEIGHTS,
-  RISK_LEVELS,
 } from "../services/core/proctoringService.js";
 
 describe("Proctoring Service & Anti-Cheating Telemetry", () => {

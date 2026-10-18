@@ -1,4 +1,5 @@
 import React from "react";
+import { logger } from "@trstprep/shared-config";
 
 export class RouteErrorBoundary extends React.Component {
   constructor(props) {
@@ -10,7 +11,7 @@ export class RouteErrorBoundary extends React.Component {
   }
   componentDidCatch(error, info) {
     this.setState({ info });
-    console.error("RouteErrorBoundary caught:", error, info);
+    logger.error("RouteErrorBoundary caught:", error, info);
   }
   handleRetry = () => {
     const isChunkError =

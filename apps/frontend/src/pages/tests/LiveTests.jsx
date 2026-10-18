@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import {
@@ -50,6 +51,7 @@ import {
   formatDateRange as formatDateRangeShared,
   getTimeUntil,
 } from "../../shared/utils/testClassification";
+import { getErrorMessage } from "../../shared/lib/apiClient.js";
 
 export default function LiveTests() {
   const { user } = useAuth();
@@ -523,9 +525,9 @@ export default function LiveTests() {
           : `✓ Registration confirmed! We will notify you when the ${itemLabel} arena opens.`,
       );
     } catch (error) {
-      console.error("Failed to register for live session:", error);
+      logger.error("Failed to register for live session:", error);
       toast.error(
-        error.response?.data?.error || "Unable to register at this moment.",
+        getErrorMessage(error) || "Unable to register at this moment.",
       );
     } finally {
       setRegisteringId(null);

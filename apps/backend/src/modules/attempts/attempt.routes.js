@@ -441,30 +441,6 @@ router.post("/resume", async (req, res) => {
         entry.questionId,
       ),
     }));
-    const parsedAnswers = Array.isArray(attempt.answers)
-      ? attempt.answers
-      : typeof attempt.answers === "string"
-        ? (() => {
-            try {
-              return JSON.parse(attempt.answers);
-            } catch {
-              return [];
-            }
-          })()
-        : Array.isArray(attempt.answers?.answers)
-          ? attempt.answers.answers
-          : [];
-    const serializedAnswers = Array.isArray(parsedAnswers)
-      ? parsedAnswers.map((entry) => ({
-          ...entry,
-          questionId: mapLookupId(
-            entry?.questionId,
-            questionIdLookup,
-            entry?.questionId,
-          ),
-        }))
-      : [];
-
     // Log resume event
     await logAttemptEvent(internalAttemptId, EVENT_TYPES.RESUME, null, {
       pauseDuration,

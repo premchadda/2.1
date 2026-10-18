@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../shared/providers/AuthContext";
 import {
@@ -57,7 +58,7 @@ function Analysis() {
       try {
         await getTestSeries();
       } catch (error) {
-        console.error("Failed to fetch series:", error?.message ?? error);
+        logger.error("Failed to fetch series:", error?.message ?? error);
       } finally {
         setLoading(false);
       }
@@ -88,7 +89,7 @@ function Analysis() {
           setAnalytics(null);
         }
       } catch (error) {
-        console.error("Failed to fetch analytics:", error?.message ?? error);
+        logger.error("Failed to fetch analytics:", error?.message ?? error);
         setAnalytics(null);
       }
     };

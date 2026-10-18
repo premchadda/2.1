@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useLocation, Navigate } from "react-router-dom";
 import {
@@ -89,7 +90,7 @@ function Login() {
           });
         }
       } catch (error) {
-        console.error("Failed to fetch stats:", error?.message ?? error);
+        logger.error("Failed to fetch stats:", error?.message ?? error);
       }
     };
     fetchStats();
@@ -144,6 +145,36 @@ function Login() {
         prevFocused.focus();
     };
   }, []);
+
+  // Keep Tab inside the modal. Without this, Tab walks straight out into the
+  // background <Home /> page that sits underneath the overlay.
+  const handleDialogKeyDown = (e) => {
+    if (e.key !== "Tab") return;
+    const node = dialogRef.current;
+    if (!node) return;
+    const focusable = Array.from(
+      node.querySelectorAll(
+        'input:not([type="hidden"]):not([disabled]), button:not([disabled]), a[href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((el) => el.offsetWidth > 0 || el.offsetHeight > 0);
+    if (focusable.length === 0) {
+      e.preventDefault();
+      node.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey) {
+      if (active === first || !node.contains(active)) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else if (active === last || !node.contains(active)) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   // If the user is already authenticated — validated, cached, or merely hinted
   // by a persisted session marker — send them to the protected route on the
@@ -264,6 +295,7 @@ function Login() {
         <div
           ref={dialogRef}
           tabIndex={-1}
+          onKeyDown={handleDialogKeyDown}
           className="relative w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-amber-500/20 dark:border-amber-500/30 overflow-hidden animate-scale-in z-10"
           onClick={(e) => e.stopPropagation()}
         >
@@ -390,7 +422,7 @@ function Login() {
                       );
                     }
                   } catch (err) {
-                    console.error(
+                    logger.error(
                       "Failed to logout other sessions:",
                       err?.message ?? err,
                     );
@@ -450,6 +482,7 @@ function Login() {
         aria-modal="true"
         aria-label="Login"
         tabIndex={-1}
+        onKeyDown={handleDialogKeyDown}
         className="relative w-[min(100%,28rem)] lg:w-[min(100%,60rem)] max-h-[92vh] max-h-[92dvh] overflow-hidden bg-white dark:bg-gray-800 rounded-3xl shadow-2xl animate-scale-in flex flex-col lg:flex-row"
         onClick={(e) => e.stopPropagation()}
       >

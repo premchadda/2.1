@@ -9,6 +9,7 @@ import {
   submitDuelAnswer,
   getDuelStatus,
 } from "../../services/core/studyMatchmakerService.js";
+import { sanitizeUserContent } from "../../middleware/htmlSanitizer.js";
 
 const router = express.Router();
 
@@ -135,7 +136,9 @@ router.get("/:id", async (req, res, next) => {
 // @route   POST /api/study-groups
 // @desc    Create a new study group
 // @access  Private
-router.post("/", protect, async (req, res) => {
+// Group names/descriptions, chat messages, posts and comments are user-authored.
+// Sanitize AFTER protect().
+router.post("/", protect, sanitizeUserContent(), async (req, res) => {
   try {
     const {
       name,
@@ -184,7 +187,7 @@ router.post("/", protect, async (req, res) => {
 // @route   PUT /api/study-groups/:id
 // @desc    Update a study group
 // @access  Private (owner only)
-router.put("/:id", protect, async (req, res) => {
+router.put("/:id", protect, sanitizeUserContent(), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, category, isPrivate, maxMembers } = req.body;
@@ -532,39 +535,44 @@ router.get("/:id/messages", async (req, res) => {
 // @route   POST /api/study-groups/:id/messages
 // @desc    Send a message in a study group
 // @access  Private
-router.post("/:id/messages", protect, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { content, messageType = "text" } = req.body;
+router.post(
+  "/:id/messages",
+  protect,
+  sanitizeUserContent(),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { content, messageType = "text" } = req.body;
 
-    if (!content || !content.trim()) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Message content is required" });
-    }
+      if (!content || !content.trim()) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Message content is required" });
+      }
 
-    const newMsg = await dbHelpers.insertOne("studyGroupMessages", {
-      groupId: id,
-      userId: req.user.id,
-      content: content.trim(),
-      messageType,
-      createdAt: new Date().toISOString(),
-    });
-
-    res.status(201).json({
-      success: true,
-      data: {
-        ...newMsg,
-        userName: req.user.name || "You",
+      const newMsg = await dbHelpers.insertOne("studyGroupMessages", {
+        groupId: id,
         userId: req.user.id,
-      },
-    });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+        content: content.trim(),
+        messageType,
+        createdAt: new Date().toISOString(),
+      });
+
+      res.status(201).json({
+        success: true,
+        data: {
+          ...newMsg,
+          userName: req.user.name || "You",
+          userId: req.user.id,
+        },
+      });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 // ===== GROUP POSTS =====
 // @route   GET /api/study-groups/:id/posts
@@ -608,10 +616,12 @@ router.get("/:id/posts", async (req, res) => {
 
 // @route   POST /api/study-groups/:id/posts
 // @desc    Create a discussion post in a study group
-router.post("/:id/posts", protect, async (req, res) => {
+router.post("/:id/posts", protect, sanitizeUserContent(), async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, content, postType = "discussion", tags = [] } = req.body;
+    // NOTE: a `tags` field used to be accepted on post creation and never
+    // persisted. It was removed rather than left implying tagging works.
+    const { title, content, postType = "discussion" } = req.body;
 
     if (!content || !content.trim()) {
       return res
@@ -687,38 +697,43 @@ router.get("/:id/posts/:postId", async (req, res) => {
 
 // @route   POST /api/study-groups/:id/posts/:postId/comments
 // @desc    Add a comment to a group post
-router.post("/:id/posts/:postId/comments", protect, async (req, res) => {
-  try {
-    const { postId } = req.params;
-    const { content } = req.body;
+router.post(
+  "/:id/posts/:postId/comments",
+  protect,
+  sanitizeUserContent(),
+  async (req, res) => {
+    try {
+      const { postId } = req.params;
+      const { content } = req.body;
 
-    if (!content || !content.trim()) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Comment content is required" });
+      if (!content || !content.trim()) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Comment content is required" });
+      }
+
+      const comment = await dbHelpers.insertOne("communityComments", {
+        postId,
+        userId: req.user.id,
+        content: content.trim(),
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      });
+
+      res.status(201).json({
+        success: true,
+        data: {
+          ...comment,
+          userName: req.user.name || "You",
+        },
+      });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
     }
-
-    const comment = await dbHelpers.insertOne("communityComments", {
-      postId,
-      userId: req.user.id,
-      content: content.trim(),
-      isActive: true,
-      createdAt: new Date().toISOString(),
-    });
-
-    res.status(201).json({
-      success: true,
-      data: {
-        ...comment,
-        userName: req.user.name || "You",
-      },
-    });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+  },
+);
 
 // @route   POST /api/study-groups/:id/posts/:postId/like
 // @desc    Like / toggle upvote on a group post

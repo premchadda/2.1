@@ -1,7 +1,6 @@
 import {
   generateSocraticHint,
   detectCognitiveFriction,
-  calculatePenaltyFactor,
   HINT_TIERS,
   FRICTION_LEVELS,
 } from "../services/core/socraticHintService.js";

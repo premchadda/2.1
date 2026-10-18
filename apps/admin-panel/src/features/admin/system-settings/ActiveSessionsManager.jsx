@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Users,
@@ -461,6 +461,7 @@ export default function ActiveSessionsManager() {
                           }
                           mono
                         />
+
                         <InfoCell
                           label="Location"
                           value={
@@ -471,28 +472,33 @@ export default function ActiveSessionsManager() {
                                 "Unknown Location"
                           }
                         />
+
                         <InfoCell
                           label="Country"
                           value={session.country || "Unknown Country"}
                         />
+
                         <InfoCell
                           label="Login Time"
                           value={fmtDate(
                             session.createdAt || session.created_at,
                           )}
                         />
+
                         <InfoCell
                           label="Last Active"
                           value={fmtDate(
                             session.lastActive || session.last_active,
                           )}
                         />
+
                         <InfoCell
                           label="Expires"
                           value={fmtDate(
                             session.expiresAt || session.expires_at,
                           )}
                         />
+
                         {(session.userAgent || session.user_agent) && (
                           <div className="col-span-2 md:col-span-4">
                             <p className="text-gray-400 mb-0.5 uppercase tracking-wide font-semibold">

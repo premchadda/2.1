@@ -316,7 +316,6 @@ const questionBuilderService = {
 
     const text = data.questionText || data.question_text || "";
     const options = Array.isArray(data.options) ? data.options : [];
-    const explanation = data.explanation || "";
     const correct =
       data.correctOption ??
       data.correct_option ??

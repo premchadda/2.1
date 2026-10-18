@@ -5,6 +5,7 @@
 
 import { apiClient } from "../apiClient";
 import { API_BASE_URL } from "../apiBase";
+import { getErrorStatus } from "../apiClient.js";
 
 // Resolve an absolute beacon URL from the apiClient baseURL. sendBeacon can
 // only run on pagehide/unload where the axios instance (and its baseURL) may
@@ -284,7 +285,7 @@ class VideoTelemetry {
       // 5xx-only retry: requeue on server/network failures, drop 4xx
       // (validation/auth) failures — retrying those can never succeed and
       // grows the queue unboundedly.
-      const status = err?.response?.status ?? err?.status;
+      const status = getErrorStatus(err);
       const retryable = status == null || status >= 500;
       if (retryable) {
         // Put events back in queue if network/server failed

@@ -4,7 +4,6 @@ import {
   Trash2,
   Eye,
   EyeOff,
-  MoreVertical,
   ChevronUp,
   ChevronDown,
   LayoutGrid,

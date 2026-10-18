@@ -6,6 +6,7 @@ import {
   BookOpen,
   Shield,
 } from "lucide-react";
+import { logger } from "@trstprep/shared-config";
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { getPublicStats } from "../../shared/lib/dataService";
@@ -37,7 +38,7 @@ export default function About() {
         }
       } catch (error) {
         if (error.name === "AbortError" || controller.signal.aborted) return;
-        console.error("Failed to fetch stats:", error);
+        logger.error("Failed to fetch stats:", error);
       }
     };
     fetchStats();

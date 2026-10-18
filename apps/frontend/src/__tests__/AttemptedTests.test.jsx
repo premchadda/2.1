@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import AttemptedTests from "../pages/dashboard/AttemptedTests";
+import { ROUTER_FUTURE_FLAGS } from "../test/routerFutureFlags";
 
 const mockAttempts = [
   {
@@ -65,9 +66,17 @@ const mockAttempts = [
   },
 ];
 
+// Must be a stable reference: AttemptedTests keys its fetch effect on `user`,
+// so a factory mock would hand back a new object every render and refetch
+// forever (which surfaces as a stream of act() warnings). vi.hoisted keeps the
+// reference available to the hoisted mock factory.
+const { mockAuthUser } = vi.hoisted(() => ({
+  mockAuthUser: { id: "123", name: "Candidate" },
+}));
+
 vi.mock("../shared/providers/AuthContext", () => ({
   useAuth: () => ({
-    user: { id: "123", name: "Candidate" },
+    user: mockAuthUser,
   }),
 }));
 
@@ -100,7 +109,10 @@ describe("AttemptedTests page tabs and actions", () => {
   const renderComponent = () =>
     render(
       <HelmetProvider>
-        <MemoryRouter initialEntries={["/attempted-tests"]}>
+        <MemoryRouter
+          initialEntries={["/attempted-tests"]}
+          future={ROUTER_FUTURE_FLAGS}
+        >
           <Routes>
             <Route path="/attempted-tests" element={<AttemptedTests />} />
           </Routes>

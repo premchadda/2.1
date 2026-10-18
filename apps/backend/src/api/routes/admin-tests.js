@@ -1,5 +1,4 @@
 import express from "express";
-import multer from "multer";
 import {
   dbHelpers,
   pool,
@@ -1235,7 +1234,6 @@ router.post("/tests/:id/duplicate", async (req, res) => {
       );
       const testCols = testColsResult.rows.map((r) => r.column_name);
       const testColList = testCols.join(", ");
-      const testParamList = testCols.map((_, i) => `$${i + 1}`).join(", ");
 
       const testSelectCols = testCols
         .map((c) => {
@@ -1493,9 +1491,16 @@ router.post("/tests/:id/publish", async (req, res) => {
     try {
       const { deleteCacheByPrefix } =
         await import("../../infrastructure/cache/cacheService.js");
-      await deleteCacheByPrefix("tests-list").catch(() => {});
-      await deleteCacheByPrefix("tests-tag").catch(() => {});
-      await deleteCacheByPrefix("admin-tests").catch(() => {});
+      // Namespaces must match the ones responseCache() actually registers:
+      //   tests-list-v2 / tests-tag-v2  -> modules/tests/test.routes.js:70,205
+      //   admin-tests-list / admin-tests-orphaned -> admin-tests.js:527,498
+      // The previous "tests-list" / "tests-tag" / "admin-tests" prefixes
+      // resolved to "tests-list:*" etc. and matched nothing, so publishing
+      // never invalidated any public test list.
+      await deleteCacheByPrefix("tests-list-v2").catch(() => {});
+      await deleteCacheByPrefix("tests-tag-v2").catch(() => {});
+      await deleteCacheByPrefix("admin-tests-list").catch(() => {});
+      await deleteCacheByPrefix("admin-tests-orphaned").catch(() => {});
     } catch {
       /* cache clear non-fatal */
     }
@@ -1702,7 +1707,6 @@ router.post("/tests/bulk-publish", async (req, res) => {
         .json({ success: false, message: "active boolean is required" });
     }
 
-    const params = [testIds];
     const result = await pool.query(
       `UPDATE tests SET is_active = $2, status = $3, updated_at = NOW()
        WHERE id = ANY($1::int[]) AND is_active != $2`,

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   BookOpen,
@@ -9,8 +10,6 @@ import {
   Plus,
   Edit,
   Trash2,
-  Eye,
-  Upload,
   Calendar,
   Book,
   Layers,
@@ -24,10 +23,7 @@ import {
   LayoutGrid,
   LayoutList,
   BarChart3,
-  Filter,
-  ArrowUpDown,
   Copy,
-  Check,
   RefreshCw,
   Sparkles,
   Archive,
@@ -37,7 +33,6 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { apiClient as api } from "../../../shared/lib/dataService";
-import { logger } from "../../../shared/lib/logger";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 import { copyToClipboard } from "../../../shared/utils/clipboard";
 
@@ -126,7 +121,7 @@ export default function ContentManagement() {
       setAdd(fieldKey, url);
       toast.success("File uploaded successfully");
     } catch (err) {
-      console.error("Upload failed:", err);
+      logger.error("Upload failed:", err);
       toast.error(err?.response?.data?.message || "Upload failed");
     } finally {
       setUploadingField(null);
@@ -287,7 +282,7 @@ export default function ContentManagement() {
           logger.warn("No study materials found — check DB seeding");
         }
       } catch (err) {
-        console.error("Failed to load study materials:", err);
+        logger.error("Failed to load study materials:", err);
         toast.error("Failed to load study materials");
       } finally {
         setLoading(false);
@@ -310,7 +305,7 @@ export default function ContentManagement() {
         );
         if (res.data.success) setChapters(res.data.data || []);
       } catch (err) {
-        console.error("Failed to load chapters:", err);
+        logger.error("Failed to load chapters:", err);
         toast.error("Failed to load chapters");
       }
     };
@@ -330,7 +325,7 @@ export default function ContentManagement() {
         );
         if (res.data.success) setSidebarTopics(res.data.data || []);
       } catch (err) {
-        console.error("Failed to load topics:", err);
+        logger.error("Failed to load topics:", err);
       } finally {
         setSidebarTopicsLoading(false);
       }
@@ -359,7 +354,7 @@ export default function ContentManagement() {
         setContentItems([]);
       }
     } catch (err) {
-      console.error("Failed to load content items:", err);
+      logger.error("Failed to load content items:", err);
       setContentItems([]);
     } finally {
       setContentLoading(false);
@@ -397,7 +392,7 @@ export default function ContentManagement() {
         const res = await api.get(`/admin/chapters?studyMaterialId=${smId}`);
         if (res.data.success) setModalChapters(res.data.data || []);
       } catch (err) {
-        console.error("Failed to load chapters for modal:", err);
+        logger.error("Failed to load chapters for modal:", err);
       } finally {
         setModalChaptersLoading(false);
       }
@@ -426,7 +421,7 @@ export default function ContentManagement() {
         const res = await api.get(`/admin/topics?chapterId=${cId}`);
         if (res.data.success) setModalTopics(res.data.data || []);
       } catch (err) {
-        console.error("Failed to load topics for modal:", err);
+        logger.error("Failed to load topics for modal:", err);
       } finally {
         setModalTopicsLoading(false);
       }
@@ -538,7 +533,7 @@ export default function ContentManagement() {
       setEditingItem(null);
       fetchContentItems();
     } catch (err) {
-      console.error("Failed to update content:", err);
+      logger.error("Failed to update content:", err);
       toast.error("Failed to update content");
     } finally {
       setSaving(false);
@@ -563,7 +558,7 @@ export default function ContentManagement() {
       setDeletingItem(null);
       fetchContentItems();
     } catch (err) {
-      console.error("Failed to delete content:", err);
+      logger.error("Failed to delete content:", err);
       toast.error("Failed to delete content");
     } finally {
       setSaving(false);
@@ -701,7 +696,7 @@ export default function ContentManagement() {
       setShowAddModal(false);
       fetchContentItems();
     } catch (err) {
-      console.error("Failed to add content:", err);
+      logger.error("Failed to add content:", err);
       toast.error(err?.response?.data?.message || "Failed to add content");
     } finally {
       setSaving(false);
@@ -1176,6 +1171,7 @@ export default function ContentManagement() {
                   <Icon
                     className={`w-4 h-4 ${isActive ? "text-white" : "text-gray-400"}`}
                   />
+
                   {tab.label}
                   {isActive && contentStats.filtered > 0 && (
                     <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-full text-[10px] font-black">
@@ -1221,6 +1217,7 @@ export default function ContentManagement() {
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-900 transition"
                     />
+
                     {searchQuery && (
                       <button
                         onClick={() => setSearchQuery("")}
@@ -1886,6 +1883,7 @@ export default function ContentManagement() {
                           }
                           className="rounded accent-emerald-600"
                         />
+
                         <span className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
                           Encrypted — play via FortSpy player
                         </span>
@@ -2426,6 +2424,7 @@ export default function ContentManagement() {
                             )
                           }
                         />
+
                         {uploadingField === "videoUrl" ? (
                           <>
                             <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
@@ -2492,6 +2491,7 @@ export default function ContentManagement() {
                               )
                             }
                           />
+
                           {uploadingField === "thumbnail" ? (
                             <>
                               <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
@@ -2549,6 +2549,7 @@ export default function ContentManagement() {
                         onChange={(e) => setAdd("isPro", e.target.checked)}
                         className="rounded"
                       />
+
                       <span className="text-sm text-gray-700 dark:text-gray-300">
                         Pro content only
                       </span>
@@ -2564,6 +2565,7 @@ export default function ContentManagement() {
                           }
                           className="rounded accent-emerald-600"
                         />
+
                         <span className="text-sm font-medium text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
                           <Shield className="w-4 h-4" />
                           FortSpy encrypted (AES-256)
@@ -2646,6 +2648,7 @@ export default function ContentManagement() {
                             handleFileUpload(e.target.files[0], "pdfUrl", "pdf")
                           }
                         />
+
                         {uploadingField === "pdfUrl" ? (
                           <>
                             <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
@@ -2725,6 +2728,7 @@ export default function ContentManagement() {
                         onChange={(e) => setAdd("isPro", e.target.checked)}
                         className="rounded"
                       />
+
                       <span className="text-sm text-gray-700 dark:text-gray-300">
                         Pro content only
                       </span>

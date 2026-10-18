@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../shared/lib/dataService";
 import "./TestResults.css";
@@ -24,7 +25,7 @@ const LiveTestResults = () => {
             setResult(response.data?.data || null);
         } catch (error) {
           if (error.name !== "AbortError")
-            console.error("Error fetching result:", error);
+            logger.error("Error fetching result:", error);
         } finally {
           if (!controller.signal.aborted) setLoading(false);
         }
@@ -174,10 +175,10 @@ const LiveTestResults = () => {
         </div>
 
         <div className="test-results-analysis">
-          <h3>Performance Analysis</h3>
+          <h2>Performance Analysis</h2>
 
           <div className="test-results-section">
-            <h4>Subject-wise Performance</h4>
+            <h3>Subject-wise Performance</h3>
             <div className="test-results-subjects">
               {result.subjectPerformance?.map((subject, index) => (
                 <div key={index} className="test-results-subject">

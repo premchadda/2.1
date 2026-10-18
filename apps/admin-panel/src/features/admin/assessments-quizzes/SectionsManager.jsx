@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, memo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useSearchParams } from "react-router-dom";
 import {
   Plus,
@@ -8,9 +9,6 @@ import {
   Save,
   Clock,
   FileText,
-  ChevronDown,
-  ChevronUp,
-  Search,
   AlertCircle,
   CheckCircle,
   Link,
@@ -21,7 +19,6 @@ import {
   Settings,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { logger } from "../../../shared/lib/logger";
 import { apiClient, adminAPI } from "../../../shared/lib/dataService";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 import { EXAM_PRESETS } from "../../../shared/config/examPresets";
@@ -903,7 +900,7 @@ function SectionsManager({ testId: propTestId } = {}) {
       closeForm();
       await fetchData();
     } catch (error) {
-      console.error("Save error:", error);
+      logger.error("Save error:", error);
       toast.error(error.response?.data?.message || "Failed to save section");
     } finally {
       setSaving(false);
@@ -932,7 +929,7 @@ function SectionsManager({ testId: propTestId } = {}) {
       }
       await fetchData();
     } catch (error) {
-      console.error("Delete error:", error);
+      logger.error("Delete error:", error);
       toast.error(error.response?.data?.message || "Failed to delete");
     } finally {
       setDeletingId(null);
@@ -956,7 +953,7 @@ function SectionsManager({ testId: propTestId } = {}) {
       setSelectedIds([]);
       toast.success(`${selectedIds.length} sections deleted`);
     } catch (error) {
-      console.error("Bulk delete failed:", error);
+      logger.error("Bulk delete failed:", error);
       toast.error("Failed to delete some sections");
       fetchData();
     }
@@ -1026,7 +1023,7 @@ function SectionsManager({ testId: propTestId } = {}) {
       setLinkSectionPickerOpen(false);
       await fetchData();
     } catch (error) {
-      console.error("Link error:", error);
+      logger.error("Link error:", error);
       toast.error(error.response?.data?.message || "Failed to link section");
     } finally {
       setSaving(false);
@@ -1139,7 +1136,7 @@ function SectionsManager({ testId: propTestId } = {}) {
       );
       await fetchData();
     } catch (error) {
-      console.error("Preset error:", error);
+      logger.error("Preset error:", error);
       toast.error(error.response?.data?.message || "Failed to apply scheme");
     } finally {
       setSaving(false);
@@ -1217,6 +1214,7 @@ function SectionsManager({ testId: propTestId } = {}) {
                 <Icon
                   className={`w-4 h-4 transition-colors ${isActive ? "text-indigo-600" : "text-slate-400"}`}
                 />
+
                 {tab.label}
               </button>
             );
@@ -2141,6 +2139,7 @@ function SectionsManager({ testId: propTestId } = {}) {
                       className={`w-full px-3.5 py-2.5 text-sm bg-white dark:bg-gray-800 border rounded-lg shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${errors.name ? "border-rose-400 bg-rose-50/30" : "border-slate-300 hover:border-slate-400"}`}
                       placeholder="e.g., Quant, Reasoning, English"
                     />
+
                     {errors.name && (
                       <p className="flex items-center gap-1 mt-1.5 text-xs text-rose-600">
                         <AlertCircle className="w-3 h-3" />
@@ -2183,6 +2182,7 @@ function SectionsManager({ testId: propTestId } = {}) {
                           min={60}
                           step={60}
                         />
+
                         <p className="mt-1 text-[11px] font-medium text-indigo-600">
                           {Math.floor(
                             (parseInt(formData.time_limit) || 900) / 60,
@@ -2265,6 +2265,7 @@ function SectionsManager({ testId: propTestId } = {}) {
                           min={0}
                           step={0.5}
                         />
+
                         {errors.marks_per_question && (
                           <p className="flex items-center gap-1 mt-1 text-xs text-rose-600">
                             <AlertCircle className="w-3 h-3" />
@@ -2295,6 +2296,7 @@ function SectionsManager({ testId: propTestId } = {}) {
                           min={0}
                           step={0.25}
                         />
+
                         {errors.negative_marks && (
                           <p className="flex items-center gap-1 mt-1 text-xs text-rose-600">
                             <AlertCircle className="w-3 h-3" />

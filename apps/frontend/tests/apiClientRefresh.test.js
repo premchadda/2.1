@@ -34,6 +34,9 @@ function response(config, data = { success: true }) {
 
 function makeClient(adapter, onAuthFailure = vi.fn()) {
   const client = createApiClient({
+    // Explicit origin: an empty baseURL is the documented same-origin fallback
+    // and logs a one-off warning, which is noise in a unit test.
+    baseURL: "http://api.test",
     authEndpoints: [
       "/api/auth/login",
       "/api/auth/register",

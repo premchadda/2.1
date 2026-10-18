@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useParams, Link } from "react-router-dom";
 import { Search, Users, Sparkles, ChevronRight, RotateCcw } from "lucide-react";
 import { useAuth } from "../../shared/providers/AuthContext";
@@ -129,7 +130,7 @@ function PypsExam({ examSlug: examSlugOverride } = {}) {
         }
       } catch (error) {
         if (error.name === "AbortError" || signal?.aborted) return;
-        console.error("PYP exam fetch error:", error);
+        logger.error("PYP exam fetch error:", error);
       } finally {
         if (!signal?.aborted) {
           if (isFirst) {

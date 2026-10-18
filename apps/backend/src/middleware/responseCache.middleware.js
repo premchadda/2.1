@@ -344,7 +344,7 @@ export const swrCache = (
           }
           return res;
         };
-        res.send = (body) => {
+        res.send = (_body) => {
           res.json = () => {};
           res.send = () => res;
           finishRefresh();

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { adminAPI } from "../../../shared/lib/dataService";
 import { toast } from "react-hot-toast";
@@ -48,7 +49,7 @@ export default function EmailTemplatesManager() {
       }
     } catch (error) {
       if (signal.aborted) return;
-      console.error("Error fetching email templates:", error);
+      logger.error("Error fetching email templates:", error);
       toast.error("Failed to load email templates");
     } finally {
       if (!signal.aborted) setLoading(false);
@@ -135,7 +136,7 @@ export default function EmailTemplatesManager() {
       }
       setEditingId(null);
     } catch (error) {
-      console.error("Error saving template:", error);
+      logger.error("Error saving template:", error);
       toast.error("Failed to save template");
     }
   };

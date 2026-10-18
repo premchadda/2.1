@@ -360,7 +360,7 @@ function buildSearchGroundedAnswer({
   promptType = "hint",
   questionText = "",
   options = [],
-  correctOption = null,
+  _correctOption = null,
   explanation = "",
   dbContext = "",
   webHits = [],

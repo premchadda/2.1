@@ -1,8 +1,5 @@
 import express from "express";
-import {
-  pool,
-  dbHelpers,
-} from "../../infrastructure/database/postgres-helpers.js";
+import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 import responseCache from "../../middleware/responseCache.js";
 import { readQuery } from "../../../config/database-replicas.js";
@@ -132,38 +129,5 @@ router.get(
     }
   },
 );
-
-// @route   GET /api/exams/:examId/compare
-router.get("/:examId/compare", async (req, res) => {
-  try {
-    const { examId } = req.params;
-    const { years } = req.query;
-    const yearArray = years ? years.split(",").map(Number) : [];
-
-    const comparisonData = await dbHelpers.find("examYearlyData", {
-      examId: parseInt(examId),
-      year: { $in: yearArray },
-      isActive: true,
-    });
-
-    const formatted = comparisonData
-      .sort((a, b) => b.year - a.year)
-      .map((data) => ({
-        year: data.year,
-        vacancies: data.vacancies,
-        notificationDate: data.notificationDate,
-        applicationStart: data.applicationStart,
-        examDateStart: data.examDateStart,
-        resultDate: data.resultDate,
-      }));
-
-    res.json({ success: true, data: formatted });
-  } catch (error) {
-    console.error("Get comparison error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
 
 export default router;

@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import FeatureGate from "./FeatureGate";
+import { ROUTER_FUTURE_FLAGS } from "../../../test/routerFutureFlags";
 
 const settingsMock = vi.hoisted(() => ({
   isFeatureEnabled: vi.fn(),
@@ -24,7 +25,7 @@ describe("FeatureGate", () => {
   it("shows the feature when enabled", () => {
     settingsMock.isFeatureEnabled.mockReturnValue(true);
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <FeatureGate featureKey="analytics">
           <span>Analytics</span>
         </FeatureGate>
@@ -36,7 +37,7 @@ describe("FeatureGate", () => {
   it("blocks the feature when disabled", () => {
     settingsMock.isFeatureEnabled.mockReturnValue(false);
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <FeatureGate featureKey="analytics">
           <span>Analytics</span>
         </FeatureGate>

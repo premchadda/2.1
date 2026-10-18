@@ -33,7 +33,6 @@ const {
   recordLoginAttempt,
   clearLoginAttempts,
   lockoutMiddleware,
-  LOCKOUT_CONFIG,
 } = await import("../middleware/lockout.middleware.js");
 
 describe("Lockout Middleware & Account Lockout Engine", () => {

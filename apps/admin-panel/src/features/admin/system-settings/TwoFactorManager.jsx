@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import {
   KeyRound,
   QrCode,
@@ -45,7 +46,7 @@ export default function TwoFactorManager() {
       const response = await authAPI.twoFactorStatus();
       setStatus(response.data.data);
     } catch (err) {
-      console.error("Failed to fetch 2FA status:", err);
+      logger.error("Failed to fetch 2FA status:", err);
     } finally {
       setLoadingStatus(false);
     }
@@ -60,7 +61,7 @@ export default function TwoFactorManager() {
       });
       setUsersOverview(res.data?.data || []);
     } catch (err) {
-      console.error("Failed to fetch users 2FA overview:", err);
+      logger.error("Failed to fetch users 2FA overview:", err);
     } finally {
       setUsersLoading(false);
     }
@@ -90,7 +91,7 @@ export default function TwoFactorManager() {
           if (active) setQrCodeDataUrl(url);
         })
         .catch((err) =>
-          console.error("Failed to generate local 2FA QR code:", err),
+          logger.error("Failed to generate local 2FA QR code:", err),
         );
     } else {
       setQrCodeDataUrl("");

@@ -1,35 +1,25 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { logger } from "@trstprep/shared-config";
+import { useNavigate } from "react-router-dom";
 import {
   Users,
-  Search,
   Download,
-  Eye,
   X,
-  Filter,
   TestTube2,
   BookOpen,
   CreditCard,
   Award,
-  CheckCircle2,
-  XCircle,
-  Clock,
   RefreshCw,
   User,
   Calendar,
   GraduationCap,
   AlertTriangle,
-  Sparkles,
   LayoutList,
   LayoutGrid,
   BarChart3,
   TrendingUp,
   ArrowUpRight,
-  ShieldCheck,
-  Zap,
-  Mail,
   Copy,
-  ChevronRight,
   PieChart as PieIcon,
 } from "lucide-react";
 import {
@@ -148,7 +138,7 @@ export default function EnrollmentsManager() {
       }
     } catch (err) {
       if (signal?.aborted) return;
-      console.error("Enrollments fetch failed:", err);
+      logger.error("Enrollments fetch failed:", err);
       if (refresh) toast.error("Failed to update enrollments");
     } finally {
       if (!signal?.aborted) {
@@ -165,6 +155,7 @@ export default function EnrollmentsManager() {
         enrollments.flatMap((e) => (e.series || []).map((s) => s.name)),
       ),
     ],
+
     [enrollments],
   );
   const allMaterialNames = useMemo(
@@ -173,6 +164,7 @@ export default function EnrollmentsManager() {
         enrollments.flatMap((e) => (e.studyMaterials || []).map((m) => m.name)),
       ),
     ],
+
     [enrollments],
   );
   const uniquePasses = useMemo(
@@ -182,7 +174,7 @@ export default function EnrollmentsManager() {
 
   // Filtered dataset with multi-token fuzzy matching
   const filtered = useMemo(() => {
-    let source = enrollments.filter((e) => {
+    const source = enrollments.filter((e) => {
       const matchPass = filterPass === "all" || e.passBadge === filterPass;
 
       const matchUserStatus =
@@ -219,6 +211,7 @@ export default function EnrollmentsManager() {
         ...(item.exams || []).map((x) => x.name),
         ...(item.studyMaterials || []).map((m) => m.name),
       ],
+
       { threshold: 18 },
     );
   }, [
@@ -289,6 +282,7 @@ export default function EnrollmentsManager() {
         "Study Materials",
         "Enrolled At",
       ],
+
       ...filtered.map((e) => [
         e.userName,
         e.userEmail,
@@ -300,6 +294,7 @@ export default function EnrollmentsManager() {
         e.enrolledAt ? new Date(e.enrolledAt).toLocaleDateString("en-IN") : "",
       ]),
     ];
+
     const csv = rows
       .map((r) =>
         r
@@ -343,6 +338,7 @@ export default function EnrollmentsManager() {
               <RefreshCw
                 className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-indigo-600" : ""}`}
               />
+
               <span className="hidden sm:inline">Refresh</span>
             </button>
 
@@ -650,6 +646,7 @@ export default function EnrollmentsManager() {
                     vertical={false}
                     stroke="#88888820"
                   />
+
                   <XAxis
                     dataKey="name"
                     tick={{ fontSize: 10, fill: "#888888" }}
@@ -658,11 +655,13 @@ export default function EnrollmentsManager() {
                     angle={-15}
                     textAnchor="end"
                   />
+
                   <YAxis
                     tick={{ fontSize: 10, fill: "#888888" }}
                     axisLine={false}
                     tickLine={false}
                   />
+
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "#18181b",
@@ -672,6 +671,7 @@ export default function EnrollmentsManager() {
                       fontSize: "12px",
                     }}
                   />
+
                   <Bar
                     dataKey="count"
                     fill="#3b82f6"

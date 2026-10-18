@@ -17,11 +17,7 @@ import {
 import { mapBulkRowToQuestionPayload } from "../../shared/utils/bulkRowMappers.js";
 import { validateBody } from "../../middleware/validation/inputValidation.js";
 import { emitBroadcastEvent } from "../../infrastructure/events/eventBus.js";
-import {
-  sendError,
-  sendNotFound,
-  sendSuccessMessage,
-} from "../../shared/utils/sendResponse.js";
+import { sendError } from "../../shared/utils/sendResponse.js";
 import { moderationService } from "../../services/core/moderationService.js";
 
 const router = express.Router();

@@ -9,18 +9,18 @@
  * - Comparative analytics
  */
 
-import { pool } from '../../infrastructure/database/postgres-helpers.js'
-
 const topicAnalyticsService = {
   /**
    * Get topic performance overview.
    */
   async getTopicOverview(topicId) {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
-      const result = await client.query(`
+      const result = await client.query(
+        `
         SELECT
           t.id,
           t.name,
@@ -33,11 +33,13 @@ const topicAnalyticsService = {
         FROM subject_topics t
         LEFT JOIN subjects s ON s.id = t.subject_id
         WHERE t.id = $1
-      `, [topicId])
+      `,
+        [topicId],
+      );
 
-      return result.rows[0] || null
+      return result.rows[0] || null;
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -45,11 +47,13 @@ const topicAnalyticsService = {
    * Get question-level analytics for a topic.
    */
   async getQuestionAnalytics(topicId) {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
-      const result = await client.query(`
+      const result = await client.query(
+        `
         SELECT
           q.id,
           q.question_text,
@@ -76,22 +80,25 @@ const topicAnalyticsService = {
                   WHERE qa.question_id = q.id AND a.is_completed = true)
             ELSE 0
           END ASC
-      `, [topicId])
+      `,
+        [topicId],
+      );
 
-      return result.rows.map(row => ({
+      return result.rows.map((row) => ({
         id: row.id,
         questionText: row.question_text,
         difficulty: row.difficulty,
         marks: row.marks,
         totalAttempts: parseInt(row.total_attempts),
         correctCount: parseInt(row.correct_count),
-        accuracy: row.total_attempts > 0
-          ? Math.round(row.correct_count / row.total_attempts * 100)
-          : 0,
+        accuracy:
+          row.total_attempts > 0
+            ? Math.round((row.correct_count / row.total_attempts) * 100)
+            : 0,
         avgTime: Math.round(row.avg_time || 0),
-      }))
+      }));
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -99,11 +106,13 @@ const topicAnalyticsService = {
    * Get user engagement metrics for a topic.
    */
   async getUserEngagement(topicId) {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
-      const result = await client.query(`
+      const result = await client.query(
+        `
         SELECT
           COUNT(DISTINCT uts.user_id) as unique_users,
           SUM(uts.total_attempts) as total_attempts,
@@ -115,18 +124,22 @@ const topicAnalyticsService = {
         WHERE uts.topic_id = $1 OR (uts.topic_id IS NULL AND LOWER(uts.topic) IN (
           SELECT LOWER(name) FROM subject_topics WHERE id = $1
         ))
-      `, [topicId])
+      `,
+        [topicId],
+      );
 
-      return result.rows[0] || {
-        uniqueUsers: 0,
-        totalAttempts: 0,
-        avgAttemptsPerUser: 0,
-        lastActivity: null,
-        highPerformers: 0,
-        strugglingUsers: 0,
-      }
+      return (
+        result.rows[0] || {
+          uniqueUsers: 0,
+          totalAttempts: 0,
+          avgAttemptsPerUser: 0,
+          lastActivity: null,
+          highPerformers: 0,
+          strugglingUsers: 0,
+        }
+      );
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -134,11 +147,13 @@ const topicAnalyticsService = {
    * Get difficulty distribution for a topic.
    */
   async getDifficultyDistribution(topicId) {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
-      const result = await client.query(`
+      const result = await client.query(
+        `
         SELECT
           q.difficulty,
           COUNT(*) as count,
@@ -155,15 +170,17 @@ const topicAnalyticsService = {
             WHEN 'very_hard' THEN 4
             ELSE 5
           END
-      `, [topicId])
+      `,
+        [topicId],
+      );
 
-      return result.rows.map(row => ({
+      return result.rows.map((row) => ({
         difficulty: row.difficulty,
         count: parseInt(row.count),
         avgAccuracy: parseFloat(row.avg_accuracy || 0),
-      }))
+      }));
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -171,11 +188,13 @@ const topicAnalyticsService = {
    * Get performance trends for a topic.
    */
   async getPerformanceTrends(topicId, days = 30) {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
-      const result = await client.query(`
+      const result = await client.query(
+        `
         SELECT
           DATE(a.completed_at) as date,
           COUNT(DISTINCT a.user_id) as unique_users,
@@ -190,17 +209,19 @@ const topicAnalyticsService = {
           AND a.completed_at >= NOW() - ($2 * INTERVAL '1 day')
         GROUP BY DATE(a.completed_at)
         ORDER BY date
-      `, [topicId, days])
+      `,
+        [topicId, days],
+      );
 
-      return result.rows.map(row => ({
+      return result.rows.map((row) => ({
         date: row.date,
         uniqueUsers: parseInt(row.unique_users),
         avgPercentage: parseFloat(row.avg_percentage),
         totalCorrect: parseInt(row.total_correct),
         totalWrong: parseInt(row.total_wrong),
-      }))
+      }));
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -208,11 +229,13 @@ const topicAnalyticsService = {
    * Get comparative analytics across topics.
    */
   async getComparativeAnalytics(topicIds) {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
-      const result = await client.query(`
+      const result = await client.query(
+        `
         SELECT
           t.id,
           t.name,
@@ -222,17 +245,19 @@ const topicAnalyticsService = {
         FROM subject_topics t
         WHERE t.id = ANY($1)
         ORDER BY avg_accuracy ASC
-      `, [topicIds])
+      `,
+        [topicIds],
+      );
 
-      return result.rows.map(row => ({
+      return result.rows.map((row) => ({
         id: row.id,
         name: row.name,
         totalQuestions: parseInt(row.total_questions),
         uniqueUsers: parseInt(row.unique_users),
         avgAccuracy: parseFloat(row.avg_accuracy || 0),
-      }))
+      }));
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -245,15 +270,15 @@ const topicAnalyticsService = {
       this.getUserEngagement(topicId),
       this.getDifficultyDistribution(topicId),
       this.getPerformanceTrends(topicId, 7),
-    ])
+    ]);
 
     return {
       overview,
       engagement,
       difficultyDistribution: difficultyDist,
       weeklyTrends: trends,
-    }
+    };
   },
-}
+};
 
-export default topicAnalyticsService
+export default topicAnalyticsService;

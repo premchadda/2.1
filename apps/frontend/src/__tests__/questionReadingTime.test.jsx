@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import {
   getEstimatedReadingSeconds,
   formatReadingTime,
@@ -7,6 +7,12 @@ import {
 import QuestionViewer from "../pages/tests/components/QuestionViewer";
 import TestSolutionsList from "../pages/tests/components/TestSolutionsList";
 import PracticeWorkspace from "../pages/tests/components/PracticeWorkspace";
+
+// PracticeWorkspace reads the auth context; stub it so the suite does not trip
+// the intentional DEV-only fallback warn from shared/providers/useAuth.js.
+vi.mock("../shared/providers/AuthContext", () => ({
+  useAuth: () => ({ user: null, isAuthenticated: false }),
+}));
 
 // Mock MathRenderer
 vi.mock("../shared/components/MathRenderer", () => ({
@@ -137,7 +143,7 @@ describe("Estimated Reading Time and Per-Question Timer", () => {
   });
 
   describe("PracticeWorkspace", () => {
-    it("renders estimated reading time and time spent badges in question header", () => {
+    it("renders estimated reading time and time spent badges in question header", async () => {
       const mockSession = {
         id: "sess-read-1",
         currentIndex: 0,
@@ -164,10 +170,14 @@ describe("Estimated Reading Time and Per-Question Timer", () => {
         />,
       );
 
-      expect(screen.getByTitle("Estimated reading time")).toBeInTheDocument();
-      expect(
-        screen.getByTitle("Time spent on this question"),
-      ).toBeInTheDocument();
+      // waitFor (not a sync getBy) so the component's async explanation/
+      // approach/similar-question fetches settle inside act().
+      await waitFor(() => {
+        expect(screen.getByTitle("Estimated reading time")).toBeInTheDocument();
+        expect(
+          screen.getByTitle("Time spent on this question"),
+        ).toBeInTheDocument();
+      });
     });
   });
 });

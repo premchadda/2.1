@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import {
@@ -32,10 +33,13 @@ import { useAuth } from "../../shared/providers/AuthContext";
 import { apiClient } from "../../shared/lib/dataService";
 import { toast } from "react-hot-toast";
 import { useConfirm } from "../../shared/components/common/ConfirmModal.jsx";
+import { Modal } from "../../shared/components/ui/Modal.jsx";
+import ClickableCard from "../../shared/components/ui/ClickableCard.jsx";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
 import { formatTimeAgo } from "../../shared/lib/format.js";
 import { getAvatarGradient } from "@trstprep/shared-config";
+import { getErrorMessage } from "../../shared/lib/apiClient.js";
 
 // Avatar gradients delegate to canonical `getAvatarGradient`
 // (@trstprep/shared-config) — local fork removed to avoid drift.
@@ -177,9 +181,7 @@ function CommunityHubView() {
       toast.success("Your question has been posted to the community!");
     },
     onError: (err) => {
-      toast.error(
-        err.response?.data?.message || "Failed to post your question",
-      );
+      toast.error(getErrorMessage(err) || "Failed to post your question");
     },
   });
 
@@ -205,9 +207,7 @@ function CommunityHubView() {
       }
     },
     onError: (err) => {
-      toast.error(
-        err.response?.data?.message || "Failed to create study group",
-      );
+      toast.error(getErrorMessage(err) || "Failed to create study group");
     },
   });
 
@@ -616,9 +616,9 @@ function CommunityHubView() {
                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 border border-indigo-200/60 dark:border-indigo-800/60">
                   <MessageCircle className="w-6 h-6" />
                 </div>
-                <h3 className="text-base font-black text-slate-900 dark:text-white mb-1.5">
+                <h2 className="text-base font-black text-slate-900 dark:text-white mb-1.5">
                   No Questions Found
-                </h3>
+                </h2>
                 <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-5 max-w-xs mx-auto">
                   {searchQuery ||
                   selectedCategory !== "all" ||
@@ -648,9 +648,10 @@ function CommunityHubView() {
                       (c) => c.id === doubt.category,
                     );
                     return (
-                      <div
+                      <ClickableCard
                         key={doubt._id || doubt.id}
                         onClick={() => setSelectedDoubt(doubt)}
+                        aria-label={`Open discussion: ${doubt.title}`}
                         className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800/80 shadow-sm hover:border-indigo-500/50 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between group"
                       >
                         <div>
@@ -724,7 +725,7 @@ function CommunityHubView() {
                             <ChevronRight className="w-3.5 h-3.5" />
                           </span>
                         </div>
-                      </div>
+                      </ClickableCard>
                     );
                   })}
                 </div>
@@ -992,9 +993,10 @@ function CommunityHubView() {
       {/* ASK DOUBT MODAL */}
       {showAskForm && (
         <Modal
+          isOpen
+          size="2xl"
           title="Ask a Community Doubt"
           onClose={() => setShowAskForm(false)}
-          wide
         >
           <form onSubmit={handleAskDoubt} className="space-y-4">
             <div>
@@ -1106,6 +1108,8 @@ function CommunityHubView() {
       {/* CREATE STUDY GROUP MODAL */}
       {showCreateForm && (
         <Modal
+          isOpen
+          size="lg"
           title="Create Study Circle"
           onClose={() => setShowCreateForm(false)}
         >
@@ -1267,7 +1271,7 @@ function DoubtDetailModal({ doubt, onClose, categories }) {
       toast.success("Your answer has been submitted!");
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || "Failed to submit answer");
+      toast.error(getErrorMessage(err) || "Failed to submit answer");
     },
   });
 
@@ -1287,7 +1291,7 @@ function DoubtDetailModal({ doubt, onClose, categories }) {
       toast.success("Answer marked as accepted solution!");
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || "Failed to mark as accepted");
+      toast.error(getErrorMessage(err) || "Failed to mark as accepted");
     },
   });
 
@@ -1306,7 +1310,7 @@ function DoubtDetailModal({ doubt, onClose, categories }) {
       toast.success("Upvoted!");
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || "Already upvoted or failed");
+      toast.error(getErrorMessage(err) || "Already upvoted or failed");
     },
   });
 
@@ -1324,7 +1328,12 @@ function DoubtDetailModal({ doubt, onClose, categories }) {
   const catObj = categories?.find((c) => c.id === currentDoubt.category);
 
   return (
-    <Modal title="Question & Peer Discussions" onClose={onClose} wide>
+    <Modal
+      isOpen
+      size="2xl"
+      title="Question & Peer Discussions"
+      onClose={onClose}
+    >
       <div className="space-y-4">
         {/* Author Bar */}
         <div className="flex items-center justify-between pb-3.5 border-b border-slate-200/80 dark:border-slate-800">
@@ -1761,9 +1770,9 @@ function GroupDetailView({ groupId, onBack }) {
           ) : (
             <div className="text-center py-8 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm max-w-md mx-auto">
               <LockIcon className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-              <h3 className="text-base font-black text-slate-900 dark:text-white mb-1.5">
+              <h2 className="text-base font-black text-slate-900 dark:text-white mb-1.5">
                 Members-Only Chat
-              </h3>
+              </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">
                 Join this study circle to participate in the live chat with
                 other aspirants.
@@ -1880,7 +1889,7 @@ function ChatTab({ groupId, socket, user }) {
         inputRef.current?.focus();
       }
     } catch (err) {
-      console.error("Failed to send message:", err?.message ?? err);
+      logger.error("Failed to send message:", err?.message ?? err);
       toast.error("Failed to send message");
     } finally {
       setSending(false);
@@ -2312,7 +2321,18 @@ function DiscussionsTab({ groupId, user, isAdmin }) {
             <div
               key={post._id || post.id}
               onClick={() => setSelectedPost(post)}
-              className={`bg-white dark:bg-slate-900 rounded-2xl border p-4 hover:shadow-md transition cursor-pointer ${
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                // Ignore keys that originate from the nested admin pin button.
+                if (e.target !== e.currentTarget) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSelectedPost(post);
+                }
+              }}
+              aria-label={`Open discussion: ${post.title}`}
+              className={`bg-white dark:bg-slate-900 rounded-2xl border p-4 hover:shadow-md transition cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset ${
                 post.isPinned
                   ? "border-amber-200 dark:border-amber-800 bg-amber-50/20 dark:bg-amber-950/20"
                   : "border-slate-200/80 dark:border-slate-800"
@@ -2439,39 +2459,6 @@ function MembersTab({ group }) {
             )}
           </div>
         ))}
-      </div>
-    </div>
-  );
-}
-
-/* =========================================================================
-   GENERIC MODAL COMPONENT
-   ========================================================================= */
-
-function Modal({ title, onClose, children, wide }) {
-  return (
-    <div
-      className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
-      <div
-        className={`bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 ${
-          wide ? "max-w-[95vw] sm:max-w-2xl" : "max-w-lg"
-        } w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl transition-all`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate pr-2">
-            {title}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors shrink-0"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        {children}
       </div>
     </div>
   );

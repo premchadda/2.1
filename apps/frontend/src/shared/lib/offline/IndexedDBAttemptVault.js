@@ -8,6 +8,8 @@
  */
 
 import { getCsrfToken } from "@trstprep/shared-config";
+import { logger } from "@trstprep/shared-config";
+import { API_URL } from "../apiBase.js";
 
 const DB_NAME = "trstprep_attempt_vault";
 const DB_VERSION = 1;
@@ -73,7 +75,7 @@ export class IndexedDBAttemptVault {
 
         request.onerror = (err) => {
           if (import.meta.env.DEV) {
-            console.warn(
+            logger.warn(
               "[AttemptVault] IndexedDB open error, falling back to memory store:",
               err,
             );
@@ -83,7 +85,7 @@ export class IndexedDBAttemptVault {
         };
       } catch (err) {
         if (import.meta.env.DEV)
-          console.warn("[AttemptVault] IndexedDB initialization failed:", err);
+          logger.warn("[AttemptVault] IndexedDB initialization failed:", err);
         this.db = null;
         resolve(false);
       }
@@ -116,7 +118,7 @@ export class IndexedDBAttemptVault {
         req.onerror = () => reject(req.error);
       } catch (e) {
         if (import.meta.env.DEV)
-          console.warn(
+          logger.warn(
             "[AttemptVault] saveAttempt IndexedDB failed, using memory fallback:",
             { attemptId: attempt?.attemptId, error: e },
           );
@@ -147,7 +149,7 @@ export class IndexedDBAttemptVault {
           resolve(this.memoryFallback.attempts.get(String(attemptId)) || null);
       } catch (e) {
         if (import.meta.env.DEV)
-          console.warn(
+          logger.warn(
             "[AttemptVault] getAttempt IndexedDB failed, using memory fallback:",
             { attemptId, error: e },
           );
@@ -220,7 +222,7 @@ export class IndexedDBAttemptVault {
         req.onerror = () => reject(req.error);
       } catch (e) {
         if (import.meta.env.DEV)
-          console.warn(
+          logger.warn(
             "[AttemptVault] saveAnswer IndexedDB failed, using memory fallback:",
             { answerId: id, error: e },
           );
@@ -249,7 +251,7 @@ export class IndexedDBAttemptVault {
           resolve(this.memoryFallback.answers.get(id) || null);
       } catch (e) {
         if (import.meta.env.DEV)
-          console.warn(
+          logger.warn(
             "[AttemptVault] getAnswer IndexedDB failed, using memory fallback:",
             { answerId: id, error: e },
           );
@@ -268,7 +270,7 @@ export class IndexedDBAttemptVault {
       for (const [key, val] of this.memoryFallback.answers.entries()) {
         if (val.attemptId === String(attemptId)) {
           if (import.meta.env.DEV && key !== val?.id) {
-            console.warn("[AttemptVault] answer map key mismatch:", {
+            logger.warn("[AttemptVault] answer map key mismatch:", {
               key,
               recordId: val?.id,
             });
@@ -289,10 +291,10 @@ export class IndexedDBAttemptVault {
         req.onerror = () => resolve([]);
       } catch (e) {
         if (import.meta.env.DEV)
-          console.warn(
-            "[AttemptVault] getAnswersForAttempt IndexedDB failed:",
-            { attemptId, error: e },
-          );
+          logger.warn("[AttemptVault] getAnswersForAttempt IndexedDB failed:", {
+            attemptId,
+            error: e,
+          });
         resolve([]);
       }
     });
@@ -330,7 +332,7 @@ export class IndexedDBAttemptVault {
         req.onerror = () => reject(req.error);
       } catch (e) {
         if (import.meta.env.DEV)
-          console.warn(
+          logger.warn(
             "[AttemptVault] enqueueSyncMutation IndexedDB failed, using memory fallback:",
             { attemptId, action, error: e },
           );
@@ -372,7 +374,7 @@ export class IndexedDBAttemptVault {
         req.onerror = () => resolve([]);
       } catch (e) {
         if (import.meta.env.DEV)
-          console.warn("[AttemptVault] getPendingMutations IndexedDB failed:", {
+          logger.warn("[AttemptVault] getPendingMutations IndexedDB failed:", {
             attemptId,
             error: e,
           });
@@ -423,7 +425,7 @@ export class IndexedDBAttemptVault {
       } catch (err) {
         failed++;
         if (import.meta.env.DEV)
-          console.warn("[AttemptVault] flushSyncQueue item failed:", {
+          logger.warn("[AttemptVault] flushSyncQueue item failed:", {
             attemptId: item?.attemptId,
             action: item?.action,
             error: err,
@@ -489,8 +491,14 @@ export class IndexedDBAttemptVault {
         } catch {
           csrfToken = null;
         }
+        // Prefix with the resolved API base. This used to hit the hardcoded RELATIVE
+        // "/api/attempt/..." while every other raw fetch in the app goes through the
+        // resolver (autosaveBeacon.js, aiStreaming.js). On the documented cross-origin
+        // deployment (frontend on Vercel, backend on Render) the `online`-event
+        // auto-replay therefore posted to the WRONG origin, got the SPA's HTML back,
+        // `res.json()` threw, and every offline answer was silently never reconciled.
         const res = await fetch(
-          `/api/attempt/${encodeURIComponent(attemptId)}/sync-replay`,
+          `${API_URL}/attempt/${encodeURIComponent(attemptId)}/sync-replay`,
           {
             method: "POST",
             headers: {
@@ -546,7 +554,7 @@ export class IndexedDBAttemptVault {
         }
       } catch (err) {
         if (import.meta.env.DEV) {
-          console.warn(
+          logger.warn(
             "[AttemptVault] Auto-replay on connection restore failed:",
             err,
           );
@@ -575,7 +583,7 @@ export class IndexedDBAttemptVault {
         req.onerror = () => resolve(false);
       } catch (e) {
         if (import.meta.env.DEV)
-          console.warn("[AttemptVault] removeQueueItem IndexedDB failed:", {
+          logger.warn("[AttemptVault] removeQueueItem IndexedDB failed:", {
             queueId: id,
             error: e,
           });
@@ -628,7 +636,7 @@ export class IndexedDBAttemptVault {
         tx.onerror = () => resolve(false);
       } catch (e) {
         if (import.meta.env.DEV)
-          console.warn("[AttemptVault] clearAttempt IndexedDB failed:", {
+          logger.warn("[AttemptVault] clearAttempt IndexedDB failed:", {
             attemptId,
             error: e,
           });

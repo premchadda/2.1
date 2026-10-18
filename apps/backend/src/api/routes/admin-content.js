@@ -4,9 +4,12 @@ import { parsePagination, paginateResponse } from "./admin-helpers.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
-import { responseCache } from "../../middleware/responseCache.middleware.js";
 
 const router = express.Router();
+
+// NOTE: chapters/topics CRUD used to be duplicated here. admin-dynamic-content.js
+// registers the same paths earlier in admin.js, so those copies were unreachable.
+// chapters/topics are owned by admin-dynamic-content.js.
 
 router.use(protect);
 router.use(admin);
@@ -271,141 +274,7 @@ router.get(
 );
 
 // ===== CHAPTERS MANAGEMENT =====
-router.get(
-  "/chapters",
-  asyncHandler(async (req, res) => {
-    const smId =
-      req.query.studyMaterialId ||
-      req.query.study_material_id ||
-      req.query.subjectId ||
-      req.query.subject_id;
-    const query = { isActive: true };
-    if (smId) {
-      query.subject_id = Number(smId) || smId;
-    }
-    const chapters = await dbHelpers.find("chapters", query);
-    res.json({ success: true, data: chapters });
-  }),
-);
-
 // ===== TOPICS LOOKUP (for Content Manager dropdowns) =====
-router.get(
-  "/topics",
-  responseCache("admin-topics", 60),
-  asyncHandler(async (req, res) => {
-    const chId = req.query.chapterId || req.query.chapter_id;
-    const query = { isActive: true };
-    if (chId) query.chapter_id = Number(chId) || chId;
-    const topics = await dbHelpers.find("topics", query);
-    topics.sort(
-      (a, b) =>
-        (a.orderIndex || a.order_index || a.order || 0) -
-        (b.orderIndex || b.order_index || b.order || 0),
-    );
-    res.json({ success: true, data: topics });
-  }),
-);
-
-router.post(
-  "/chapters",
-  asyncHandler(async (req, res) => {
-    const {
-      studyMaterialId,
-      study_material_id,
-      subjectId,
-      subject_id,
-      title,
-      name,
-      slug,
-      orderIndex,
-      order,
-    } = req.body;
-    const smId =
-      studyMaterialId || study_material_id || subjectId || subject_id;
-    const chapterName = (name || title || "").trim();
-
-    if (!smId || !chapterName || !slug) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "studyMaterialId (or subjectId), title (or name), and slug are required",
-      });
-    }
-
-    const payload = {
-      subject_id: Number(smId) || smId,
-      name: chapterName,
-      slug: slug.trim(),
-      order_index: Number(orderIndex ?? order ?? 0),
-      is_active: true,
-      created_at: new Date().toISOString(),
-    };
-
-    const newChapter = await dbHelpers.insertOne("chapters", payload);
-
-    try {
-      await dbHelpers.pool.query("SELECT update_study_material_counts($1)", [
-        Number(smId) || smId,
-      ]);
-    } catch {
-      // Optional procedure
-    }
-
-    res.status(201).json({ success: true, data: newChapter });
-  }),
-);
-
-router.put(
-  "/chapters/:id",
-  asyncHandler(async (req, res) => {
-    const updated = await dbHelpers.updateById(
-      "chapters",
-      req.params.id,
-      req.body,
-    );
-    if (!updated) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Chapter not found" });
-    }
-
-    await dbHelpers.pool.query("SELECT update_study_material_counts($1)", [
-      updated.studyMaterialId,
-    ]);
-
-    res.json({ success: true, data: updated });
-  }),
-);
-
-router.delete(
-  "/chapters/:id",
-  asyncHandler(async (req, res) => {
-    const chapter = await dbHelpers.findById("chapters", req.params.id);
-    if (!chapter) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Chapter not found" });
-    }
-
-    const deleted = await dbHelpers.softDelete(
-      "chapters",
-      req.params.id,
-      req.user.id,
-    );
-    if (!deleted) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Chapter not found" });
-    }
-
-    await dbHelpers.pool.query("SELECT update_study_material_counts($1)", [
-      chapter.studyMaterialId,
-    ]);
-
-    res.json({ success: true, message: "Chapter moved to trash" });
-  }),
-);
-
 // ===== SUBJECT VIDEOS MANAGEMENT =====
 router.get(
   "/subject-videos",

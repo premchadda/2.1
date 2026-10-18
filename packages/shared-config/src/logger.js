@@ -51,7 +51,7 @@ const currentLevel = isDevelopment ? LOG_LEVELS.debug : LOG_LEVELS.error;
 // credential carriers (token, secret, password, authorization, jwt) so bearer
 // tokens never leak via logger.error in production.
 const REDACT_KEY_PATTERN =
-  /phone|mobile|otp|email|full_name|avatar_url|aadhaar|pan|razorpay|pgcrypto|db_encryption_key|pgcrypto_key|token|secret|password|authorization|jwt|refresh/i;
+  /phone|mobile|otp|email|full_name|avatar_url|aadhaar|pan(?![a-z])|razorpay|pgcrypto|db_encryption_key|pgcrypto_key|token|secret|password|authorization|jwt|refresh/i;
 const REDACTED = "[REDACTED]";
 const BEARER_PATTERN = /Bearer\s+[A-Za-z0-9\-._~+/=]+/g;
 const JWT_PATTERN = /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g;
@@ -62,9 +62,13 @@ function redactValue(value, depth = 0) {
     let out = value
       .replace(BEARER_PATTERN, `Bearer ${REDACTED}`)
       .replace(JWT_PATTERN, REDACTED);
-    // Inline `key: value` / `key=value` pairs for sensitive keys inside strings
+    // Inline `key: value` / `key=value` pairs for sensitive keys inside strings.
+    // Only the short `pan` alternative is boundary-guarded (`pan(?![a-z])`): bare
+    // "pan" otherwise matched inside ordinary words — most visibly the directory
+    // name "admin-panel", where it swallowed the remainder of a stack trace. Every
+    // other key keeps its original unbounded match so coverage is unchanged.
     out = out.replace(
-      /("?(?:phone|mobile|otp|email|full_name|avatar_url|aadhaar|pan|razorpay|pgcrypto|DB_ENCRYPTION_KEY|PGCRYPTO_KEY|token|secret|password|authorization|jwt)[^:=]*["']?\s*[:=]\s*)(["']?)([^"',}\s&;]+)\2/gi,
+      /("?(?:phone|mobile|otp|email|full_name|avatar_url|aadhaar|pan(?![a-z])|razorpay|pgcrypto|DB_ENCRYPTION_KEY|PGCRYPTO_KEY|token|secret|password|authorization|jwt)[^:=]*["']?\s*[:=]\s*)(["']?)([^"',}\s&;]+)\2/gi,
       `$1$2${REDACTED}$2`,
     );
     return out;

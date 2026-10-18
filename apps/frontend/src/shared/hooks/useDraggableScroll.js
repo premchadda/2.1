@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 
 export function useDraggableScroll(options = {}) {
   const ref = useRef(null);
@@ -51,7 +52,7 @@ export function useDraggableScroll(options = {}) {
           element.setPointerCapture(e.pointerId);
         } catch (captureErr) {
           if (import.meta.env.DEV)
-            console.debug(
+            logger.debug(
               "[DraggableScroll] setPointerCapture unavailable:",
               captureErr,
             );
@@ -98,7 +99,7 @@ export function useDraggableScroll(options = {}) {
           element.releasePointerCapture(e.pointerId);
         } catch (releaseErr) {
           if (import.meta.env.DEV)
-            console.debug(
+            logger.debug(
               "[DraggableScroll] releasePointerCapture unavailable:",
               releaseErr,
             );

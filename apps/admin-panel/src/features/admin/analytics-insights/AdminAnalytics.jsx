@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import {
   BarChart,
   Bar,
@@ -7,11 +8,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
   AreaChart,
   Area,
 } from "recharts";
@@ -33,16 +29,7 @@ import {
   RefreshCw,
   Eye,
   Download,
-  FileBarChart,
   AlertCircle,
-  CheckCircle,
-  Radio,
-  Layers,
-  Sparkles,
-  Shield,
-  CreditCard,
-  Video,
-  FileSpreadsheet,
 } from "lucide-react";
 import { apiClient } from "../../../shared/lib/dataService.js";
 import { useAuth } from "../../../shared/providers/AuthContext";
@@ -286,7 +273,7 @@ export default function AdminAnalytics() {
         }
       } catch (err) {
         if (isAbortError(err) || signal?.aborted) return;
-        console.error("Analytics fetch error:", err);
+        logger.error("Analytics fetch error:", err);
         toast.error("Failed to fetch analytics data");
       } finally {
         if (!signal?.aborted) {
@@ -478,6 +465,7 @@ export default function AdminAnalytics() {
             <RefreshCw
               className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-indigo-600" : ""}`}
             />
+
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
@@ -502,6 +490,7 @@ export default function AdminAnalytics() {
           changeLabel="New"
           color="indigo"
         />
+
         <StatCard
           title="Active Now"
           value={
@@ -513,6 +502,7 @@ export default function AdminAnalytics() {
           changeLabel="Online Now"
           color="emerald"
         />
+
         <StatCard
           title="Total Tests"
           value={totalTests}
@@ -521,6 +511,7 @@ export default function AdminAnalytics() {
           changeLabel="New"
           color="purple"
         />
+
         <StatCard
           title="Revenue"
           value={`₹${(typeof totalRevenue === "number" ? totalRevenue : 0).toLocaleString()}`}
@@ -539,18 +530,21 @@ export default function AdminAnalytics() {
           icon={Target}
           color="blue"
         />
+
         <StatCard
           title="Test Series"
           value={stats?.testSeries || 0}
           icon={BookOpen}
           color="cyan"
         />
+
         <StatCard
           title="Study Materials"
           value={stats?.studyMaterials || stats?.topics || 0}
           icon={PlayCircle}
           color="green"
         />
+
         <StatCard
           title="Avg Score (1h)"
           value={testActivity ? `${testActivity.avgScoreLastHour}%` : "-"}
@@ -586,12 +580,14 @@ export default function AdminAnalytics() {
                     color: "#fff",
                   }}
                 />
+
                 <Bar
                   dataKey="users"
                   name="Users"
                   fill="#6366f1"
                   radius={[4, 4, 0, 0]}
                 />
+
                 <Bar
                   dataKey="tests"
                   name="Tests"
@@ -627,6 +623,7 @@ export default function AdminAnalytics() {
                   tick={{ fontSize: 10 }}
                   stroke="#9ca3af"
                 />
+
                 <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
                 <Tooltip
                   contentStyle={{
@@ -636,6 +633,7 @@ export default function AdminAnalytics() {
                     color: "#fff",
                   }}
                 />
+
                 <Area
                   type="monotone"
                   dataKey="users"
@@ -644,6 +642,7 @@ export default function AdminAnalytics() {
                   fill="#6366f1"
                   fillOpacity={0.2}
                 />
+
                 <Area
                   type="monotone"
                   dataKey="tests"

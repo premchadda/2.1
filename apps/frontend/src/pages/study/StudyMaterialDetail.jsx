@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useParams, Link } from "react-router-dom";
 import { getStudyMaterialById } from "../../shared/lib/dataService";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
@@ -119,7 +120,7 @@ function StudyMaterialDetail() {
         setSubject(subjectData);
       } catch (error) {
         if (error.name !== "AbortError")
-          console.error("Failed to fetch subject:", error);
+          logger.error("Failed to fetch subject:", error);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }

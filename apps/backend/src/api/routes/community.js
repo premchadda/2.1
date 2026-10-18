@@ -8,6 +8,7 @@ import {
 import { idsMatch } from "../../shared/utils/db-utils.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import { sanitizeUserContent } from "../../middleware/htmlSanitizer.js";
 
 const router = express.Router();
 
@@ -117,7 +118,10 @@ router.get("/groups/:id", async (req, res) => {
 // @route   POST /api/community/groups
 // @desc    Create a community group
 // @access  Private
-router.post("/groups", protect, async (req, res) => {
+// Community groups/posts/comments store user-authored rich text. Sanitize AFTER
+// protect() so unauthenticated requests are rejected before any DOMPurify work.
+// Rationale in middleware/htmlSanitizer.js (USER_TEXT_KEYS + markup pre-check).
+router.post("/groups", protect, sanitizeUserContent(), async (req, res) => {
   try {
     const { name, description, tags, isPublic, maxMembers, category } =
       req.body;
@@ -161,7 +165,7 @@ router.post("/groups", protect, async (req, res) => {
 // @route   PUT /api/community/groups/:id
 // @desc    Update a community group
 // @access  Private (Admin only for group)
-router.put("/groups/:id", protect, async (req, res) => {
+router.put("/groups/:id", protect, sanitizeUserContent(), async (req, res) => {
   try {
     const { name, description, tags, isPublic, maxMembers, category, rules } =
       req.body;
@@ -399,59 +403,64 @@ router.get("/groups/:id/posts", optionalAuth, async (req, res) => {
 // @route   POST /api/community/groups/:id/posts
 // @desc    Create a post in a community group
 // @access  Private (group member)
-router.post("/groups/:id/posts", protect, async (req, res) => {
-  try {
-    const { title, content, tags, type, mediaUrls } = req.body;
+router.post(
+  "/groups/:id/posts",
+  protect,
+  sanitizeUserContent(),
+  async (req, res) => {
+    try {
+      const { title, content, tags, type, mediaUrls } = req.body;
 
-    if (!content) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Post content is required" });
+      if (!content) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Post content is required" });
+      }
+
+      const group = await dbHelpers.findById("communityGroups", req.params.id);
+      if (!group || group.isActive === false) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Group not found" });
+      }
+
+      const isMember = group.members?.some(
+        (mid) => String(mid) === String(req.user.id),
+      );
+      if (!isMember) {
+        return res
+          .status(403)
+          .json({ success: false, message: "Join the group to post" });
+      }
+
+      const newPost = await dbHelpers.insertOne("communityPosts", {
+        title: title || "",
+        content,
+        tags: tags || [],
+        type: type || "text",
+        mediaUrls: mediaUrls || [],
+        groupId: req.params.id,
+        userId: req.user.id,
+        upvotes: 0,
+        downvotes: 0,
+        comments: 0,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      res.status(201).json({
+        success: true,
+        data: newPost,
+        message: "Post created successfully",
+      });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
     }
-
-    const group = await dbHelpers.findById("communityGroups", req.params.id);
-    if (!group || group.isActive === false) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Group not found" });
-    }
-
-    const isMember = group.members?.some(
-      (mid) => String(mid) === String(req.user.id),
-    );
-    if (!isMember) {
-      return res
-        .status(403)
-        .json({ success: false, message: "Join the group to post" });
-    }
-
-    const newPost = await dbHelpers.insertOne("communityPosts", {
-      title: title || "",
-      content,
-      tags: tags || [],
-      type: type || "text",
-      mediaUrls: mediaUrls || [],
-      groupId: req.params.id,
-      userId: req.user.id,
-      upvotes: 0,
-      downvotes: 0,
-      comments: 0,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-
-    res.status(201).json({
-      success: true,
-      data: newPost,
-      message: "Post created successfully",
-    });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+  },
+);
 
 // ===== GROUP COMMENTS =====
 // @route   GET /api/community/posts/:postId/comments
@@ -478,42 +487,47 @@ router.get("/posts/:postId/comments", async (req, res) => {
 // @route   POST /api/community/posts/:postId/comments
 // @desc    Comment on a community post
 // @access  Private
-router.post("/posts/:postId/comments", protect, async (req, res) => {
-  try {
-    const { content } = req.body;
-    if (!content || !String(content).trim()) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Comment content is required" });
+router.post(
+  "/posts/:postId/comments",
+  protect,
+  sanitizeUserContent(),
+  async (req, res) => {
+    try {
+      const { content } = req.body;
+      if (!content || !String(content).trim()) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Comment content is required" });
+      }
+
+      const comment = await dbHelpers.insertOne("communityComments", {
+        postId: req.params.postId,
+        userId: req.user.id,
+        content: String(content).trim(),
+        upvotes: 0,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Increment comment count on post
+      await dbHelpers.updateById("communityPosts", req.params.postId, {
+        comments: dbHelpers.pool
+          .query(
+            "SELECT COUNT(*) FROM community_comments WHERE post_id = $1 AND is_active = true",
+            [req.params.postId],
+          )
+          .then((r) => parseInt(r.rows[0].count)),
+      });
+
+      res.status(201).json({ success: true, data: comment });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
     }
-
-    const comment = await dbHelpers.insertOne("communityComments", {
-      postId: req.params.postId,
-      userId: req.user.id,
-      content: String(content).trim(),
-      upvotes: 0,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-
-    // Increment comment count on post
-    await dbHelpers.updateById("communityPosts", req.params.postId, {
-      comments: dbHelpers.pool
-        .query(
-          "SELECT COUNT(*) FROM community_comments WHERE post_id = $1 AND is_active = true",
-          [req.params.postId],
-        )
-        .then((r) => parseInt(r.rows[0].count)),
-    });
-
-    res.status(201).json({ success: true, data: comment });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+  },
+);
 
 // ===== VOTING =====
 // @route   POST /api/community/posts/:postId/vote

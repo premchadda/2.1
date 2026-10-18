@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   Trash2,
@@ -16,15 +17,12 @@ import {
   MoreVertical,
   X,
   AlertTriangle,
-  CheckCircle,
   Filter,
   RefreshCw,
   Clock3,
   Sparkles,
   ArchiveRestore,
   Eraser,
-  ChevronDown,
-  CheckSquare,
   Square,
 } from "lucide-react";
 import { adminAPI } from "../../../shared/lib/dataService.js";
@@ -100,7 +98,7 @@ export default function RecycleBin() {
         setTrashItems(response.data.data || []);
       }
     } catch (error) {
-      console.error("Error fetching trash items:", error);
+      logger.error("Error fetching trash items:", error);
       toast.error(
         error?.response?.data?.message || "Failed to load recycle bin",
       );
@@ -199,7 +197,7 @@ export default function RecycleBin() {
       const msg =
         error?.response?.data?.message || error.message || "Restore failed";
       toast.error(msg);
-      console.error("Restore failed:", error);
+      logger.error("Restore failed:", error);
     }
   };
 
@@ -243,7 +241,7 @@ export default function RecycleBin() {
         await adminAPI.restoreTrashItem(it.id, it.table);
         ok++;
       } catch (e) {
-        console.warn("Bulk restore item failed:", e?.message);
+        logger.warn("Bulk restore item failed:", e?.message);
       }
     }
     if (ok) {
@@ -268,7 +266,7 @@ export default function RecycleBin() {
             await adminAPI.deleteTrashItem(it.id, it.table);
             ok++;
           } catch (e) {
-            console.warn("Bulk delete item failed:", e?.message);
+            logger.warn("Bulk delete item failed:", e?.message);
           }
         }
         if (ok) {
@@ -481,6 +479,7 @@ export default function RecycleBin() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-8 pr-8 py-2 text-xs sm:text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-gray-400"
             />
+
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm("")}
@@ -815,6 +814,7 @@ export default function RecycleBin() {
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
               onClick={() => setConfirmModal((p) => ({ ...p, open: false }))}
             />
+
             <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md p-5 sm:p-6">
               <div className="flex items-start gap-3 mb-4">
                 <div

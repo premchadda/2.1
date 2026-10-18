@@ -319,9 +319,9 @@ function HomeSections(props) {
                           </span>
                         </div>
 
-                        <h4 className="font-extrabold text-gray-900 dark:text-white text-base md:text-lg mb-1 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors">
+                        <h3 className="font-extrabold text-gray-900 dark:text-white text-base md:text-lg mb-1 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors">
                           {cat.label || categoryMap?.[cat.id] || cat.name}
-                        </h4>
+                        </h3>
                         <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm line-clamp-1 mb-4 font-medium">
                           {subtitleTag}
                         </p>

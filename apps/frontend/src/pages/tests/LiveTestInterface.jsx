@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Helmet } from "react-helmet-async";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -11,6 +12,7 @@ import { clearDashboardCache } from "../../shared/lib/dashboardCache";
 import { useConfirm } from "../../shared/components/common/ConfirmModal";
 import MathRenderer from "../../shared/components/MathRenderer";
 import { formatTime } from "../../shared/lib/format.js";
+import { getErrorStatus } from "../../shared/lib/apiClient.js";
 import "./TestInterface.css";
 
 const LiveTestInterface = () => {
@@ -21,6 +23,8 @@ const LiveTestInterface = () => {
   const tabSwitchCountRef = useRef(0);
   const redirectTimerRef = useRef(null);
   const _lastActivityRef = useRef(Date.now());
+  // Absolute countdown deadline (ms epoch). See the timer effect below.
+  const endTimeRef = useRef(0);
 
   const [test, setTest] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -42,11 +46,11 @@ const LiveTestInterface = () => {
       const response = await api.get(`/api/live-tests/${liveTestId}/live-rank`);
       setLiveRank(response.data?.data || null);
     } catch (error) {
-      if (error.response?.status === 404) {
+      if (getErrorStatus(error) === 404) {
         setLiveRank(null);
         return;
       }
-      console.error("Error fetching rank:", error?.message ?? error);
+      logger.error("Error fetching rank:", error?.message ?? error);
     }
   }, [liveTestId]);
 
@@ -83,7 +87,7 @@ const LiveTestInterface = () => {
         state: { result: response.data?.data },
       });
     } catch (error) {
-      console.error("Error submitting test:", error?.message ?? error);
+      logger.error("Error submitting test:", error?.message ?? error);
       toast.error("Error submitting test");
       window._liveTestSubmitting = false;
     }
@@ -109,7 +113,11 @@ const LiveTestInterface = () => {
         const liveTest = testResponse.data?.data;
         if (liveTest) {
           setTest(liveTest);
-          setTimeLeft((liveTest.duration || 0) * 60);
+          const durationSeconds = (liveTest.duration || 0) * 60;
+          // Anchor the deadline once; the countdown effect derives timeLeft from
+          // this instead of decrementing, so tab throttling cannot slow it.
+          endTimeRef.current = Date.now() + durationSeconds * 1000;
+          setTimeLeft(durationSeconds);
         }
         const regData = regResponse?.data?.data;
         if (regData?.attemptId) {
@@ -117,7 +125,7 @@ const LiveTestInterface = () => {
         }
       } catch (error) {
         if (api.isCancel(error)) return;
-        console.error("Error fetching test:", error?.message ?? error);
+        logger.error("Error fetching test:", error?.message ?? error);
       } finally {
         setLoading(false);
       }
@@ -130,14 +138,17 @@ const LiveTestInterface = () => {
   useEffect(() => {
     if (!test || isSubmitted) return;
 
+    // Absolute-deadline countdown. Browsers clamp setInterval in background tabs
+    // (often to once per minute), so decrementing a counter made the clock run
+    // ~60x slow and auto-submit never fired at the real deadline. Deriving
+    // timeLeft from a fixed deadline keeps it accurate regardless of throttling.
     const timer = setInterval(() => {
-      setTimeLeft((previousTimeLeft) => {
-        if (previousTimeLeft <= 0) {
-          return 0;
-        }
-
-        return previousTimeLeft - 1;
-      });
+      const remaining = Math.max(
+        0,
+        Math.ceil((endTimeRef.current - Date.now()) / 1000),
+      );
+      setTimeLeft(remaining);
+      if (remaining <= 0) clearInterval(timer);
     }, 1000);
 
     return () => clearInterval(timer);
@@ -245,6 +256,9 @@ const LiveTestInterface = () => {
             `Test attempt has been ${e?.status || "revoked"}. Redirecting...`,
             { duration: 5000, icon: "❌" },
           );
+          // Clear any prior pending redirect first — otherwise N violations queue
+          // N navigations and the last write wins.
+          if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
           redirectTimerRef.current = setTimeout(() => {
             navigate("/dashboard");
           }, 3000);
@@ -254,6 +268,13 @@ const LiveTestInterface = () => {
 
     return () => {
       Telemetry.stop();
+      // Drop any pending revoked-redirect when attemptId/test/isSubmitted change
+      // (e.g. the learner submits normally within the 3s window) — otherwise the
+      // timer fires anyway and yanks them off the result page.
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+        redirectTimerRef.current = null;
+      }
     };
   }, [attemptId, test, isSubmitted]);
 
@@ -318,9 +339,16 @@ const LiveTestInterface = () => {
         if (!question) return;
         if (question.type === "mcq") {
           const optionIndex = parseInt(key, 10) - 1;
-          if (question.options && optionIndex < question.options.length) {
+          // Options are either a plain array or a localized
+          // `{ en: [...], hi: [...] }` object. `.length` is undefined on the
+          // object shape, so `optionIndex < undefined` was always false and the
+          // 1-4 hotkeys were 100% dead for localized questions.
+          const opts = Array.isArray(question.options)
+            ? question.options
+            : (question.options?.en ?? []);
+          if (opts.length && optionIndex < opts.length) {
             e.preventDefault();
-            handleAnswerChange(question.options[optionIndex]);
+            handleAnswerChange(opts[optionIndex]);
           }
         }
       }
@@ -337,7 +365,7 @@ const LiveTestInterface = () => {
         answer: value,
       });
     } catch (error) {
-      console.error("Error saving answer:", error?.message ?? error);
+      logger.error("Error saving answer:", error?.message ?? error);
     }
   };
 

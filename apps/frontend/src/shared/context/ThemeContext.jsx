@@ -6,6 +6,7 @@ import {
   useMemo,
   useCallback,
 } from "react";
+import { logger } from "@trstprep/shared-config";
 
 const ThemeContext = createContext();
 
@@ -24,7 +25,7 @@ function applyThemeDom(isDark) {
     localStorage.setItem("trstprep_theme", isDark ? "dark" : "light");
   } catch (e) {
     if (import.meta.env.DEV)
-      console.warn("[Theme] Unable to persist theme preference:", e);
+      logger.warn("[Theme] Unable to persist theme preference:", e);
   }
 
   requestAnimationFrame(() => {

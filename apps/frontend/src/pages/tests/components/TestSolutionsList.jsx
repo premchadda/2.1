@@ -445,7 +445,9 @@ export default function TestSolutionsList({
                   ? rawCorrect.map(normalizeResultOption)
                   : normalizeResultOption(rawCorrect);
                 const questionNum = q.originalIndex || questions.indexOf(q) + 1;
-                const isExpanded = expandedSolutions[q.id || q._id || idx];
+                const solutionKey = q.id || q._id || idx;
+                const isExpanded = expandedSolutions[solutionKey];
+                const panelId = `solution-panel-${solutionKey}`;
                 const qMarks = Number(q.marks || 2);
                 const qNegMarks = Number(
                   q.negativeMarks !== undefined ? q.negativeMarks : 0.5,
@@ -460,7 +462,7 @@ export default function TestSolutionsList({
 
                 return (
                   <div
-                    key={q.id || q._id || idx}
+                    key={solutionKey}
                     className={`bg-white dark:bg-gray-800 ${cardBorder} border-y border-r rounded-2xl overflow-hidden transition-all duration-200 ${
                       isExpanded
                         ? "shadow-md border-y-indigo-200 dark:border-y-indigo-900/60 border-r-indigo-200 dark:border-r-indigo-900/60"
@@ -468,9 +470,12 @@ export default function TestSolutionsList({
                     }`}
                   >
                     {/* Header Bar */}
-                    <div
-                      onClick={() => toggleSolution?.(q.id || q._id || idx)}
-                      className={`p-3.5 sm:p-5 cursor-pointer transition-colors ${
+                    <button
+                      type="button"
+                      aria-expanded={!!isExpanded}
+                      aria-controls={panelId}
+                      onClick={() => toggleSolution?.(solutionKey)}
+                      className={`w-full text-left p-3.5 sm:p-5 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset ${
                         isExpanded
                           ? "bg-indigo-50/15 dark:bg-indigo-950/20"
                           : "hover:bg-gray-50/60 dark:hover:bg-gray-750"
@@ -571,11 +576,14 @@ export default function TestSolutionsList({
                           )}
                         />
                       </div>
-                    </div>
+                    </button>
 
                     {/* Expanded Content */}
                     {isExpanded && (
-                      <div className="p-3.5 sm:p-5 border-t border-gray-100 dark:border-gray-700/80 bg-slate-50/50 dark:bg-gray-800/60 space-y-4">
+                      <div
+                        id={panelId}
+                        className="p-3.5 sm:p-5 border-t border-gray-100 dark:border-gray-700/80 bg-slate-50/50 dark:bg-gray-800/60 space-y-4"
+                      >
                         {/* Options List */}
                         <div className="space-y-2">
                           <p className="text-[11px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">

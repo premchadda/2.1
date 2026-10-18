@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { Plus, Edit2, Trash2, Check, X, Save, Star } from "lucide-react";
 import { apiClient } from "../../../shared/lib/dataService.js";
@@ -44,7 +45,7 @@ export default function SubscriptionPlansManager() {
         setPlans(response.data.data);
       }
     } catch (error) {
-      console.error("Failed to fetch plans:", error);
+      logger.error("Failed to fetch plans:", error);
     } finally {
       setLoading(false);
     }
@@ -97,7 +98,7 @@ export default function SubscriptionPlansManager() {
       fetchPlans();
       resetForm();
     } catch (error) {
-      console.error("Failed to save plan:", error);
+      logger.error("Failed to save plan:", error);
       toast.error("Failed to save plan");
     }
   };
@@ -114,7 +115,7 @@ export default function SubscriptionPlansManager() {
       toast.success("Plan deleted successfully");
       fetchPlans();
     } catch (error) {
-      console.error("Failed to delete plan:", error);
+      logger.error("Failed to delete plan:", error);
       toast.error("Failed to delete plan");
     }
   };

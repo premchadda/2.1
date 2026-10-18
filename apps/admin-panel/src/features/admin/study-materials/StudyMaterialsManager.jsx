@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -289,7 +290,7 @@ function SubjectsPanel() {
         setSubjects(response.data.data);
       }
     } catch (error) {
-      console.error("Failed to fetch subjects:", error);
+      logger.error("Failed to fetch subjects:", error);
       toast.error("Failed to load subjects");
     } finally {
       setLoading(false);
@@ -334,7 +335,7 @@ function SubjectsPanel() {
       fetchSubjects();
       resetForm();
     } catch (error) {
-      console.error("Failed to save subject:", error);
+      logger.error("Failed to save subject:", error);
       toast.error("Failed to save subject");
     }
   };
@@ -352,7 +353,7 @@ function SubjectsPanel() {
       toast.success("Subject deleted successfully");
       fetchSubjects();
     } catch (error) {
-      console.error("Failed to delete subject:", error);
+      logger.error("Failed to delete subject:", error);
       toast.error("Failed to delete subject");
     }
   };

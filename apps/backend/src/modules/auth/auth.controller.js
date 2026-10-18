@@ -9,7 +9,6 @@ import {
   setAuthCookies,
 } from "./auth.service.js";
 import {
-  protect,
   ROLES,
   SESSION_IDLE_TIMEOUT_MS,
   ADMIN_IDLE_TIMEOUT_MS,
@@ -732,7 +731,7 @@ export const authController = {
   },
 
   // POST /api/auth/google
-  googleLogin: async (req, res, next) => {
+  googleLogin: async (req, res, _next) => {
     try {
       if (!googleClient) {
         return res
@@ -765,7 +764,6 @@ export const authController = {
       const userAgent = req.headers["user-agent"];
 
       let user;
-      let isNewUser = false;
       user = await dbHelpers.findOne("users", { email: email.toLowerCase() });
 
       if (user) {
@@ -777,7 +775,6 @@ export const authController = {
         }
       } else {
         // Create new user since they don't exist
-        isNewUser = true;
         const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
         // A02: use a cryptographically secure random value, not Math.random(),
         // for the auto-generated password of Google-OAuth-provisioned users.

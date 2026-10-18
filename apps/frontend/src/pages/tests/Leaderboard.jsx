@@ -180,7 +180,12 @@ export default function Leaderboard() {
   });
 
   const { data: streakData } = useQuery({
-    queryKey: ["user-streak"],
+    // Same endpoint (/api/intelligence/streak) and same shape as the one in
+    // PerformanceInsights/AIStudyPlanner — keep ONE key for all of them so the
+    // submit-time invalidation in TestInterface actually covers this consumer
+    // too. It used to be the separate ["user-streak"], which was never
+    // invalidated, leaving this tile stale for up to its full 5min staleTime.
+    queryKey: ["intelligence-streak"],
     queryFn: async () => {
       const res = await api.get("/api/intelligence/streak");
       return res.data?.data || { current: 0, longest: 0 };
@@ -860,10 +865,10 @@ export default function Leaderboard() {
 
               <GlassCard className="p-5 md:col-span-3">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Users className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />{" "}
                     Nearby Rivals
-                  </h3>
+                  </h2>
                   <span className="text-xs text-gray-500 dark:text-gray-400 font-semibold">
                     Ranks surrounding you
                   </span>

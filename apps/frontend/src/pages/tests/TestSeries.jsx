@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, memo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../shared/providers/AuthContext";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
@@ -38,6 +39,7 @@ import {
   checkIsLiveExpired,
 } from "../../shared/utils/testClassification";
 import { getSeriesTestStats } from "../../shared/lib/testSeriesStats.js";
+import { getErrorMessage } from "../../shared/lib/apiClient.js";
 
 const getCategoryStyles = (cat) => {
   const lower = String(cat || "").toLowerCase();
@@ -313,7 +315,7 @@ function TestSeries() {
     // Use slug for API call (backend supports both slug and numeric ID)
     const seriesIdentifier = series.slug || series._id || series.id;
     if (!seriesIdentifier) {
-      console.error("No series identifier found");
+      logger.error("No series identifier found");
       return;
     }
 
@@ -340,9 +342,9 @@ function TestSeries() {
         navigate(`/test-series/${series.slug || series.id}`);
       }
     } catch (error) {
-      console.error("Enrollment error:", error);
+      logger.error("Enrollment error:", error);
       const message =
-        error.response?.data?.message || error.message || "Unknown error";
+        getErrorMessage(error) || error.message || "Unknown error";
 
       // Only redirect to series page if already enrolled
       if (

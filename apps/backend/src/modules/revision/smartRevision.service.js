@@ -8,7 +8,6 @@
  * - Progress tracking
  */
 
-import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import weakAreaDetectionService from "../analytics/weakAreaDetection.service.js";
 import AiGenerationLog from "../../data/models/ai/AiGenerationLog.js";
 import { AI_CONFIG, callAIWithFallback } from "../ai/aiClient.js";
@@ -424,7 +423,7 @@ Create a ${options.days || 14}-day revision plan that:
    */
   async getMistakePracticeQuestions(
     userId,
-    { testId = null, subjectId = null, limit = 25 } = {},
+    { testId = null, _subjectId = null, limit = 25 } = {},
   ) {
     const { pool, dbHelpers } =
       await import("../../infrastructure/database/postgres-helpers.js");

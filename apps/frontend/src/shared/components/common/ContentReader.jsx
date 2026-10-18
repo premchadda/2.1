@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   X,
@@ -13,6 +14,7 @@ import {
 import sanitizeHtml from "../../lib/sanitizeHtml";
 import { apiClient } from "../../lib/dataService";
 import { toast } from "react-hot-toast";
+import { getErrorStatus } from "../../lib/apiClient.js";
 
 export default function ContentReader({ isOpen, onClose, contentData }) {
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -104,8 +106,8 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
       setIsBookmarked(Boolean(data?.isBookmarked));
       setBookmarkId(data?.bookmarkId || null);
     } catch (err) {
-      if (err.response?.status !== 401) {
-        console.error("Failed to check bookmark status:", err);
+      if (getErrorStatus(err) !== 401) {
+        logger.error("Failed to check bookmark status:", err);
       }
     }
   };
@@ -124,10 +126,10 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
       setIsBookmarked(Boolean(data?.isBookmarked));
       setBookmarkId(data?.bookmarkId || null);
     } catch (err) {
-      if (err.response?.status === 401) {
+      if (getErrorStatus(err) === 401) {
         toast.error("Please login to bookmark this content.");
       } else {
-        console.error("Bookmark toggle failed:", err);
+        logger.error("Bookmark toggle failed:", err);
       }
     } finally {
       setBookmarkLoading(false);
@@ -143,7 +145,7 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
           text: contentData?.excerpt || contentData?.description,
           url: window.location.href,
         })
-        .catch((err) => console.error("Share failed:", err));
+        .catch((err) => logger.error("Share failed:", err));
     } else {
       // Fallback: copy URL to clipboard
       navigator.clipboard
@@ -155,7 +157,7 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
             3000,
           );
         })
-        .catch((err) => console.error("Copy failed:", err));
+        .catch((err) => logger.error("Copy failed:", err));
     }
   };
 
@@ -297,9 +299,9 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
             {/* Tags */}
             {contentData?.tags && contentData.tags.length > 0 && (
               <div className="mt-12 pt-8 border-t border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                <h2 className="text-sm font-semibold text-gray-900 mb-3">
                   Tags
-                </h3>
+                </h2>
                 <div className="flex flex-wrap gap-2">
                   {contentData.tags.map((tag) => (
                     <span

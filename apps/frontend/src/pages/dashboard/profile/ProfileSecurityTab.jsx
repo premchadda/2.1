@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { userAPI, authAPI } from "../../../shared/lib/dataService";
 import { toast } from "react-hot-toast";
@@ -13,6 +14,10 @@ import {
   Globe,
 } from "lucide-react";
 import { ToggleSwitch, Cell } from "../ProfilePrimitives";
+import {
+  getErrorMessage,
+  getErrorStatus,
+} from "../../../shared/lib/apiClient.js";
 
 function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
   const [saving, setSaving] = useState(false);
@@ -73,8 +78,8 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
         },
       });
     } catch (error) {
-      console.error("Failed to update password:", error?.message ?? error);
-      toast.error(error.response?.data?.message || "Failed to update password");
+      logger.error("Failed to update password:", error?.message ?? error);
+      toast.error(getErrorMessage(error) || "Failed to update password");
     } finally {
       setSaving(false);
     }
@@ -86,8 +91,8 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
       const res = await userAPI.getSessions();
       setSessions(res.data?.data || []);
     } catch (err) {
-      console.error("Failed to load active sessions:", err?.message ?? err);
-      if (err?.response?.status && err.response.status !== 401) {
+      logger.error("Failed to load active sessions:", err?.message ?? err);
+      if (getErrorStatus(err) && getErrorStatus(err) !== 401) {
         toast.error("Failed to load sessions");
       }
     } finally {
@@ -103,7 +108,7 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
         prev.filter((s) => s.id !== sessionId && s.sessionId !== sessionId),
       );
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       toast.error("Failed to revoke session");
     } finally {
       setSessionsLoading(false);
@@ -125,9 +130,9 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
         state: { from: "/", message: "Account deactivated" },
       });
     } catch (error) {
-      console.error("Failed to deactivate account:", error?.message ?? error);
+      logger.error("Failed to deactivate account:", error?.message ?? error);
       toast.error(
-        error?.response?.data?.message ||
+        getErrorMessage(error) ||
           "Failed to deactivate account. Please try again.",
       );
     }
@@ -147,10 +152,9 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
       await logout();
       navigate("/login", { state: { from: "/", message: "Account deleted" } });
     } catch (error) {
-      console.error("Failed to delete account:", error?.message ?? error);
+      logger.error("Failed to delete account:", error?.message ?? error);
       toast.error(
-        error?.response?.data?.message ||
-          "Failed to delete account. Please try again.",
+        getErrorMessage(error) || "Failed to delete account. Please try again.",
       );
     }
   };
@@ -212,7 +216,11 @@ function ProfileSecurityTab({ user, refreshUser, logout, navigate }) {
             <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
               {showPasswords ? "Hide" : "Show"} Characters
             </span>
-            <ToggleSwitch checked={showPasswords} onChange={setShowPasswords} />
+            <ToggleSwitch
+              label="Show password characters"
+              checked={showPasswords}
+              onChange={setShowPasswords}
+            />
           </div>
           <button
             onClick={handlePasswordSave}

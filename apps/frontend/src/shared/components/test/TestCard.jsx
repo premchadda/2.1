@@ -654,6 +654,7 @@ function TestCard({
             alt={test.title || "Test banner"}
             className="h-full w-full object-cover"
             loading="lazy"
+            decoding="async"
           />
         </div>
       )}

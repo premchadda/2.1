@@ -480,11 +480,12 @@ router.post("/", bookmarkLimiter, async (req, res) => {
       createdAt: new Date().toISOString(),
     });
 
-    await deleteCacheByPrefix(
-      "bookmarks-list",
-      "",
-      `bookmarks-list:u:${req.user.id}`,
-    );
+    // Namespace the scope as the *prefix* so the SCAN pattern resolves to
+    // `bookmarks-list:u:<id>*`. Passing it as subPrefix duplicated the
+    // namespace (`bookmarks-list:bookmarks-list:u:<id>*`) and never matched
+    // the key responseCache.middleware actually stores
+    // (`bookmarks-list:u:<id>:/api/bookmarks?...`).
+    await deleteCacheByPrefix("bookmarks-list", `u:${req.user.id}`);
 
     res.status(201).json({
       success: true,
@@ -539,11 +540,12 @@ router.put("/:id", bookmarkLimiter, async (req, res) => {
       },
     );
 
-    await deleteCacheByPrefix(
-      "bookmarks-list",
-      "",
-      `bookmarks-list:u:${req.user.id}`,
-    );
+    // Namespace the scope as the *prefix* so the SCAN pattern resolves to
+    // `bookmarks-list:u:<id>*`. Passing it as subPrefix duplicated the
+    // namespace (`bookmarks-list:bookmarks-list:u:<id>*`) and never matched
+    // the key responseCache.middleware actually stores
+    // (`bookmarks-list:u:<id>:/api/bookmarks?...`).
+    await deleteCacheByPrefix("bookmarks-list", `u:${req.user.id}`);
 
     res.json({
       success: true,
@@ -582,11 +584,12 @@ router.delete("/:id", bookmarkLimiter, async (req, res) => {
       deletedAt: new Date().toISOString(),
     });
 
-    await deleteCacheByPrefix(
-      "bookmarks-list",
-      "",
-      `bookmarks-list:u:${req.user.id}`,
-    );
+    // Namespace the scope as the *prefix* so the SCAN pattern resolves to
+    // `bookmarks-list:u:<id>*`. Passing it as subPrefix duplicated the
+    // namespace (`bookmarks-list:bookmarks-list:u:<id>*`) and never matched
+    // the key responseCache.middleware actually stores
+    // (`bookmarks-list:u:<id>:/api/bookmarks?...`).
+    await deleteCacheByPrefix("bookmarks-list", `u:${req.user.id}`);
 
     res.json({
       success: true,
@@ -688,11 +691,7 @@ router.post("/toggle", bookmarkLimiter, async (req, res) => {
         deletedAt: new Date().toISOString(),
       });
 
-      await deleteCacheByPrefix(
-        "bookmarks-list",
-        "",
-        `bookmarks-list:u:${req.user.id}`,
-      );
+      await deleteCacheByPrefix("bookmarks-list", `u:${req.user.id}`);
 
       res.json({
         success: true,
@@ -716,11 +715,7 @@ router.post("/toggle", bookmarkLimiter, async (req, res) => {
         createdAt: new Date().toISOString(),
       });
 
-      await deleteCacheByPrefix(
-        "bookmarks-list",
-        "",
-        `bookmarks-list:u:${req.user.id}`,
-      );
+      await deleteCacheByPrefix("bookmarks-list", `u:${req.user.id}`);
 
       res.status(201).json({
         success: true,

@@ -1,6 +1,7 @@
 // Consolidated Data Service - Re-export layer.
 // Imports from split modules and provides the intelligent caching layer (DataService).
 import { apiClient, fetchFromAPI } from "./apiClient.js";
+import { logger } from "@trstprep/shared-config";
 import { CacheService } from "./cacheService.js";
 import { authAPI } from "./api/authAPI.js";
 import { testsAPI } from "./api/testsAPI.js";
@@ -110,7 +111,7 @@ class DataService {
       } catch (error) {
         lastError = error;
         if (import.meta.env.DEV)
-          console.error(`Fetch attempt ${attempt} failed for ${key}:`, error);
+          logger.error(`Fetch attempt ${attempt} failed for ${key}:`, error);
         if (
           error instanceof ValidationError ||
           error instanceof AuthenticationError
@@ -370,7 +371,7 @@ class DataService {
       this.clearCacheForEndpoint("/study");
       return result;
     } catch (error) {
-      if (import.meta.env.DEV) console.error("Mutation failed:", error);
+      if (import.meta.env.DEV) logger.error("Mutation failed:", error);
       throw error;
     }
   }

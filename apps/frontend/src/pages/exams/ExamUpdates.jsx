@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { useParams, Link } from "react-router-dom";
 import { getExamCategories } from "../../shared/lib/dataService";
 import api from "../../shared/lib/api";
@@ -66,14 +67,14 @@ function ExamUpdates() {
             }
           } catch (err) {
             if (err.name !== "AbortError") {
-              console.error("Failed to fetch exam updates:", err);
+              logger.error("Failed to fetch exam updates:", err);
               setUpdates([]);
             }
           }
         }
       } catch (error) {
         if (error.name !== "AbortError")
-          console.error("Error fetching exam updates:", error);
+          logger.error("Error fetching exam updates:", error);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -284,9 +285,9 @@ function ExamUpdates() {
                         </div>
                         <div>
                           <div className="flex flex-wrap items-center gap-3 mb-1.5">
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                               {update.title}
-                            </h3>
+                            </h2>
                             {update.isNew && (
                               <span className="px-2.5 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[10px] uppercase tracking-wider font-bold rounded-full shadow-sm animate-pulse-slow self-center">
                                 New

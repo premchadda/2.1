@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -551,7 +552,7 @@ function Profile({ initialTab = "personal" }) {
         setEnrolledExams(Array.from(enrolledExamsMap.values()));
       } catch (error) {
         if (controller.signal.aborted) return;
-        console.error("Failed to fetch user stats:", error?.message ?? error);
+        logger.error("Failed to fetch user stats:", error?.message ?? error);
       }
     };
     fetchUserData();
@@ -581,7 +582,7 @@ function Profile({ initialTab = "personal" }) {
         setShowPhotoOptionsModal(false);
       }
     } catch (error) {
-      console.error("Failed to remove photo:", error?.message ?? error);
+      logger.error("Failed to remove photo:", error?.message ?? error);
       toast.error("Failed to remove photo.");
     } finally {
       setSaving(false);
@@ -626,7 +627,7 @@ function Profile({ initialTab = "personal" }) {
       const response = await userAPI.updateProfile({ [field]: croppedBase64 });
       if (response.data?.success) await refreshUser();
     } catch (error) {
-      console.error("Failed to update photo:", error?.message ?? error);
+      logger.error("Failed to update photo:", error?.message ?? error);
       toast.error("Failed to update photo.");
     } finally {
       setSaving(false);
@@ -655,7 +656,7 @@ function Profile({ initialTab = "personal" }) {
       setActiveMenuId(null);
       toast.success("Successfully unenrolled from exam!");
     } catch (error) {
-      console.error("Failed to unenroll from exam:", error?.message ?? error);
+      logger.error("Failed to unenroll from exam:", error?.message ?? error);
       toast.error("Failed to unenroll. Please try again.");
     } finally {
       setUnenrollingId(null);
@@ -677,7 +678,7 @@ function Profile({ initialTab = "personal" }) {
         "Successfully unenrolled! All previous attempt history has been deleted.",
       );
     } catch (error) {
-      console.error("Failed to unenroll from series:", error?.message ?? error);
+      logger.error("Failed to unenroll from series:", error?.message ?? error);
       toast.error("Failed to unenroll. Please try again.");
     } finally {
       setUnenrollingId(null);

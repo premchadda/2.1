@@ -36,5 +36,6 @@ export { default as SuccessMessage } from "./SuccessMessage.jsx";
 export { default as VideoPlayer } from "./VideoPlayer.jsx";
 export { EmptyState } from "../ui/EmptyState.jsx";
 export { default as Pagination } from "./Pagination.jsx";
-export { default as CommandPalette } from "./CommandPalette.jsx";
+// CommandPalette is intentionally not re-exported — see components/index.jsx.
+// Import it directly (or let AdminLayout lazy-load it) to keep it split out.
 export { default as PageTransition } from "./PageTransition.jsx";

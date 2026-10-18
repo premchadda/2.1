@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
   Plus,
@@ -71,7 +72,7 @@ export default function CouponsManager() {
         setCoupons(response.data.data);
       }
     } catch (error) {
-      console.error("Failed to fetch coupons:", error);
+      logger.error("Failed to fetch coupons:", error);
     } finally {
       setLoading(false);
     }
@@ -96,7 +97,7 @@ export default function CouponsManager() {
       fetchCoupons();
       resetForm();
     } catch (error) {
-      console.error("Failed to save coupon:", error);
+      logger.error("Failed to save coupon:", error);
       toast.error("Failed to save coupon");
     }
   };
@@ -113,7 +114,7 @@ export default function CouponsManager() {
       toast.success("Coupon deleted successfully");
       fetchCoupons();
     } catch (error) {
-      console.error("Failed to delete coupon:", error);
+      logger.error("Failed to delete coupon:", error);
       toast.error("Failed to delete coupon");
     }
   };

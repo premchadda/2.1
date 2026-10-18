@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { logger } from "@trstprep/shared-config";
 import {
   Gift,
   Users,
@@ -59,7 +60,7 @@ export default function ReferAndEarn() {
       }
     } catch (error) {
       if (error.name === "AbortError" || signal?.aborted) return;
-      console.error("Failed to fetch referral data:", error);
+      logger.error("Failed to fetch referral data:", error);
     } finally {
       if (!signal?.aborted) setLoading(false);
     }

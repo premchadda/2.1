@@ -2,7 +2,10 @@ export { default as AdminLayout } from "./AdminLayout.jsx";
 export { default as ProtectedRoute } from "./ProtectedRoute.jsx";
 export { default as Breadcrumb } from "./common/Breadcrumb.jsx";
 export { default as AdminPageHeader } from "./admin/AdminPageHeader.jsx";
-export { default as CommandPalette } from "./common/CommandPalette.jsx";
+// NOTE: CommandPalette is intentionally NOT re-exported here. AdminLayout
+// lazy-loads it (`lazy(() => import("./common/CommandPalette.jsx"))`); a static
+// re-export pulled it back into the main chunk and defeated the split, which
+// Vite reported as "dynamically imported ... but also statically imported".
 export { default as AdminBottomNav } from "./AdminBottomNav.jsx";
 export { default as PageTransition } from "./common/PageTransition.jsx";
 export { default as SearchInput } from "./ui/SearchInput.jsx";
