@@ -150,19 +150,33 @@ export default function QuestionDetailModal({
     return String(val);
   };
 
-  const questionText = extractText(
-    item.question_text ||
-      item.questionText ||
-      item.question ||
-      bookmark.title ||
-      "Saved Question",
-  );
-  const explanationText = extractText(
-    item.explanation || item.solution || item.description || "",
-  );
-  const subject = extractText(item.subject || bookmark.subject || "General");
-  const topic = extractText(item.topic || item.chapter || "");
-  const difficulty = (item.difficulty || "medium").toLowerCase();
+  const questionText =
+    extractText(item.question_text) ||
+    extractText(item.questionText) ||
+    extractText(item.question) ||
+    extractText(item.title) ||
+    extractText(bookmark?.title) ||
+    `Question #${bookmark?.itemId || bookmark?.id || "Saved"}`;
+  const explanationText =
+    extractText(item.explanation) ||
+    extractText(item.solution) ||
+    extractText(item.description) ||
+    "";
+  const subject =
+    extractText(item.subject) ||
+    extractText(bookmark?.subject) ||
+    extractText(item.category) ||
+    "General";
+  const topic =
+    extractText(item.topic) ||
+    extractText(item.chapter) ||
+    extractText(bookmark?.topic) ||
+    "";
+  const difficulty = (
+    extractText(item.difficulty) ||
+    extractText(bookmark?.difficulty) ||
+    "medium"
+  ).toLowerCase();
 
   // Parse Options
   const parseOptions = () => {

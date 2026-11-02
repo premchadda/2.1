@@ -29,13 +29,11 @@ import SimpleTestModal from "./components/SimpleTestModal";
 import QuestionPreviewDrawer from "./components/QuestionPreviewDrawer";
 import QuestionVersionHistoryModal from "./components/QuestionVersionHistoryModal";
 import TestPreviewDrawer from "./components/TestPreviewDrawer";
-import AuditQuestionsView from "./components/AuditQuestionsView";
 import ExamHierarchyFilters from "./components/ExamHierarchyFilters";
 import SeriesDrillGrid from "./components/SeriesDrillGrid";
 import TestListingDrill from "./components/TestListingDrill";
 import QuestionDetailList from "./components/QuestionDetailList";
 import SeriesWorkspaceModal from "./components/SeriesWorkspaceModal";
-import { auditQuestionsList } from "./components/auditHelpers";
 
 import {
   QUESTION_CATEGORIES,
@@ -421,9 +419,12 @@ function QuestionsManager() {
     const flatCategories = flattenCategories(allTestCategories);
     return QUESTION_CATEGORIES.reduce((acc, category) => {
       const refs = buildTestCategoryRefs(category.id, flatCategories);
-      const matchingTests = testsList.filter((test) =>
-        recordMatchesTestCategory(test, refs),
-      );
+      const matchingTests = testsList.filter((test) => {
+        if (category.id === "live-tests") {
+          return test.isLive || recordMatchesTestCategory(test, refs);
+        }
+        return recordMatchesTestCategory(test, refs);
+      });
       const testsQuestionSum = matchingTests.reduce(
         (sum, t) =>
           sum +
@@ -435,21 +436,20 @@ function QuestionsManager() {
         0,
       );
 
-      if (category.id === "practice") {
-        acc[category.id] = questionStats?.overview?.practice_questions ?? 0;
-      } else if (category.id === "audit") {
-        acc[category.id] = questionStats?.overview?.draft_questions ?? 0;
-      } else {
-        acc[category.id] =
-          testsQuestionSum > 0
-            ? testsQuestionSum
-            : questions.filter((question) =>
-                recordMatchesTestCategory(question, refs),
-              ).length;
-      }
+      acc[category.id] =
+        testsQuestionSum > 0
+          ? testsQuestionSum
+          : questions.filter((question) => {
+              if (category.id === "live-tests") {
+                return (
+                  question.isLive || recordMatchesTestCategory(question, refs)
+                );
+              }
+              return recordMatchesTestCategory(question, refs);
+            }).length;
       return acc;
     }, {});
-  }, [questions, testsList, allTestCategories, questionStats]);
+  }, [questions, testsList, allTestCategories]);
 
   // Fetch questions with server-side pagination
   const fetchQuestionsPage = async (pageNum, search) => {
@@ -1142,16 +1142,16 @@ function QuestionsManager() {
     filteredTestQuestions.length / QUESTIONS_PER_PAGE,
   );
 
-  const auditQuestions = useMemo(() => {
-    if (activeCategory !== "audit") return [];
-    return auditQuestionsList(questions);
-  }, [questions, activeCategory]);
-
   // Stats scoped to the active category
   const categoryStats = useMemo(() => {
-    const matchingTests = testsList.filter((test) =>
-      recordMatchesTestCategory(test, activeTestCategoryRefs),
-    );
+    const matchingTests = testsList.filter((test) => {
+      if (activeCategory === "live-tests") {
+        return (
+          test.isLive || recordMatchesTestCategory(test, activeTestCategoryRefs)
+        );
+      }
+      return recordMatchesTestCategory(test, activeTestCategoryRefs);
+    });
     const testsQuestionSum = matchingTests.reduce(
       (sum, t) =>
         sum +
@@ -1163,27 +1163,6 @@ function QuestionsManager() {
       0,
     );
 
-    if (activeCategory === "practice") {
-      const practiceTotal = questionStats?.overview?.practice_questions || 0;
-      return {
-        total: practiceTotal,
-        active: practiceTotal,
-        draft: 0,
-        mcq: practiceTotal,
-      };
-    }
-
-    if (activeCategory === "audit") {
-      const draftTotal =
-        questionStats?.overview?.draft_questions || auditQuestions.length;
-      return {
-        total: draftTotal,
-        active: 0,
-        draft: draftTotal,
-        mcq: draftTotal,
-      };
-    }
-
     const total =
       testsQuestionSum > 0
         ? testsQuestionSum
@@ -1191,13 +1170,25 @@ function QuestionsManager() {
           totalCount ||
           questions.length;
     const active =
-      testsQuestionSum > 0
-        ? testsQuestionSum
-        : questionStats?.overview?.active_questions ||
-          totalCount ||
-          questions.filter((q) => q.status === "active").length;
+      matchingTests
+        .filter(
+          (t) =>
+            t.status === "active" ||
+            t.status === "published" ||
+            t.isActive !== false,
+        )
+        .reduce(
+          (sum, t) =>
+            sum +
+            (t.totalQuestions ||
+              t.total_questions ||
+              t.linked_question_count ||
+              t.questions ||
+              0),
+          0,
+        ) || total;
     const draft = matchingTests
-      .filter((t) => t.status === "draft")
+      .filter((t) => t.status === "draft" || t.isActive === false)
       .reduce(
         (sum, t) => sum + (t.totalQuestions || t.total_questions || 0),
         0,
@@ -1217,7 +1208,6 @@ function QuestionsManager() {
     activeCategory,
     totalCount,
     questionStats,
-    auditQuestions,
   ]);
 
   // Computed sections for Test Configuration Preview drawer
@@ -1956,33 +1946,26 @@ function QuestionsManager() {
     stages.find((stage) => idsEqual(getEntityId(stage), activeStageId))?.name ||
     "All Stages";
 
-  const drillLevel =
-    activeCategory === "audit"
-      ? "audit"
-      : selectedTest
-        ? "questions"
-        : selectedSeries
-          ? "tests"
-          : "series";
+  const drillLevel = selectedTest
+    ? "questions"
+    : selectedSeries
+      ? "tests"
+      : "series";
 
   return (
-    <div className="p-3 sm:p-4">
+    <div className="p-3 space-y-3.5 sm:space-y-4 pb-24 sm:pb-8">
       {/* Top bar: tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        {!showTrash ? (
-          <CategoryTabBar
-            activeCategory={activeCategory}
-            onCategoryChange={handleCategoryChange}
-            categoryCounts={categoryCounts}
-          />
-        ) : (
-          <div />
-        )}
-      </div>
+      {!showTrash && (
+        <CategoryTabBar
+          activeCategory={activeCategory}
+          onCategoryChange={handleCategoryChange}
+          categoryCounts={categoryCounts}
+        />
+      )}
 
       {/* Stats */}
       {!showTrash && (
-        <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
           <StatsCard
             icon={FileText}
             label="Total Questions"
@@ -2014,7 +1997,7 @@ function QuestionsManager() {
       )}
 
       {/* Main Content */}
-      <div className="mt-4 w-full">
+      <div className="w-full">
         {showTrash && (
           <div className="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
@@ -2107,14 +2090,6 @@ function QuestionsManager() {
               <h2 className="text-lg font-bold text-gray-900">Questions</h2>
             </div>
           </div>
-        )}
-
-        {/* ===== LEVEL 0: Audit ===== */}
-        {!showTrash && drillLevel === "audit" && (
-          <AuditQuestionsView
-            questions={auditQuestions}
-            onEditQuestion={handleEdit}
-          />
         )}
 
         {/* ===== LEVEL 1: Test Series Grid (filtered by active category) ===== */}

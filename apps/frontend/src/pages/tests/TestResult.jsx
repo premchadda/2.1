@@ -1689,67 +1689,64 @@ function TestResult() {
                   </div>
                 </div>
 
-                {/* Reattempt & Mistake Re-Practice Actions */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                {/* Reattempt & Mistake Re-Practice Actions in One Clean Row */}
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                   {/* Card 1: 1-Click Mistake Re-Practice */}
-                  <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 rounded-2xl p-3 sm:p-4 text-white shadow-md flex flex-col justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-white shrink-0">
-                        <RotateCcw className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className="text-[10px] font-black uppercase tracking-wider bg-white/30 text-white px-2 py-0.5 rounded">
-                            Mistake Notebook
-                          </span>
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl p-3 sm:p-4 border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex flex-col justify-between gap-2.5 sm:gap-3 hover:border-slate-300 dark:hover:border-slate-600 transition-all">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/40 flex items-center justify-center font-bold text-amber-600 dark:text-amber-400 shrink-0">
+                          <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
-                        <h3 className="text-sm font-extrabold text-white">
-                          Re-Practice Incorrect Questions
-                        </h3>
-                        <p className="text-white/90 text-xs mt-0.5">
-                          {wrongCount > 0
-                            ? `Directly re-practice all ${wrongCount} incorrect questions from this test in Practice Lab.`
-                            : `You answered every question in this test — practice questions you missed across your previous tests${weakestSubject ? `, especially ${weakestSubject.subject} (${weakestSubject.accuracy}% accuracy)` : ""}.`}
-                        </p>
+                        <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40 px-1.5 sm:px-2 py-0.5 rounded truncate">
+                          Mistake Notebook
+                        </span>
                       </div>
+                      <h3 className="text-xs sm:text-sm font-extrabold text-gray-900 dark:text-white leading-tight">
+                        Re-Practice Mistakes
+                      </h3>
+                      <p className="text-gray-500 dark:text-gray-400 text-[11px] sm:text-xs mt-1 line-clamp-2">
+                        {wrongCount > 0
+                          ? `Re-practice all ${wrongCount} incorrect questions from this test in Practice Lab.`
+                          : `Practice missed questions across your tests${weakestSubject ? `, especially ${weakestSubject.subject}` : ""}.`}
+                      </p>
                     </div>
                     <button
                       onClick={() =>
                         navigate(`/practice?mode=mistakes&testId=${testId}`)
                       }
-                      className="w-full py-2.5 bg-white dark:bg-gray-800 text-amber-900 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full py-2 sm:py-2.5 px-2 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60 rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-wide transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" /> Re-Practice Mistakes
-                      in Practice Lab →
+                      <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Re-Practice Mistakes</span>
                     </button>
                   </div>
 
                   {/* Card 2: Full Test Reattempt */}
-                  <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 rounded-2xl p-3 sm:p-4 text-white shadow-md flex flex-col justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-white shrink-0">
-                        <Trophy className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className="text-[10px] font-black uppercase tracking-wider bg-white/30 text-white px-2 py-0.5 rounded">
-                            Score Improvement
-                          </span>
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl p-3 sm:p-4 border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex flex-col justify-between gap-2.5 sm:gap-3 hover:border-slate-300 dark:hover:border-slate-600 transition-all">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/40 flex items-center justify-center font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
+                          <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
-                        <h4 className="text-sm font-extrabold text-white">
-                          Reattempt Full Test
-                        </h4>
-                        <p className="text-white/90 text-xs mt-0.5">
-                          Re-take the complete mock test to build speed and
-                          reinforce test endurance.
-                        </p>
+                        <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/40 px-1.5 sm:px-2 py-0.5 rounded truncate">
+                          Score Improvement
+                        </span>
                       </div>
+                      <h4 className="text-xs sm:text-sm font-extrabold text-gray-900 dark:text-white leading-tight">
+                        Reattempt Full Test
+                      </h4>
+                      <p className="text-gray-500 dark:text-gray-400 text-[11px] sm:text-xs mt-1 line-clamp-2">
+                        Re-take the complete mock test to build speed and
+                        reinforce test endurance.
+                      </p>
                     </div>
                     <button
                       onClick={handleRealReattempt}
-                      className="w-full py-2.5 bg-white dark:bg-gray-800 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm transition-all active:scale-95 cursor-pointer"
+                      className="w-full py-2 sm:py-2.5 px-2 bg-indigo-50 dark:bg-indigo-950/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 rounded-xl font-bold text-[11px] sm:text-xs uppercase tracking-wide transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      Reattempt Full Test
+                      <Trophy className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Reattempt Full Test</span>
                     </button>
                   </div>
                 </div>

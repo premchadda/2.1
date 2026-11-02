@@ -1,42 +1,30 @@
 import { spawn } from 'child_process'
-import http from 'http'
 
 const BACKEND_URL = process.env.VITE_BACKEND_URL || 'http://localhost:5001'
 const HEALTH_URL = `${BACKEND_URL}/api/health`
 
-function checkHealth() {
-  return new Promise((resolve) => {
+async function checkHealth() {
+  try {
+    const res = await fetch(HEALTH_URL, { signal: AbortSignal.timeout(1500) })
+    return res.status >= 200 && res.status < 500
+  } catch {
     try {
-      const parsedUrl = new URL(HEALTH_URL)
-      const req = http.request(
-        {
-          hostname: parsedUrl.hostname,
-          port: parsedUrl.port,
-          path: parsedUrl.pathname,
-          method: 'GET',
-          timeout: 3000,
-        },
-        (res) => resolve(res.statusCode >= 200 && res.statusCode < 500)
-      )
-      req.on('error', () => resolve(false))
-      req.on('timeout', () => {
-        req.destroy()
-        resolve(false)
-      })
-      req.end()
+      const fallbackUrl = HEALTH_URL.replace('localhost', '127.0.0.1')
+      const res = await fetch(fallbackUrl, { signal: AbortSignal.timeout(1500) })
+      return res.status >= 200 && res.status < 500
     } catch {
-      resolve(false)
+      return false
     }
-  })
+  }
 }
 
 let backendExited = false
 let backendExitCode = null
 
 async function waitForBackendReady() {
-  console.log(`[dev:seq] ⏳ Step 1/3: Waiting for backend to initialize at ${HEALTH_URL}...`)
+  const maxAttempts = parseInt(process.env.DEV_BACKEND_TIMEOUT_SEC || '120', 10)
+  console.log(`[dev:seq] ⏳ Step 1/3: Waiting for backend to initialize at ${HEALTH_URL} (max ${maxAttempts}s)...`)
   let attempts = 0
-  const maxAttempts = 60
   while (attempts < maxAttempts) {
     if (backendExited) {
       throw new Error(`trstprep-backend exited prematurely with code ${backendExitCode}. Aborting startup.`)

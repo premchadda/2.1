@@ -115,7 +115,7 @@ export default function PreviousYearPapers() {
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header & Breadcrumb */}
-      <div className="bg-white border-b border-gray-100">
+      <div className="hidden sm:block bg-white border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-4">
           <Breadcrumb
             items={[{ label: "Home", path: "/" }, { label: "PYQ Archive" }]}

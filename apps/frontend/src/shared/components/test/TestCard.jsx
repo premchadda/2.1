@@ -360,20 +360,7 @@ function TestCard({
       : languageList.join(", ");
 
   // Date range
-  const isLiveTest =
-    isLiveArena ||
-    checkIsLive(test) ||
-    isUpcoming ||
-    test.type === "live-tests" ||
-    test.type === "live" ||
-    test.test_category_id === 20 ||
-    test.testCategoryId === 20 ||
-    (Array.isArray(test.tags) &&
-      test.tags.some(
-        (t) =>
-          String(t).toLowerCase() === "live" ||
-          String(t).toLowerCase() === "live-tests",
-      ));
+  const isLiveTest = isLiveArena || checkIsLive(test) || isUpcoming;
   const startTimeVal = getTestStartDate(test);
   const endTimeVal = getTestEndDate(test);
   const dateRange = isLiveTest

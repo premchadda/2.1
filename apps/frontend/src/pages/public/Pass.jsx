@@ -660,7 +660,7 @@ function Pass() {
       </AnimatedHero>
 
       {/* Benefits */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 -mt-4 sm:-mt-6 lg:-mt-8 relative z-10">
+      <div className="max-w-7xl mx-auto px-3 -mt-4 sm:-mt-6 lg:-mt-8 relative z-10">
         <div className="bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-3.5 sm:p-5 lg:p-6 grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-6">
           {benefits.map((b, i) => (
             <div key={i} className="text-center p-1 sm:p-2">
@@ -943,7 +943,7 @@ function Pass() {
       )}
 
       {/* Pricing Cards Section */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-10">
+      <div className="max-w-7xl mx-auto px-3py-6 sm:py-10">
         <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-center text-gray-900 dark:text-white mb-1.5 sm:mb-2">
           Choose Your Plan
         </h2>

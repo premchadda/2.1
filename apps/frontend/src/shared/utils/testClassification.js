@@ -7,6 +7,34 @@
  * Canonical field priority: camelCase first, then snake_case, then aliases.
  */
 
+/**
+ * Known legacy and canonical identifiers for the Live Tests & Quizzes category.
+ */
+export const LIVE_CATEGORY_IDS = new Set([20, "20"]);
+
+/**
+ * Checks whether a test belongs to a live test category by ID or slug.
+ */
+export const isLiveCategory = (test) => {
+  if (!test) return false;
+  const catId =
+    test.test_category_id ??
+    test.testCategoryId ??
+    test.categoryId ??
+    test.category_id;
+  if (catId != null && LIVE_CATEGORY_IDS.has(Number(catId) || catId))
+    return true;
+  const catSlug = String(
+    test.category || test.categorySlug || test.category_slug || "",
+  ).toLowerCase();
+  return (
+    catSlug === "live" ||
+    catSlug === "live-tests" ||
+    catSlug === "live-quizzes" ||
+    catSlug === "live-arena"
+  );
+};
+
 export const checkIsLive = (test) => {
   if (!test) return false;
   return (
@@ -18,10 +46,7 @@ export const checkIsLive = (test) => {
     test.test_type === "live-tests" ||
     test.testType === "live" ||
     test.testType === "live-tests" ||
-    test.testCategoryId === 20 ||
-    test.test_category_id === 20 ||
-    String(test.test_category_id) === "20" ||
-    String(test.testCategoryId) === "20" ||
+    isLiveCategory(test) ||
     test.category === "live-tests" ||
     String(test.subCategory || test.sub_category || "")
       .toLowerCase()
@@ -96,11 +121,7 @@ export const checkIsPermanentTest = (test) => {
     ["live-tests", "live", "quiz"].includes(cat)
   )
     return false;
-  if (
-    [20, "20"].includes(test.testCategoryId) ||
-    [20, "20"].includes(test.test_category_id)
-  )
-    return false;
+  if (isLiveCategory(test)) return false;
   return true;
 };
 
@@ -159,8 +180,7 @@ export const checkIsPostLiveWindow = (test) => {
     checkIsLive(test) ||
     checkIsQuiz(test) ||
     test.type === "live-tests" ||
-    test.test_category_id === 20 ||
-    test.testCategoryId === 20;
+    isLiveCategory(test);
   if (!isLiveItem) return false;
   const end = getEffectiveTestEndDate(test);
   if (!end) return false;
@@ -174,8 +194,7 @@ export const checkIsArchivedLive = (test) => {
     checkIsLive(test) ||
     checkIsQuiz(test) ||
     test.type === "live-tests" ||
-    test.test_category_id === 20 ||
-    test.testCategoryId === 20;
+    isLiveCategory(test);
   if (!isLiveItem) return false;
   const end = getEffectiveTestEndDate(test);
   if (!end) return false;
@@ -190,8 +209,7 @@ export const checkShouldShowInLiveOrSeriesListing = (test) => {
     checkIsLive(test) ||
     checkIsQuiz(test) ||
     test.type === "live-tests" ||
-    test.test_category_id === 20 ||
-    test.testCategoryId === 20;
+    isLiveCategory(test);
   return !isLiveItem || !checkIsArchivedLive(test);
 };
 

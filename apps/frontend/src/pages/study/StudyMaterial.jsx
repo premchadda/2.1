@@ -478,7 +478,7 @@ function StudyMaterial() {
         <meta property="og:image" content="/og-image.png" />
       </Helmet>
       {/* Breadcrumb */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+      <div className="hidden sm:block bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Breadcrumb
             items={[{ label: "Home", path: "/" }, { label: "Study Materials" }]}
@@ -517,7 +517,7 @@ function StudyMaterial() {
 
           <div className="hidden md:grid grid-cols-2 gap-2 lg:gap-2.5 lg:w-auto shrink-0 animate-slide-in-right">
             {[
-              { icon: Video, label: "1k+ Videos", color: "bg-emerald-500" },
+              { icon: Video, label: "Video Lectures", color: "bg-emerald-500" },
               { icon: FileText, label: "Topic PDFs", color: "bg-teal-500" },
               {
                 icon: BookOpen,

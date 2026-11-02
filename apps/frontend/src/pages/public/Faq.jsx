@@ -61,7 +61,7 @@ export default function Faq() {
         <meta property="og:image" content="/og-image.png" />
       </Helmet>
       {/* Breadcrumb Section */}
-      <div className="bg-white border-b border-gray-100">
+      <div className="hidden sm:block bg-white border-b border-gray-100">
         <div className="max-w-4xl mx-auto px-4 py-3">
           <Breadcrumb
             items={[{ label: "Home", path: "/" }, { label: "FAQs" }]}

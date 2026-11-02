@@ -108,6 +108,129 @@ describe("Estimated Reading Time and Per-Question Timer", () => {
       expect(screen.getByTitle("Estimated reading time")).toBeInTheDocument();
       expect(screen.getByText(/read$/i)).toBeInTheDocument();
     });
+
+    it("hides estimated reading time badge in review mode", () => {
+      const sampleQuestion = {
+        id: "q-101",
+        question: "What is the capital of India?",
+        options: ["Mumbai", "New Delhi", "Kolkata", "Chennai"],
+      };
+
+      render(
+        <QuestionViewer
+          currentQ={sampleQuestion}
+          currentQuestion={0}
+          test={{ marksPerQuestion: 2 }}
+          reviewMode={true}
+          questionTimers={{ 0: 45 }}
+          formatTime={(sec) => `${sec}s`}
+          resolveCorrectIndex={vi.fn(() => 1)}
+          handleAnswer={vi.fn()}
+          setShowDiscussions={vi.fn()}
+          toggleSaveQuestion={vi.fn()}
+          setShowImageZoom={vi.fn()}
+          setShowReviewExplanation={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.queryByTitle("Estimated reading time"),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/read$/i)).not.toBeInTheDocument();
+    });
+
+    it("displays +marks when question is attempted and answered correctly in review mode", () => {
+      const sampleQuestion = {
+        id: "q-101",
+        question: "What is the capital of India?",
+        options: ["Mumbai", "New Delhi", "Kolkata", "Chennai"],
+        marks: 2,
+        negativeMarks: 0.5,
+      };
+
+      render(
+        <QuestionViewer
+          currentQ={sampleQuestion}
+          currentQuestion={0}
+          answers={{ 0: 1 }}
+          test={{ marksPerQuestion: 2, negativeMarking: 0.5 }}
+          reviewMode={true}
+          resolveCorrectIndex={vi.fn(() => 1)}
+          formatTime={(sec) => `${sec}s`}
+          handleAnswer={vi.fn()}
+          setShowDiscussions={vi.fn()}
+          toggleSaveQuestion={vi.fn()}
+          setShowImageZoom={vi.fn()}
+          setShowReviewExplanation={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText("+2.0")).toBeInTheDocument();
+      expect(screen.queryByText("Skipped")).not.toBeInTheDocument();
+      expect(screen.queryByText(/-0\.5/)).not.toBeInTheDocument();
+    });
+
+    it("displays -marks when question is attempted and answered incorrectly in review mode", () => {
+      const sampleQuestion = {
+        id: "q-101",
+        question: "What is the capital of India?",
+        options: ["Mumbai", "New Delhi", "Kolkata", "Chennai"],
+        marks: 2,
+        negativeMarks: 0.5,
+      };
+
+      render(
+        <QuestionViewer
+          currentQ={sampleQuestion}
+          currentQuestion={0}
+          answers={{ 0: 0 }} // answered Mumbai (wrong)
+          test={{ marksPerQuestion: 2, negativeMarking: 0.5 }}
+          reviewMode={true}
+          resolveCorrectIndex={vi.fn(() => 1)}
+          formatTime={(sec) => `${sec}s`}
+          handleAnswer={vi.fn()}
+          setShowDiscussions={vi.fn()}
+          toggleSaveQuestion={vi.fn()}
+          setShowImageZoom={vi.fn()}
+          setShowReviewExplanation={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText("-0.5")).toBeInTheDocument();
+      expect(screen.queryByText("+2.0")).not.toBeInTheDocument();
+      expect(screen.queryByText("Skipped")).not.toBeInTheDocument();
+    });
+
+    it("displays Skipped when question is unattempted in review mode", () => {
+      const sampleQuestion = {
+        id: "q-101",
+        question: "What is the capital of India?",
+        options: ["Mumbai", "New Delhi", "Kolkata", "Chennai"],
+        marks: 2,
+        negativeMarks: 0.5,
+      };
+
+      render(
+        <QuestionViewer
+          currentQ={sampleQuestion}
+          currentQuestion={0}
+          answers={{}} // unattempted
+          test={{ marksPerQuestion: 2, negativeMarking: 0.5 }}
+          reviewMode={true}
+          resolveCorrectIndex={vi.fn(() => 1)}
+          formatTime={(sec) => `${sec}s`}
+          handleAnswer={vi.fn()}
+          setShowDiscussions={vi.fn()}
+          toggleSaveQuestion={vi.fn()}
+          setShowImageZoom={vi.fn()}
+          setShowReviewExplanation={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText("Skipped")).toBeInTheDocument();
+      expect(screen.queryByText("+2.0")).not.toBeInTheDocument();
+      expect(screen.queryByText(/-0\.5/)).not.toBeInTheDocument();
+    });
   });
 
   describe("TestSolutionsList", () => {

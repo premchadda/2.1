@@ -256,14 +256,14 @@ export default function ExamInfoManager() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-3.5 sm:p-5 md:p-6 pb-24 sm:pb-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+      <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white truncate">
             Exam Manager
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">
             Manage exam information with detailed configuration
           </p>
         </div>
@@ -273,32 +273,32 @@ export default function ExamInfoManager() {
             setCurrentStep("basic");
             setShowForm(true);
           }}
-          className="mt-4 md:mt-0 flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-indigo-500/25 transition-all"
+          className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xs sm:text-sm rounded-xl shadow-sm shadow-indigo-500/20 hover:shadow-glow transition-all shrink-0 active:scale-95"
         >
-          <Plus className="w-5 h-5" />
-          Add Exam
+          <Plus className="w-4 h-4" />
+          <span>Add Exam</span>
         </button>
       </div>
 
       {/* Category Tabs */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm mb-6 overflow-hidden">
-        <div className="flex overflow-x-auto border-b border-gray-100 scrollbar-hide">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 shadow-2xs mb-4 sm:mb-6 overflow-hidden">
+        <div className="flex overflow-x-auto border-b border-gray-100 dark:border-gray-700/60 scrollbar-hide py-1 px-1.5 sm:px-2 gap-1">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-5 py-4 text-sm font-semibold whitespace-nowrap border-b-2 transition-all ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-bold whitespace-nowrap rounded-xl transition-all ${
                 activeTab === tab.id
-                  ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20"
-                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
+                  ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-750"
               }`}
             >
-              <span className="text-lg">{tab.emoji}</span>
-              {tab.label}
+              <span className="text-base sm:text-lg">{tab.emoji}</span>
+              <span>{tab.label}</span>
               <span
-                className={`ml-1 px-2 py-0.5 text-xs font-bold rounded-full ${
+                className={`ml-0.5 px-1.5 py-0.2 text-[10px] sm:text-xs font-black rounded-full ${
                   activeTab === tab.id
-                    ? "bg-indigo-100 text-indigo-700 dark:text-indigo-400"
+                    ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-800 dark:text-indigo-200"
                     : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
                 }`}
               >
@@ -309,9 +309,9 @@ export default function ExamInfoManager() {
         </div>
 
         {/* Exam List - Row Style Cards */}
-        <div className="p-4">
+        <div className="p-3 sm:p-4">
           {filteredExams.length === 0 ? (
-            <div className="text-center py-8 bg-gradient-to-b from-gray-50 to-white rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+            <div className="text-center py-8 bg-gradient-to-b from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
               <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                 <FileText className="w-7 h-7 text-gray-400 dark:text-gray-500" />
               </div>
@@ -327,115 +327,121 @@ export default function ExamInfoManager() {
                   setCurrentStep("basic");
                   setShowForm(true);
                 }}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-semibold"
               >
                 <Plus className="w-4 h-4" />
                 Add Exam
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5 sm:space-y-3">
               {filteredExams.map((exam) => (
                 <div
                   key={exam._id}
-                  onMouseEnter={() => setHoveredExam(exam._id)}
-                  onMouseLeave={() => setHoveredExam(null)}
-                  className="group relative bg-gradient-to-r from-white to-gray-50 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-100/50 transition-all duration-300"
+                  className="group relative bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 hover:border-indigo-300 dark:hover:border-indigo-700 shadow-2xs hover:shadow-xs transition-all p-3 sm:p-4"
                 >
-                  <div className="flex items-center gap-4 p-4">
-                    {/* Icon & Status */}
-                    <div className="flex-shrink-0">
-                      <div
-                        className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                          exam.isActive !== false
-                            ? "bg-gradient-to-br from-indigo-100 to-purple-100"
-                            : "bg-gray-100 dark:bg-gray-700"
-                        }`}
-                      >
-                        <span className="text-2xl">
-                          {getCategoryInfo(exam.categoryId)?.icon || "📋"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Main Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-1.5 py-0.5 rounded">
-                          #{exam.id}
-                        </span>
-                        <h3
-                          className="font-bold text-gray-900 dark:text-white truncate"
-                          title={exam.title}
-                        >
-                          {exam.title}
-                        </h3>
-                        <span
-                          className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${
+                  <div className="flex items-start sm:items-center justify-between gap-3">
+                    {/* Left: Icon & Main Info */}
+                    <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                      <div className="flex-shrink-0 mt-0.5 sm:mt-0">
+                        <div
+                          className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-xl sm:text-2xl shadow-2xs border ${
                             exam.isActive !== false
-                              ? "bg-emerald-100 text-emerald-700 dark:text-emerald-400"
-                              : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                              ? "bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border-indigo-100/80 dark:border-indigo-800/40"
+                              : "bg-gray-100 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600"
                           }`}
                         >
-                          {exam.isActive !== false ? "Active" : "Inactive"}
-                        </span>
+                          <span>
+                            {getCategoryInfo(exam.categoryId)?.icon || "📋"}
+                          </span>
+                        </div>
                       </div>
-                      <p
-                        className="text-sm text-gray-500 dark:text-gray-400 truncate"
-                        title={
-                          exam.fullName || exam.description || "No description"
-                        }
-                      >
-                        {exam.fullName || exam.description || "No description"}
-                      </p>
-                      <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-                        <span className="font-mono bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
-                          {exam.examId}
-                        </span>
-                        {exam.seriesId && (
-                          <span className="text-purple-600 dark:text-purple-400">
-                            Series: {exam.seriesId}
+
+                      {/* Main Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 min-w-0">
+                          <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900/60 px-1.5 py-0.2 rounded shrink-0">
+                            #{exam.id}
                           </span>
-                        )}
-                        {exam.displayOrder !== undefined && (
-                          <span>Order: {exam.displayOrder}</span>
-                        )}
-                        {exam.year && (
-                          <span className="text-amber-600 dark:text-amber-400">
-                            {exam.year}
+                          <h3
+                            className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate flex-1 min-w-0"
+                            title={exam.title}
+                          >
+                            {exam.title}
+                          </h3>
+                          <span
+                            className={`px-2 py-0.5 text-[10px] font-bold rounded-full shrink-0 ${
+                              exam.isActive !== false
+                                ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60"
+                                : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600"
+                            }`}
+                          >
+                            {exam.isActive !== false ? "Active" : "Inactive"}
                           </span>
-                        )}
+                        </div>
+                        <p
+                          className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 mb-1"
+                          title={
+                            exam.fullName ||
+                            exam.description ||
+                            "No description"
+                          }
+                        >
+                          {exam.fullName ||
+                            exam.description ||
+                            "No description"}
+                        </p>
+                        <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400 dark:text-gray-500">
+                          <span className="font-mono bg-gray-100 dark:bg-gray-700/70 text-gray-700 dark:text-gray-300 px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap font-medium">
+                            {exam.examId}
+                          </span>
+                          {exam.seriesId && (
+                            <span className="text-purple-600 dark:text-purple-400 text-[11px] whitespace-nowrap font-medium">
+                              Series: {exam.seriesId}
+                            </span>
+                          )}
+                          {exam.displayOrder !== undefined && (
+                            <span className="text-[11px] text-gray-400 whitespace-nowrap">
+                              Order: {exam.displayOrder}
+                            </span>
+                          )}
+                          {exam.year && (
+                            <span className="text-amber-600 dark:text-amber-400 text-[11px] whitespace-nowrap font-medium">
+                              {exam.year}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Quick Stats */}
-                    <div className="hidden lg:flex items-center gap-4">
-                      <div className="text-center px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
-                        <div className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                    {/* Quick Stats (desktop only) */}
+                    <div className="hidden lg:flex items-center gap-3 shrink-0">
+                      <div className="text-center px-2.5 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                        <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
                           {exam.eligibility ? "✓" : "-"}
                         </div>
                         <div className="text-[9px] text-indigo-400 dark:text-indigo-500">
                           Eligibility
                         </div>
                       </div>
-                      <div className="text-center px-3 py-1.5 bg-purple-50 rounded-lg">
-                        <div className="text-sm font-bold text-purple-600 dark:text-purple-400">
+                      <div className="text-center px-2.5 py-1.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                        <div className="text-xs font-bold text-purple-600 dark:text-purple-400">
                           {exam.ageLimit ? "✓" : "-"}
                         </div>
                         <div className="text-[9px] text-purple-400 dark:text-purple-500">
                           Age Limit
                         </div>
                       </div>
-                      <div className="text-center px-3 py-1.5 bg-pink-50 dark:bg-pink-900/20 rounded-lg">
-                        <div className="text-sm font-bold text-pink-600 dark:text-pink-400">
+                      <div className="text-center px-2.5 py-1.5 bg-pink-50 dark:bg-pink-900/20 rounded-lg">
+                        <div className="text-xs font-bold text-pink-600 dark:text-pink-400">
                           {exam.syllabus ? "✓" : "-"}
                         </div>
                         <div className="text-[9px] text-pink-400 dark:text-pink-500">
                           Syllabus
                         </div>
                       </div>
-                      <div className="text-center px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg flex items-center gap-1">
-                        <div className="text-sm font-bold text-amber-600 dark:text-amber-400">
+                      <div className="text-center px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg flex items-center gap-1">
+                        <div className="text-xs font-bold text-amber-600 dark:text-amber-400">
                           {exam.notification ? "✓" : "-"}
                         </div>
                         {exam.notification && (
@@ -447,23 +453,19 @@ export default function ExamInfoManager() {
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div
-                      className={`flex items-center gap-1 transition-opacity ${
-                        hoveredExam === exam._id ? "opacity-100" : "opacity-0"
-                      }`}
-                    >
+                    {/* Actions (Always accessible on mobile, refined on desktop) */}
+                    <div className="flex items-center gap-1 shrink-0 self-start sm:self-center">
                       <button
                         onClick={() => handleEdit(exam)}
-                        className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 transition-colors"
-                        title="Edit"
+                        className="p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-xl border border-gray-100 dark:border-gray-700/60 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all active:scale-95"
+                        title="Edit Exam"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(exam._id)}
-                        className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-red-50 dark:bg-red-900/20 text-red-500 transition-colors"
-                        title="Delete"
+                        className="p-2 text-red-500 hover:text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-xl border border-gray-100 dark:border-gray-700/60 hover:border-red-200 dark:hover:border-red-800 transition-all active:scale-95"
+                        title="Delete Exam"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

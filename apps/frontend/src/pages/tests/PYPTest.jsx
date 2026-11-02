@@ -13,7 +13,15 @@ import { formatTime } from "../../shared/lib/format.js";
 import MathRenderer from "../../shared/components/MathRenderer";
 import Telemetry from "../../shared/lib/telemetry";
 import { toast } from "react-hot-toast";
+import {
+  getEstimatedReadingSeconds,
+  formatReadingTime,
+} from "@trstprep/shared-config";
+import { AlertTriangle, BookOpen } from "lucide-react";
 import "./TestInterface.css";
+
+const DEFAULT_MARKS_PER_QUESTION = 2;
+const DEFAULT_NEGATIVE_MARKS = 0.5;
 
 const PYPTest = () => {
   const { pypId } = useParams();
@@ -356,6 +364,56 @@ const PYPTest = () => {
         {/* Center Panel - Question Display */}
         <div className="test-main">
           <div className="test-question">
+            {/* Question Info Header - Q.No, Negative Marking, Reading Time */}
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-3 pb-2.5 border-b border-slate-700/60 min-w-0 flex-wrap">
+              <span className="bg-indigo-900/50 text-indigo-300 border border-indigo-700/60 px-2 py-0.5 rounded-full text-xs font-bold shrink-0">
+                Q.{currentQuestion + 1}
+              </span>
+
+              {Number(
+                question?.negative_marks ??
+                  question?.negativeMarks ??
+                  test?.negativeMarking ??
+                  test?.negativeMarks ??
+                  DEFAULT_NEGATIVE_MARKS,
+              ) > 0 ? (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-800/80 text-amber-300 text-[10px] sm:text-[11px] font-bold shrink-0">
+                  <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+                  <span>
+                    -
+                    {Number(
+                      question?.negative_marks ??
+                        question?.negativeMarks ??
+                        test?.negativeMarking ??
+                        test?.negativeMarks ??
+                        DEFAULT_NEGATIVE_MARKS,
+                    ).toFixed(2)}{" "}
+                    for wrong
+                  </span>
+                </span>
+              ) : (
+                <span className="text-slate-400 text-[11px] font-medium shrink-0">
+                  +
+                  {(
+                    test?.marksPerQuestion || DEFAULT_MARKS_PER_QUESTION
+                  ).toFixed(1)}{" "}
+                  Marks
+                </span>
+              )}
+
+              {question && (
+                <span
+                  className="flex items-center gap-1 text-slate-300 text-[10px] sm:text-[11px] font-medium bg-slate-800/80 border border-slate-700 px-1.5 py-0.5 rounded shrink-0"
+                  title="Estimated reading time"
+                >
+                  <BookOpen className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span>
+                    ~{formatReadingTime(getEstimatedReadingSeconds(question))}
+                  </span>
+                </span>
+              )}
+            </div>
+
             <h2 className="test-question-title">
               <MathRenderer text={sanitizeHtml(questionText)} />
             </h2>
@@ -366,15 +424,29 @@ const PYPTest = () => {
                   typeof option === "object"
                     ? option.text || option.en || JSON.stringify(option)
                     : option;
+                const isSelected = answers[currentQuestion] === idx;
                 return (
-                  <label key={idx} className="test-option">
+                  <label
+                    key={idx}
+                    className={`test-option ${isSelected ? "border-indigo-500 bg-indigo-950/30 ring-1 ring-indigo-500" : ""}`}
+                  >
                     <input
                       type="radio"
                       name="answer"
                       value={idx}
-                      checked={answers[currentQuestion] === idx}
+                      checked={isSelected}
                       onChange={() => handleAnswerChange(idx)}
+                      className="sr-only"
                     />
+                    <span
+                      className={`w-6 h-6 min-w-[24px] min-h-[24px] rounded-full border-2 flex-shrink-0 flex items-center justify-center aspect-square mr-3 text-xs font-bold transition-all ${
+                        isSelected
+                          ? "bg-indigo-600 border-indigo-600 text-white shadow-xs"
+                          : "border-slate-600 bg-slate-800 text-slate-300"
+                      }`}
+                    >
+                      {String.fromCharCode(65 + idx)}
+                    </span>
                     <span className="test-option-label">
                       <MathRenderer text={sanitizeHtml(optionText)} />
                     </span>

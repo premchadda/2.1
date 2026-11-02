@@ -500,40 +500,40 @@ export default function Leaderboard() {
   );
 
   const StatCard = ({ icon: Icon, label, value, sub, trend }) => (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+    <div className="rounded-xl sm:rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 sm:p-4 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
       <div className="flex items-start justify-between relative">
-        <div>
-          <p className="text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold">
+        <div className="min-w-0 pr-2">
+          <p className="text-[10px] sm:text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold truncate">
             {label}
           </p>
           <p
-            className="text-2xl font-black text-gray-900 dark:text-white mt-1"
+            className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white mt-0.5 sm:mt-1 truncate"
             style={{ fontFamily: "'JetBrains Mono', monospace" }}
           >
             {value}
           </p>
           {sub && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-semibold">
+            <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1 font-semibold truncate">
               {sub}
             </p>
           )}
         </div>
-        <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
-          <Icon className="w-5 h-5" />
+        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+          <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
       </div>
       {trend !== undefined && (
         <div
-          className={`flex items-center gap-1 text-xs mt-2 font-bold ${trend > 0 ? "text-emerald-600 dark:text-emerald-400" : trend < 0 ? "text-rose-600 dark:text-rose-400" : "text-gray-500 dark:text-gray-400"}`}
+          className={`flex items-center gap-1 text-[11px] sm:text-xs mt-1.5 sm:mt-2 font-bold ${trend > 0 ? "text-emerald-600 dark:text-emerald-400" : trend < 0 ? "text-rose-600 dark:text-rose-400" : "text-gray-500 dark:text-gray-400"}`}
         >
           {trend > 0 ? (
-            <TrendingUp className="w-3 h-3" />
+            <TrendingUp className="w-3 h-3 shrink-0" />
           ) : trend < 0 ? (
-            <TrendingDown className="w-3 h-3" />
+            <TrendingDown className="w-3 h-3 shrink-0" />
           ) : (
-            <Minus className="w-3 h-3" />
+            <Minus className="w-3 h-3 shrink-0" />
           )}
-          <span>
+          <span className="truncate">
             {trend !== 0 ? `${Math.abs(trend)} this period` : "No change"}
           </span>
         </div>
@@ -672,7 +672,7 @@ export default function Leaderboard() {
       </Helmet>
 
       {/* Breadcrumb */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+      <div className="hidden sm:block bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Breadcrumb
             items={[{ label: "Home", path: "/" }, { label: "Leaderboard" }]}
@@ -702,10 +702,10 @@ export default function Leaderboard() {
           </div>
 
           {/* Right Column: User Profile & Rank Stats Card */}
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 shadow-xl text-white flex-shrink-0 lg:max-w-[95vw] sm:max-w-2xl">
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 sm:p-4 md:p-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-5 shadow-xl text-white flex-shrink-0 lg:max-w-[95vw] sm:max-w-2xl">
             {/* User Avatar + Name */}
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 flex items-center justify-center text-white font-black text-base shrink-0 shadow-md">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 flex items-center justify-center text-white font-black text-sm sm:text-base shrink-0 shadow-md">
                 {user?.name
                   ?.split(" ")
                   .map((n) => n[0])
@@ -714,66 +714,68 @@ export default function Leaderboard() {
                   .toUpperCase() || "AU"}
               </div>
               <div className="min-w-0">
-                <p className="font-extrabold text-white text-sm truncate">
+                <p className="font-extrabold text-white text-xs sm:text-sm truncate">
                   {user?.name || "Admin User"}
                 </p>
-                <p className="text-xs text-white/80 font-medium truncate mt-0.5">
+                <p className="text-[11px] sm:text-xs text-white/80 font-medium truncate mt-0.5">
                   @{user?.email?.split("@")[0] || "admin"} ·{" "}
                   {user?.targetExam || "Competitive Exam"}
                 </p>
               </div>
             </div>
 
-            <div className="hidden sm:block w-px h-10 bg-white/20" />
+            <div className="hidden sm:block w-px h-10 bg-white/20 shrink-0" />
 
-            {/* Overall Rank + Percentile */}
-            <div className="flex items-center gap-3">
-              <div
-                className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-amber-300 font-black text-sm shadow-inner"
-                style={{ fontFamily: "'JetBrains Mono', monospace" }}
-              >
-                #{perfData?.rank || userRanking?.rank || "1"}
+            {/* Overall Rank + Percentile & Badges */}
+            <div className="flex items-center justify-between sm:justify-start gap-3 sm:gap-4 border-t sm:border-t-0 border-white/15 pt-2.5 sm:pt-0">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-amber-300 font-black text-xs sm:text-sm shadow-inner shrink-0"
+                  style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                >
+                  #{perfData?.rank || userRanking?.rank || "1"}
+                </div>
+                <div>
+                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white/70">
+                    Overall Rank
+                  </p>
+                  <p className="text-[11px] sm:text-xs font-black text-white whitespace-nowrap">
+                    of{" "}
+                    {(
+                      leaderboardData?.total ||
+                      rankings.length ||
+                      1
+                    ).toLocaleString()}{" "}
+                    aspirants ·{" "}
+                    <span className="text-amber-300">
+                      Top{" "}
+                      {comparisonStats?.topPercent ??
+                        (userRanking?.rank && rankings.length
+                          ? Math.max(
+                              1,
+                              Math.round(
+                                (userRanking.rank / rankings.length) * 100,
+                              ),
+                            )
+                          : 25)}
+                      %
+                    </span>
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
-                  Overall Rank
-                </p>
-                <p className="text-xs font-black text-white whitespace-nowrap">
-                  of{" "}
-                  {(
-                    leaderboardData?.total ||
-                    rankings.length ||
-                    1
-                  ).toLocaleString()}{" "}
-                  aspirants ·{" "}
-                  <span className="text-amber-300">
-                    Top{" "}
-                    {comparisonStats?.topPercent ??
-                      (userRanking?.rank && rankings.length
-                        ? Math.max(
-                            1,
-                            Math.round(
-                              (userRanking.rank / rankings.length) * 100,
-                            ),
-                          )
-                        : 25)}
-                    %
-                  </span>
-                </p>
-              </div>
-            </div>
 
-            <div className="hidden xl:block w-px h-10 bg-white/20" />
+              <div className="hidden xl:block w-px h-10 bg-white/20 shrink-0" />
 
-            {/* Rank Change & Streak */}
-            <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[11px] font-bold whitespace-nowrap">
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> Up{" "}
-                {perfData?.rankChange || 0} ranks
-              </div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[11px] font-bold whitespace-nowrap">
-                <Flame className="w-3.5 h-3.5 text-amber-400" />{" "}
-                {streakData?.current || 0} day streak
+              {/* Rank Change & Streak */}
+              <div className="flex sm:flex-col gap-1.5 shrink-0">
+                <div className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[10px] sm:text-[11px] font-bold whitespace-nowrap">
+                  <TrendingUp className="w-3 h-3 text-emerald-400 shrink-0" />
+                  <span>Up {perfData?.rankChange || 0} ranks</span>
+                </div>
+                <div className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[10px] sm:text-[11px] font-bold whitespace-nowrap">
+                  <Flame className="w-3 h-3 text-amber-400 shrink-0" />
+                  <span>{streakData?.current || 0} day streak</span>
+                </div>
               </div>
             </div>
           </div>
@@ -781,9 +783,9 @@ export default function Leaderboard() {
       </AnimatedHero>
 
       {/* Main Content Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-12">
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 mb-6 border-b border-gray-200 dark:border-gray-700 pb-3 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1.5 sm:gap-2 mb-5 sm:mb-6 border-b border-gray-200 dark:border-gray-700 pb-3 overflow-x-auto no-scrollbar -mx-1 px-1">
           {[
             { id: "overview", label: "Overview", icon: BarChart3 },
             { id: "tests", label: "Tests", icon: Target },
@@ -794,13 +796,14 @@ export default function Leaderboard() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap shrink-0 transition-all ${
                 tab === t.id
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "text-gray-600 dark:text-gray-300 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700"
               }`}
             >
-              <t.icon className="w-4 h-4" /> {t.label}
+              <t.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />{" "}
+              {t.label}
             </button>
           ))}
         </div>
@@ -863,7 +866,7 @@ export default function Leaderboard() {
                 />
               </Suspense>
 
-              <GlassCard className="p-5 md:col-span-3">
+              <GlassCard className="p-3.5 sm:p-5 md:col-span-3">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Users className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />{" "}
@@ -939,7 +942,7 @@ export default function Leaderboard() {
 
         {/* TESTS TAB */}
         {tab === "tests" && (
-          <GlassCard className="p-5">
+          <GlassCard className="p-3.5 sm:p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div className="relative w-full sm:w-72">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
@@ -1074,8 +1077,8 @@ export default function Leaderboard() {
 
         {/* PRACTICE TAB */}
         {tab === "practice" && (
-          <GlassCard className="p-5">
-            <div className="flex items-center justify-between mb-4">
+          <GlassCard className="p-3.5 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-4">
               <h3 className="text-sm font-bold text-gray-900 dark:text-white">
                 Practice Questions — Subject-wise Breakdown
               </h3>
@@ -1173,8 +1176,8 @@ export default function Leaderboard() {
 
         {/* VIDEOS TAB */}
         {tab === "videos" && (
-          <GlassCard className="p-5">
-            <div className="flex items-center justify-between mb-4">
+          <GlassCard className="p-3.5 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-4">
               <h3 className="text-sm font-bold text-gray-900 dark:text-white">
                 Videos Watched
               </h3>
@@ -1249,9 +1252,9 @@ export default function Leaderboard() {
         {tab === "global" && (
           <div className="space-y-4">
             {/* Top Toolbar: Categories & Search/Refresh in one compact bar */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/80 rounded-2xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/80 rounded-2xl p-2.5 sm:p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-3">
               {/* Category Pills */}
-              <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 w-full min-w-0 -mx-0.5 px-0.5">
                 {RANKING_CATEGORIES.map((category) => {
                   const Icon = category.icon;
                   const isActive = activeCategory === category.id;
@@ -1263,23 +1266,23 @@ export default function Leaderboard() {
                         setSelectedTestId(null);
                         setSelectedSeriesId(null);
                       }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
                         isActive
                           ? "bg-indigo-600 text-white shadow-sm"
                           : "text-gray-600 dark:text-gray-300 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700"
                       }`}
                       title={category.description}
                     >
-                      <Icon className="w-3.5 h-3.5" />
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
                       <span>{category.label}</span>
                     </button>
                   );
                 })}
               </div>
 
-              {/* Right Side: Search & Live Badge */}
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1 md:w-56">
+              {/* Right Side: Search & Actions */}
+              <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+                <div className="relative flex-1 md:w-56 min-w-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                   <input
                     aria-label="Search aspirant name"
@@ -1293,7 +1296,7 @@ export default function Leaderboard() {
                 <button
                   onClick={() => refetchLeaderboard()}
                   disabled={isLoading}
-                  className="p-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl text-gray-600 dark:text-gray-300 transition-all disabled:opacity-50"
+                  className="p-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl text-gray-600 dark:text-gray-300 transition-all disabled:opacity-50 shrink-0"
                   title="Refresh"
                 >
                   <ArrowRight
@@ -1318,13 +1321,13 @@ export default function Leaderboard() {
                         .catch(() => {});
                     }
                   }}
-                  className="p-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl text-gray-600 dark:text-gray-300 transition-all"
+                  className="p-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl text-gray-600 dark:text-gray-300 transition-all shrink-0"
                   title="Share leaderboard"
                   aria-label="Share leaderboard"
                 >
                   <Share2 className="w-4 h-4" aria-hidden="true" />
                 </button>
-                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl text-[10px] font-bold text-emerald-700 dark:text-emerald-300 shrink-0">
                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                   <span>LIVE</span>
                 </div>
@@ -1405,25 +1408,25 @@ export default function Leaderboard() {
 
             {/* Compact Your Position Card */}
             {userRanking && (
-              <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 rounded-2xl p-4 text-white shadow-md flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-sm text-white shrink-0">
+              <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 rounded-2xl p-3 sm:p-4 text-white shadow-md flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-xs sm:text-sm text-white shrink-0">
                     #{userRanking.rank}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-white font-bold text-sm">
+                      <span className="text-white font-bold text-xs sm:text-sm truncate">
                         {userRanking.userName} (You)
                       </span>
-                      <span className="bg-white/20 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                      <span className="bg-white/20 text-white text-[9px] sm:text-[10px] font-extrabold px-1.5 sm:px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 shrink-0">
                         <Star
-                          className="w-3 h-3 text-amber-300"
+                          className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-300"
                           aria-hidden="true"
                         />
                         Your Standing
                       </span>
                     </div>
-                    <p className="text-white/80 text-xs mt-0.5 font-medium">
+                    <p className="text-white/80 text-[11px] sm:text-xs mt-0.5 font-medium truncate">
                       Top{" "}
                       {comparisonStats?.topPercent ??
                         (userRanking?.rank && rankings.length
@@ -1439,35 +1442,35 @@ export default function Leaderboard() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 w-full md:w-auto justify-around border-t md:border-t-0 md:border-l border-white/20 pt-3 md:pt-0 md:pl-5">
+                <div className="grid grid-cols-3 gap-2 w-full md:w-auto md:flex md:items-center md:gap-4 border-t md:border-t-0 md:border-l border-white/20 pt-2.5 md:pt-0 md:pl-5">
                   <div className="text-center">
-                    <span className="block text-xs text-white/70 font-bold uppercase tracking-wider">
+                    <span className="block text-[10px] sm:text-xs text-white/70 font-bold uppercase tracking-wider">
                       Score
                     </span>
                     <span
-                      className="text-base font-black text-white"
+                      className="text-sm sm:text-base font-black text-white"
                       style={{ fontFamily: "'JetBrains Mono', monospace" }}
                     >
                       {userRanking.score} pts
                     </span>
                   </div>
                   <div className="text-center">
-                    <span className="block text-xs text-white/70 font-bold uppercase tracking-wider">
+                    <span className="block text-[10px] sm:text-xs text-white/70 font-bold uppercase tracking-wider">
                       Accuracy
                     </span>
                     <span
-                      className="text-base font-black text-emerald-300"
+                      className="text-sm sm:text-base font-black text-emerald-300"
                       style={{ fontFamily: "'JetBrains Mono', monospace" }}
                     >
                       {userRanking.accuracy || 0}%
                     </span>
                   </div>
                   <div className="text-center">
-                    <span className="block text-xs text-white/70 font-bold uppercase tracking-wider">
+                    <span className="block text-[10px] sm:text-xs text-white/70 font-bold uppercase tracking-wider">
                       Time
                     </span>
                     <span
-                      className="text-base font-black text-cyan-200"
+                      className="text-sm sm:text-base font-black text-cyan-200"
                       style={{ fontFamily: "'JetBrains Mono', monospace" }}
                     >
                       {formatTime(userRanking.timeSpentSeconds)}
@@ -1479,7 +1482,7 @@ export default function Leaderboard() {
 
             {/* Compact Top 3 Podium Grid */}
             {rankings.length > 0 && activeCategory !== "performance" && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
                 {topThree.map((entry, idx) => {
                   const ranks = [
                     {
@@ -1514,11 +1517,11 @@ export default function Leaderboard() {
                   return (
                     <div
                       key={entry.userId || idx}
-                      className={`rounded-2xl p-3.5 border shadow-sm flex items-center justify-between gap-3 ${ranks.border}`}
+                      className={`rounded-xl sm:rounded-2xl p-3 sm:p-3.5 border shadow-sm flex items-center justify-between gap-2.5 sm:gap-3 ${ranks.border}`}
                     >
-                      <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                         <div
-                          className={`w-9 h-9 rounded-xl bg-gradient-to-br ${ranks.bg} flex items-center justify-center font-black text-xs text-white shadow-sm shrink-0`}
+                          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br ${ranks.bg} flex items-center justify-center font-black text-xs text-white shadow-sm shrink-0`}
                         >
                           {entry.userName?.charAt(0).toUpperCase() || "—"}
                         </div>
@@ -1530,7 +1533,7 @@ export default function Leaderboard() {
                             >
                               {entry.userName || "—"}
                             </span>
-                            <span className="text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.2 rounded flex items-center gap-1">
+                            <span className="text-[9px] sm:text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.2 rounded flex items-center gap-1 shrink-0">
                               {idx === 0 && (
                                 <Crown
                                   className="w-3 h-3 text-amber-600 dark:text-amber-400"
@@ -1540,7 +1543,7 @@ export default function Leaderboard() {
                               {ranks.badge}
                             </span>
                           </div>
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold mt-0.5">
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold mt-0.5 truncate">
                             Top {entry.percentile || 100}% percentile
                           </p>
                         </div>
@@ -1548,7 +1551,7 @@ export default function Leaderboard() {
 
                       <div className="text-right shrink-0">
                         <span
-                          className="block text-sm font-black text-gray-900 dark:text-white"
+                          className="block text-xs sm:text-sm font-black text-gray-900 dark:text-white"
                           style={{ fontFamily: "'JetBrains Mono', monospace" }}
                         >
                           {entry.score || 0}{" "}

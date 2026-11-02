@@ -463,7 +463,8 @@ router.post("/questions/:id/socratic-hint", async (req, res) => {
 // Candidate Exam Readiness & Cutoff Percentile Predictor (Wave 18)
 router.get("/exam-readiness", async (req, res) => {
   try {
-    const examSlug = req.query.exam || req.query.examSlug || "default";
+    const examSlug =
+      req.query.exam || req.query.examSlug || req.query.examType || "default";
     const category = req.query.category || "ur";
     const result = await calculateExamReadiness(req.user.id, {
       examSlug,

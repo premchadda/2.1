@@ -492,6 +492,7 @@ function TestInterface() {
 
     const titleSnippet =
       extractText(targetQ?.questionText) ||
+      extractText(targetQ?.question_text) ||
       extractText(targetQ?.text) ||
       extractText(targetQ?.title) ||
       extractText(targetQ?.question) ||

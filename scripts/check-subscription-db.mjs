@@ -42,7 +42,7 @@ if (fs.existsSync(envPath)) {
     console.table(plans.rows);
 
     console.log('\n--- SUBSCRIPTION FEATURES IN DB ---');
-    const features = await client.query(`SELECT id, feature_key, plan_id, is_included FROM subscription_features;`);
+    const features = await client.query(`SELECT id, plan_type, feature_key, feature_name, is_enabled, limit_value FROM subscription_features ORDER BY id;`);
     console.table(features.rows);
 
   } catch (err) {

@@ -162,27 +162,31 @@ export default function ExamCategoriesManager() {
   };
 
   if (loading) {
-    return <div className="p-4 md:p-6">Loading...</div>;
+    return (
+      <div className="p-4 md:p-6 text-gray-500 dark:text-gray-400">
+        Loading...
+      </div>
+    );
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-3.5 sm:p-5 md:p-6 pb-24 sm:pb-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+      <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white truncate">
             Exam Categories
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">
             Manage exam categories (SSC, Railway, Banking, etc.)
           </p>
         </div>
         <button
           onClick={() => setShowCategoryForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-start to-brand-end text-white rounded-lg hover:shadow-glow transition-all"
+          className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-brand-start to-brand-end text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm shadow-indigo-500/20 hover:shadow-glow transition-all shrink-0 active:scale-95"
         >
           <Plus className="w-4 h-4" />
-          Add Category
+          <span>Add Category</span>
         </button>
       </div>
 
@@ -365,44 +369,60 @@ export default function ExamCategoriesManager() {
         )}
 
       {/* Categories List */}
-      <div className="space-y-4">
+      <div className="space-y-2.5 sm:space-y-3">
         {categories.map((category) => (
           <div
             key={category._id}
-            className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+            className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 shadow-2xs hover:shadow-xs transition-all overflow-hidden"
           >
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{category.icon}</span>
-                <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white">
-                    {category.label}
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    #{category.id}
-                  </p>
+            <div className="flex items-center justify-between p-3.5 sm:p-4 gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-100/80 dark:border-indigo-800/40 flex items-center justify-center text-xl sm:text-2xl shrink-0 shadow-2xs">
+                  {category.icon || "📋"}
                 </div>
-                <span
-                  className={`px-2 py-1 text-xs rounded-full ${
-                    category.isActive
-                      ? "bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-                  }`}
-                >
-                  {category.isActive ? "Active" : "Inactive"}
-                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate">
+                      {category.label}
+                    </h3>
+                    <span
+                      className={`px-2 py-0.5 text-[10px] sm:text-xs font-bold rounded-full ${
+                        category.isActive
+                          ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60"
+                          : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700"
+                      }`}
+                    >
+                      {category.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+                    <span className="font-mono bg-gray-100 dark:bg-gray-700/70 px-1.5 py-0.5 rounded text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+                      #{category.id}
+                    </span>
+                    {category.slug && (
+                      <span className="hidden xs:inline font-mono text-[11px] text-gray-400 dark:text-gray-500 truncate max-w-[120px]">
+                        {category.slug}
+                      </span>
+                    )}
+                    {category.displayOrder !== undefined && (
+                      <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                        Order: {category.displayOrder}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => handleEditCategory(category)}
-                  className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 rounded-lg"
+                  className="p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-xl border border-gray-100 dark:border-gray-700/60 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all active:scale-95"
                   title="Edit Category"
                 >
                   <Edit className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleDeleteCategory(category)}
-                  className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-900/20 rounded-lg"
+                  className="p-2 text-red-500 hover:text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-xl border border-gray-100 dark:border-gray-700/60 hover:border-red-200 dark:hover:border-red-800 transition-all active:scale-95"
                   title="Delete Category"
                 >
                   <Trash2 className="w-4 h-4" />

@@ -257,3 +257,5 @@ export const fetchFromAPI = async (endpoint, options = {}) => {
 
 export const api = apiClient;
 export const isCancel = axios.isCancel;
+
+export default apiClient;

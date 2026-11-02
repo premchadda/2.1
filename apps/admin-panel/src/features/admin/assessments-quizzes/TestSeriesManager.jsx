@@ -933,19 +933,27 @@ export default function TestSeriesManager() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-3.5 sm:p-5 md:p-6 pb-24 sm:pb-8 max-w-7xl mx-auto">
       {/* Header Action Bar */}
-      <div className="flex items-center justify-end mb-6">
+      <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white truncate">
+            Test Series
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">
+            Manage mock test packages, pricing, and stage mappings
+          </p>
+        </div>
         <button
           onClick={() => {
             setFormData((prev) => ({ ...prev, category: activeTab }));
             setSlugManuallyEdited(false);
             setShowForm(true);
           }}
-          className="mt-4 md:mt-0 flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all"
+          className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xs sm:text-sm rounded-xl shadow-sm shadow-indigo-500/20 hover:shadow-glow transition-all shrink-0 active:scale-95"
         >
-          <Plus className="w-5 h-5" />
-          Add Test Series
+          <Plus className="w-4 h-4" />
+          <span>Add Test Series</span>
         </button>
       </div>
 
@@ -977,9 +985,9 @@ export default function TestSeriesManager() {
       )}
 
       {/* Category Tabs */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 shadow-2xs mb-4 sm:mb-6 overflow-hidden">
         {/* Main Category Tabs */}
-        <div className="flex overflow-x-auto border-b border-gray-100">
+        <div className="flex overflow-x-auto border-b border-gray-100 dark:border-gray-700/60 scrollbar-hide py-1 px-1.5 sm:px-2 gap-1">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -987,18 +995,18 @@ export default function TestSeriesManager() {
                 setActiveTab(tab.id);
                 setActiveExamFilter(null); // Reset exam filter when changing category
               }}
-              className={`flex items-center gap-2 px-6 py-4 text-sm font-semibold whitespace-nowrap border-b-2 transition-all ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-2.5 text-xs sm:text-sm font-bold whitespace-nowrap rounded-xl transition-all ${
                 activeTab === tab.id
-                  ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20"
-                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
+                  ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-750"
               }`}
             >
-              <span className="text-lg">{tab.icon}</span>
-              {tab.label}
+              <span className="text-base sm:text-lg">{tab.icon}</span>
+              <span>{tab.label}</span>
               <span
-                className={`ml-1 px-2 py-0.5 text-xs font-bold rounded-full ${
+                className={`ml-0.5 px-1.5 py-0.2 text-[10px] sm:text-xs font-black rounded-full ${
                   activeTab === tab.id
-                    ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400"
+                    ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-800 dark:text-indigo-200"
                     : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
                 }`}
               >
@@ -1010,22 +1018,22 @@ export default function TestSeriesManager() {
 
         {/* Exam Sub-Tabs - Only exams with test series */}
         {activeTab && examsForActiveCategory.length > 0 && (
-          <div className="flex overflow-x-auto border-b border-gray-100 bg-gray-50 dark:bg-gray-900 px-4 py-2 gap-2">
+          <div className="flex overflow-x-auto border-b border-gray-100 dark:border-gray-700/60 bg-gray-50/70 dark:bg-gray-900/60 scrollbar-hide px-2 sm:px-4 py-2 gap-1.5">
             <button
               onClick={() => setActiveExamFilter(null)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-all ${
                 activeExamFilter === null
-                  ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400"
-                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 border border-gray-200 dark:border-gray-700"
+                  ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold shadow-2xs"
+                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 border border-gray-200/80 dark:border-gray-700"
               }`}
             >
               <FileText className="w-3 h-3" />
-              All Exams
+              <span>All Exams</span>
               <span
-                className={`px-1.5 py-0.5 text-[10px] rounded-full ${
+                className={`px-1.5 py-0.2 text-[10px] font-bold rounded-full ${
                   activeExamFilter === null
-                    ? "bg-indigo-200"
-                    : "bg-gray-100 dark:bg-gray-700"
+                    ? "bg-indigo-200 text-indigo-800 dark:bg-indigo-800 dark:text-indigo-200"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-500"
                 }`}
               >
                 {
@@ -1045,19 +1053,19 @@ export default function TestSeriesManager() {
                   onClick={() =>
                     setActiveExamFilter(isActive ? null : exam.value)
                   }
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-all ${
+                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-all ${
                     isActive
-                      ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400"
-                      : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 border border-gray-200 dark:border-gray-700"
+                      ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold shadow-2xs"
+                      : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 border border-gray-200/80 dark:border-gray-700"
                   }`}
                 >
                   <FileText className="w-3 h-3" />
-                  {exam.label}
+                  <span>{exam.label}</span>
                   <span
-                    className={`px-1.5 py-0.5 text-[10px] rounded-full ${
+                    className={`px-1.5 py-0.2 text-[10px] font-bold rounded-full ${
                       isActive
-                        ? "bg-indigo-200"
-                        : "bg-gray-100 dark:bg-gray-700"
+                        ? "bg-indigo-200 text-indigo-800 dark:bg-indigo-800 dark:text-indigo-200"
+                        : "bg-gray-100 dark:bg-gray-700 text-gray-500"
                     }`}
                   >
                     {examCount}
@@ -1201,312 +1209,302 @@ export default function TestSeriesManager() {
                     : "Select all"}
                 </span>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2.5 sm:space-y-3">
                 {filteredSeries.map((item) => (
                   <div
                     key={seriesId(item)}
-                    className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-indigo-200 hover:shadow-md transition-all"
+                    className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 hover:border-indigo-300 dark:hover:border-indigo-700 shadow-2xs hover:shadow-xs transition-all p-3 sm:p-4 flex flex-col gap-2.5"
                   >
-                    <input
-                      type="checkbox"
-                      aria-label={`Select test series ${item.title || seriesId(item)}`}
-                      checked={selectedIds.includes(seriesId(item))}
-                      onChange={(e) => {
-                        const sId = seriesId(item);
-                        if (e.target.checked)
-                          setSelectedIds([...selectedIds, sId]);
-                        else
-                          setSelectedIds(
-                            selectedIds.filter((id) => id !== sId),
-                          );
-                      }}
-                      style={{
-                        width: "16px",
-                        height: "16px",
-                        accentColor: "#6366f1",
-                        cursor: "pointer",
-                      }}
-                    />
+                    {/* Top Header: Checkbox + Status dot + Title + Tags + Tests Count */}
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select test series ${item.title || seriesId(item)}`}
+                          checked={selectedIds.includes(seriesId(item))}
+                          onChange={(e) => {
+                            const sId = seriesId(item);
+                            if (e.target.checked)
+                              setSelectedIds([...selectedIds, sId]);
+                            else
+                              setSelectedIds(
+                                selectedIds.filter((id) => id !== sId),
+                              );
+                          }}
+                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer mt-0.5 shrink-0 accent-indigo-600"
+                        />
 
-                    {/* Main Info - Left Side */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span
-                          className={`w-2 h-2 rounded-full flex-shrink-0 ${item.isActive ? "bg-emerald-500" : "bg-red-50 dark:bg-red-900/20"}`}
-                        ></span>
-                        <h3
-                          className="font-semibold text-gray-900 dark:text-white truncate"
-                          title={item.title}
-                        >
-                          {item.title}
-                        </h3>
-                        {item.isPinned && (
-                          <Pin
-                            className="w-3.5 h-3.5 text-amber-500 flex-shrink-0"
-                            fill="currentColor"
-                          />
-                        )}
-                        <span
-                          className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${
-                            item.isPro
-                              ? "bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400"
-                              : "bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400"
-                          }`}
-                        >
-                          {item.isPro ? `₹${item.price}` : "Free"}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${
-                            item.difficulty === "easy"
-                              ? "bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400"
-                              : item.difficulty === "hard"
-                                ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400"
-                                : "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400"
-                          }`}
-                        >
-                          {item.difficulty || "medium"}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1.5 flex-wrap text-[11px] text-gray-500 dark:text-gray-400">
-                        <span className="font-mono text-gray-400 dark:text-gray-500">
-                          {item.slug}
-                        </span>
-                        {item.examId && (
-                          <span className="text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-1.5 py-0.5 rounded font-medium">
-                            {getExamDisplayName(item.category, item.examId)}
-                          </span>
-                        )}
-
-                        {/* Stages - Inline Editable */}
-                        <div
-                          className="relative inline-block"
-                          ref={
-                            editingStagesId === seriesId(item)
-                              ? stageDropdownRef
-                              : null
-                          }
-                        >
-                          {editingStagesId === seriesId(item) ? (
-                            // Inline stage editor dropdown
-                            <div className="absolute z-20 left-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 min-w-[200px]">
-                              <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-100">
-                                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                                  Link Stages
-                                </span>
-                                <div className="flex gap-1">
-                                  <button
-                                    onClick={() =>
-                                      saveInlineStages(seriesId(item))
-                                    }
-                                    className="p-1 hover:bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded"
-                                    title="Save"
-                                  >
-                                    <Check className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={cancelEditingStages}
-                                    className="p-1 hover:bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded"
-                                    title="Cancel"
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                              <div className="space-y-1 max-h-40 overflow-y-auto">
-                                {getFilteredStagesForSeries(item).map(
-                                  (stage) => {
-                                    const stageId = stage._id || stage.id;
-                                    const isChecked =
-                                      inlineStages.includes(stageId);
-                                    return (
-                                      <label
-                                        key={stageId}
-                                        className="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900 rounded-lg transition"
-                                        onKeyDown={(e) =>
-                                          handleStageKeyDown(e, stageId)
-                                        }
-                                        tabIndex={0}
-                                      >
-                                        <div
-                                          className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
-                                            isChecked
-                                              ? "bg-indigo-600 border-indigo-600"
-                                              : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
-                                          }`}
-                                        >
-                                          {isChecked && (
-                                            <Check className="w-3 h-3 text-white" />
-                                          )}
-                                        </div>
-                                        <input
-                                          type="checkbox"
-                                          aria-label={`Select stage ${stage.name || stageId}`}
-                                          checked={isChecked}
-                                          onChange={() =>
-                                            toggleInlineStage(stageId)
-                                          }
-                                          className="hidden"
-                                        />
-
-                                        <span className="text-xs">
-                                          {stage.icon || "🎯"} {stage.name}
-                                        </span>
-                                      </label>
-                                    );
-                                  },
-                                )}
-                              </div>
-                              {inlineStages.length !==
-                                (Array.isArray(item.stages)
-                                  ? item.stages.length
-                                  : 0) && (
-                                <div className="mt-2 pt-2 border-t border-gray-100">
-                                  <button
-                                    onClick={() =>
-                                      saveInlineStages(seriesId(item))
-                                    }
-                                    className="w-full px-2 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1"
-                                  >
-                                    <Save className="w-3 h-3" />
-                                    Save Changes (
-                                    {inlineStages.length >
-                                    (Array.isArray(item.stages)
-                                      ? item.stages.length
-                                      : 0)
-                                      ? "+"
-                                      : ""}
-                                    {Math.abs(
-                                      inlineStages.length -
-                                        (Array.isArray(item.stages)
-                                          ? item.stages.length
-                                          : 0),
-                                    )}{" "}
-                                    {inlineStages.length -
-                                      (Array.isArray(item.stages)
-                                        ? item.stages.length
-                                        : 0) >
-                                    0
-                                      ? "added"
-                                      : "removed"}
-                                    )
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          ) : null}
-                          <button
-                            onClick={() => {
-                              if (editingStagesId === seriesId(item)) {
-                                cancelEditingStages();
-                              } else {
-                                startEditingStages(item);
-                              }
-                            }}
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded hover:bg-amber-100 dark:bg-amber-900/20 transition-colors border border-amber-200"
-                            title="Click to edit stage linkage"
-                          >
-                            <LinkIcon className="w-3 h-3" />
-                            <span className="font-medium">Stages</span>
-                            <ChevronDown className="w-3 h-3" />
-                          </button>
-                        </div>
-
-                        {/* Display linked stages when not editing */}
-                        {editingStagesId !== seriesId(item) && (
-                          <div className="flex gap-1 flex-wrap">
-                            {getLinkedStagesDisplay(item)}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                            <span
+                              className={`w-2 h-2 rounded-full shrink-0 ${item.isActive ? "bg-emerald-500" : "bg-red-400"}`}
+                            />
+                            <h3
+                              className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate"
+                              title={item.title}
+                            >
+                              {item.title}
+                            </h3>
+                            {item.isPinned && (
+                              <Pin
+                                className="w-3.5 h-3.5 text-amber-500 shrink-0"
+                                fill="currentColor"
+                              />
+                            )}
+                            <span
+                              className={`px-2 py-0.5 text-[10px] font-bold rounded-full shrink-0 ${
+                                item.isPro
+                                  ? "bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-400 border border-purple-200/60 dark:border-purple-800/60"
+                                  : "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60"
+                              }`}
+                            >
+                              {item.isPro ? `₹${item.price}` : "Free"}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 text-[10px] font-bold rounded-full shrink-0 ${
+                                item.difficulty === "easy"
+                                  ? "bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-400 border border-green-200/60"
+                                  : item.difficulty === "hard"
+                                    ? "bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-200/60"
+                                    : "bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200/60"
+                              }`}
+                            >
+                              {item.difficulty || "medium"}
+                            </span>
                           </div>
-                        )}
-
-                        {item.tags?.slice(0, 2).map((tag, idx) => (
-                          <span
-                            key={idx}
-                            className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded"
-                          >
-                            #{tag}
-                          </span>
-                        ))}
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Stats & Actions - Right Side */}
-                    <div className="flex items-center gap-4 sm:gap-6 flex-shrink-0">
+                      {/* Tests Link Badge */}
                       <Link
                         to={`/admin/tests?seriesId=${encodeURIComponent(seriesId(item))}`}
-                        className="text-center px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg min-w-[60px] hover:bg-indigo-100 dark:bg-indigo-900/30 transition-colors group cursor-pointer"
+                        className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-xl border border-indigo-100 dark:border-indigo-900/60 text-indigo-600 dark:text-indigo-400 shrink-0 transition-all active:scale-95 group"
                         title="Manage tests in this series"
                       >
-                        <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-800">
+                        <span className="text-xs sm:text-sm font-black">
                           {item.totalTests || 0}
-                        </div>
-                        <div className="text-[10px] text-indigo-400 dark:text-indigo-500 group-hover:text-indigo-600 dark:text-indigo-400">
+                        </span>
+                        <span className="text-[10px] font-semibold opacity-80">
                           tests
-                        </div>
+                        </span>
                       </Link>
+                    </div>
 
-                      <div className="flex items-center gap-1">
+                    {/* Middle Row: Slug, Exam, Stages dropdown & linked stages */}
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap text-xs text-gray-500 dark:text-gray-400 pl-6.5">
+                      <span className="font-mono text-[11px] bg-gray-100 dark:bg-gray-700/70 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded truncate max-w-[200px]">
+                        {item.slug}
+                      </span>
+                      {item.examId && (
+                        <span className="text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900/50 px-1.5 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap">
+                          {getExamDisplayName(item.category, item.examId)}
+                        </span>
+                      )}
+
+                      {/* Stages - Inline Editable Dropdown */}
+                      <div
+                        className="relative inline-block"
+                        ref={
+                          editingStagesId === seriesId(item)
+                            ? stageDropdownRef
+                            : null
+                        }
+                      >
+                        {editingStagesId === seriesId(item) ? (
+                          <div className="absolute z-20 left-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 min-w-[200px]">
+                            <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-100 dark:border-gray-700">
+                              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                                Link Stages
+                              </span>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() =>
+                                    saveInlineStages(seriesId(item))
+                                  }
+                                  className="p-1 hover:bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded"
+                                  title="Save"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={cancelEditingStages}
+                                  className="p-1 hover:bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded"
+                                  title="Cancel"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="space-y-1 max-h-40 overflow-y-auto">
+                              {getFilteredStagesForSeries(item).map((stage) => {
+                                const stageId = stage._id || stage.id;
+                                const isChecked =
+                                  inlineStages.includes(stageId);
+                                return (
+                                  <label
+                                    key={stageId}
+                                    className="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition"
+                                    onKeyDown={(e) =>
+                                      handleStageKeyDown(e, stageId)
+                                    }
+                                    tabIndex={0}
+                                  >
+                                    <div
+                                      className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                                        isChecked
+                                          ? "bg-indigo-600 border-indigo-600"
+                                          : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+                                      }`}
+                                    >
+                                      {isChecked && (
+                                        <Check className="w-3 h-3 text-white" />
+                                      )}
+                                    </div>
+                                    <input
+                                      type="checkbox"
+                                      aria-label={`Select stage ${stage.name || stageId}`}
+                                      checked={isChecked}
+                                      onChange={() =>
+                                        toggleInlineStage(stageId)
+                                      }
+                                      className="hidden"
+                                    />
+                                    <span className="text-xs">
+                                      {stage.icon || "🎯"} {stage.name}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                            {inlineStages.length !==
+                              (Array.isArray(item.stages)
+                                ? item.stages.length
+                                : 0) && (
+                              <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                                <button
+                                  onClick={() =>
+                                    saveInlineStages(seriesId(item))
+                                  }
+                                  className="w-full px-2 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1"
+                                >
+                                  <Save className="w-3 h-3" />
+                                  Save Changes
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
+
                         <button
-                          onClick={() =>
-                            handleTogglePin(seriesId(item), item.isPinned)
-                          }
-                          className={`p-2 rounded-lg transition-colors ${item.isPinned ? "bg-amber-100 text-amber-600 dark:text-amber-400" : "text-gray-300 hover:bg-amber-50 dark:bg-amber-900/20 hover:text-amber-500"}`}
-                          title={item.isPinned ? "Unpin" : "Pin"}
+                          onClick={() => {
+                            if (editingStagesId === seriesId(item)) {
+                              cancelEditingStages();
+                            } else {
+                              startEditingStages(item);
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded text-[11px] hover:bg-amber-100 transition-colors border border-amber-200/80 dark:border-amber-800/60"
+                          title="Click to edit stage linkage"
                         >
-                          <Pin className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(item)}
-                          className="p-2 text-gray-400 dark:text-gray-500 hover:bg-indigo-50 dark:bg-indigo-900/20 hover:text-indigo-600 dark:text-indigo-400 rounded-lg"
-                          title="Edit"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleMove(item, -1, filteredSeries)}
-                          className="p-2 text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 hover:text-gray-600 dark:text-gray-400 rounded-lg disabled:opacity-30"
-                          disabled={
-                            filteredSeries.findIndex(
-                              (s) => seriesId(s) === seriesId(item),
-                            ) === 0
-                          }
-                          title="Move Up"
-                        >
-                          <ArrowUp className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleMove(item, 1, filteredSeries)}
-                          className="p-2 text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 hover:text-gray-600 dark:text-gray-400 rounded-lg disabled:opacity-30"
-                          disabled={
-                            filteredSeries.findIndex(
-                              (s) => seriesId(s) === seriesId(item),
-                            ) ===
-                            filteredSeries.length - 1
-                          }
-                          title="Move Down"
-                        >
-                          <ArrowDown className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleToggleActive(seriesId(item), item.isActive)
-                          }
-                          className={`p-2 rounded-lg ${item.isActive ? "text-green-500 hover:bg-red-50 hover:text-red-500" : "text-gray-400 dark:text-gray-500 hover:bg-green-50 dark:bg-green-900/20 hover:text-green-500"}`}
-                          title={item.isActive ? "Disable" : "Enable"}
-                        >
-                          {item.isActive ? (
-                            <Eye className="w-4 h-4" />
-                          ) : (
-                            <EyeOff className="w-4 h-4" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(seriesId(item))}
-                          className="p-2 text-gray-300 hover:bg-red-50 dark:bg-red-900/20 hover:text-red-500 rounded-lg"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
+                          <LinkIcon className="w-3 h-3" />
+                          <span className="font-medium">Stages</span>
+                          <ChevronDown className="w-3 h-3" />
                         </button>
                       </div>
+
+                      {/* Display linked stages */}
+                      {editingStagesId !== seriesId(item) && (
+                        <div className="flex gap-1 flex-wrap">
+                          {getLinkedStagesDisplay(item)}
+                        </div>
+                      )}
+
+                      {item.tags?.slice(0, 2).map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded text-[11px]"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Bottom Actions Row */}
+                    <div className="flex items-center justify-end gap-1 pt-1.5 border-t border-gray-100 dark:border-gray-750 pl-6.5">
+                      <button
+                        onClick={() =>
+                          handleTogglePin(seriesId(item), item.isPinned)
+                        }
+                        className={`p-1.5 sm:p-2 rounded-xl transition-all border ${
+                          item.isPinned
+                            ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200/80 dark:border-amber-800/60"
+                            : "text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 border-gray-100 dark:border-gray-700/60"
+                        }`}
+                        title={item.isPinned ? "Unpin" : "Pin"}
+                      >
+                        <Pin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className="p-1.5 sm:p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-xl border border-gray-100 dark:border-gray-700/60 hover:border-indigo-200 transition-all"
+                        title="Edit"
+                      >
+                        <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => handleMove(item, -1, filteredSeries)}
+                        className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl border border-gray-100 dark:border-gray-700/60 disabled:opacity-30 transition-all"
+                        disabled={
+                          filteredSeries.findIndex(
+                            (s) => seriesId(s) === seriesId(item),
+                          ) === 0
+                        }
+                        title="Move Up"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => handleMove(item, 1, filteredSeries)}
+                        className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl border border-gray-100 dark:border-gray-700/60 disabled:opacity-30 transition-all"
+                        disabled={
+                          filteredSeries.findIndex(
+                            (s) => seriesId(s) === seriesId(item),
+                          ) ===
+                          filteredSeries.length - 1
+                        }
+                        title="Move Down"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          handleToggleActive(seriesId(item), item.isActive)
+                        }
+                        className={`p-1.5 sm:p-2 rounded-xl border transition-all ${
+                          item.isActive
+                            ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border-gray-100 dark:border-gray-700/60 hover:border-emerald-200"
+                            : "text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border-gray-100 dark:border-gray-700/60"
+                        }`}
+                        title={item.isActive ? "Disable" : "Enable"}
+                      >
+                        {item.isActive ? (
+                          <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        ) : (
+                          <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => handleDelete(seriesId(item))}
+                        className="p-1.5 sm:p-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl border border-gray-100 dark:border-gray-700/60 hover:border-red-200 transition-all"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -1553,300 +1551,315 @@ export default function TestSeriesManager() {
 
               <form
                 onSubmit={handleSubmit}
-                className="p-6 space-y-4 overflow-y-auto flex-1"
+                className="flex flex-col flex-1 min-h-0 overflow-hidden"
               >
-                <div>
-                  <label
-                    htmlFor="title"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                  >
-                    Title *
-                  </label>
-                  <input
-                    id="title"
-                    type="text"
-                    required
-                    value={formData.title}
-                    onChange={(e) => {
-                      const newTitle = e.target.value;
-                      setFormData((prev) => ({
-                        ...prev,
-                        title: newTitle,
-                        slug: !slugManuallyEdited
-                          ? newTitle
-                              .toLowerCase()
-                              .replace(/[^a-z0-9]+/g, "-")
-                              .replace(/^-+|-+$/g, "")
-                          : prev.slug,
-                      }));
-                    }}
-                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="slug"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                  >
-                    Slug *
-                  </label>
-                  <input
-                    id="slug"
-                    type="text"
-                    required
-                    value={formData.slug}
-                    onChange={(e) => {
-                      setSlugManuallyEdited(true);
-                      setFormData({ ...formData, slug: e.target.value });
-                    }}
-                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                  />
-
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-mono">
-                    URL: /test-series/{formData.slug || "your-slug"}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
                   <div>
                     <label
-                      htmlFor="category"
+                      htmlFor="title"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                     >
-                      Category *
+                      Title *
                     </label>
-                    <select
-                      id="category"
+                    <input
+                      id="title"
+                      type="text"
                       required
-                      value={formData.category}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          category: e.target.value,
-                          examId: "",
-                        })
-                      }
+                      value={formData.title}
+                      onChange={(e) => {
+                        const newTitle = e.target.value;
+                        setFormData((prev) => ({
+                          ...prev,
+                          title: newTitle,
+                          slug: !slugManuallyEdited
+                            ? newTitle
+                                .toLowerCase()
+                                .replace(/[^a-z0-9]+/g, "-")
+                                .replace(/^-+|-+$/g, "")
+                            : prev.slug,
+                        }));
+                      }}
                       className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                    >
-                      <option value="">Select</option>
-                      {categories.map((cat) => (
-                        <option
-                          key={cat.id}
-                          value={cat.categoryId || cat.slug || cat.id}
-                        >
-                          {cat.icon} {cat.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
 
                   <div>
                     <label
-                      htmlFor="exam"
+                      htmlFor="slug"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                     >
-                      Exam
+                      Slug *
                     </label>
-                    <select
-                      id="exam"
-                      value={formData.examId}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          examId: e.target.value,
-                        })
-                      }
-                      disabled={!formData.category}
-                      className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 dark:disabled:bg-gray-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                    >
-                      <option value="">Select</option>
-                      {formData.category &&
-                        getExamsByCategory(formData.category).map((sub) => (
-                          <option key={sub.value} value={sub.value}>
-                            {sub.label}
+                    <input
+                      id="slug"
+                      type="text"
+                      required
+                      value={formData.slug}
+                      onChange={(e) => {
+                        setSlugManuallyEdited(true);
+                        setFormData({ ...formData, slug: e.target.value });
+                      }}
+                      className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                    />
+
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-mono">
+                      URL: /test-series/{formData.slug || "your-slug"}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div>
+                      <label
+                        htmlFor="category"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
+                        Category *
+                      </label>
+                      <select
+                        id="category"
+                        required
+                        value={formData.category}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            category: e.target.value,
+                            examId: "",
+                          })
+                        }
+                        className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                      >
+                        <option value="">Select</option>
+                        {categories.map((cat) => (
+                          <option
+                            key={cat.id}
+                            value={cat.categoryId || cat.slug || cat.id}
+                          >
+                            {cat.icon} {cat.label}
                           </option>
                         ))}
-                    </select>
-                  </div>
+                      </select>
+                    </div>
 
-                  <div>
-                    <label
-                      htmlFor="difficulty"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                    >
-                      Difficulty
-                    </label>
-                    <select
-                      id="difficulty"
-                      value={formData.difficulty}
-                      onChange={(e) =>
-                        setFormData({ ...formData, difficulty: e.target.value })
-                      }
-                      className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                    >
-                      <option value="easy">Easy</option>
-                      <option value="medium">Medium</option>
-                      <option value="hard">Hard</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="price"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                    >
-                      Price (₹)
-                    </label>
-                    <input
-                      id="price"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={formData.price}
-                      onChange={(e) =>
-                        setFormData({ ...formData, price: e.target.value })
-                      }
-                      className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Stages/Tiers
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 max-h-32 overflow-y-auto">
-                    {availableStagesForForm.map((stage) => (
+                    <div>
                       <label
-                        key={stage._id || stage.id}
-                        className="flex items-center gap-2 cursor-pointer p-2 hover:bg-white dark:hover:bg-gray-800 rounded-lg transition"
+                        htmlFor="exam"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                       >
-                        <input
-                          type="checkbox"
-                          checked={formData.stages.includes(
-                            stage._id || stage.id,
-                          )}
-                          onChange={(e) => {
-                            const stageId = stage._id || stage.id;
-                            if (e.target.checked) {
-                              setFormData({
-                                ...formData,
-                                stages: [...formData.stages, stageId],
-                              });
-                            } else {
-                              setFormData({
-                                ...formData,
-                                stages: formData.stages.filter(
-                                  (id) => id !== stageId,
-                                ),
-                              });
-                            }
-                          }}
-                          className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
-                        />
-
-                        <span className="text-sm text-gray-800 dark:text-gray-200">
-                          {stage.icon} {stage.name}
-                        </span>
+                        Exam
                       </label>
-                    ))}
+                      <select
+                        id="exam"
+                        value={formData.examId}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            examId: e.target.value,
+                          })
+                        }
+                        disabled={!formData.category}
+                        className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 dark:disabled:bg-gray-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                      >
+                        <option value="">Select</option>
+                        {formData.category &&
+                          getExamsByCategory(formData.category).map((sub) => (
+                            <option key={sub.value} value={sub.value}>
+                              {sub.label}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="difficulty"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
+                        Difficulty
+                      </label>
+                      <select
+                        id="difficulty"
+                        value={formData.difficulty}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            difficulty: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                      >
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="price"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      >
+                        Price (₹)
+                      </label>
+                      <input
+                        id="price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData.price}
+                        onChange={(e) =>
+                          setFormData({ ...formData, price: e.target.value })
+                        }
+                        className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Stages/Tiers
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 max-h-36 overflow-y-auto">
+                      {availableStagesForForm.map((stage) => (
+                        <label
+                          key={stage._id || stage.id}
+                          className="flex items-center gap-2 cursor-pointer p-2 hover:bg-white dark:hover:bg-gray-800 rounded-lg transition"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.stages.includes(
+                              stage._id || stage.id,
+                            )}
+                            onChange={(e) => {
+                              const stageId = stage._id || stage.id;
+                              if (e.target.checked) {
+                                setFormData({
+                                  ...formData,
+                                  stages: [...formData.stages, stageId],
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  stages: formData.stages.filter(
+                                    (id) => id !== stageId,
+                                  ),
+                                });
+                              }
+                            }}
+                            className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
+                          />
+
+                          <span className="text-sm text-gray-800 dark:text-gray-200">
+                            {stage.icon} {stage.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="description"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
+                      Description
+                    </label>
+                    <textarea
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          description: e.target.value,
+                        })
+                      }
+                      rows={2}
+                      className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="tags-comma-separated"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
+                      Tags (comma separated)
+                    </label>
+                    <input
+                      id="tags-comma-separated"
+                      type="text"
+                      value={formData.tags}
+                      onChange={(e) =>
+                        setFormData({ ...formData, tags: e.target.value })
+                      }
+                      placeholder="mock, pyp, free"
+                      className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-6 pt-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.isPro}
+                        onChange={(e) =>
+                          setFormData({ ...formData, isPro: e.target.checked })
+                        }
+                        className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
+                      />
+
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Pro Only
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.isActive}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            isActive: e.target.checked,
+                          })
+                        }
+                        className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
+                      />
+
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Active
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.isPinned}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            isPinned: e.target.checked,
+                          })
+                        }
+                        className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
+                      />
+
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Pin to Top
+                      </span>
+                    </label>
                   </div>
                 </div>
 
-                <div>
-                  <label
-                    htmlFor="description"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                  >
-                    Description
-                  </label>
-                  <textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    rows={2}
-                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="tags-comma-separated"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                  >
-                    Tags (comma separated)
-                  </label>
-                  <input
-                    id="tags-comma-separated"
-                    type="text"
-                    value={formData.tags}
-                    onChange={(e) =>
-                      setFormData({ ...formData, tags: e.target.value })
-                    }
-                    placeholder="mock, pyp, free"
-                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                  />
-                </div>
-
-                <div className="flex items-center gap-6 pt-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.isPro}
-                      onChange={(e) =>
-                        setFormData({ ...formData, isPro: e.target.checked })
-                      }
-                      className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
-                    />
-
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Pro Only
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.isActive}
-                      onChange={(e) =>
-                        setFormData({ ...formData, isActive: e.target.checked })
-                      }
-                      className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
-                    />
-
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Active
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.isPinned}
-                      onChange={(e) =>
-                        setFormData({ ...formData, isPinned: e.target.checked })
-                      }
-                      className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
-                    />
-
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Pin to Top
-                    </span>
-                  </label>
-                </div>
-
-                <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                {/* Sticky Footer */}
+                <div className="p-3.5 sm:p-4 bg-gray-50 dark:bg-gray-800/90 border-t border-gray-100 dark:border-gray-700 flex gap-3 shrink-0">
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium transition-colors"
+                    className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold transition-colors text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg font-semibold transition-all text-sm"
                   >
                     <Save className="w-4 h-4" />
                     {editingId ? "Update" : "Create"}

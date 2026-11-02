@@ -8,6 +8,7 @@ import {
 } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
+import { apiClient } from "../../shared/lib/apiClient";
 import { practiceAPI } from "../../shared/lib/practiceAPI";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
 import FundamentalsGym from "./components/FundamentalsGym";
@@ -203,6 +204,28 @@ export default function PracticeLab() {
   });
   const [showExamModal, setShowExamModal] = useState(false);
 
+  // Dynamic root categories for target exams with EXAM_OPTIONS as baseline
+  const { data: rootCategories } = useQuery({
+    queryKey: ["test-categories-roots"],
+    queryFn: async () => {
+      const res = await apiClient.get("/api/test-categories/roots");
+      return res.data?.data || res.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const availableExams = useMemo(() => {
+    if (Array.isArray(rootCategories) && rootCategories.length > 0) {
+      return rootCategories.map((c) => ({
+        id: c.slug || String(c.id),
+        name: c.name,
+        label: c.description || c.subCategoryNames || c.name,
+        category: c.name,
+      }));
+    }
+    return EXAM_OPTIONS;
+  }, [rootCategories]);
+
   // Authoritative curriculum tree from database
   const { data: treeData } = useQuery({
     queryKey: ["practice-tree"],
@@ -303,7 +326,7 @@ export default function PracticeLab() {
         curr !== "session" && curr !== "complete" ? "exam_practice" : curr,
       );
     } else if (examSlug) {
-      const matchedExam = EXAM_OPTIONS.find(
+      const matchedExam = availableExams.find(
         (e) =>
           e.id === examSlug || e.id.toLowerCase() === examSlug.toLowerCase(),
       );
@@ -558,6 +581,7 @@ export default function PracticeLab() {
       {/* One-Time Choose Exam Modal */}
       {showExamModal && (
         <ChooseExamModal
+          options={availableExams}
           onSelectExam={handleSelectExam}
           onClose={() => setShowExamModal(false)}
         />
@@ -565,7 +589,7 @@ export default function PracticeLab() {
 
       {/* Top Header Breadcrumb */}
       {screen === "dashboard" && (
-        <div className="bg-white dark:bg-gray-800 border-b border-slate-100 dark:border-gray-700">
+        <div className="hidden sm:block bg-white dark:bg-gray-800 border-b border-slate-100 dark:border-gray-700">
           <div className="max-w-6xl mx-auto px-4">
             <Breadcrumb
               items={[{ label: "Home", path: "/" }, { label: "Practice Lab" }]}
@@ -638,7 +662,7 @@ export default function PracticeLab() {
       {/* Screen: Exam Practice Hub (Two-Column Layout) */}
       {screen === "exam_practice" && (
         <ExamPracticeHub
-          selectedExam={selectedExam || EXAM_OPTIONS[0]}
+          selectedExam={selectedExam || availableExams[0] || EXAM_OPTIONS[0]}
           initialSubjectSlug={subjectSlug}
           onChangeExam={() => setShowExamModal(true)}
           onBack={() => navigateScreen("dashboard")}
@@ -771,7 +795,7 @@ export default function PracticeLab() {
 // ════════════════════════════════════════════════════════════════════════════
 // ONE-TIME CHOOSE EXAM MODAL
 // ════════════════════════════════════════════════════════════════════════════
-function ChooseExamModal({ onSelectExam, onClose }) {
+function ChooseExamModal({ onSelectExam, onClose, options = EXAM_OPTIONS }) {
   if (typeof document === "undefined") return null;
 
   return createPortal(
@@ -812,7 +836,7 @@ function ChooseExamModal({ onSelectExam, onClose }) {
         </div>
 
         <div className="space-y-2.5 sm:space-y-3">
-          {EXAM_OPTIONS.map((exam) => (
+          {options.map((exam) => (
             <div
               key={exam.id}
               onClick={() => onSelectExam(exam)}

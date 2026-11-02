@@ -28,7 +28,6 @@ import { toast } from "react-hot-toast";
 import MathRenderer from "../../shared/components/MathRenderer";
 import sanitizeHtml from "../../shared/lib/sanitizeHtml";
 import QuestionDetailModal from "./components/QuestionDetailModal";
-import ClickableCard from "../../shared/components/ui/ClickableCard.jsx";
 
 // Bookmark ids already warned about an unknown itemType (module scope so the
 // warn-once guard survives re-renders; getLink runs during render).
@@ -66,11 +65,10 @@ export default function Bookmarks() {
           setLoading(true);
           setError(null);
           const [bookmarksRes, countRes] = await Promise.all([
-            // List paint: lightweight rows only (includeDetails=false, limit 20).
-            // Full question details lazy-load on demand via QuestionDetailModal.
+            // Enriched list paint (includeDetails=true) so questions show statements, subjects, and difficulty
             bookmarksAPI.getAll(1, 20, {
               signal: controller.signal,
-              includeDetails: false,
+              includeDetails: true,
             }),
             bookmarksAPI.getCount({ signal: controller.signal }),
           ]);
@@ -146,8 +144,7 @@ export default function Bookmarks() {
       setLoading(true);
       setError(null);
       const [response, countData] = await Promise.all([
-        // Lightweight list paint; details lazy-load in the modal.
-        bookmarksAPI.getAll(page, 20, { includeDetails: false, signal }),
+        bookmarksAPI.getAll(page, 20, { includeDetails: true, signal }),
         bookmarksAPI.getCount({ signal }).catch(() => null),
       ]);
       if (!cancelledRef.current) {
@@ -179,7 +176,7 @@ export default function Bookmarks() {
       const nextPage = page + 1;
       const controller = new AbortController();
       const response = await bookmarksAPI.getAll(nextPage, 20, {
-        includeDetails: false,
+        includeDetails: true,
         signal: controller.signal,
       });
       const newBookmarks = response.data || [];
@@ -255,6 +252,18 @@ export default function Bookmarks() {
     return String(val);
   };
 
+  const formatQuestionSnippet = (val) => {
+    const raw = extractText(val);
+    if (!raw) return "";
+    let clean = String(raw).trim();
+    // Strip redundant leading and trailing <p> tags while preserving content
+    clean = clean
+      .replace(/^<p\b[^>]*>/i, "")
+      .replace(/<\/p>$/i, "")
+      .trim();
+    return clean;
+  };
+
   const getTimeAgo = (dateString) => {
     if (!dateString) return "Recently";
     const date = new Date(dateString);
@@ -282,8 +291,11 @@ export default function Bookmarks() {
   const availableSubjects = useMemo(() => {
     const set = new Set();
     questionBookmarks.forEach((b) => {
-      const sub = extractText(
-        b.item?.subject || b.subject || b.item?.category || "General",
+      const sub = (
+        extractText(b.item?.subject) ||
+        extractText(b.subject) ||
+        extractText(b.item?.category) ||
+        "General"
       ).trim();
       if (sub) set.add(sub);
     });
@@ -293,20 +305,31 @@ export default function Bookmarks() {
   // Filtered Questions list based on search and subject filters
   const filteredQuestions = useMemo(() => {
     return questionBookmarks.filter((b) => {
-      const qText = extractText(
-        b.item?.question_text ||
-          b.item?.questionText ||
-          b.item?.question ||
-          b.title ||
-          "",
+      const qText = (
+        extractText(b.item?.question_text) ||
+        extractText(b.item?.questionText) ||
+        extractText(b.item?.question) ||
+        extractText(b.item?.title) ||
+        extractText(b.title) ||
+        `Question #${b.itemId || b.id || ""}`
       ).toLowerCase();
-      const sub = extractText(
-        b.item?.subject || b.subject || "General",
+      const sub = (
+        extractText(b.item?.subject) ||
+        extractText(b.subject) ||
+        extractText(b.item?.category) ||
+        "General"
       ).toLowerCase();
-      const top = extractText(
-        b.item?.topic || b.item?.chapter || "",
+      const top = (
+        extractText(b.item?.topic) ||
+        extractText(b.item?.chapter) ||
+        extractText(b.topic) ||
+        ""
       ).toLowerCase();
-      const diff = (b.item?.difficulty || "medium").toLowerCase();
+      const diff = (
+        extractText(b.item?.difficulty) ||
+        extractText(b.difficulty) ||
+        "medium"
+      ).toLowerCase();
       const query = searchQuery.trim().toLowerCase();
 
       const matchesSearch =
@@ -392,33 +415,33 @@ export default function Bookmarks() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50 dark:bg-gray-900 py-4 sm:py-6">
+    <div className="min-h-screen bg-slate-50/60 dark:bg-gray-900 py-3 sm:py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
       <Helmet>
-        <title>Saved Questions & Reported Doubts | Trstprep</title>
+        <title>Saved Questions & Revision Hub | Trstprep</title>
         <meta
           name="description"
           content="Access your saved questions, launch instant active recall revision tests, and track dispute statuses."
         />
       </Helmet>
 
-      <div className="container mx-auto px-3 sm:px-6 max-w-5xl space-y-5">
+      <div className="max-w-5xl mx-auto px-2.5 sm:px-4 space-y-3 sm:space-y-4">
         {/* Compact Hero Header */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-5 transition-all">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-indigo-600 via-indigo-500 to-emerald-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
-                <Bookmark className="w-5 h-5 sm:w-6 sm:h-6 fill-current" />
+        <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-2xs border border-slate-200/80 dark:border-gray-700/80 p-3 sm:p-4 transition-all">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-indigo-600 via-indigo-500 to-emerald-500 text-white flex items-center justify-center shadow-xs shrink-0">
+                <Bookmark className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
-                  Saved Questions & Revision Hub
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800 hidden sm:inline-block">
-                    Interactive Recall
+                <h1 className="text-base sm:text-xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
+                  <span>Saved Questions & Revision Hub</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-extrabold border border-emerald-200/70 dark:border-emerald-800/60 hidden sm:inline-block">
+                    Active Recall
                   </span>
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                  Click any question to view interactive options, active recall
-                  testing, verified solutions, and pro shortcuts.
+                <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  Click any question to view options, test active recall, and
+                  see verified solutions.
                 </p>
               </div>
             </div>
@@ -427,7 +450,7 @@ export default function Bookmarks() {
             {questionBookmarks.length > 0 && (
               <Link
                 to="/practice?mode=bookmarks"
-                className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-900/20 flex items-center gap-1.5 shrink-0 transition transform hover:scale-[1.02] justify-center"
+                className="px-3 py-1.5 sm:py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center gap-1.5 shrink-0 transition transform hover:scale-[1.02] justify-center"
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
                 <span>Practice Saved ({questionBookmarks.length})</span>
@@ -706,127 +729,170 @@ export default function Bookmarks() {
                     <div className="space-y-2">
                       {filteredQuestions.map((b, idx) => {
                         const item = b.item || {};
-                        const sub = extractText(
-                          item.subject || b.subject || "General",
-                        );
-                        const top = extractText(
-                          item.topic || item.chapter || "",
-                        );
-                        const qText = extractText(
-                          item.question_text ||
-                            item.questionText ||
-                            item.question ||
-                            b.title ||
-                            `Question #${b.itemId || b.id}`,
-                        );
+                        const sub =
+                          extractText(item.subject) ||
+                          extractText(b.subject) ||
+                          extractText(item.category) ||
+                          "General";
+                        const top =
+                          extractText(item.topic) ||
+                          extractText(item.chapter) ||
+                          extractText(b.topic) ||
+                          "";
+                        const qText =
+                          formatQuestionSnippet(item.questionText) ||
+                          formatQuestionSnippet(item.question_text) ||
+                          formatQuestionSnippet(item.question) ||
+                          formatQuestionSnippet(item.title) ||
+                          formatQuestionSnippet(b.title) ||
+                          (b.itemId
+                            ? `Question #${b.itemId}`
+                            : `Saved Question #${idx + 1}`);
                         const diff = (
-                          item.difficulty || "medium"
+                          extractText(item.difficulty) ||
+                          extractText(b.difficulty) ||
+                          "medium"
                         ).toLowerCase();
 
                         return (
-                          <ClickableCard
+                          <div
                             key={b._id || b.id}
+                            role="button"
+                            tabIndex={0}
                             onClick={() => setActiveModalIndex(idx)}
-                            aria-label={`Open bookmark: ${qText.slice(0, 80)}`}
-                            className="group bg-white dark:bg-gray-800 rounded-xl p-3.5 sm:p-4 border border-gray-200/80 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all duration-150 cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setActiveModalIndex(idx);
+                              }
+                            }}
+                            aria-label={`Open question #${idx + 1}`}
+                            className="group bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl p-3 sm:p-3.5 border border-slate-200/90 dark:border-gray-700/80 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all duration-150 cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-3 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset"
                           >
-                            <div className="flex items-start gap-3 min-w-0 flex-1">
-                              <span className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 font-extrabold text-xs flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-800">
+                            <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1 w-full">
+                              <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 font-black text-[11px] sm:text-xs flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-800 shadow-2xs mt-0.5">
                                 #{idx + 1}
                               </span>
-                              <div className="min-w-0 flex-1 space-y-1">
-                                <div className="flex items-center gap-2 flex-wrap text-[10px]">
-                                  <span className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1 bg-gray-100 dark:bg-gray-700/60 px-1.5 py-0.2 rounded">
+                              <div className="min-w-0 flex-1 space-y-1 w-full">
+                                <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                                  <span className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1 bg-slate-100 dark:bg-gray-700/60 px-2 py-0.5 rounded-md">
                                     <span>{getSubjectEmoji(sub)}</span>
                                     <span>{sub}</span>
                                   </span>
                                   {top && (
                                     <span
-                                      className="text-gray-400 dark:text-gray-500 truncate max-w-[150px]"
+                                      className="text-gray-500 dark:text-gray-400 truncate max-w-[140px] sm:max-w-[200px]"
                                       title={top}
                                     >
                                       • {top}
                                     </span>
                                   )}
                                   <span
-                                    className={`font-bold px-1.5 py-0.2 rounded uppercase ${
+                                    className={`font-extrabold px-1.5 py-0.5 rounded uppercase text-[9px] ${
                                       diff === "easy"
-                                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60"
                                         : diff === "hard"
-                                          ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
-                                          : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                                          ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/60"
+                                          : "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60"
                                     }`}
                                   >
                                     {diff}
                                   </span>
                                   {b.notes && (
-                                    <span className="bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/60 px-1.5 py-0.2 rounded flex items-center gap-1 font-semibold">
+                                    <span className="bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-900/60 px-1.5 py-0.5 rounded flex items-center gap-1 font-bold">
                                       <Edit3 className="w-2.5 h-2.5" /> Note
                                     </span>
                                   )}
                                 </div>
 
                                 <div
-                                  className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-1"
+                                  className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-2 leading-relaxed"
                                   title={qText}
                                 >
-                                  <MathRenderer text={sanitizeHtml(qText)} />
+                                  <MathRenderer text={qText} />
                                 </div>
                               </div>
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:underline flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-lg border border-indigo-100 dark:border-indigo-900/40">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeBookmark(b._id || b.id);
+                                }}
+                                aria-label="Remove bookmark"
+                                className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:underline flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1.5 rounded-xl border border-indigo-100 dark:border-indigo-900/40 shadow-2xs">
                                 <span>Solve & Solution</span>
                                 <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                               </span>
                             </div>
-                          </ClickableCard>
+                          </div>
                         );
                       })}
                     </div>
                   ) : (
                     /* Card Grid View */
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
                       {filteredQuestions.map((b, idx) => {
                         const item = b.item || {};
-                        const sub = extractText(
-                          item.subject || b.subject || "General",
-                        );
-                        const top = extractText(
-                          item.topic || item.chapter || "",
-                        );
-                        const qText = extractText(
-                          item.question_text ||
-                            item.questionText ||
-                            item.question ||
-                            b.title ||
-                            `Question #${b.itemId || b.id}`,
-                        );
+                        const sub =
+                          extractText(item.subject) ||
+                          extractText(b.subject) ||
+                          extractText(item.category) ||
+                          "General";
+                        const top =
+                          extractText(item.topic) ||
+                          extractText(item.chapter) ||
+                          extractText(b.topic) ||
+                          "";
+                        const qText =
+                          formatQuestionSnippet(item.questionText) ||
+                          formatQuestionSnippet(item.question_text) ||
+                          formatQuestionSnippet(item.question) ||
+                          formatQuestionSnippet(item.title) ||
+                          formatQuestionSnippet(b.title) ||
+                          (b.itemId
+                            ? `Question #${b.itemId}`
+                            : `Saved Question #${idx + 1}`);
                         const diff = (
-                          item.difficulty || "medium"
+                          extractText(item.difficulty) ||
+                          extractText(b.difficulty) ||
+                          "medium"
                         ).toLowerCase();
 
                         return (
-                          <ClickableCard
+                          <div
                             key={b._id || b.id}
+                            role="button"
+                            tabIndex={0}
                             onClick={() => setActiveModalIndex(idx)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setActiveModalIndex(idx);
+                              }
+                            }}
                             aria-label={`Open bookmark: ${qText.slice(0, 80)}`}
-                            className="group bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200/80 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all duration-150 cursor-pointer flex flex-col justify-between space-y-3"
+                            className="group bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-slate-200/90 dark:border-gray-700/80 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all duration-150 cursor-pointer flex flex-col justify-between space-y-2.5 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset"
                           >
-                            <div className="space-y-2">
+                            <div className="space-y-1.5">
                               <div className="flex items-center justify-between text-[10px]">
-                                <span className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1 bg-gray-100 dark:bg-gray-700/60 px-1.5 py-0.2 rounded">
+                                <span className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1 bg-slate-100 dark:bg-gray-700/60 px-2 py-0.5 rounded-md">
                                   <span>{getSubjectEmoji(sub)}</span>
                                   <span>{sub}</span>
                                 </span>
                                 <span
-                                  className={`font-bold px-1.5 py-0.2 rounded uppercase ${
+                                  className={`font-extrabold px-1.5 py-0.5 rounded uppercase text-[9px] ${
                                     diff === "easy"
-                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60"
                                       : diff === "hard"
-                                        ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
-                                        : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                                        ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/60"
+                                        : "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60"
                                   }`}
                                 >
                                   {diff}
@@ -834,26 +900,39 @@ export default function Bookmarks() {
                               </div>
 
                               <div
-                                className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-3"
+                                className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-3 leading-relaxed"
                                 title={qText}
                               >
-                                <MathRenderer text={sanitizeHtml(qText)} />
+                                <MathRenderer text={qText} />
                               </div>
                             </div>
 
-                            <div className="flex items-center justify-between pt-2.5 border-t border-gray-100 dark:border-gray-700/60 text-xs">
+                            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-gray-700/60 text-xs">
                               <span
                                 className="text-[11px] text-gray-400 dark:text-gray-500 truncate max-w-[140px]"
                                 title={top || getTimeAgo(b.createdAt)}
                               >
                                 {top || getTimeAgo(b.createdAt)}
                               </span>
-                              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
-                                <span>Open Card</span>
-                                <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeBookmark(b._id || b.id);
+                                  }}
+                                  aria-label="Remove bookmark"
+                                  className="p-1 text-gray-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                                <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                                  <span>Solve</span>
+                                  <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                                </span>
+                              </div>
                             </div>
-                          </ClickableCard>
+                          </div>
                         );
                       })}
                     </div>
@@ -934,7 +1013,7 @@ export default function Bookmarks() {
 
                       <h3 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors line-clamp-2">
                         <MathRenderer
-                          text={sanitizeHtml(
+                          text={formatQuestionSnippet(
                             extractText(b.title) || `Saved ${b.itemType}`,
                           )}
                         />
@@ -1032,7 +1111,7 @@ export default function Bookmarks() {
 
                       <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 leading-relaxed bg-gray-50 dark:bg-gray-950/60 p-3 rounded-xl border border-gray-100 dark:border-gray-800">
                         <MathRenderer
-                          text={sanitizeHtml(
+                          text={formatQuestionSnippet(
                             report.questionText ||
                               `Question ID: ${report.questionId}`,
                           )}

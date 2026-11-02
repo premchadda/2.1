@@ -170,6 +170,20 @@ function Analysis() {
       if (idx < 10) {
         recentTests.push({
           id: attempt.id || attempt._id || attempt.testId || `test-${idx}`,
+          testId:
+            attempt.testId || attempt.test_id || attempt.test?.id || attempt.id,
+          seriesId:
+            attempt.seriesId ||
+            attempt.series_id ||
+            attempt.test?.seriesId ||
+            attempt.seriesSlug ||
+            attempt.series_slug ||
+            "all",
+          seriesSlug:
+            attempt.seriesSlug || attempt.series_slug || attempt.series?.slug,
+          attemptId: attempt.attemptId || attempt.id || attempt._id,
+          type: attempt.type || attempt.test?.type,
+          category: attempt.category || attempt.test?.category,
           title:
             attempt.testTitle ||
             attempt.title ||
@@ -229,10 +243,22 @@ function Analysis() {
     const rank = Number(analytics?.rank) > 0 ? analytics.rank : bestRank || 1;
     const percentile =
       Number(analytics?.percentile) > 0
-        ? analytics.percentile
-        : count > 0
-          ? Math.min(99, Math.max(50, Math.round(70 + avgAccuracy * 0.28)))
-          : 0;
+        ? Number(analytics.percentile)
+        : count > 0 &&
+            Number(analytics?.rank) > 0 &&
+            Number(analytics?.totalCandidates) > 1
+          ? Math.max(
+              1,
+              Math.min(
+                99,
+                Math.round(
+                  ((analytics.totalCandidates - analytics.rank) /
+                    analytics.totalCandidates) *
+                    100,
+                ),
+              ),
+            )
+          : null;
 
     // Calculate streak from dates
     let currentStreak = Number(analytics?.streak) || 0;
@@ -582,7 +608,7 @@ function Analysis() {
           </p>
           <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-4 text-left">
             <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-200 mb-2">
-              What you'll get:
+              What you&apos;ll get:
             </p>
             <ul className="space-y-2">
               <li className="flex items-center gap-2 text-xs text-indigo-700 dark:text-indigo-300">
@@ -617,16 +643,40 @@ function Analysis() {
   }
 
   const tabs = [
-    { id: "overview", label: "Overview", icon: BarChart2 },
-    { id: "subjects", label: "Subject Wise", icon: BookOpen },
-    { id: "insights", label: "Insights", icon: Activity },
-    { id: "progress", label: "Progress", icon: TrendingUp },
+    {
+      id: "overview",
+      label: "Overview",
+      shortLabel: "Overview",
+      icon: BarChart2,
+      badge: "Summary",
+    },
+    {
+      id: "subjects",
+      label: "Subject Mastery",
+      shortLabel: "Subjects",
+      icon: BookOpen,
+      badge: "Syllabus",
+    },
+    {
+      id: "speed",
+      label: "Speed & Strategy",
+      shortLabel: "Speed",
+      icon: Clock,
+      badge: "Timing",
+    },
+    {
+      id: "actionPlan",
+      label: "AI Action Plan",
+      shortLabel: "AI Plan",
+      icon: Zap,
+      badge: "Goals",
+    },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 page-transition fade-in">
       {/* Breadcrumb */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+      <div className="hidden sm:block bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Breadcrumb
             items={[
@@ -639,70 +689,73 @@ function Analysis() {
 
       {/* Header with Animated Background */}
       <AnimatedHero pageType="analysis">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5 sm:gap-6">
           <div className="flex-1">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl md:text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 animate-slide-in-right">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white mb-2 tracking-tight animate-slide-in-right">
               Performance Analysis
             </h1>
             <p
-              className="text-purple-100 text-lg animate-slide-in-right"
+              className="text-purple-100 text-sm sm:text-base max-w-xl animate-slide-in-right font-medium"
               style={{ animationDelay: "0.1s" }}
             >
-              Track your progress and identify areas for improvement
+              Track your mock test metrics, speed trends, and areas for
+              improvement.
             </p>
           </div>
 
-          {/* Your Progress - Glass Card UI from Dashboard */}
+          {/* Your Progress - Glass Card */}
           <div
-            className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-5 md:w-[350px] animate-slide-in-right"
+            className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-4 sm:p-5 w-full md:w-[360px] shadow-lg shadow-black/10 shrink-0"
             style={{ animationDelay: "0.2s" }}
           >
-            <div className="flex items-center gap-2 mb-3">
-              <Flame className="w-5 h-5 text-orange-300" />
-              <span className="text-white font-bold text-sm">
-                Your Progress
-              </span>
-              <span className="ml-auto px-2 py-0.5 bg-white/20 rounded-full text-xs text-white font-medium">
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-2">
+                <Flame className="w-5 h-5 text-orange-300 shrink-0" />
+                <span className="text-white font-bold text-sm">
+                  Your Progress
+                </span>
+              </div>
+              <span className="px-2.5 py-0.5 bg-white/20 rounded-full text-xs text-white font-semibold">
                 {userStats.streak} Day Streak
               </span>
             </div>
-            <p className="text-purple-100 text-xs mb-4">
-              Keep up the great work!
+            <p className="text-purple-100 text-xs mb-3 font-medium">
+              Keep up the momentum!
             </p>
             <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
-              <div className="text-center p-1.5 sm:p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 min-h-[56px] sm:min-h-[64px] flex flex-col justify-center items-center">
-                <p className="text-base sm:text-xl font-bold text-white leading-none truncate w-full">
+              <div className="text-center p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 min-h-[58px] flex flex-col justify-center items-center">
+                <p className="text-base sm:text-lg font-black text-white leading-tight truncate w-full">
                   {userStats.testsTaken}
                 </p>
-                <p className="text-purple-100 text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wide uppercase truncate w-full">
+                <p className="text-purple-100 text-[9px] sm:text-[10px] font-semibold tracking-wide uppercase truncate w-full mt-0.5">
                   Tests
                 </p>
               </div>
-              <div className="text-center p-1.5 sm:p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 min-h-[56px] sm:min-h-[64px] flex flex-col justify-center items-center">
-                <p className="text-base sm:text-xl font-bold text-white leading-none truncate w-full">
+              <div className="text-center p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 min-h-[58px] flex flex-col justify-center items-center">
+                <p className="text-base sm:text-lg font-black text-white leading-tight truncate w-full">
                   {userStats.accuracy}%
                 </p>
-                <p className="text-purple-100 text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wide uppercase truncate w-full">
+                <p className="text-purple-100 text-[9px] sm:text-[10px] font-semibold tracking-wide uppercase truncate w-full mt-0.5">
                   Accuracy
                 </p>
               </div>
-              <div className="text-center p-1.5 sm:p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 min-h-[56px] sm:min-h-[64px] flex flex-col justify-center items-center">
-                <p className="text-base sm:text-xl font-bold text-white leading-none truncate w-full">
+              <div className="text-center p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 min-h-[58px] flex flex-col justify-center items-center">
+                <p className="text-base sm:text-lg font-black text-white leading-tight truncate w-full">
                   {userStats.rank && userStats.rank !== "-"
                     ? String(userStats.rank).startsWith("#")
                       ? userStats.rank
                       : `#${userStats.rank}`
                     : "—"}
                 </p>
-                <p className="text-purple-100 text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wide uppercase truncate w-full">
+                <p className="text-purple-100 text-[9px] sm:text-[10px] font-semibold tracking-wide uppercase truncate w-full mt-0.5">
                   Rank
                 </p>
               </div>
-              <div className="text-center p-1.5 sm:p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 min-h-[56px] sm:min-h-[64px] flex flex-col justify-center items-center">
-                <p className="text-base sm:text-xl font-bold text-white leading-none truncate w-full">
+              <div className="text-center p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 min-h-[58px] flex flex-col justify-center items-center">
+                <p className="text-base sm:text-lg font-black text-white leading-tight truncate w-full">
                   {userStats.timeSpent}
                 </p>
-                <p className="text-purple-100 text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wide uppercase truncate w-full">
+                <p className="text-purple-100 text-[9px] sm:text-[10px] font-semibold tracking-wide uppercase truncate w-full mt-0.5">
                   Time
                 </p>
               </div>
@@ -711,888 +764,647 @@ function Analysis() {
         </div>
       </AnimatedHero>
 
-      <div className="max-w-7xl mx-auto px-2 pb-6 min-h-screen bg-gray-50 dark:bg-gray-900">
-        {/* Your Progress Section */}
-
-        {/* Subject Performance & Achievements Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Subject Performance */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                Subject Performance
-              </h2>
-            </div>
-            <div className="space-y-4">
-              {subjectPerformance.map((subject, index) => (
-                <div
-                  key={subject.subject}
-                  className="animate-slide-in-up"
-                  style={{ animationDelay: `${index * 0.1}s` }}
+      <div className="max-w-7xl mx-auto px-3 py-4 sm:py-6 space-y-5 sm:space-y-6">
+        {/* Sticky Mobile/Desktop Tab Navigation Bar (Full Width) */}
+        <div className="sticky top-14 sm:top-16 z-20 -mx-3.5 sm:mx-0 px-3.5 sm:px-0 py-2 sm:py-2.5 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-200/80 dark:border-gray-800">
+          <div className="w-full grid grid-cols-4 gap-1 sm:gap-2 p-1 sm:p-1.5 bg-gray-200/80 dark:bg-gray-800/90 rounded-2xl border border-gray-300/60 dark:border-gray-700/60 shadow-xs">
+            {tabs.map((tab) => {
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 text-center ${
+                    active
+                      ? "bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-300 shadow-sm border border-gray-200/90 dark:border-gray-600"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50"
+                  }`}
                 >
-                  <div className="flex justify-between items-center mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {subject.subject}
-                      </span>
-                      <span className="text-[10px] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full text-gray-500 dark:text-gray-400 font-bold">
-                        {subject.attempted} Qs
-                      </span>
+                  <tab.icon
+                    className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${active ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400 dark:text-gray-500"}`}
+                  />
+                  <span className="truncate">
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span className="sm:hidden">{tab.shortLabel}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Tab 1: Overview View */}
+        {activeTab === "overview" && (
+          <div className="space-y-4 sm:space-y-6 animate-fade-in">
+            {/* Score Trend & Consistency Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+              {/* Score Trend Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200/90 dark:border-gray-700/80 p-4 sm:p-5 lg:col-span-2">
+                <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-gray-100 dark:border-gray-700/60">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 flex items-center justify-center">
+                      <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                     </div>
-                    <span className="text-sm font-bold text-gray-900 dark:text-white">
-                      {subject.score}%
-                    </span>
-                  </div>
-                  <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${subject.color} rounded-full transition-all duration-500`}
-                      style={{ width: `${subject.score}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  Overall Score
-                </span>
-                <span
-                  className="text-lg font-bold text-brand-start dark:text-indigo-400"
-                  title="Weighted by questions attempted in each subject"
-                >
-                  {(() => {
-                    const totalAtt = subjectPerformance.reduce(
-                      (a, b) => a + (b.attempted || 0),
-                      0,
-                    );
-                    if (totalAtt > 0) {
-                      return Math.round(
-                        subjectPerformance.reduce(
-                          (a, b) => a + b.score * (b.attempted || 0),
-                          0,
-                        ) / totalAtt,
-                      );
-                    }
-                    return effectiveAnalytics.avgAccuracy || 0;
-                  })()}
-                  %
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Achievements - Compact */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white">
-                Achievements
-              </h2>
-              <Link
-                to="/achievements"
-                className="text-[10px] text-brand-start dark:text-indigo-400 font-medium hover:underline"
-              >
-                View All
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5">
-              {[
-                {
-                  icon: "🎯",
-                  name: "First Test",
-                  unlocked: userStats.testsTaken >= 1,
-                },
-                {
-                  icon: "🔥",
-                  name: "7 Day Streak",
-                  unlocked: userStats.streak >= 7,
-                },
-                {
-                  icon: "🏆",
-                  name: "Top 100",
-                  unlocked:
-                    typeof userStats.rank === "number" &&
-                    userStats.rank <= 100 &&
-                    userStats.rank > 0,
-                },
-                {
-                  icon: "⭐",
-                  name: "100 Tests",
-                  unlocked: userStats.testsTaken >= 100,
-                },
-                {
-                  icon: "💪",
-                  name: "Accuracy 90%",
-                  unlocked: userStats.accuracy >= 90,
-                },
-                {
-                  icon: "📚",
-                  name: "10 Series",
-                  unlocked: enrolledTestSeriesCount >= 10,
-                },
-                {
-                  icon: "🚀",
-                  name: "Speed Master",
-                  unlocked:
-                    effectiveAnalytics.timePerQuestion < 45 &&
-                    effectiveAnalytics.totalTests >= 5,
-                },
-                {
-                  icon: "👑",
-                  name: "Pro Member",
-                  unlocked: user?.hasProPass || user?.isProUser,
-                },
-              ]
-                .slice(0, 8)
-                .map((badge, i) => (
-                  <div
-                    key={i}
-                    className={`rounded-lg flex flex-col items-center justify-center text-center p-1.5 transition-all ${
-                      badge.unlocked
-                        ? "bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800"
-                        : "bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 opacity-50"
-                    }`}
-                    title={badge.name}
-                  >
-                    <span className="text-sm">{badge.icon}</span>
-                    <span className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5 leading-tight">
-                      {badge.name}
-                    </span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="p-3 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {effectiveAnalytics.totalTests}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Tests Attempted
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {effectiveAnalytics.avgAccuracy}%
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Avg Accuracy
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                <Award className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  #{effectiveAnalytics.rank || "—"}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  All India Rank
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {effectiveAnalytics.percentile}%
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Percentile
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Score Trend & Consistency Tracker */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          {/* Score Trend Sparkline */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 lg:col-span-2">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                </div>
-                <h2 className="text-sm font-bold text-gray-900 dark:text-white">
-                  Score Trend
-                </h2>
-              </div>
-              {scoreTrend.length > 1 && (
-                <span
-                  className={`text-xs font-bold px-2 py-1 rounded-full ${scoreTrend[scoreTrend.length - 1] >= scoreTrend[0] ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20" : "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20"}`}
-                >
-                  {scoreTrend[scoreTrend.length - 1] >= scoreTrend[0]
-                    ? "↗"
-                    : "↘"}{" "}
-                  {Math.abs(scoreTrend[scoreTrend.length - 1] - scoreTrend[0])}{" "}
-                  pts
-                </span>
-              )}
-            </div>
-            {scoreTrend.length > 0 ? (
-              <ScoreSparkline data={scoreTrend} />
-            ) : (
-              <p className="text-xs text-gray-400 dark:text-gray-500 py-8 text-center">
-                No tests attempted yet
-              </p>
-            )}
-            <div className="flex justify-between text-[10px] text-gray-400 dark:text-gray-500 mt-2">
-              <span>Oldest</span>
-              <span>Recent Tests →</span>
-            </div>
-          </div>
-
-          {/* Consistency Tracker (7-day heatmap) */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
-                <Flame className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-              </div>
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white">
-                Consistency
-              </h2>
-            </div>
-            <div className="flex justify-between gap-1.5 mb-3">
-              {consistencyData.map((day, i) => (
-                <div
-                  key={i}
-                  className="flex flex-col items-center gap-1.5 flex-1"
-                >
-                  <div
-                    className={`w-full aspect-square rounded-lg flex items-center justify-center text-[10px] font-bold transition-all ${
-                      day.count > 0
-                        ? "bg-gradient-to-br from-orange-400 to-rose-500 text-white shadow-sm"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500"
-                    }`}
-                    title={`${day.date.toLocaleDateString("en-IN", { weekday: "long" })} — ${day.count} test${day.count !== 1 ? "s" : ""}`}
-                  >
-                    {day.count > 0 ? day.count : ""}
-                  </div>
-                  <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500">
-                    {day.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                This Week
-              </span>
-              <span className="text-sm font-black text-orange-600 dark:text-orange-400">
-                {consistencyData.reduce((acc, d) => acc + d.count, 0)} tests
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Time Analysis + Difficulty Breakdown */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Time Analysis — avg time per subject */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center">
-                <Clock className="w-4 h-4 text-cyan-600" />
-              </div>
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white">
-                Time Analysis
-              </h2>
-              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
-                Avg seconds per question
-              </span>
-            </div>
-            {timeAnalysis.length > 0 ? (
-              <div className="space-y-3">
-                {timeAnalysis.map((item, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300 w-28 truncate flex-shrink-0">
-                      {item.subject}
-                    </span>
-                    <div className="flex-1 h-6 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden relative">
-                      <div
-                        className={`h-full rounded-lg flex items-center justify-end pr-2 transition-all duration-500 ${item.avgTimeSec > 75 ? "bg-red-400" : item.avgTimeSec > 50 ? "bg-amber-400" : "bg-emerald-400"}`}
-                        style={{
-                          width: `${Math.min(100, (item.avgTimeSec / 120) * 100)}%`,
-                        }}
-                      >
-                        <span className="text-[9px] font-bold text-white">
-                          {item.avgTimeSec}s
-                        </span>
-                      </div>
+                    <div>
+                      <h2 className="text-sm font-bold text-gray-900 dark:text-white">
+                        Score Trajectory
+                      </h2>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                        Score progression over recent mock tests
+                      </p>
                     </div>
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500 w-12 text-right">
-                      {item.attempted} Qs
-                    </span>
                   </div>
-                ))}
-                <div className="pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-4 text-[10px] text-gray-400 dark:text-gray-500">
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400" />{" "}
-                    Fast (&lt;50s)
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-amber-400" />{" "}
-                    Moderate (50-75s)
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-red-400" /> Slow
-                    (&gt;75s)
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-400 dark:text-gray-500">
-                <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">Complete tests to see time analysis</p>
-              </div>
-            )}
-          </div>
-
-          {/* Difficulty Breakdown */}
-          <FeatureGate
-            sectionKey="analysis:difficulty"
-            variant="card"
-            minHeight="240px"
-          >
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                  <Gauge className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                </div>
-                <h2 className="text-sm font-bold text-gray-900 dark:text-white">
-                  Difficulty Breakdown
-                </h2>
-              </div>
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                {[
-                  {
-                    label: "Easy",
-                    count: difficultyBreakdown.easy,
-                    acc: difficultyBreakdown.easyAcc,
-                    color: "emerald",
-                    bg: "bg-emerald-50 dark:bg-emerald-900/20",
-                    text: "text-emerald-600 dark:text-emerald-400",
-                    bar: "bg-emerald-500",
-                  },
-                  {
-                    label: "Medium",
-                    count: difficultyBreakdown.medium,
-                    acc: difficultyBreakdown.mediumAcc,
-                    color: "amber",
-                    bg: "bg-amber-50 dark:bg-amber-900/20",
-                    text: "text-amber-600 dark:text-amber-400",
-                    bar: "bg-amber-500",
-                  },
-                  {
-                    label: "Hard",
-                    count: difficultyBreakdown.hard,
-                    acc: difficultyBreakdown.hardAcc,
-                    color: "rose",
-                    bg: "bg-rose-50 dark:bg-rose-900/20",
-                    text: "text-rose-600 dark:text-rose-400",
-                    bar: "bg-rose-500",
-                  },
-                ].map((level) => (
-                  <div
-                    key={level.label}
-                    className={`${level.bg} rounded-xl p-4 text-center`}
-                  >
-                    <p className={`text-2xl font-black ${level.text}`}>
-                      {level.count}
-                    </p>
-                    <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-0.5">
-                      {level.label}
-                    </p>
-                    <div className="mt-2 h-1 bg-white/50 dark:bg-gray-800/50 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${level.bar} rounded-full`}
-                        style={{ width: `${level.acc}%` }}
-                      />
-                    </div>
-                    <p className={`text-[9px] font-bold ${level.text} mt-1`}>
-                      {level.acc}% acc
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
-                <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                  {difficultyBreakdown.hardAcc < 40
-                    ? "⚠ Struggling with hard questions — focus on advanced concepts."
-                    : difficultyBreakdown.mediumAcc < 50
-                      ? "⚠ Medium questions need attention — strengthen fundamentals."
-                      : "✓ Good performance across difficulty levels."}
-                </p>
-              </div>
-            </div>
-          </FeatureGate>
-        </div>
-
-        {/* New Insights Section: Strengths, Weaknesses & Recommendations */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          {/* Weak Areas */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
-            <div className="bg-red-50 dark:bg-red-900/10 px-5 py-4 border-b border-red-100 dark:border-red-900/20 flex items-center justify-between">
-              <h3 className="font-bold text-red-700 dark:text-red-400 flex items-center gap-2">
-                <AlertCircle className="w-5 h-5" /> Area for Improvement
-              </h3>
-            </div>
-            <div className="p-5 flex-1">
-              <div className="space-y-3">
-                {(effectiveAnalytics.weakSubjects || []).length > 0 ? (
-                  effectiveAnalytics.weakSubjects.map((subject, i) => (
-                    <div
-                      key={i}
-                      className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-600"
+                  {scoreTrend.length > 1 && (
+                    <span
+                      className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+                        scoreTrend[scoreTrend.length - 1] >= scoreTrend[0]
+                          ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800"
+                          : "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800"
+                      }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-gray-800 dark:text-gray-200">
-                          {subject}
-                        </span>
-                        <span className="text-[10px] px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full font-bold">
-                          Needs Focus
+                      {scoreTrend[scoreTrend.length - 1] >= scoreTrend[0]
+                        ? "↗"
+                        : "↘"}{" "}
+                      {Math.abs(
+                        scoreTrend[scoreTrend.length - 1] - scoreTrend[0],
+                      )}{" "}
+                      pts
+                    </span>
+                  )}
+                </div>
+                {scoreTrend.length > 0 ? (
+                  <div className="pt-2">
+                    <ScoreSparkline data={scoreTrend} />
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 py-8 text-center">
+                    No tests attempted yet
+                  </p>
+                )}
+                <div className="flex justify-between text-[10px] font-semibold text-gray-400 dark:text-gray-500 mt-2 pt-1 border-t border-gray-100 dark:border-gray-700/60">
+                  <span>Earliest Mock</span>
+                  <span>Latest Mock →</span>
+                </div>
+              </div>
+
+              {/* Consistency Tracker (7-day heatmap) */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200/90 dark:border-gray-700/80 p-4 sm:p-5 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-gray-100 dark:border-gray-700/60">
+                    <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-950/40 border border-orange-100 dark:border-orange-900/40 flex items-center justify-center">
+                      <Flame className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-bold text-gray-900 dark:text-white">
+                        Study Consistency
+                      </h2>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                        Past 7 days activity streak
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex justify-between gap-1.5 my-3">
+                    {consistencyData.map((day, i) => (
+                      <div
+                        key={i}
+                        className="flex flex-col items-center gap-1.5 flex-1"
+                      >
+                        <div
+                          className={`w-full aspect-square rounded-xl flex items-center justify-center text-[11px] font-bold transition-all ${
+                            day.count > 0
+                              ? "bg-gradient-to-br from-orange-500 to-rose-500 text-white shadow-sm"
+                              : "bg-gray-100 dark:bg-gray-750 text-gray-400 dark:text-gray-500 border border-gray-200/60 dark:border-gray-700"
+                          }`}
+                          title={`${day.date.toLocaleDateString("en-IN", { weekday: "long" })} — ${day.count} test${day.count !== 1 ? "s" : ""}`}
+                        >
+                          {day.count > 0 ? day.count : ""}
+                        </div>
+                        <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">
+                          {day.label}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Score below 60%. Conceptual clarity needed.
-                      </p>
-                      <Link
-                        to={`/study/${subject.toLowerCase().replace(" ", "-")}`}
-                        className="text-[10px] text-brand-start font-bold hover:underline mt-1 inline-flex items-center gap-1"
-                      >
-                        Start Learning <ChevronRight className="w-3 h-3" />
-                      </Link>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-6">
-                    <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2 opacity-20" />
-                    <p className="text-sm text-gray-400 dark:text-gray-500 italic">
-                      No weak areas identified yet. Keep it up!
-                    </p>
+                    ))}
                   </div>
-                )}
+                </div>
+                <div className="pt-2.5 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                    Total This Week
+                  </span>
+                  <span className="text-sm font-black text-orange-600 dark:text-orange-400">
+                    {consistencyData.reduce((acc, d) => acc + d.count, 0)} tests
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Strong Areas */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
-            <div className="bg-green-50 dark:bg-green-900/10 px-5 py-4 border-b border-green-100 dark:border-green-900/20 flex items-center justify-between">
-              <h3 className="font-bold text-green-700 dark:text-green-400 flex items-center gap-2">
-                <Trophy className="w-5 h-5" /> Your Strengths
-              </h3>
-            </div>
-            <div className="p-5 flex-1">
-              <div className="space-y-3">
-                {(effectiveAnalytics.strongSubjects || []).length > 0 ? (
-                  effectiveAnalytics.strongSubjects.map((subject, i) => (
-                    <div
-                      key={i}
-                      className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-600"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-gray-800 dark:text-gray-200">
-                          {subject}
-                        </span>
-                        <span className="text-[10px] px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full font-bold">
-                          Mastered
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Consistent score above 85%. Maintaining speed is key.
-                      </p>
-                      <Link
-                        to="/test-series"
-                        className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline mt-1 inline-flex items-center gap-1"
-                      >
-                        Take Advance Test <ChevronRight className="w-3 h-3" />
-                      </Link>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-6">
-                    <ClipboardCheck className="w-8 h-8 text-indigo-500 mx-auto mb-2 opacity-20" />
-                    <p className="text-sm text-gray-400 dark:text-gray-500 italic">
-                      Analyze more tests to identify your strengths.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* AI Recommended Actions */}
-          <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl shadow-lg p-6 text-white flex flex-col justify-between relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="relative z-10 flex-1">
-              <div className="flex items-center gap-2 mb-4">
-                <Zap className="w-6 h-6 text-yellow-300" />
-                <h3 className="text-xl font-bold">AI Recommendations</h3>
-              </div>
-              <div className="space-y-4">
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
-                    <Timer className="w-4 h-4" />
+            {/* Answer Distribution Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200/90 dark:border-gray-700/80 p-4 sm:p-5">
+              <div className="flex items-center justify-between mb-3.5 pb-2.5 border-b border-gray-100 dark:border-gray-700/60">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/40 flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold">Reduce Time Lag</p>
-                    <p className="text-xs text-purple-100">
-                      Spend less than 45s on Reasoning questions to save time
-                      for Maths.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
-                    <BookOpen className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold">Concept Review</p>
-                    <p className="text-xs text-purple-100">
-                      Review 'Percentage' and 'Profit & Loss' videos in the
-                      Study tab.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
-                    <Target className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold">Suggested Daily Goal</p>
-                    <p className="text-xs text-purple-100">
-                      Attempt 1 Sectional Test and 2 Chapter Quizzes today.
+                    <h2 className="text-sm font-bold text-gray-900 dark:text-white">
+                      Answer Distribution
+                    </h2>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                      Accuracy breakdown across all attempted questions
                     </p>
                   </div>
                 </div>
               </div>
-            </div>
-            <Link
-              to="/test-series"
-              className="relative z-10 mt-6 block w-full py-3 bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 text-center font-bold rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/20 transition shadow-lg"
-            >
-              Take Action Now
-            </Link>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
-          <div className="flex border-b border-gray-100 dark:border-gray-700">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition ${
-                  activeTab === tab.id
-                    ? "text-brand-start border-b-2 border-brand-start"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
-                }`}
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="p-6">
-            {/* Overview Tab */}
-            {activeTab === "overview" && (
-              <div className="space-y-6">
-                {/* Accuracy Breakdown */}
-                <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white mb-4">
-                    Answer Distribution
-                  </h3>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                      <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400 mx-auto mb-2" />
-                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                        {effectiveAnalytics.correct}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Correct
-                      </p>
-                    </div>
-                    <div className="text-center p-4 bg-red-50 dark:bg-red-900/20 rounded-xl">
-                      <XCircle className="w-8 h-8 text-red-600 dark:text-red-400 mx-auto mb-2" />
-                      <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                        {effectiveAnalytics.wrong}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Wrong
-                      </p>
-                    </div>
-                    <div className="text-center p-4 bg-gray-100 dark:bg-gray-700 rounded-xl">
-                      <AlertCircle className="w-8 h-8 text-gray-500 dark:text-gray-400 mx-auto mb-2" />
-                      <p className="text-2xl font-bold text-gray-600 dark:text-gray-300">
-                        {effectiveAnalytics.skipped}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Skipped
-                      </p>
-                    </div>
-                  </div>
+              <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+                <div className="text-center p-3 sm:p-4 bg-emerald-50/80 dark:bg-emerald-950/30 rounded-xl sm:rounded-2xl border border-emerald-200/70 dark:border-emerald-800/40">
+                  <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600 dark:text-emerald-400 mx-auto mb-1" />
+                  <p className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-300">
+                    {effectiveAnalytics.correct}
+                  </p>
+                  <p className="text-[10px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+                    Correct
+                  </p>
                 </div>
+                <div className="text-center p-3 sm:p-4 bg-rose-50/80 dark:bg-rose-950/30 rounded-xl sm:rounded-2xl border border-rose-200/70 dark:border-rose-800/40">
+                  <XCircle className="w-6 h-6 sm:w-7 sm:h-7 text-rose-600 dark:text-rose-400 mx-auto mb-1" />
+                  <p className="text-xl sm:text-2xl font-black text-rose-700 dark:text-rose-300">
+                    {effectiveAnalytics.wrong}
+                  </p>
+                  <p className="text-[10px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wide">
+                    Wrong
+                  </p>
+                </div>
+                <div className="text-center p-3 sm:p-4 bg-gray-50 dark:bg-gray-800/60 rounded-xl sm:rounded-2xl border border-gray-200 dark:border-gray-700">
+                  <AlertCircle className="w-6 h-6 sm:w-7 sm:h-7 text-gray-500 dark:text-gray-400 mx-auto mb-1" />
+                  <p className="text-xl sm:text-2xl font-black text-gray-700 dark:text-gray-300">
+                    {effectiveAnalytics.skipped}
+                  </p>
+                  <p className="text-[10px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Skipped
+                  </p>
+                </div>
+              </div>
+            </div>
 
-                {/* Recent Tests */}
-                <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-gray-900 dark:text-white">
+            {/* Recent Tests List */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200/90 dark:border-gray-700/80 p-4 sm:p-5">
+              <div className="flex justify-between items-center mb-3.5 pb-2.5 border-b border-gray-100 dark:border-gray-700/60">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 flex items-center justify-center">
+                    <ClipboardCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-gray-900 dark:text-white">
                       Recent Tests
                     </h3>
-                    <Link
-                      to="/attempted-tests"
-                      className="text-brand-start text-sm font-medium hover:underline"
-                    >
-                      View All
-                    </Link>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                      Scores and accuracies from recent attempts
+                    </p>
                   </div>
-                  <div className="space-y-3">
-                    {(effectiveAnalytics.recentTests || []).length > 0 ? (
-                      effectiveAnalytics.recentTests.map((test) => (
-                        <div
-                          key={test.id}
-                          className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-xl"
-                        >
-                          <div>
-                            <p className="font-medium text-gray-900 dark:text-white">
-                              {test.title}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {test.date}
-                            </p>
-                          </div>
+                </div>
+                <Link
+                  to="/attempted-tests"
+                  className="text-indigo-600 dark:text-indigo-400 text-xs font-bold hover:underline"
+                >
+                  View All →
+                </Link>
+              </div>
+              <div className="space-y-2.5">
+                {(effectiveAnalytics.recentTests || []).length > 0 ? (
+                  effectiveAnalytics.recentTests.map((test) => {
+                    const targetTestId = test.testId || test.id || test._id;
+                    const targetSeriesId =
+                      test.seriesSlug || test.seriesId || "all";
+                    const isLive =
+                      test.type === "live-tests" ||
+                      test.type === "live" ||
+                      test.category === "live-tests" ||
+                      test.isLive;
+                    const resultUrl = isLive
+                      ? `/live-test-results/${targetTestId}`
+                      : `/test-result/${targetSeriesId}/${targetTestId}`;
+
+                    return (
+                      <Link
+                        key={test.id}
+                        to={resultUrl}
+                        state={{ attemptId: test.attemptId }}
+                        className="group flex items-center justify-between p-3 sm:p-4 bg-gray-50 dark:bg-gray-900/60 rounded-xl sm:rounded-2xl border border-gray-200/70 dark:border-gray-700/60 hover:border-indigo-500/80 dark:hover:border-indigo-500/80 hover:bg-white dark:hover:bg-gray-800 hover:shadow-md transition-all gap-3 active:scale-[0.99]"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-xs sm:text-sm text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                            {test.title}
+                          </p>
+                          <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {test.date}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
                           <div className="text-right">
-                            <p className="font-bold text-brand-start">
+                            <p className="font-black text-sm sm:text-base text-indigo-600 dark:text-indigo-400">
                               {test.score}%
                             </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold">
                               {test.accuracy ||
                                 Math.round((test.score / 100) * 100)}
-                              % accuracy
+                              % acc
                             </p>
                           </div>
+                          <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-800 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-950/50 flex items-center justify-center transition-colors">
+                            <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-all group-hover:translate-x-0.5" />
+                          </div>
                         </div>
-                      ))
+                      </Link>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                    <p className="text-xs sm:text-sm">No recent tests yet</p>
+                    <Link
+                      to="/test-series"
+                      className="text-indigo-600 dark:text-indigo-400 text-xs sm:text-sm font-bold hover:underline mt-1 inline-block"
+                    >
+                      Start your first test →
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 2: Subject Mastery View */}
+        {activeTab === "subjects" && (
+          <div className="space-y-4 sm:space-y-6 animate-fade-in">
+            {/* Overall Syllabus Accuracy Banner Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200/90 dark:border-gray-700/80 p-4 sm:p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-gray-100 dark:border-gray-700/60">
+                <div>
+                  <h3 className="font-bold text-base text-gray-900 dark:text-white">
+                    Syllabus Accuracy Overview
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Weighted across all domain questions attempted
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Weighted Accuracy:
+                  </span>
+                  <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
+                    {(() => {
+                      const totalAtt = subjectPerformance.reduce(
+                        (a, b) => a + (b.attempted || 0),
+                        0,
+                      );
+                      if (totalAtt > 0) {
+                        return Math.round(
+                          subjectPerformance.reduce(
+                            (a, b) => a + b.score * (b.attempted || 0),
+                            0,
+                          ) / totalAtt,
+                        );
+                      }
+                      return effectiveAnalytics.avgAccuracy || 0;
+                    })()}
+                    %
+                  </span>
+                </div>
+              </div>
+
+              {/* Strongest & Weakest Chapters Group */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4 mt-4">
+                {/* Strongest Areas */}
+                <div className="bg-emerald-50/70 dark:bg-emerald-950/20 rounded-2xl p-4 sm:p-5 border border-emerald-200/80 dark:border-emerald-800/50">
+                  <div className="flex items-center gap-2 mb-3 text-emerald-700 dark:text-emerald-300">
+                    <Zap className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                    <h4 className="font-bold text-xs sm:text-sm">
+                      Strongest Domains
+                    </h4>
+                  </div>
+                  <div className="space-y-2.5">
+                    {(effectiveAnalytics.strongSubjects || []).length > 0 ? (
+                      effectiveAnalytics.strongSubjects
+                        .slice(0, 3)
+                        .map((sub, i) => (
+                          <div
+                            key={i}
+                            className="flex justify-between items-center text-xs sm:text-sm"
+                          >
+                            <span className="text-gray-700 dark:text-gray-300 font-semibold truncate">
+                              {sub.name || sub}
+                            </span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-black shrink-0 ml-2">
+                              {sub.accuracy || 85}%
+                            </span>
+                          </div>
+                        ))
                     ) : (
-                      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                        <p>No recent tests yet</p>
-                        <Link
-                          to="/test-series"
-                          className="text-brand-start text-sm font-medium hover:underline"
-                        >
-                          Start your first test →
-                        </Link>
-                      </div>
+                      <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 italic">
+                        Keep practicing to identify your strong areas.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Weakest Areas */}
+                <div className="bg-rose-50/70 dark:bg-rose-950/20 rounded-2xl p-4 sm:p-5 border border-rose-200/80 dark:border-rose-800/50">
+                  <div className="flex items-center gap-2 mb-3 text-rose-700 dark:text-rose-300">
+                    <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                    <h4 className="font-bold text-xs sm:text-sm">
+                      Needs Attention
+                    </h4>
+                  </div>
+                  <div className="space-y-2.5">
+                    {(effectiveAnalytics.weakSubjects || []).length > 0 ? (
+                      effectiveAnalytics.weakSubjects
+                        .slice(0, 3)
+                        .map((sub, i) => (
+                          <div
+                            key={i}
+                            className="flex justify-between items-center text-xs sm:text-sm"
+                          >
+                            <span className="text-gray-700 dark:text-gray-300 font-semibold truncate">
+                              {sub.name || sub}
+                            </span>
+                            <span className="text-rose-600 dark:text-rose-400 font-black shrink-0 ml-2">
+                              {sub.accuracy || 45}%
+                            </span>
+                          </div>
+                        ))
+                    ) : (
+                      <p className="text-xs text-rose-600/70 dark:text-rose-400/70 italic">
+                        No major weak areas detected yet. Essential sections
+                        covered.
+                      </p>
                     )}
                   </div>
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* Subject Wise Tab */}
-            {activeTab === "subjects" && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-gray-900 dark:text-white">
-                    Subject-wise Performance
-                  </h3>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Based on recently attempted tests
-                  </span>
-                </div>
-
-                {/* Weak/Strong Chapters Summary Group */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  {/* Strongest Areas */}
-                  <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-5 border border-green-100 dark:border-green-800">
-                    <div className="flex items-center gap-2 mb-4 text-green-700 dark:text-green-300">
-                      <Zap className="w-5 h-5" />
-                      <h4 className="font-bold">Strongest Chapters</h4>
-                    </div>
-                    <div className="space-y-3">
-                      {(effectiveAnalytics.strongSubjects || []).length > 0 ? (
-                        effectiveAnalytics.strongSubjects
-                          .slice(0, 3)
-                          .map((sub, i) => (
-                            <div
-                              key={i}
-                              className="flex justify-between items-center text-sm"
-                            >
-                              <span className="text-gray-700 dark:text-gray-300 font-medium">
-                                {sub.name || sub}
-                              </span>
-                              <span className="text-green-600 dark:text-green-400 font-bold">
-                                {sub.accuracy || 85}%
-                              </span>
-                            </div>
-                          ))
-                      ) : (
-                        <p className="text-xs text-green-600/70 dark:text-green-400/70 italic">
-                          Keep practicing to identify your strong areas.
+            {/* Detailed Subject Breakdown Cards */}
+            <div className="space-y-3">
+              {(effectiveAnalytics.subjectWise || []).length > 0 ? (
+                effectiveAnalytics.subjectWise.map((subject, i) => (
+                  <div
+                    key={i}
+                    className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-5 border border-gray-200/90 dark:border-gray-700/80 hover:border-indigo-300 dark:hover:border-indigo-700 shadow-xs transition-all"
+                  >
+                    <div className="flex items-center justify-between mb-2.5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-2xl sm:text-3xl shrink-0">
+                          {subject.icon || getSubjectIcon(subject.name)}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate">
+                            {subject.name}
+                          </p>
+                          <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-tight">
+                            {subject.attempted} Questions Attempted
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0 ml-2">
+                        <span
+                          className={`text-lg sm:text-xl font-black ${
+                            subject.accuracy >= 80
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : subject.accuracy >= 60
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-rose-600 dark:text-rose-400"
+                          }`}
+                        >
+                          {subject.accuracy}%
+                        </span>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-semibold">
+                          Accuracy
                         </p>
-                      )}
+                      </div>
                     </div>
-                    <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-800">
-                      <p className="text-[10px] text-green-700 dark:text-green-300 font-bold uppercase tracking-wider mb-1">
-                        Recommended Action
-                      </p>
-                      <p className="text-xs text-green-800 dark:text-green-200">
-                        Review these once a week to maintain speed. Focus on
-                        advanced level problems.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Weakest Areas */}
-                  <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl p-5 border border-red-100 dark:border-red-800/60">
-                    <div className="flex items-center gap-2 mb-4 text-red-700 dark:text-red-300">
-                      <AlertCircle className="w-5 h-5" />
-                      <h4 className="font-bold">Needs Improvement</h4>
-                    </div>
-                    <div className="space-y-3">
-                      {(effectiveAnalytics.weakSubjects || []).length > 0 ? (
-                        effectiveAnalytics.weakSubjects
-                          .slice(0, 3)
-                          .map((sub, i) => (
-                            <div
-                              key={i}
-                              className="flex justify-between items-center text-sm"
-                            >
-                              <span className="text-gray-700 dark:text-gray-300 font-medium">
-                                {sub.name || sub}
-                              </span>
-                              <span className="text-red-600 dark:text-red-400 font-bold">
-                                {sub.accuracy || 45}%
-                              </span>
-                            </div>
-                          ))
-                      ) : (
-                        <p className="text-xs text-red-600/70 dark:text-red-400/70 italic">
-                          No major weak areas detected yet. Essential sections
-                          covered.
-                        </p>
-                      )}
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-red-200 dark:border-red-800">
-                      <p className="text-[10px] text-red-700 dark:text-red-300 font-bold uppercase tracking-wider mb-1">
-                        Impact Action
-                      </p>
-                      <p className="text-xs text-red-800 dark:text-red-200">
-                        Watch subject videos and take chapter-wise quizzes to
-                        build basics.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {(effectiveAnalytics.subjectWise || []).length > 0 ? (
-                    effectiveAnalytics.subjectWise.map((subject, i) => (
+                    <div className="h-2.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden mb-3">
                       <div
-                        key={i}
-                        className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-700 hover:border-brand-start/20 transition-all"
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <span className="text-2xl">
-                              {subject.icon || "📚"}
-                            </span>
-                            <div>
-                              <p className="font-bold text-gray-900 dark:text-white">
-                                {subject.name}
-                              </p>
-                              <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tight">
-                                {subject.attempted} Qs attempted
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p
-                              className={`text-lg font-black ${
-                                subject.accuracy >= 80
-                                  ? "text-green-600 dark:text-green-400"
-                                  : subject.accuracy >= 60
-                                    ? "text-yellow-600 dark:text-yellow-400"
-                                    : "text-red-600 dark:text-red-400"
-                              }`}
-                            >
-                              {subject.accuracy}%
-                            </p>
-                            <p className="text-[9px] text-gray-400 dark:text-gray-500 font-bold">
-                              Accuracy
-                            </p>
-                          </div>
-                        </div>
-                        <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${
-                              subject.accuracy >= 80
-                                ? "bg-green-500"
-                                : subject.accuracy >= 60
-                                  ? "bg-yellow-500"
-                                  : "bg-red-500"
-                            }`}
-                            style={{ width: `${subject.accuracy}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
-                      <div className="text-2xl sm:text-3xl lg:text-4xl mb-3">
-                        📈
-                      </div>
-                      <h4 className="font-bold text-gray-900 dark:text-white">
-                        No Detailed Analysis
-                      </h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-xs mx-auto">
-                        Complete at least one full test to unlock subject-wise
-                        metrics and growth plans.
-                      </p>
+                        className={`h-full rounded-full ${
+                          subject.accuracy >= 80
+                            ? "bg-emerald-500"
+                            : subject.accuracy >= 60
+                              ? "bg-amber-500"
+                              : "bg-rose-500"
+                        }`}
+                        style={{ width: `${subject.accuracy}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700/60 text-xs">
+                      <span className="text-gray-500 dark:text-gray-400">
+                        Status:{" "}
+                        <strong
+                          className={
+                            subject.accuracy >= 80
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : subject.accuracy >= 60
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-rose-600 dark:text-rose-400"
+                          }
+                        >
+                          {subject.accuracy >= 80
+                            ? "Mastered"
+                            : subject.accuracy >= 60
+                              ? "Moderate"
+                              : "Needs Revision"}
+                        </strong>
+                      </span>
                       <Link
-                        to="/test-series"
-                        className="mt-4 inline-block text-brand-start font-bold text-sm hover:underline"
+                        to={`/study/${subject.name.toLowerCase().replace(/\s+/g, "-")}`}
+                        className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline inline-flex items-center gap-1"
                       >
-                        Start Practice →
+                        Study Topic Notes →
                       </Link>
                     </div>
-                  )}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
+                  <div className="text-3xl mb-2">📈</div>
+                  <h4 className="font-bold text-gray-900 dark:text-white text-sm sm:text-base">
+                    No Detailed Subject Data
+                  </h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-xs mx-auto">
+                    Complete at least one full test to unlock detailed syllabus
+                    mastery analytics.
+                  </p>
+                  <Link
+                    to="/test-series"
+                    className="mt-3 inline-block text-indigo-600 dark:text-indigo-400 font-bold text-xs sm:text-sm hover:underline"
+                  >
+                    Start Test Series →
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3: Speed & Strategy View */}
+        {activeTab === "speed" && (
+          <div className="space-y-4 sm:space-y-6 animate-fade-in">
+            {/* Speed & Time Analysis */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200/90 dark:border-gray-700/80 p-4 sm:p-5">
+              <div className="flex items-center gap-2 mb-3.5 pb-2.5 border-b border-gray-100 dark:border-gray-700/60">
+                <div className="w-8 h-8 rounded-lg bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-100 dark:border-cyan-900/40 flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                </div>
+                <div>
+                  <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
+                    Speed & Time Diagnostics
+                  </h2>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                    Average seconds spent per question vs competitive benchmarks
+                  </p>
                 </div>
               </div>
-            )}
+              {timeAnalysis.length > 0 ? (
+                <div className="space-y-3">
+                  {timeAnalysis.map((item, i) => (
+                    <div key={i} className="flex items-center gap-2.5">
+                      <span className="text-xs font-bold text-gray-700 dark:text-gray-300 w-24 sm:w-28 truncate shrink-0">
+                        {item.subject}
+                      </span>
+                      <div className="flex-1 h-6 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden relative">
+                        <div
+                          className={`h-full rounded-lg flex items-center justify-end pr-2 transition-all duration-500 ${
+                            item.avgTimeSec > 75
+                              ? "bg-red-400"
+                              : item.avgTimeSec > 50
+                                ? "bg-amber-400"
+                                : "bg-emerald-400"
+                          }`}
+                          style={{
+                            width: `${Math.min(100, Math.max(15, (item.avgTimeSec / 120) * 100))}%`,
+                          }}
+                        >
+                          <span className="text-[10px] font-black text-white">
+                            {item.avgTimeSec}s
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 w-12 text-right shrink-0">
+                        {item.attempted} Qs
+                      </span>
+                    </div>
+                  ))}
+                  <div className="pt-3 border-t border-gray-100 dark:border-gray-700/60 flex flex-wrap items-center gap-3 text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400" />{" "}
+                      Fast (&lt;50s)
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-amber-400" />{" "}
+                      Moderate (50-75s)
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-red-400" /> Slow
+                      (&gt;75s)
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-400 dark:text-gray-500">
+                  <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-xs sm:text-sm">
+                    Complete tests to unlock speed insights
+                  </p>
+                </div>
+              )}
+            </div>
 
-            {/* Insights Tab — deep-dive analytics */}
-            {activeTab === "insights" && (
+            {/* Difficulty Breakdown */}
+            <FeatureGate
+              sectionKey="analysis:difficulty"
+              variant="card"
+              minHeight="240px"
+            >
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200/90 dark:border-gray-700/80 p-4 sm:p-5">
+                <div className="flex items-center gap-2 mb-3.5 pb-2.5 border-b border-gray-100 dark:border-gray-700/60">
+                  <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-900/40 flex items-center justify-center">
+                    <Gauge className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
+                      Difficulty Tier Breakdown
+                    </h2>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                      Performance split by easy, medium, and hard questions
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2.5 sm:gap-3 mb-3.5">
+                  {[
+                    {
+                      label: "Easy",
+                      count: difficultyBreakdown.easy,
+                      acc: difficultyBreakdown.easyAcc,
+                      bg: "bg-emerald-50/70 dark:bg-emerald-950/30",
+                      border:
+                        "border-emerald-200/70 dark:border-emerald-800/40",
+                      text: "text-emerald-700 dark:text-emerald-400",
+                      bar: "bg-emerald-500",
+                    },
+                    {
+                      label: "Medium",
+                      count: difficultyBreakdown.medium,
+                      acc: difficultyBreakdown.mediumAcc,
+                      bg: "bg-amber-50/70 dark:bg-amber-950/30",
+                      border: "border-amber-200/70 dark:border-amber-800/40",
+                      text: "text-amber-700 dark:text-amber-400",
+                      bar: "bg-amber-500",
+                    },
+                    {
+                      label: "Hard",
+                      count: difficultyBreakdown.hard,
+                      acc: difficultyBreakdown.hardAcc,
+                      bg: "bg-rose-50/70 dark:bg-rose-950/30",
+                      border: "border-rose-200/70 dark:border-rose-800/40",
+                      text: "text-rose-700 dark:text-rose-400",
+                      bar: "bg-rose-500",
+                    },
+                  ].map((level) => (
+                    <div
+                      key={level.label}
+                      className={`${level.bg} ${level.border} border rounded-xl p-2.5 sm:p-3.5 text-center`}
+                    >
+                      <p
+                        className={`text-lg sm:text-2xl font-black ${level.text}`}
+                      >
+                        {level.count}
+                      </p>
+                      <p className="text-[10px] font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider mt-0.5">
+                        {level.label}
+                      </p>
+                      <div className="mt-2 h-1.5 bg-white/70 dark:bg-gray-800/70 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${level.bar} rounded-full`}
+                          style={{ width: `${level.acc}%` }}
+                        />
+                      </div>
+                      <p className={`text-[10px] font-bold ${level.text} mt-1`}>
+                        {level.acc}% acc
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-2.5 border-t border-gray-100 dark:border-gray-700/60">
+                  <p className="text-[11px] font-medium text-gray-600 dark:text-gray-400">
+                    {difficultyBreakdown.hardAcc < 40
+                      ? "⚠ Struggling with hard questions — focus on advanced concept revision."
+                      : difficultyBreakdown.mediumAcc < 50
+                        ? "⚠ Medium questions need attention — strengthen core fundamentals."
+                        : "✓ Solid consistency across difficulty tiers."}
+                  </p>
+                </div>
+              </div>
+            </FeatureGate>
+
+            {/* Deep-Dive Analytics & InsightsTab Integration */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200/90 dark:border-gray-700/80 p-4 sm:p-5">
               <InsightsTab
                 attemptPattern={attemptPattern}
                 topperComparison={topperComparison}
@@ -1600,90 +1412,285 @@ function Analysis() {
                 effectiveAnalytics={effectiveAnalytics}
                 difficultyBreakdown={difficultyBreakdown}
               />
-            )}
+            </div>
+          </div>
+        )}
 
-            {/* Progress Tab */}
-            {activeTab === "progress" && (
-              <div className="space-y-6">
-                <div className="bg-gradient-to-r from-brand-start to-brand-end rounded-xl p-6 text-white">
-                  <h3 className="font-bold text-lg mb-2">
-                    🚀 You're in the Top {100 - effectiveAnalytics.percentile}%!
+        {/* Tab 4: AI Action Plan & Goals View */}
+        {activeTab === "actionPlan" && (
+          <div className="space-y-4 sm:space-y-6 animate-fade-in">
+            {/* Top Percentile Motivation Banner */}
+            <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 rounded-2xl p-4 sm:p-6 text-white shadow-sm">
+              <h3 className="font-bold text-base sm:text-lg mb-1.5">
+                {effectiveAnalytics.percentile
+                  ? `🚀 You're performing in the Top ${Math.max(1, 100 - effectiveAnalytics.percentile)}%!`
+                  : `🎯 Your Personalized AI Action Plan`}
+              </h3>
+              <p className="text-purple-100 text-xs sm:text-sm mb-4 leading-relaxed max-w-2xl">
+                {effectiveAnalytics.percentile
+                  ? `Across ${effectiveAnalytics.totalTests} completed tests, you're ahead of ${effectiveAnalytics.percentile}% of aspirants. Follow this tailored action plan to eliminate negative marks and boost your rank.`
+                  : `Across ${effectiveAnalytics.totalTests} completed tests, follow this tailored action plan to eliminate negative marks and boost your rank.`}
+              </p>
+              <Link
+                to="/test-series"
+                className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 bg-white text-indigo-700 font-bold text-xs sm:text-sm rounded-xl hover:bg-purple-50 transition shadow-xs"
+              >
+                Take Recommended Mock
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            {/* Focus Needed & Strengths Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              {/* Weak Areas Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200/90 dark:border-gray-700/80 overflow-hidden flex flex-col">
+                <div className="bg-rose-50/80 dark:bg-rose-950/30 px-4 sm:px-5 py-3 border-b border-rose-100 dark:border-rose-900/30 flex items-center justify-between">
+                  <h3 className="font-bold text-sm sm:text-base text-rose-700 dark:text-rose-400 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                    High-Priority Weak Areas
                   </h3>
-                  <p className="text-purple-100 text-sm mb-4">
-                    Across {effectiveAnalytics.totalTests} tests, you're
-                    performing better than {100 - effectiveAnalytics.percentile}
-                    % of all students — one more mock could push you higher!
-                  </p>
-                  <Link
-                    to="/test-series"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-brand-start font-semibold rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition"
-                  >
-                    Take More Tests
-                    <ChevronRight className="w-4 h-4" />
-                  </Link>
                 </div>
-
-                <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white mb-4">
-                    Areas for Improvement
-                  </h3>
-                  <div className="space-y-3">
+                <div className="p-4 sm:p-5 flex-1">
+                  <div className="space-y-2.5">
                     {(effectiveAnalytics.weakSubjects || []).length > 0 ? (
                       effectiveAnalytics.weakSubjects.map((subject, i) => (
                         <div
                           key={i}
-                          className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-xl"
+                          className="p-3 bg-gray-50 dark:bg-gray-750 rounded-xl border border-gray-200/70 dark:border-gray-700 flex flex-col gap-1.5"
                         >
-                          <AlertCircle className="w-5 h-5 text-red-500" />
-                          <span className="text-gray-700 dark:text-gray-300">
-                            {subject}
-                          </span>
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs sm:text-sm text-gray-800 dark:text-gray-200">
+                              {subject}
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400 rounded-full font-bold">
+                              Needs Focus
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                            Accuracy is currently under 60%. Conceptual clarity
+                            and practice needed.
+                          </p>
                           <Link
-                            to={`/study/${subject.toLowerCase().replace(" ", "-")}`}
-                            className="ml-auto text-brand-start text-sm font-medium hover:underline"
+                            to={`/study/${subject.toLowerCase().replace(/\s+/g, "-")}`}
+                            className="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline inline-flex items-center gap-1 mt-0.5"
                           >
-                            Practice →
+                            Study Subject Notes{" "}
+                            <ChevronRight className="w-3 h-3" />
                           </Link>
                         </div>
                       ))
                     ) : (
-                      <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-                        <p>
-                          Complete more tests to identify areas for improvement
+                      <div className="text-center py-6">
+                        <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-1.5 opacity-30" />
+                        <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">
+                          No critical weak areas identified yet. Keep it up!
                         </p>
                       </div>
                     )}
                   </div>
                 </div>
+              </div>
 
-                <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white mb-4">
-                    Your Strengths
+              {/* Strong Areas Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200/90 dark:border-gray-700/80 overflow-hidden flex flex-col">
+                <div className="bg-emerald-50/80 dark:bg-emerald-950/30 px-4 sm:px-5 py-3 border-b border-emerald-100 dark:border-emerald-900/30 flex items-center justify-between">
+                  <h3 className="font-bold text-sm sm:text-base text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
+                    <Trophy className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Your
+                    Mastered Strengths
                   </h3>
-                  <div className="space-y-3">
+                </div>
+                <div className="p-4 sm:p-5 flex-1">
+                  <div className="space-y-2.5">
                     {(effectiveAnalytics.strongSubjects || []).length > 0 ? (
                       effectiveAnalytics.strongSubjects.map((subject, i) => (
                         <div
                           key={i}
-                          className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl"
+                          className="p-3 bg-gray-50 dark:bg-gray-750 rounded-xl border border-gray-200/70 dark:border-gray-700 flex flex-col gap-1.5"
                         >
-                          <CheckCircle className="w-5 h-5 text-green-500" />
-                          <span className="text-gray-700 dark:text-gray-300">
-                            {subject}
-                          </span>
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs sm:text-sm text-gray-800 dark:text-gray-200">
+                              {subject}
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 rounded-full font-bold">
+                              Mastered
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                            Consistent score above 85%. Focus on maintaining
+                            speed under exam conditions.
+                          </p>
+                          <Link
+                            to="/test-series"
+                            className="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline inline-flex items-center gap-1 mt-0.5"
+                          >
+                            Take Advanced Test{" "}
+                            <ChevronRight className="w-3 h-3" />
+                          </Link>
                         </div>
                       ))
                     ) : (
-                      <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-                        <p>Complete more tests to identify your strengths</p>
+                      <div className="text-center py-6">
+                        <ClipboardCheck className="w-8 h-8 text-indigo-500 mx-auto mb-1.5 opacity-30" />
+                        <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">
+                          Attempt more tests to build your strength profile.
+                        </p>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
-            )}
+            </div>
+
+            {/* AI Strategic Recommendations Card */}
+            <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-2xl shadow-md p-4 sm:p-6 text-white relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-3.5 pb-2.5 border-b border-white/15">
+                  <Zap className="w-5 h-5 text-yellow-300 shrink-0" />
+                  <h3 className="text-base sm:text-lg font-bold">
+                    AI Strategic Action Steps
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                  <div className="flex gap-2.5 p-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15">
+                    <div className="w-7 h-7 rounded-lg bg-white/15 flex items-center justify-center shrink-0 mt-0.5">
+                      <Timer className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm font-bold">
+                        Pacing Target
+                      </p>
+                      <p className="text-[11px] text-purple-100 leading-relaxed mt-0.5">
+                        Keep Reasoning questions under 45s to preserve a
+                        15-minute buffer for Quantitative problems.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2.5 p-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15">
+                    <div className="w-7 h-7 rounded-lg bg-white/15 flex items-center justify-center shrink-0 mt-0.5">
+                      <BookOpen className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm font-bold">
+                        Formula Revision
+                      </p>
+                      <p className="text-[11px] text-purple-100 leading-relaxed mt-0.5">
+                        Brush up on high-yield formulas in the Study section
+                        before your next full mock.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2.5 p-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15">
+                    <div className="w-7 h-7 rounded-lg bg-white/15 flex items-center justify-center shrink-0 mt-0.5">
+                      <Target className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm font-bold">Daily Goal</p>
+                      <p className="text-[11px] text-purple-100 leading-relaxed mt-0.5">
+                        Attempt 1 Sectional Test and 2 Chapter Quizzes to keep
+                        your streak alive.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Achievements & Milestones */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200/90 dark:border-gray-700/80 p-4 sm:p-5">
+              <div className="flex items-center justify-between mb-3.5 pb-2.5 border-b border-gray-100 dark:border-gray-700/60">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/40 flex items-center justify-center">
+                    <Award className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
+                      Unlocked Achievements
+                    </h2>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                      Milestones unlocked along your exam journey
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  to="/achievements"
+                  className="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline shrink-0"
+                >
+                  View All →
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  {
+                    icon: "🎯",
+                    name: "First Test",
+                    unlocked: userStats.testsTaken >= 1,
+                  },
+                  {
+                    icon: "🔥",
+                    name: "7 Day Streak",
+                    unlocked: userStats.streak >= 7,
+                  },
+                  {
+                    icon: "🏆",
+                    name: "Top 100",
+                    unlocked:
+                      typeof userStats.rank === "number" &&
+                      userStats.rank <= 100 &&
+                      userStats.rank > 0,
+                  },
+                  {
+                    icon: "⭐",
+                    name: "100 Tests",
+                    unlocked: userStats.testsTaken >= 100,
+                  },
+                  {
+                    icon: "💪",
+                    name: "Accuracy 90%",
+                    unlocked: userStats.accuracy >= 90,
+                  },
+                  {
+                    icon: "📚",
+                    name: "10 Series",
+                    unlocked: enrolledTestSeriesCount >= 10,
+                  },
+                  {
+                    icon: "🚀",
+                    name: "Speed Master",
+                    unlocked:
+                      effectiveAnalytics.timePerQuestion < 45 &&
+                      effectiveAnalytics.totalTests >= 5,
+                  },
+                  {
+                    icon: "👑",
+                    name: "Pro Member",
+                    unlocked: user?.hasProPass || user?.isProUser,
+                  },
+                ].map((badge, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-xl flex flex-col items-center justify-center text-center p-2.5 transition-all ${
+                      badge.unlocked
+                        ? "bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/50 shadow-xs"
+                        : "bg-gray-50 dark:bg-gray-800 border border-gray-200/60 dark:border-gray-700 opacity-60"
+                    }`}
+                    title={badge.name}
+                  >
+                    <span className="text-xl mb-1">{badge.icon}</span>
+                    <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200 leading-tight">
+                      {badge.name}
+                    </span>
+                    <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 mt-0.5">
+                      {badge.unlocked ? "Unlocked" : "Locked"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -1,91 +1,66 @@
-import { QUESTION_CATEGORIES } from '../../../../shared/config/questionCategories.js'
+import React from "react";
+import PropTypes from "prop-types";
+import { QUESTION_CATEGORIES } from "../../../../shared/config/questionCategories.js";
 
 // Category Tab Bar Component
-export const CategoryTabBar = ({ activeCategory, onCategoryChange, categoryCounts }) => {
+export const CategoryTabBar = ({
+  activeCategory,
+  onCategoryChange,
+  categoryCounts = {},
+}) => {
+  const activeDesc = QUESTION_CATEGORIES.find(
+    (c) => c.id === activeCategory,
+  )?.description;
+
   return (
-    <div className="mb-1">
-      <div style={{
-        display: 'flex',
-        gap: '0',
-        padding: '3px',
-        backgroundColor: '#f1f5f9',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        width: 'fit-content'
-      }}>
-        {QUESTION_CATEGORIES.map(cat => {
-          const isActive = activeCategory === cat.id
-          const count = categoryCounts[cat.id] || 0
-          const Icon = cat.icon
+    <div className="w-full">
+      <div className="p-1 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs flex items-center overflow-x-auto scrollbar-none gap-1 sm:gap-1.5">
+        {QUESTION_CATEGORIES.map((cat) => {
+          const isActive = activeCategory === cat.id;
+          const count = categoryCounts[cat.id];
+          const Icon = cat.icon;
 
           return (
             <button
               key={cat.id}
+              type="button"
               onClick={() => onCategoryChange(cat.id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '12px',
-                padding: '8px 24px',
-                borderRadius: '9px',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                position: 'relative',
-                fontFamily: 'inherit',
-                ...(isActive
-                  ? {
-                    background: '#ffffff',
-                    color: cat.id === 'mock-tests' ? '#6366f1' : cat.id === 'pyp' ? '#f59e0b' : '#10b981',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                  }
-                  : {
-                    background: 'transparent',
-                    color: '#64748b',
-                  })
-              }}
+              className={`flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shrink-0 tap-feedback ${
+                isActive
+                  ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 font-bold shadow-xs"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+              }`}
             >
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <Icon style={{ width: '16px', height: '16px' }} />
-                <span style={{
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.02em',
-                  whiteSpace: 'nowrap'
-                }}>
-                  {cat.label}
+              <Icon className="w-3.5 h-3.5 shrink-0" />
+              <span>{cat.label}</span>
+              {typeof count === "number" && count > 0 && (
+                <span
+                  className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                    isActive
+                      ? "bg-indigo-100 dark:bg-indigo-800/60 text-indigo-700 dark:text-indigo-300"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                  }`}
+                >
+                  {count > 999 ? `${(count / 1000).toFixed(1)}k` : count}
                 </span>
-              </div>
-              <span style={{
-                fontSize: '15px',
-                fontWeight: 800,
-                color: isActive ? 'inherit' : '#94a3b8',
-                backgroundColor: isActive ? 'rgba(0,0,0,0.03)' : 'rgba(0,0,0,0.05)',
-                padding: '2px 8px',
-                borderRadius: '6px',
-                lineHeight: 1
-              }}>
-                {count}
-              </span>
+              )}
             </button>
-          )
+          );
         })}
       </div>
-      {/* Active category description */}
-      <p style={{
-        fontSize: '13px',
-        color: '#94a3b8',
-        marginTop: '8px',
-        paddingLeft: '4px'
-      }}>
-        {QUESTION_CATEGORIES.find(c => c.id === activeCategory)?.description}
-      </p>
+      {activeDesc && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 px-1 truncate">
+          {activeDesc}
+        </p>
+      )}
     </div>
-  )
-}
+  );
+};
+
+CategoryTabBar.propTypes = {
+  activeCategory: PropTypes.string,
+  onCategoryChange: PropTypes.func.isRequired,
+  categoryCounts: PropTypes.object,
+};
+
+export default CategoryTabBar;

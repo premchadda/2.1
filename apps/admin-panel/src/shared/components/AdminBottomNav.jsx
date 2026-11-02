@@ -16,7 +16,7 @@ export default function AdminBottomNav() {
     { icon: FileText, label: "Tests", path: "/admin/tests" },
     { icon: FileQuestion, label: "Questions", path: "/admin/questions" },
     { icon: Users, label: "Users", path: "/admin/users" },
-    { icon: Terminal, label: "TLog", path: "/admin/logs" },
+    { icon: Terminal, label: "Logs", path: "/admin/logs" },
     { icon: Settings, label: "Settings", path: "/admin/settings" },
   ];
 
@@ -39,19 +39,19 @@ export default function AdminBottomNav() {
             <Link
               key={path}
               to={path}
-              className={`relative flex flex-col items-center justify-center py-1 px-1 sm:px-1.5 min-w-0 flex-1 max-w-[60px] rounded-xl transition-all tap-feedback ${
+              className={`relative flex flex-col items-center justify-center py-1 px-0.5 sm:px-1.5 min-w-0 flex-1 rounded-xl transition-all tap-feedback ${
                 active
                   ? "text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50/80 dark:bg-indigo-950/50"
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
               }`}
             >
               <Icon
-                className={`w-[16px] h-[16px] sm:w-[18px] sm:h-[18px] mb-0.5 shrink-0 transition-transform ${active ? "scale-105" : ""}`}
+                className={`w-[17px] h-[17px] sm:w-[18px] sm:h-[18px] mb-0.5 shrink-0 transition-transform ${active ? "scale-105" : ""}`}
                 strokeWidth={active ? 2.3 : 1.9}
               />
               <span
                 title={label}
-                className={`text-[11px] tracking-tight truncate w-full text-center leading-none ${active ? "font-bold" : "font-medium"}`}
+                className={`text-[9.5px] sm:text-[11px] tracking-tight truncate w-full text-center leading-none ${active ? "font-bold" : "font-medium"}`}
               >
                 {label}
               </span>

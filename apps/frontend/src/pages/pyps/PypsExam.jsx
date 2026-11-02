@@ -343,7 +343,7 @@ function PypsExam({ examSlug: examSlugOverride } = {}) {
       />
 
       {/* Breadcrumb */}
-      <div className="bg-white border-b border-gray-100">
+      <div className="hidden sm:block bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Breadcrumb
             items={[

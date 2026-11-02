@@ -1,5 +1,6 @@
-import { memo } from "react";
-import { FolderOpen, List, FileText, ChevronRight } from "lucide-react";
+import React, { memo } from "react";
+import PropTypes from "prop-types";
+import { Folder, List, FileText, ChevronRight } from "lucide-react";
 import EmptyState from "../../../../shared/components/ui/EmptyState";
 import { getSeriesId } from "./questionHelpers.js";
 
@@ -10,9 +11,9 @@ function SeriesDrillGrid({
 }) {
   if (!seriesList || seriesList.length === 0) {
     return (
-      <div style={{ gridColumn: "1 / -1" }}>
+      <div className="col-span-full">
         <EmptyState
-          icon={FolderOpen}
+          icon={Folder}
           title="No Test Series Found"
           description="No test series match the selected test category, exam category, exam, and stage filters."
         />
@@ -35,145 +36,53 @@ function SeriesDrillGrid({
           <div
             key={seriesId}
             onClick={() => onSelectSeries(series)}
-            className="group bg-white border border-gray-200 rounded-xl cursor-pointer transition-all p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden hover:border-indigo-300 hover:shadow-md"
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "translateY(-2px)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "none";
-            }}
+            className="group bg-white dark:bg-gray-800 border border-gray-200/90 dark:border-gray-700/80 rounded-2xl cursor-pointer transition-all duration-300 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-lg hover:shadow-indigo-500/5 active:scale-[0.99] animate-fade-in"
           >
-            {/* Top gradient accent */}
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                height: "4px",
-                background: "linear-gradient(to right, #6366f1, #8b5cf6)",
-                borderRadius: "16px 16px 0 0",
-              }}
-            />
-            <div className="flex items-start gap-4 min-w-0 flex-1">
-              <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-                <FolderOpen
-                  style={{
-                    width: "22px",
-                    height: "22px",
-                    color: "#6366f1",
-                  }}
-                />
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 opacity-90" />
+            <div className="flex items-start gap-3.5 sm:gap-4 min-w-0 flex-1">
+              <div className="w-11 h-11 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Folder className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               </div>
               <div className="min-w-0 flex-1">
-                <h3
-                  style={{
-                    fontSize: "16px",
-                    fontWeight: 700,
-                    color: "#1e293b",
-                    marginBottom: "6px",
-                    lineHeight: 1.3,
-                  }}
-                >
+                <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                  {series.category && (
+                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800 uppercase">
+                      {series.category}
+                    </span>
+                  )}
+                  {series.examName && (
+                    <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                      {series.examName}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-800">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    Active
+                  </span>
+                </div>
+                <h3 className="text-base sm:text-lg font-extrabold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors leading-snug">
                   {series.title || series.name || "Untitled Series"}
                 </h3>
-
-                <p
-                  style={{
-                    fontSize: "13px",
-                    color: "#94a3b8",
-                    marginBottom: "16px",
-                    lineHeight: 1.5,
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                  }}
-                >
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2 leading-relaxed">
                   {series.description || "No description available"}
                 </p>
               </div>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "16px",
-                flexWrap: "wrap",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "4px 10px",
-                  backgroundColor: "#f1f5f9",
-                  borderRadius: "8px",
-                }}
-              >
-                <List
-                  style={{
-                    width: "14px",
-                    height: "14px",
-                    color: "#6366f1",
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    color: "#475569",
-                  }}
-                >
-                  {testsCount} tests
+            <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-gray-100 dark:border-gray-700/80">
+              <div className="flex items-center gap-3 sm:gap-4 text-xs font-semibold">
+                <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-750 px-2.5 py-1 rounded-xl border border-gray-200/80 dark:border-gray-700">
+                  <List className="w-3.5 h-3.5 text-indigo-500" />
+                  {testsCount} Tests
                 </span>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "4px 10px",
-                  backgroundColor: "#f0fdf4",
-                  borderRadius: "8px",
-                }}
-              >
-                <FileText
-                  style={{
-                    width: "14px",
-                    height: "14px",
-                    color: "#16a34a",
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    color: "#166534",
-                  }}
-                >
+                <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-xl border border-emerald-100 dark:border-emerald-900/50">
+                  <FileText className="w-3.5 h-3.5 text-emerald-600" />
                   {questionsCount} Qs
                 </span>
               </div>
-              {series.category && (
-                <span
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    padding: "4px 10px",
-                    backgroundColor: "#faf5ff",
-                    color: "#7c3aed",
-                    borderRadius: "8px",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                  }}
-                >
-                  {series.category}
-                </span>
-              )}
-              <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 hidden md:block" />
+              <span className="text-indigo-600 dark:text-indigo-400 font-bold text-xs flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                Manage →
+              </span>
             </div>
           </div>
         );
@@ -181,5 +90,11 @@ function SeriesDrillGrid({
     </div>
   );
 }
+
+SeriesDrillGrid.propTypes = {
+  seriesList: PropTypes.array,
+  seriesStatsMap: PropTypes.instanceOf(Map),
+  onSelectSeries: PropTypes.func.isRequired,
+};
 
 export default memo(SeriesDrillGrid);

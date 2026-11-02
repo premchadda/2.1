@@ -562,7 +562,11 @@ function SettingsContent({
               iconBg="#EFF5FF"
               label="Help Center"
               onClick={() =>
-                window.open("https://help.trstprep.com", "_blank", "noopener")
+                window.open(
+                  import.meta.env.VITE_HELP_URL || "https://help.trstprep.com",
+                  "_blank",
+                  "noopener",
+                )
               }
             />
             <Cell

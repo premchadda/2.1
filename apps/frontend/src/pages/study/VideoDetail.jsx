@@ -970,9 +970,9 @@ export default function VideoDetail() {
               <span>Back</span>
             </button>
 
-            <div className="h-4 w-px bg-gray-200 dark:bg-slate-700 shrink-0" />
+            <div className="hidden sm:block h-4 w-px bg-gray-200 dark:bg-slate-700 shrink-0" />
 
-            <div className="min-w-0 flex-1 overflow-hidden">
+            <div className="hidden sm:block min-w-0 flex-1 overflow-hidden">
               <Breadcrumb items={breadcrumbItems} />
             </div>
           </div>

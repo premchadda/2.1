@@ -1,14 +1,14 @@
 import { Link } from "react-router-dom";
 import { ChevronRight, Home } from "lucide-react";
 
-function Breadcrumb({ items, className = "" }) {
+function Breadcrumb({ items, className = "", showOnMobile = false }) {
   const validItems = (items || []).filter(
     (item) => item && item.label && String(item.label).trim().length > 0,
   );
 
   return (
     <nav
-      className={`breadcrumb-container flex items-center gap-1.5 sm:gap-2 text-[12px] sm:text-[13px] text-gray-500 dark:text-slate-400 py-1 overflow-x-auto scrollbar-hide ${className}`}
+      className={`breadcrumb-container ${showOnMobile ? "flex" : "hidden sm:flex"} items-center gap-1.5 sm:gap-2 text-[12px] sm:text-[13px] text-gray-500 dark:text-slate-400 py-1 overflow-x-auto scrollbar-hide ${className}`}
     >
       {validItems.map((item, index) => {
         const isLast = index === validItems.length - 1;

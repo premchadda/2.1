@@ -821,7 +821,7 @@ export default function StagesManager() {
   );
 
   return (
-    <div className="p-3 sm:p-4 max-w-7xl mx-auto relative">
+    <div className="p-3 sm:p-5 pb-24 sm:pb-8 max-w-7xl mx-auto relative">
       {/* FIXED BUG [S-LOW-2]: Bulk Operation Overlay for better UX feedback */}
       {bulkLinking &&
         typeof document !== "undefined" &&
@@ -936,72 +936,72 @@ export default function StagesManager() {
         </div>
       </div>
 
-      {/* 2. Top Summary KPI Cards (3 cols on mobile, 4 on desktop) */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 sm:gap-3 mb-4">
-        <div className="bg-white dark:bg-gray-900 p-2 sm:p-3.5 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs card-hover-transitive flex flex-col justify-between min-w-0">
+      {/* 2. Top Summary KPI Cards (2 cols on mobile, 4 on desktop) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4">
+        <div className="bg-white dark:bg-gray-900 p-2.5 sm:p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-2xs card-hover-transitive flex flex-col justify-between min-w-0">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-wider truncate">
+            <span className="text-[11px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 truncate">
               Total Stages
             </span>
-            <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-lg bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-              <Layers className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+              <Layers className="w-3.5 h-3.5" />
             </div>
           </div>
-          <p className="text-sm sm:text-2xl font-black text-gray-900 dark:text-white mt-1 truncate">
+          <p className="text-base sm:text-2xl font-black text-gray-900 dark:text-white mt-1 truncate">
             {allStages.length}
           </p>
-          <p className="text-[8px] sm:text-[11px] text-gray-400 mt-0.5 truncate">
+          <p className="text-[10px] sm:text-[11px] text-gray-400 mt-0.5 truncate">
             Configured phases
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-900 p-2 sm:p-3.5 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs card-hover-transitive flex flex-col justify-between min-w-0">
+        <div className="bg-white dark:bg-gray-900 p-2.5 sm:p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-2xs card-hover-transitive flex flex-col justify-between min-w-0">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-wider truncate">
+            <span className="text-[11px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 truncate">
               Active
             </span>
-            <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-lg bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-              <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <Check className="w-3.5 h-3.5" />
             </div>
           </div>
-          <p className="text-sm sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1 truncate">
+          <p className="text-base sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1 truncate">
             {allStages.filter((s) => s.isActive !== false).length}
           </p>
-          <p className="text-[8px] sm:text-[11px] text-gray-400 mt-0.5 truncate">
+          <p className="text-[10px] sm:text-[11px] text-gray-400 mt-0.5 truncate">
             Live on platform
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-900 p-2 sm:p-3.5 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs card-hover-transitive flex flex-col justify-between min-w-0">
+        <div className="bg-white dark:bg-gray-900 p-2.5 sm:p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-2xs card-hover-transitive flex flex-col justify-between min-w-0">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-wider truncate">
+            <span className="text-[11px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 truncate">
               Exam Linked
             </span>
-            <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-lg bg-cyan-50 dark:bg-cyan-900/40 text-cyan-600 dark:text-cyan-400 flex items-center justify-center shrink-0">
-              <Link className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-cyan-50 dark:bg-cyan-900/40 text-cyan-600 dark:text-cyan-400 flex items-center justify-center shrink-0">
+              <Link className="w-3.5 h-3.5" />
             </div>
           </div>
-          <p className="text-sm sm:text-2xl font-black text-cyan-600 dark:text-cyan-400 mt-1 truncate">
+          <p className="text-base sm:text-2xl font-black text-cyan-600 dark:text-cyan-400 mt-1 truncate">
             {allStages.filter((s) => (s.examIds?.length || 0) > 0).length}
           </p>
-          <p className="text-[8px] sm:text-[11px] text-gray-400 mt-0.5 truncate">
+          <p className="text-[10px] sm:text-[11px] text-gray-400 mt-0.5 truncate">
             Bound to exams
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-900 p-2 sm:p-3.5 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs card-hover-transitive flex flex-col justify-between min-w-0 col-span-3 sm:col-span-1">
+        <div className="bg-white dark:bg-gray-900 p-2.5 sm:p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-2xs card-hover-transitive flex flex-col justify-between min-w-0">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-wider truncate">
+            <span className="text-[11px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 truncate">
               Series Linked
             </span>
-            <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-lg bg-purple-50 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-              <ListTree className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-purple-50 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+              <ListTree className="w-3.5 h-3.5" />
             </div>
           </div>
-          <p className="text-sm sm:text-2xl font-black text-purple-600 dark:text-purple-400 mt-1 truncate">
+          <p className="text-base sm:text-2xl font-black text-purple-600 dark:text-purple-400 mt-1 truncate">
             {testSeries.length}
           </p>
-          <p className="text-[8px] sm:text-[11px] text-gray-400 mt-0.5 truncate">
+          <p className="text-[10px] sm:text-[11px] text-gray-400 mt-0.5 truncate">
             Series mappings
           </p>
         </div>
@@ -1626,51 +1626,76 @@ export default function StagesManager() {
                       key={stageId}
                       onMouseEnter={() => setHoveredStage(stageId)}
                       onMouseLeave={() => setHoveredStage(null)}
-                      className={`group bg-white dark:bg-gray-800 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center p-3 sm:p-4 gap-3 sm:gap-4 ${
+                      className={`group bg-white dark:bg-gray-800 rounded-2xl border transition-all p-3 sm:p-4 flex flex-col gap-2.5 ${
                         isSelected
                           ? "border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 shadow-sm ring-1 ring-indigo-200"
                           : "border-gray-100 dark:border-gray-700/80 hover:border-indigo-300 hover:shadow-xs"
                       }`}
                       onClick={() => toggleStageSelection(stageId)}
                     >
-                      <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-                        <div className="shrink-0 cursor-pointer">
-                          {isSelected ? (
-                            <CheckSquare className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                          ) : (
-                            <Square className="w-5 h-5 text-gray-300 dark:text-gray-600" />
-                          )}
+                      {/* Row 1: Checkbox, Order, Icon, Title, Status, and Actions */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+                          <div className="shrink-0 cursor-pointer">
+                            {isSelected ? (
+                              <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400" />
+                            ) : (
+                              <Square className="w-4 h-4 sm:w-5 sm:h-5 text-gray-300 dark:text-gray-600" />
+                            )}
+                          </div>
+                          <div className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-bold text-[10px] sm:text-[11px] shrink-0">
+                            #{idx + 1}
+                          </div>
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-800/40 rounded-xl flex items-center justify-center text-lg sm:text-xl shrink-0">
+                            {stage.icon || "📋"}
+                          </div>
+                          <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
+                            <h3 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate">
+                              {stage.name}
+                            </h3>
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono bg-gray-50 dark:bg-gray-900 px-1.5 py-0.2 rounded border border-gray-100 dark:border-gray-800">
+                              {stage.slug}
+                            </span>
+                            <span
+                              className={`px-1.5 py-0.2 rounded text-[10px] font-extrabold ${
+                                stage.isActive !== false
+                                  ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                  : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                              }`}
+                            >
+                              {stage.isActive !== false ? "Active" : "Inactive"}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-bold text-[11px] shrink-0">
-                          #{idx + 1}
-                        </div>
-                        <div className="w-10 h-10 sm:w-11 sm:h-11 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-800/40 rounded-xl flex items-center justify-center text-xl shrink-0">
-                          {stage.icon || "📋"}
+
+                        {/* Top-Right Action Buttons */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(stage);
+                            }}
+                            className="p-1.5 sm:p-2 bg-gray-50 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600/80 rounded-xl shadow-2xs hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-200 text-indigo-600 dark:text-indigo-400 transition-all tap-feedback"
+                            title="Edit Stage"
+                          >
+                            <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(stageId);
+                            }}
+                            className="p-1.5 sm:p-2 bg-gray-50 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600/80 rounded-xl shadow-2xs hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-200 text-red-500 transition-all tap-feedback"
+                            title="Delete Stage"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          </button>
                         </div>
                       </div>
 
-                      <div className="flex-1 min-w-0">
-                        {/* Row 1: Name, Slug, Status */}
+                      {/* Row 2: Counts & Exam badges */}
+                      <div className="space-y-1.5">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <h3 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate">
-                            {stage.name}
-                          </h3>
-                          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono bg-gray-50 dark:bg-gray-900 px-1.5 py-0.5 rounded border border-gray-100 dark:border-gray-800">
-                            {stage.slug}
-                          </span>
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold ${
-                              stage.isActive !== false
-                                ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
-                            }`}
-                          >
-                            {stage.isActive !== false ? "Active" : "Inactive"}
-                          </span>
-                        </div>
-
-                        {/* Row 2: Count Badges */}
-                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1728,9 +1753,9 @@ export default function StagesManager() {
                           )}
                         </div>
 
-                        {/* Row 3: Linked Exam Names */}
+                        {/* Linked Exam Names */}
                         {linkedExamNames.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1.5">
+                          <div className="flex flex-wrap gap-1">
                             {linkedExamNames.map((name) => (
                               <span
                                 key={name}
@@ -1742,30 +1767,6 @@ export default function StagesManager() {
                           </div>
                         )}
                       </div>
-
-                      {/* Row Actions */}
-                      <div className="flex items-center justify-end gap-1.5 shrink-0 self-end sm:self-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEdit(stage);
-                          }}
-                          className="p-1.5 sm:p-2 bg-gray-50 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600/80 rounded-xl shadow-2xs hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-200 text-indigo-600 dark:text-indigo-400 transition-all tap-feedback"
-                          title="Edit Stage"
-                        >
-                          <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(stageId);
-                          }}
-                          className="p-1.5 sm:p-2 bg-gray-50 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600/80 rounded-xl shadow-2xs hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-200 text-red-500 transition-all tap-feedback"
-                          title="Delete Stage"
-                        >
-                          <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        </button>
-                      </div>
                     </div>
                   );
                 })}
@@ -1776,6 +1777,7 @@ export default function StagesManager() {
 
       {/* ===== STAGE DETAIL POPUP ===== */}
       {detailStageId &&
+        typeof document !== "undefined" &&
         createPortal(
           <div
             className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
@@ -1933,6 +1935,7 @@ export default function StagesManager() {
 
       {/* ===== FORM MODAL ===== */}
       {showForm &&
+        typeof document !== "undefined" &&
         createPortal(
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[99999] p-4"
@@ -2315,6 +2318,7 @@ export default function StagesManager() {
               </form>
             </div>
           </div>,
+          document.body,
         )}
 
       {/* Bulk Operation Loading Overlay */}

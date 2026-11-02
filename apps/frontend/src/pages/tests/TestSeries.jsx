@@ -594,7 +594,7 @@ function TestSeries() {
   return (
     <div className="min-h-screen bg-gray-50 page-transition fade-in">
       {/* Breadcrumb */}
-      <div className="bg-white border-b border-gray-100">
+      <div className="hidden sm:block bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Breadcrumb
             items={[
@@ -654,7 +654,7 @@ function TestSeries() {
         </div>
       </AnimatedHero>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-5 pb-6">
+      <div className="max-w-7xl mx-auto px-3 pt-4 sm:pt-5 pb-6">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
           {/* MAIN CONTENT */}
           <div className="space-y-6 sm:space-y-8 min-w-0">

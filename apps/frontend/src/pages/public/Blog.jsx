@@ -126,7 +126,7 @@ export default function Blog() {
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-gray-900">
       {/* Header & Breadcrumb */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+      <div className="hidden sm:block bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <Breadcrumb
             items={[

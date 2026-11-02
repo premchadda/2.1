@@ -490,6 +490,30 @@ const adminLimiter = rateLimit({
     `admin-ip-${req.ip || req.headers["x-forwarded-for"] || "unknown"}`,
 });
 
+const CATALOG_RATE_LIMIT_WINDOW_MS = parseInt(
+  process.env.CATALOG_RATE_LIMIT_WINDOW_MS || "60000",
+  10,
+);
+const CATALOG_RATE_LIMIT_MAX = parseInt(
+  process.env.CATALOG_RATE_LIMIT_MAX || (isProduction ? "120" : "10000"),
+  10,
+);
+
+const catalogLimiter = rateLimit({
+  windowMs: CATALOG_RATE_LIMIT_WINDOW_MS,
+  max: CATALOG_RATE_LIMIT_MAX,
+  message: {
+    success: false,
+    message: "Too many catalog requests. Please wait a moment.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) =>
+    isUserAdminRequest(req) ||
+    (!isProduction && req.headers["x-load-test"] === "true"),
+  keyGenerator: (req) => req.ip || req.headers["x-forwarded-for"] || "unknown",
+});
+
 // P0 FIX: Razorpay webhook needs raw body for HMAC verification.
 // Mount raw parser BEFORE global JSON parser so /api/payments/webhook receives Buffer.
 app.use(
@@ -543,12 +567,12 @@ app.use(traceMiddleware);
 app.get("/favicon.ico", (req, res) => res.status(204).end());
 
 app.get("/", (req, res) => {
+  if (isProduction) {
+    return res.status(204).end();
+  }
   res.json({
     success: true,
-    message: "Welcome to Trstprep API",
-    version: "2.1.0",
     status: "online",
-    health: `${req.protocol}://${req.get("host")}/api/health`,
   });
 });
 
@@ -658,6 +682,7 @@ app.use(
 app.use(validateOrigin);
 
 app.use("/api", generalLimiter);
+app.use(["/api/tests", "/api/exams", "/api/series"], catalogLimiter);
 app.use(requestDedup);
 // NOTE: the app-level catch-all responseCache(...) mount was removed. It
 // stacked a second cache layer above routes that already carry their own

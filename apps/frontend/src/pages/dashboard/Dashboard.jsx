@@ -53,6 +53,7 @@ import {
   RotateCcw,
   User,
   Crown,
+  Bookmark,
 } from "lucide-react";
 
 import {
@@ -363,14 +364,6 @@ function Dashboard() {
   // Define quick access items
   const quickAccessItems = [
     {
-      icon: RotateCcw,
-      color: "text-amber-600 dark:text-amber-400",
-      bg: "bg-amber-50 dark:bg-amber-950/60 border-amber-200/60 dark:border-amber-800/60",
-      title: "Mistakes",
-      desc: "Re-practice",
-      route: "/practice?mode=mistakes",
-    },
-    {
       icon: Radio,
       color: "text-rose-600 dark:text-rose-400",
       bg: "bg-rose-50 dark:bg-rose-950/60 border-rose-200/60 dark:border-rose-800/60",
@@ -425,6 +418,14 @@ function Dashboard() {
       title: "Attempted",
       desc: "History",
       route: "/attempted-tests",
+    },
+    {
+      icon: Bookmark,
+      color: "text-amber-600 dark:text-amber-400",
+      bg: "bg-amber-50 dark:bg-amber-950/60 border-amber-200/60 dark:border-amber-800/60",
+      title: "Saved Qs",
+      desc: "Bookmarks",
+      route: "/bookmarks",
     },
   ];
 
@@ -1077,21 +1078,22 @@ function Dashboard() {
       </AnimatedHero>
 
       {/* Quick Access - Floats slightly over hero section with title height */}
-      <section className="max-w-7xl mb-4 sm:mb-6 mx-auto px-3 sm:px-6 lg:px-8 -mt-4 sm:-mt-6 md:-mt-7 relative z-20">
+      <section className="max-w-7xl mb-4 sm:mb-6 mx-auto px-3 -mt-4 sm:-mt-6 md:-mt-7 relative z-20">
         <div
           className="bg-white dark:bg-gray-800 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-700/80 p-2.5 sm:p-4 md:p-6 animate-slide-in-up"
           style={{ animationDelay: "0.15s" }}
         >
-          <div className="flex items-center justify-between gap-2 mb-2.5 sm:mb-4">
-            <h2 className="text-[11px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate">
-              Quick Access
+          <div className="flex items-center justify-between gap-2 mb-2.5 sm:mb-3.5">
+            <h2 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-100/80 dark:border-indigo-800/50 text-[11px] sm:text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider shrink-0 shadow-2xs">
+              <Sparkles className="w-3 h-3 text-indigo-500 shrink-0" />
+              <span>Quick Access</span>
             </h2>
             <Link
-              to="/practice?mode=mistakes"
-              className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 rounded-lg text-[11px] sm:text-xs font-bold hover:bg-amber-100 dark:hover:bg-amber-900/50 transition border border-amber-200/80 dark:border-amber-800/60 shrink-0"
+              to="/bookmarks"
+              className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 rounded-lg text-[11px] sm:text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition border border-indigo-200/80 dark:border-indigo-800/60 shrink-0 shadow-2xs"
             >
-              <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
-              <span>Mistakes Practice</span> →
+              <Bookmark className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+              <span>Saved Questions</span> →
             </Link>
           </div>
           <div className="grid grid-cols-4 md:grid-cols-8 gap-1.5 sm:gap-2.5">
@@ -1120,16 +1122,20 @@ function Dashboard() {
         </div>
       </section>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 pb-6">
+      <div className="max-w-7xl mx-auto px-3 pb-6">
         {/* MAIN CONTENT GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
           {/* LEFT COLUMN - MAIN CONTENT */}
           <div className="lg:col-span-8 space-y-4 sm:space-y-6">
             {/* RECENT TEST SERIES */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-3.5 sm:p-4 md:p-5">
-              <div className="flex justify-between items-center mb-3 md:mb-4">
-                <div className="flex items-center gap-1.5 md:gap-2">
-                  <h2 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 dark:text-white">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+              {/* Subtle Header */}
+              <div className="bg-gradient-to-r from-indigo-50/80 via-slate-50/60 to-white dark:from-indigo-950/30 dark:via-gray-800 dark:to-gray-800 px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-indigo-100/60 dark:border-gray-700/80 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </div>
+                  <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
                     Recent Test Series
                   </h2>
                   <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full">
@@ -1144,135 +1150,137 @@ function Dashboard() {
                 </Link>
               </div>
 
-              {loading ? (
-                <div className="flex gap-2.5 sm:gap-3.5 overflow-x-auto pb-2.5 pt-0.5 pl-2 pr-3 sm:pl-2.5 sm:pr-4 snap-x">
-                  {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="animate-pulse bg-gray-100 dark:bg-gray-700/60 rounded-2xl h-32 w-[70vw] min-w-[215px] max-w-[255px] sm:w-[280px] shrink-0 snap-start"
-                    />
-                  ))}
-                </div>
-              ) : enrolledTestSeries.length > 0 ? (
-                <div
-                  ref={scrollContainerRef}
-                  className="flex gap-2.5 sm:gap-3.5 overflow-x-auto pb-2.5 pt-0.5 pl-2 pr-3 sm:pl-2.5 sm:pr-4 scroll-smooth snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] cursor-grab active:cursor-grabbing hover:shadow-inner rounded-xl"
-                  style={{ WebkitOverflowScrolling: "touch" }}
-                >
-                  {enrolledTestSeries.slice(0, 10).map((series) => {
-                    const total = Number(series.totalTests) || 0;
-                    const attempted = Number(series.attemptedTests) || 0;
-                    const progress =
-                      total > 0
-                        ? Math.min(100, Math.round((attempted / total) * 100))
-                        : 0;
-                    const progressColor =
-                      progress >= 70
-                        ? "green"
-                        : progress >= 40
-                          ? "yellow"
-                          : "blue";
-                    return (
-                      <Link
-                        key={series.id}
-                        to={`/test-series/${series.id}`}
-                        className={`group bg-gray-50 dark:bg-gray-700/80 rounded-2xl border border-gray-200 dark:border-gray-600 p-3 sm:p-3.5 md:p-4 cursor-pointer hover:shadow-lg hover:border-brand-start dark:hover:border-indigo-500 transition-all snap-start flex-shrink-0 ${
-                          enrolledTestSeries.length === 1
-                            ? "w-[85vw] max-w-[320px] sm:w-[340px] sm:max-w-[380px]"
-                            : "w-[70vw] min-w-[215px] max-w-[255px] sm:w-[280px] sm:max-w-[310px]"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 sm:gap-3 mb-2 sm:mb-2.5">
-                          <div className="text-xl sm:text-2xl group-hover:scale-110 transition-transform shrink-0">
-                            {series.icon}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-gray-800 dark:text-white text-xs sm:text-sm line-clamp-1 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors">
-                              {series.title}
-                            </h3>
-                            <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
-                              {series.category}
-                            </p>
-                          </div>
-                          <span
-                            className={`px-1.5 py-0.5 text-[10px] sm:text-xs font-bold rounded-full shrink-0 ${progressColor === "green" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : progressColor === "yellow" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400" : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"}`}
-                          >
-                            {progress}%
-                          </span>
-                        </div>
-
-                        <div className="mb-2 sm:mb-2.5">
-                          <div className="flex justify-between text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-1">
-                            <span className="truncate">
-                              {total > 0
-                                ? `${attempted}/${total} tests`
-                                : `${attempted} tests`}
-                            </span>
-                            <span className="shrink-0 text-[10px]">
-                              {progress >= 70
-                                ? "🎯 Almost done!"
-                                : progress >= 40
-                                  ? `💪 ${progress}% done — almost there!`
-                                  : attempted > 0
-                                    ? "👍 In progress"
-                                    : "🚀 Just started"}
-                            </span>
-                          </div>
-                          <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-500 ${progressColor === "green" ? "bg-gradient-to-r from-green-400 to-green-600" : progressColor === "yellow" ? "bg-gradient-to-r from-yellow-400 to-yellow-600" : "bg-gradient-to-r from-blue-400 to-blue-600"}`}
-                              style={{ width: `${progress}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        <span className="block w-full py-1.5 sm:py-2 bg-gradient-to-r from-brand-start to-brand-end text-white text-[11px] sm:text-xs font-semibold rounded-lg text-center group-hover:opacity-90 transition shadow-xs">
-                          Continue Learning
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-xl">
-                  <div className="text-2xl sm:text-3xl lg:text-4xl mb-3">
-                    📚
+              <div className="p-3.5 sm:p-4 md:p-5">
+                {loading ? (
+                  <div className="flex gap-2.5 sm:gap-3.5 overflow-x-auto pb-2.5 pt-0.5 pl-2 pr-3 sm:pl-2.5 sm:pr-4 snap-x no-scrollbar">
+                    {[1, 2, 3].map((i) => (
+                      <div
+                        key={i}
+                        className="animate-pulse bg-gray-100 dark:bg-gray-700/60 rounded-2xl h-32 w-[70vw] min-w-[215px] max-w-[255px] sm:w-[280px] shrink-0 snap-start"
+                      />
+                    ))}
                   </div>
-                  {(() => {
-                    const prefs = getOnboardingPrefs(user);
-                    if (prefs && prefs.selectedExam) {
+                ) : enrolledTestSeries.length > 0 ? (
+                  <div
+                    ref={scrollContainerRef}
+                    className="flex gap-2.5 sm:gap-3.5 overflow-x-auto pb-2.5 pt-0.5 pl-2 pr-3 sm:pl-2.5 sm:pr-4 scroll-smooth snap-x snap-mandatory no-scrollbar cursor-grab active:cursor-grabbing outline-none rounded-xl"
+                    style={{ WebkitOverflowScrolling: "touch" }}
+                  >
+                    {enrolledTestSeries.slice(0, 10).map((series) => {
+                      const total = Number(series.totalTests) || 0;
+                      const attempted = Number(series.attemptedTests) || 0;
+                      const progress =
+                        total > 0
+                          ? Math.min(100, Math.round((attempted / total) * 100))
+                          : 0;
+                      const progressColor =
+                        progress >= 70
+                          ? "green"
+                          : progress >= 40
+                            ? "yellow"
+                            : "blue";
                       return (
-                        <p className="text-gray-700 dark:text-gray-200 text-sm mb-1 font-semibold">
-                          Welcome! Start your {prefs.selectedExam.name} prep
-                          here.
+                        <Link
+                          key={series.id}
+                          to={`/test-series/${series.id}`}
+                          className={`group bg-gray-50 dark:bg-gray-700/80 rounded-2xl border border-gray-200 dark:border-gray-600 p-3 sm:p-3.5 md:p-4 cursor-pointer hover:shadow-lg hover:border-brand-start dark:hover:border-indigo-500 transition-all snap-start flex-shrink-0 ${
+                            enrolledTestSeries.length === 1
+                              ? "w-[85vw] max-w-[320px] sm:w-[340px] sm:max-w-[380px]"
+                              : "w-[70vw] min-w-[215px] max-w-[255px] sm:w-[280px] sm:max-w-[310px]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 sm:gap-3 mb-2 sm:mb-2.5">
+                            <div className="text-xl sm:text-2xl group-hover:scale-110 transition-transform shrink-0">
+                              {series.icon}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-gray-800 dark:text-white text-xs sm:text-sm line-clamp-1 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors">
+                                {series.title}
+                              </h3>
+                              <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
+                                {series.category}
+                              </p>
+                            </div>
+                            <span
+                              className={`px-1.5 py-0.5 text-[10px] sm:text-xs font-bold rounded-full shrink-0 ${progressColor === "green" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : progressColor === "yellow" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400" : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"}`}
+                            >
+                              {progress}%
+                            </span>
+                          </div>
+
+                          <div className="mb-2 sm:mb-2.5">
+                            <div className="flex justify-between text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-1">
+                              <span className="truncate">
+                                {total > 0
+                                  ? `${attempted}/${total} tests`
+                                  : `${attempted} tests`}
+                              </span>
+                              <span className="shrink-0 text-[10px]">
+                                {progress >= 70
+                                  ? "🎯 Almost done!"
+                                  : progress >= 40
+                                    ? `💪 ${progress}% done — almost there!`
+                                    : attempted > 0
+                                      ? "👍 In progress"
+                                      : "🚀 Just started"}
+                              </span>
+                            </div>
+                            <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${progressColor === "green" ? "bg-gradient-to-r from-green-400 to-green-600" : progressColor === "yellow" ? "bg-gradient-to-r from-yellow-400 to-yellow-600" : "bg-gradient-to-r from-blue-400 to-blue-600"}`}
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          <span className="block w-full py-1.5 sm:py-2 bg-gradient-to-r from-brand-start to-brand-end text-white text-[11px] sm:text-xs font-semibold rounded-lg text-center group-hover:opacity-90 transition shadow-xs">
+                            Continue Learning
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                    <div className="text-2xl sm:text-3xl lg:text-4xl mb-3">
+                      📚
+                    </div>
+                    {(() => {
+                      const prefs = getOnboardingPrefs(user);
+                      if (prefs && prefs.selectedExam) {
+                        return (
+                          <p className="text-gray-700 dark:text-gray-200 text-sm mb-1 font-semibold">
+                            Welcome! Start your {prefs.selectedExam.name} prep
+                            here.
+                          </p>
+                        );
+                      }
+                      return (
+                        <p className="text-gray-500 dark:text-gray-400 text-sm mb-3">
+                          You haven't enrolled in any test series yet
                         </p>
                       );
-                    }
-                    return (
-                      <p className="text-gray-500 dark:text-gray-400 text-sm mb-3">
-                        You haven't enrolled in any test series yet
-                      </p>
-                    );
-                  })()}
-                  <Link
-                    to="/test-series"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-brand-start text-white text-sm font-semibold rounded-lg hover:opacity-90 transition mt-2"
-                  >
-                    Browse Test Series <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
-              )}
+                    })()}
+                    <Link
+                      to="/test-series"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-brand-start text-white text-sm font-semibold rounded-lg hover:opacity-90 transition mt-2"
+                    >
+                      Browse Test Series <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* LIVE TESTS & QUIZZES - Two Column Layout */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-3.5 sm:p-4 md:p-5">
-              <div className="flex justify-between items-center mb-3 md:mb-4">
-                <div className="flex items-center gap-1.5 md:gap-2">
-                  <div className="relative">
-                    <span className="text-base sm:text-lg md:text-xl">🔴</span>
-                    <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 md:w-2 md:h-2 bg-red-500 rounded-full animate-ping" />
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+              {/* Subtle Header */}
+              <div className="bg-gradient-to-r from-rose-50/80 via-slate-50/60 to-white dark:from-rose-950/25 dark:via-gray-800 dark:to-gray-800 px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-rose-100/60 dark:border-gray-700/80 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                    <Radio className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-600 dark:text-rose-400 animate-pulse" />
                   </div>
-                  <h2 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 dark:text-white">
+                  <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
                     Live Tests & Quizzes
                   </h2>
                 </div>
@@ -1284,210 +1292,216 @@ function Dashboard() {
                 </Link>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                {/* Live Tests Column */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Radio className="w-4 h-4 text-red-500" />
-                    <h3 className="font-semibold text-gray-700 dark:text-gray-300 text-sm">
-                      Live Tests
-                    </h3>
-                    <span className="text-xs text-gray-400">
-                      ({liveTests.length})
-                    </span>
-                  </div>
-                  <div className="space-y-3">
-                    {liveTestsLoading ? (
-                      <div className="space-y-2">
-                        {[1, 2, 3].map((i) => (
-                          <div
-                            key={i}
-                            className="animate-pulse p-4 rounded-xl border bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-red-100 dark:border-red-800"
-                          >
-                            <div className="h-4 bg-red-200 dark:bg-red-800 rounded w-3/4 mb-2"></div>
-                            <div className="h-3 bg-red-100 dark:bg-red-900 rounded w-1/2"></div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : liveTests.length > 0 ? (
-                      liveTests.map((test) => {
-                        const seriesSlug =
-                          test.series?.slug ||
-                          test.seriesSlug ||
-                          test.series_slug ||
-                          (test.category
-                            ? String(test.category)
-                                .toLowerCase()
-                                .replace(/\s+/g, "-")
-                            : "live-tests");
-                        return (
-                          <Link
-                            key={test.id}
-                            to={`/${seriesSlug}/tests/${test.id || test._id}/instructions?attemptNo=1`}
-                            className="block p-4 rounded-xl border hover:shadow-lg transition-all cursor-pointer group bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-red-100 dark:border-red-800"
-                          >
-                            <div className="flex justify-between items-start mb-2">
-                              <span className="px-2 py-0.5 text-[10px] font-bold rounded-full text-white bg-red-500">
-                                🔴 LIVE
-                              </span>
-                              <span className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                                <Users className="w-3 h-3" />{" "}
-                                {(
-                                  (Number(test.participants) || 0) / 1000
-                                ).toFixed(1)}
-                                k
-                              </span>
-                            </div>
-                            <h3
-                              className="font-bold text-gray-800 dark:text-white text-sm mb-2 line-clamp-1 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors"
-                              title={test.title}
+              <div className="p-3.5 sm:p-4 md:p-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                  {/* Live Tests Column */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 rounded-lg bg-rose-50/60 dark:bg-rose-950/20 border border-rose-100/60 dark:border-rose-900/30">
+                      <Radio className="w-3.5 h-3.5 text-red-500" />
+                      <h3 className="font-semibold text-gray-700 dark:text-gray-300 text-xs sm:text-sm">
+                        Live Tests
+                      </h3>
+                      <span className="text-[11px] text-gray-400 ml-auto">
+                        ({liveTests.length})
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {liveTestsLoading ? (
+                        <div className="space-y-2">
+                          {[1, 2, 3].map((i) => (
+                            <div
+                              key={i}
+                              className="animate-pulse p-4 rounded-xl border bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-red-100 dark:border-red-800"
                             >
-                              {test.title}
-                            </h3>
-                            <div className="flex flex-col gap-1.5 text-[10px] text-gray-600 dark:text-gray-400 mb-3">
-                              <div className="flex items-center gap-2">
-                                <span className="flex items-center gap-1 font-semibold">
-                                  <Clock className="w-3 h-3 text-red-500" />{" "}
-                                  {test.duration}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1 font-medium text-amber-800 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-900/40 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-800/60">
-                                <Calendar className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
-                                <span
-                                  className="truncate"
-                                  title={`Available: ${test.timePeriod}`}
-                                >
-                                  Available: {test.timePeriod}
-                                </span>
-                              </div>
+                              <div className="h-4 bg-red-200 dark:bg-red-800 rounded w-3/4 mb-2"></div>
+                              <div className="h-3 bg-red-100 dark:bg-red-900 rounded w-1/2"></div>
                             </div>
-                            <span className="block w-full py-2 bg-red-500 group-hover:bg-red-600 text-white text-xs font-semibold rounded-lg text-center transition">
-                              Start Now
-                            </span>
-                          </Link>
-                        );
-                      })
-                    ) : (
-                      <div className="text-center py-8 bg-gradient-to-br from-red-50/50 to-orange-50/50 dark:from-red-900/10 dark:to-orange-900/10 rounded-xl border border-dashed border-red-200 dark:border-red-800">
-                        <Radio className="w-10 h-10 text-red-300 dark:text-red-700 mx-auto mb-3" />
-                        <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                          No Live Tests Right Now
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                          New live tests are scheduled regularly. Check back
-                          soon!
-                        </p>
-                        <Link
-                          to="/test-series"
-                          className="text-xs text-brand-start dark:text-indigo-400 font-medium hover:underline"
-                        >
-                          Browse Test Series →
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Free Quizzes Column */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <HelpCircle className="w-4 h-4 text-blue-500" />
-                    <h3 className="font-semibold text-gray-700 dark:text-gray-300 text-sm">
-                      Free Quizzes
-                    </h3>
-                    <span className="text-xs text-gray-400">
-                      ({freeQuizzes.length})
-                    </span>
-                  </div>
-                  <div className="space-y-3">
-                    {freeQuizzesLoading ? (
-                      <div className="space-y-2">
-                        {[1, 2, 3].map((i) => (
-                          <div
-                            key={i}
-                            className="animate-pulse p-4 rounded-xl border bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-100 dark:border-blue-800"
-                          >
-                            <div className="h-4 bg-blue-200 dark:bg-blue-800 rounded w-3/4 mb-2"></div>
-                            <div className="h-3 bg-blue-100 dark:bg-blue-900 rounded w-1/2"></div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : freeQuizzes.length > 0 ? (
-                      freeQuizzes.map((test) => {
-                        const seriesSlug =
-                          test.series?.slug ||
-                          test.seriesSlug ||
-                          test.series_slug ||
-                          (test.category
-                            ? String(test.category)
-                                .toLowerCase()
-                                .replace(/\s+/g, "-")
-                            : "live-tests");
-                        return (
+                          ))}
+                        </div>
+                      ) : liveTests.length > 0 ? (
+                        liveTests.map((test) => {
+                          const seriesSlug =
+                            test.series?.slug ||
+                            test.seriesSlug ||
+                            test.series_slug ||
+                            (test.category
+                              ? String(test.category)
+                                  .toLowerCase()
+                                  .replace(/\s+/g, "-")
+                              : "live-tests");
+                          return (
+                            <Link
+                              key={test.id}
+                              to={`/${seriesSlug}/tests/${test.id || test._id}/instructions?attemptNo=1`}
+                              className="block p-4 rounded-xl border hover:shadow-lg transition-all cursor-pointer group bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-red-100 dark:border-red-800"
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full text-white bg-red-500">
+                                  🔴 LIVE
+                                </span>
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                  <Users className="w-3 h-3" />{" "}
+                                  {(
+                                    (Number(test.participants) || 0) / 1000
+                                  ).toFixed(1)}
+                                  k
+                                </span>
+                              </div>
+                              <h3
+                                className="font-bold text-gray-800 dark:text-white text-sm mb-2 line-clamp-1 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors"
+                                title={test.title}
+                              >
+                                {test.title}
+                              </h3>
+                              <div className="flex flex-col gap-1.5 text-[10px] text-gray-600 dark:text-gray-400 mb-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="flex items-center gap-1 font-semibold">
+                                    <Clock className="w-3 h-3 text-red-500" />{" "}
+                                    {test.duration}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 font-medium text-amber-800 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-900/40 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-800/60">
+                                  <Calendar className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                                  <span
+                                    className="truncate"
+                                    title={`Available: ${test.timePeriod}`}
+                                  >
+                                    Available: {test.timePeriod}
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="block w-full py-2 bg-red-500 group-hover:bg-red-600 text-white text-xs font-semibold rounded-lg text-center transition">
+                                Start Now
+                              </span>
+                            </Link>
+                          );
+                        })
+                      ) : (
+                        <div className="text-center py-8 bg-gradient-to-br from-red-50/50 to-orange-50/50 dark:from-red-900/10 dark:to-orange-900/10 rounded-xl border border-dashed border-red-200 dark:border-red-800">
+                          <Radio className="w-10 h-10 text-red-300 dark:text-red-700 mx-auto mb-3" />
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                            No Live Tests Right Now
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                            New live tests are scheduled regularly. Check back
+                            soon!
+                          </p>
                           <Link
-                            key={test.id}
-                            to={`/${seriesSlug}/tests/${test.id || test._id}/instructions?attemptNo=1`}
-                            className="block p-4 rounded-xl border hover:shadow-lg transition-all cursor-pointer group bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-100 dark:border-blue-800"
+                            to="/test-series"
+                            className="text-xs text-brand-start dark:text-indigo-400 font-medium hover:underline"
                           >
-                            <div className="flex justify-between items-start mb-2">
-                              <div className="flex items-center gap-1.5">
-                                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full text-white bg-blue-500">
-                                  ⚡ QUIZ
-                                </span>
-                                <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
-                                  FREE
+                            Browse Test Series →
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Free Quizzes Column */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100/60 dark:border-blue-900/30">
+                      <HelpCircle className="w-3.5 h-3.5 text-blue-500" />
+                      <h3 className="font-semibold text-gray-700 dark:text-gray-300 text-xs sm:text-sm">
+                        Free Quizzes
+                      </h3>
+                      <span className="text-[11px] text-gray-400 ml-auto">
+                        ({freeQuizzes.length})
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {freeQuizzesLoading ? (
+                        <div className="space-y-2">
+                          {[1, 2, 3].map((i) => (
+                            <div
+                              key={i}
+                              className="animate-pulse p-4 rounded-xl border bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-100 dark:border-blue-800"
+                            >
+                              <div className="h-4 bg-blue-200 dark:bg-blue-800 rounded w-3/4 mb-2"></div>
+                              <div className="h-3 bg-blue-100 dark:bg-blue-900 rounded w-1/2"></div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : freeQuizzes.length > 0 ? (
+                        freeQuizzes.map((test) => {
+                          const seriesSlug =
+                            test.series?.slug ||
+                            test.seriesSlug ||
+                            test.series_slug ||
+                            (test.category
+                              ? String(test.category)
+                                  .toLowerCase()
+                                  .replace(/\s+/g, "-")
+                              : "live-tests");
+                          return (
+                            <Link
+                              key={test.id}
+                              to={`/${seriesSlug}/tests/${test.id || test._id}/instructions?attemptNo=1`}
+                              className="block p-4 rounded-xl border hover:shadow-lg transition-all cursor-pointer group bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-100 dark:border-blue-800"
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full text-white bg-blue-500">
+                                    ⚡ QUIZ
+                                  </span>
+                                  <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                                    FREE
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                  <Users className="w-3 h-3" />{" "}
+                                  {(
+                                    (Number(test.participants) || 0) / 1000
+                                  ).toFixed(1)}
+                                  k
                                 </span>
                               </div>
-                              <span className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                                <Users className="w-3 h-3" />{" "}
-                                {(
-                                  (Number(test.participants) || 0) / 1000
-                                ).toFixed(1)}
-                                k
+                              <h3 className="font-bold text-gray-800 dark:text-white text-sm mb-2 line-clamp-1 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors">
+                                {test.title}
+                              </h3>
+                              <div className="flex items-center gap-2 text-[10px] text-gray-600 dark:text-gray-400 mb-3">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" /> {test.duration}
+                                </span>
+                                <span>{test.startTime}</span>
+                              </div>
+                              <span className="block w-full py-2 bg-blue-500 group-hover:bg-blue-600 text-white text-xs font-semibold rounded-lg text-center transition">
+                                Start Now
                               </span>
-                            </div>
-                            <h3 className="font-bold text-gray-800 dark:text-white text-sm mb-2 line-clamp-1 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors">
-                              {test.title}
-                            </h3>
-                            <div className="flex items-center gap-2 text-[10px] text-gray-600 dark:text-gray-400 mb-3">
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" /> {test.duration}
-                              </span>
-                              <span>{test.startTime}</span>
-                            </div>
-                            <span className="block w-full py-2 bg-blue-500 group-hover:bg-blue-600 text-white text-xs font-semibold rounded-lg text-center transition">
-                              Start Now
-                            </span>
+                            </Link>
+                          );
+                        })
+                      ) : (
+                        <div className="text-center py-8 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/10 dark:to-indigo-900/10 rounded-xl border border-dashed border-blue-200 dark:border-blue-800">
+                          <HelpCircle className="w-10 h-10 text-blue-300 dark:text-blue-700 mx-auto mb-3" />
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                            No Free Quizzes Available
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                            Practice quizzes are added frequently. Stay tuned!
+                          </p>
+                          <Link
+                            to="/test-series"
+                            className="text-xs text-brand-start dark:text-indigo-400 font-medium hover:underline"
+                          >
+                            Explore Test Series →
                           </Link>
-                        );
-                      })
-                    ) : (
-                      <div className="text-center py-8 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/10 dark:to-indigo-900/10 rounded-xl border border-dashed border-blue-200 dark:border-blue-800">
-                        <HelpCircle className="w-10 h-10 text-blue-300 dark:text-blue-700 mx-auto mb-3" />
-                        <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                          No Free Quizzes Available
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                          Practice quizzes are added frequently. Stay tuned!
-                        </p>
-                        <Link
-                          to="/test-series"
-                          className="text-xs text-brand-start dark:text-indigo-400 font-medium hover:underline"
-                        >
-                          Explore Test Series →
-                        </Link>
-                      </div>
-                    )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* MY EXAMS */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-3.5 sm:p-4 md:p-5">
-              <div className="flex justify-between items-center mb-3 md:mb-4">
-                <div className="flex items-center gap-1.5 md:gap-2">
-                  <h2 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 dark:text-white">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+              {/* Subtle Header */}
+              <div className="bg-gradient-to-r from-indigo-50/80 via-slate-50/60 to-white dark:from-indigo-950/30 dark:via-gray-800 dark:to-gray-800 px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-indigo-100/60 dark:border-gray-700/80 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 text-sm">
+                    📚
+                  </div>
+                  <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
                     My Exams
                   </h2>
                   {enrolledExams.length > 0 && (
@@ -1504,61 +1518,66 @@ function Dashboard() {
                   <ArrowRight className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 </Link>
               </div>
-              {enrolledExams.length > 0 ? (
-                <div
-                  ref={examsScrollRef}
-                  className={`flex gap-3 sm:gap-4 overflow-x-auto pb-2 pt-1 px-1 sm:px-1.5 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${
-                    enrolledExams.length <= 2 ? "w-full" : ""
-                  }`}
-                >
-                  {enrolledExams.map((exam) => (
-                    <Link
-                      key={exam.examId || exam.id}
-                      to={`/exam/${exam.examId || exam.id}`}
-                      className={`p-4 sm:p-4.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800 cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all group snap-start ${
-                        enrolledExams.length === 1
-                          ? "w-full max-w-full"
-                          : enrolledExams.length === 2
-                            ? "w-[80vw] sm:w-auto sm:flex-1 sm:min-w-[260px] shrink-0 sm:shrink"
-                            : "w-[80vw] sm:w-[280px] sm:flex-1 sm:min-w-[240px] sm:max-w-[340px] shrink-0"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="text-2xl group-hover:scale-110 transition-transform">
-                          {exam.icon}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-gray-800 dark:text-white text-sm truncate">
-                            {exam.name}
-                          </h3>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
-                            {exam.description || "View details"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-xs pt-1 border-t border-indigo-100/60 dark:border-indigo-800/60">
-                        <span className="text-indigo-600 dark:text-indigo-400 font-medium">
-                          View Details
-                        </span>
-                        <ChevronRight className="w-4 h-4 text-gray-400 group-hover:translate-x-1 transition-transform" />
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6 bg-gray-50 dark:bg-gray-700 rounded-xl">
-                  <div className="text-xl sm:text-2xl lg:text-3xl mb-2">📚</div>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-3">
-                    You haven't enrolled in any exams yet
-                  </p>
-                  <Link
-                    to="/exams"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-brand-start text-white text-sm font-semibold rounded-lg hover:opacity-90 transition"
+
+              <div className="p-3.5 sm:p-4 md:p-5">
+                {enrolledExams.length > 0 ? (
+                  <div
+                    ref={examsScrollRef}
+                    className={`flex gap-3 sm:gap-4 overflow-x-auto pb-2 pt-1 px-1 sm:px-1.5 snap-x snap-mandatory no-scrollbar ${
+                      enrolledExams.length <= 2 ? "w-full" : ""
+                    }`}
                   >
-                    Browse Exams <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
-              )}
+                    {enrolledExams.map((exam) => (
+                      <Link
+                        key={exam.examId || exam.id}
+                        to={`/exam/${exam.examId || exam.id}`}
+                        className={`p-3 sm:p-4.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800 cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all group snap-start ${
+                          enrolledExams.length === 1
+                            ? "w-full max-w-full"
+                            : enrolledExams.length === 2
+                              ? "w-[40vw] sm:w-auto sm:flex-1 sm:min-w-[260px] shrink-0 sm:shrink"
+                              : "w-[40vw] sm:w-[280px] sm:flex-1 sm:min-w-[240px] sm:max-w-[340px] shrink-0"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                          <div className="text-xl sm:text-2xl group-hover:scale-110 transition-transform shrink-0">
+                            {exam.icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-gray-800 dark:text-white text-xs sm:text-sm truncate">
+                              {exam.name}
+                            </h3>
+                            <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
+                              {exam.description || "View details"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] sm:text-xs pt-1 border-t border-indigo-100/60 dark:border-indigo-800/60">
+                          <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+                            View Details
+                          </span>
+                          <ChevronRight className="w-3.5 h-3.5 text-gray-400 group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                    <div className="text-xl sm:text-2xl lg:text-3xl mb-2">
+                      📚
+                    </div>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-3">
+                      You haven't enrolled in any exams yet
+                    </p>
+                    <Link
+                      to="/exams"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-brand-start text-white text-sm font-semibold rounded-lg hover:opacity-90 transition"
+                    >
+                      Browse Exams <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* AI STUDY ASSISTANT & DUE FOR REVIEW (2-COLUMN GRID IN LEFT COLUMN) */}

@@ -4,7 +4,7 @@ export default function Footer({ isLeftNavMode = false }) {
   return (
     <footer
       role="contentinfo"
-      className={`bg-gray-900 border-t border-gray-800 text-gray-400 pt-10 pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] md:pb-10 transition-all duration-300 ${
+      className={`bg-gray-900 border-t border-gray-800 text-gray-400 pt-10 pb-[calc(3.75rem+env(safe-area-inset-bottom,0px))] md:pb-10 transition-all duration-300 ${
         isLeftNavMode ? "lg:ml-[260px]" : ""
       }`}
     >

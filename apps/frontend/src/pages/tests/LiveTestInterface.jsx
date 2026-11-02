@@ -13,7 +13,15 @@ import { useConfirm } from "../../shared/components/common/ConfirmModal";
 import MathRenderer from "../../shared/components/MathRenderer";
 import { formatTime } from "../../shared/lib/format.js";
 import { getErrorStatus } from "../../shared/lib/apiClient.js";
+import {
+  getEstimatedReadingSeconds,
+  formatReadingTime,
+} from "@trstprep/shared-config";
+import { AlertTriangle, BookOpen } from "lucide-react";
 import "./TestInterface.css";
+
+const DEFAULT_MARKS_PER_QUESTION = 2;
+const DEFAULT_NEGATIVE_MARKS = 0.5;
 
 const LiveTestInterface = () => {
   const { liveTestId } = useParams();
@@ -534,28 +542,94 @@ const LiveTestInterface = () => {
 
         <div className="test-main">
           <div className="test-question">
+            {/* Question Info Header - Q.No, Negative Marking, Reading Time */}
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-3 pb-2.5 border-b border-slate-700/60 min-w-0 flex-wrap">
+              <span className="bg-indigo-900/50 text-indigo-300 border border-indigo-700/60 px-2 py-0.5 rounded-full text-xs font-bold shrink-0">
+                Q.{currentQuestion + 1}
+              </span>
+
+              {Number(
+                question?.negative_marks ??
+                  question?.negativeMarks ??
+                  test?.negativeMarking ??
+                  test?.negativeMarks ??
+                  DEFAULT_NEGATIVE_MARKS,
+              ) > 0 ? (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-800/80 text-amber-300 text-[10px] sm:text-[11px] font-bold shrink-0">
+                  <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+                  <span>
+                    -
+                    {Number(
+                      question?.negative_marks ??
+                        question?.negativeMarks ??
+                        test?.negativeMarking ??
+                        test?.negativeMarks ??
+                        DEFAULT_NEGATIVE_MARKS,
+                    ).toFixed(2)}{" "}
+                    for wrong
+                  </span>
+                </span>
+              ) : (
+                <span className="text-slate-400 text-[11px] font-medium shrink-0">
+                  +
+                  {(
+                    test?.marksPerQuestion || DEFAULT_MARKS_PER_QUESTION
+                  ).toFixed(1)}{" "}
+                  Marks
+                </span>
+              )}
+
+              {question && (
+                <span
+                  className="flex items-center gap-1 text-slate-300 text-[10px] sm:text-[11px] font-medium bg-slate-800/80 border border-slate-700 px-1.5 py-0.5 rounded shrink-0"
+                  title="Estimated reading time"
+                >
+                  <BookOpen className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span>
+                    ~{formatReadingTime(getEstimatedReadingSeconds(question))}
+                  </span>
+                </span>
+              )}
+            </div>
+
             <h2 className="test-question-title">
               <MathRenderer text={sanitizeHtml(question.text)} />
             </h2>
 
             {question.type === "mcq" && (
               <div className="test-options">
-                {question.options.map((option, index) => (
-                  <label key={index} className="test-option">
-                    <input
-                      type="radio"
-                      name="answer"
-                      value={option}
-                      checked={answers[currentQuestion] === option}
-                      onChange={(event) =>
-                        handleAnswerChange(event.target.value)
-                      }
-                    />
-                    <span className="test-option-label">
-                      <MathRenderer text={sanitizeHtml(option)} />
-                    </span>
-                  </label>
-                ))}
+                {question.options.map((option, index) => {
+                  const isSelected = answers[currentQuestion] === option;
+                  return (
+                    <label
+                      key={index}
+                      className={`test-option ${isSelected ? "border-indigo-500 bg-indigo-950/30 ring-1 ring-indigo-500" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name="answer"
+                        value={option}
+                        checked={isSelected}
+                        onChange={(event) =>
+                          handleAnswerChange(event.target.value)
+                        }
+                        className="sr-only"
+                      />
+                      <span
+                        className={`w-6 h-6 min-w-[24px] min-h-[24px] rounded-full border-2 flex-shrink-0 flex items-center justify-center aspect-square mr-3 text-xs font-bold transition-all ${
+                          isSelected
+                            ? "bg-indigo-600 border-indigo-600 text-white shadow-xs"
+                            : "border-slate-600 bg-slate-800 text-slate-300"
+                        }`}
+                      >
+                        {String.fromCharCode(65 + index)}
+                      </span>
+                      <span className="test-option-label">
+                        <MathRenderer text={sanitizeHtml(option)} />
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
             )}
 
@@ -567,18 +641,32 @@ const LiveTestInterface = () => {
                   )
                     ? answers[currentQuestion]
                     : [];
+                  const isSelected = currentSelections.includes(index);
                   return (
-                    <label key={index} className="test-option">
+                    <label
+                      key={index}
+                      className={`test-option ${isSelected ? "border-indigo-500 bg-indigo-950/30 ring-1 ring-indigo-500" : ""}`}
+                    >
                       <input
                         type="checkbox"
-                        checked={currentSelections.includes(index)}
+                        checked={isSelected}
                         onChange={() => {
-                          const updated = currentSelections.includes(index)
+                          const updated = isSelected
                             ? currentSelections.filter((i) => i !== index)
                             : [...currentSelections, index];
                           handleAnswerChange(updated);
                         }}
+                        className="sr-only"
                       />
+                      <span
+                        className={`w-6 h-6 min-w-[24px] min-h-[24px] rounded-lg border-2 flex-shrink-0 flex items-center justify-center aspect-square mr-3 text-xs font-bold transition-all ${
+                          isSelected
+                            ? "bg-indigo-600 border-indigo-600 text-white shadow-xs"
+                            : "border-slate-600 bg-slate-800 text-slate-300"
+                        }`}
+                      >
+                        {String.fromCharCode(65 + index)}
+                      </span>
                       <span className="test-option-label">
                         <MathRenderer text={sanitizeHtml(option)} />
                       </span>

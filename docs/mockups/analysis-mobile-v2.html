@@ -1,0 +1,1053 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#667eea" />
+<title>Trstprep — Performance Analysis (Mobile v2)</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --surface-2: #f1f3f9;
+    --surface-3: #e7eaf3;
+    --text: #101828;
+    --text-2: #475467;
+    --text-3: #667085;
+    --border: #e4e7ec;
+    --border-strong: #d0d5dd;
+    --brand: #667eea;
+    --brand-2: #764ba2;
+    --brand-soft: #eef2ff;
+    --brand-ink: #4338ca;
+    --success: #15803d;
+    --success-soft: #ecfdf3;
+    --warning: #b45309;
+    --warning-soft: #fffaeb;
+    --danger: #b42318;
+    --danger-soft: #fef3f2;
+    --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.05);
+    --radius: 18px;
+    --header-h: 56px;
+    --font: "Segoe UI", Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0b0f19;
+    --surface: #121826;
+    --surface-2: #1a2233;
+    --surface-3: #232d42;
+    --text: #f2f4f7;
+    --text-2: #c3cad8;
+    --text-3: #98a2b3;
+    --border: #263047;
+    --border-strong: #344054;
+    --brand: #8b9cf5;
+    --brand-2: #b794f6;
+    --brand-soft: #1d2540;
+    --brand-ink: #c7d2fe;
+    --success: #4ade80;
+    --success-soft: #0f2a1d;
+    --warning: #fbbf24;
+    --warning-soft: #2a2110;
+    --danger: #fb7185;
+    --danger-soft: #2a1419;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  button, a { font: inherit; color: inherit; }
+  button { cursor: pointer; background: none; border: 0; }
+  a { text-decoration: none; }
+  :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 8px; }
+  [hidden] { display: none !important; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+  .icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .icon-sm { width: 16px; height: 16px; }
+  .icon-xs { width: 14px; height: 14px; }
+  .muted { color: var(--text-3); }
+
+  /* ---------- Mobile shell ---------- */
+  .phone {
+    position: relative;
+    max-width: 390px;
+    margin: 0 auto;
+    min-height: 100dvh;
+    background: var(--bg);
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  }
+  .preview-meta, .preview-note { display: none; }
+
+  /* ---------- App bar ---------- */
+  .appbar {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; align-items: center; gap: 8px;
+    height: var(--header-h); padding: 0 12px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: grid; place-items: center; color: var(--text-2);
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .icon-btn:hover { background: var(--surface-2); color: var(--text); }
+  .appbar-title { flex: 1; min-width: 0; }
+  .appbar-title h1 { margin: 0; font-size: 16px; font-weight: 750; letter-spacing: -0.01em; }
+  .appbar-title p { margin: 1px 0 0; font-size: 11px; color: var(--text-3); }
+  .sun-icon { display: block; }
+  .moon-icon { display: none; }
+  [data-theme="dark"] .sun-icon { display: none; }
+  [data-theme="dark"] .moon-icon { display: block; }
+
+  /* ---------- Filters ---------- */
+  .filters {
+    display: flex; gap: 7px; overflow-x: auto;
+    padding: 10px 14px 2px;
+    scrollbar-width: none;
+  }
+  .filters::-webkit-scrollbar { display: none; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    min-height: 34px; padding: 7px 11px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; font-size: 11.5px; font-weight: 650; color: var(--text-2);
+    white-space: nowrap; transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .chip:hover { border-color: var(--border-strong); }
+  .chip:active { background: var(--surface-2); }
+  .chip .icon { width: 13px; height: 13px; color: var(--text-3); }
+
+  .content { padding: 0 14px; }
+
+  /* ---------- KPI ---------- */
+  .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .kpi {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 11px 12px 12px; box-shadow: var(--shadow);
+  }
+  .kpi-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+  .kpi-icon { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; }
+  .kpi-icon .icon { width: 16px; height: 16px; }
+  .tint-brand { background: var(--brand-soft); color: var(--brand-ink); }
+  .tint-success { background: var(--success-soft); color: var(--success); }
+  .tint-warning { background: var(--warning-soft); color: var(--warning); }
+  .tint-danger { background: var(--danger-soft); color: var(--danger); }
+  .delta { font-size: 9.5px; font-weight: 750; padding: 3px 6px; border-radius: 999px; white-space: nowrap; }
+  .delta.up { color: var(--success); background: var(--success-soft); }
+  .delta.down { color: var(--danger); background: var(--danger-soft); }
+  .delta.neutral { color: var(--text-3); background: var(--surface-2); }
+  .kpi-value {
+    margin: 0; font-size: 23px; line-height: 1.05; font-weight: 800;
+    letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
+  }
+  .kpi-value small { font-size: 12px; font-weight: 700; color: var(--text-3); letter-spacing: 0; }
+  .kpi-label { margin: 3px 0 0; font-size: 10.5px; font-weight: 600; color: var(--text-3); }
+
+  /* ---------- Cards ---------- */
+  .card {
+    margin-top: 12px; padding: 13px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+  .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+  .card-head h2, .section-head h2 { margin: 0; font-size: 13.5px; font-weight: 750; letter-spacing: -0.01em; }
+  .card-sub { margin: 2px 0 0; font-size: 10.5px; color: var(--text-3); }
+  .pill { font-size: 9.5px; font-weight: 750; padding: 4px 7px; border-radius: 999px; white-space: nowrap; }
+  .pill.success { color: var(--success); background: var(--success-soft); }
+  .pill.danger { color: var(--danger); background: var(--danger-soft); }
+  .pill.brand { color: var(--brand-ink); background: var(--brand-soft); }
+
+  /* ---------- Trend chart ---------- */
+  .chart { display: block; width: 100%; height: auto; overflow: visible; }
+  .chart text { font-family: var(--font); }
+  .chart-foot { display: flex; justify-content: space-between; margin-top: 4px; font-size: 9.5px; color: var(--text-3); }
+  .legend-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 10px; color: var(--text-2); }
+  .legend-row span { display: inline-flex; align-items: center; gap: 4px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .dot.brand { background: var(--brand); }
+  .dot.success { background: var(--success); }
+  .dot.danger { background: var(--danger); }
+  .dot.muted { background: var(--border-strong); }
+
+  /* ---------- Focus now ---------- */
+  .section { margin-top: 16px; }
+  .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+  .section-head .muted { font-size: 10.5px; }
+  .focus-card {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px; margin-top: 7px;
+    border: 1px solid var(--border); border-radius: 14px;
+    background: var(--surface); box-shadow: var(--shadow);
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .focus-card:active { transform: scale(0.99); }
+  .focus-card.danger { background: linear-gradient(90deg, var(--danger-soft), var(--surface) 70%); border-color: color-mix(in srgb, var(--danger) 18%, var(--border)); }
+  .focus-card.warning { background: linear-gradient(90deg, var(--warning-soft), var(--surface) 70%); border-color: color-mix(in srgb, var(--warning) 20%, var(--border)); }
+  .focus-icon { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex: none; }
+  .focus-body { min-width: 0; flex: 1; }
+  .focus-title { display: block; font-size: 12px; font-weight: 750; }
+  .focus-meta { display: block; margin-top: 1px; font-size: 10px; color: var(--text-3); }
+  .focus-cta { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 750; color: var(--brand-ink); white-space: nowrap; }
+
+  /* ---------- Tabs ---------- */
+  .tabs-wrap {
+    position: sticky; top: var(--header-h); z-index: 30;
+    margin: 14px -14px 0; padding: 4px 14px 0;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+  }
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
+  .tab {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    min-height: 50px; padding: 6px 2px 9px;
+    font-size: 9.5px; font-weight: 650; color: var(--text-3);
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .tab .icon { width: 17px; height: 17px; }
+  .tab[aria-selected="true"] { color: var(--brand-ink); border-bottom-color: var(--brand); }
+  .tab:hover { color: var(--text-2); }
+  .panel { padding-top: 12px; }
+
+  /* ---------- Donut ---------- */
+  .donut-wrap { display: flex; align-items: center; gap: 14px; }
+  .donut { width: 108px; height: 108px; flex: none; }
+  .donut circle { fill: none; stroke-width: 13; }
+  .donut .track { stroke: var(--surface-3); }
+  .donut .seg-success { stroke: var(--success); }
+  .donut .seg-danger { stroke: var(--danger); }
+  .donut .seg-muted { stroke: var(--border-strong); }
+  .donut text { font-family: var(--font); }
+  .donut-legend { flex: 1; display: grid; gap: 7px; }
+  .donut-legend-row { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+  .donut-legend-row b { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 11.5px; }
+  .donut-legend-row .muted { font-size: 9.5px; }
+
+  /* ---------- Recent tests ---------- */
+  .test-row {
+    display: flex; align-items: center; gap: 9px;
+    padding: 9px 0; border-top: 1px solid var(--border);
+  }
+  .test-row:first-of-type { border-top: 0; padding-top: 2px; }
+  .test-icon { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex: none; }
+  .test-body { min-width: 0; flex: 1; }
+  .test-title { display: block; font-size: 11.5px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .test-meta { display: block; margin-top: 1px; font-size: 9.5px; color: var(--text-3); }
+  .test-score { text-align: right; flex: none; }
+  .test-score b { display: block; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .test-score span { display: block; font-size: 9.5px; color: var(--text-3); }
+  .test-row .icon { color: var(--text-3); }
+
+  /* ---------- Consistency ---------- */
+  .streak-labels, .streak { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+  .streak-labels { margin-bottom: 4px; font-size: 8.5px; font-weight: 650; color: var(--text-3); text-align: center; }
+  .streak-cell {
+    aspect-ratio: 1; border-radius: 6px; display: grid; place-items: center;
+    background: var(--surface-2); color: var(--text-3);
+    font-size: 8.5px; font-weight: 750;
+  }
+  .streak-cell[data-level="1"] { background: color-mix(in srgb, var(--brand) 22%, var(--surface)); color: var(--brand-ink); }
+  .streak-cell[data-level="2"] { background: color-mix(in srgb, var(--brand) 52%, var(--surface)); color: #fff; }
+  .streak-cell[data-level="3"] { background: var(--brand); color: #fff; }
+
+  /* ---------- Subjects ---------- */
+  .summary-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 9px; }
+  .summary-chip { font-size: 9.5px; font-weight: 650; padding: 4px 7px; border-radius: 999px; }
+  .summary-chip.good { color: var(--success); background: var(--success-soft); }
+  .summary-chip.bad { color: var(--danger); background: var(--danger-soft); }
+  .subject { margin-top: 7px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; box-shadow: var(--shadow); }
+  .subject-btn { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 58px; padding: 10px 11px; text-align: left; }
+  .subject-icon { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; flex: none; }
+  .subject-body { min-width: 0; flex: 1; }
+  .subject-name { display: block; font-size: 12px; font-weight: 750; }
+  .subject-meta { display: block; margin-top: 1px; font-size: 9.5px; color: var(--text-3); }
+  .subject-score { text-align: right; flex: none; }
+  .subject-score b { display: block; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .subject-score span { display: block; font-size: 9px; color: var(--text-3); }
+  .subject-btn .chev { color: var(--text-3); transition: transform 0.18s ease; }
+  .subject-btn[aria-expanded="true"] .chev { transform: rotate(180deg); }
+  .subject-topics { padding: 2px 11px 10px; background: var(--surface-2); border-top: 1px solid var(--border); }
+  .topic { display: flex; align-items: center; gap: 7px; padding: 8px 0; border-top: 1px solid var(--border); }
+  .topic:first-child { border-top: 0; }
+  .topic-name { font-size: 11px; font-weight: 650; white-space: nowrap; }
+  .topic-bar { flex: 1; height: 4px; border-radius: 999px; background: var(--surface-3); overflow: hidden; min-width: 30px; }
+  .topic-bar span { display: block; height: 100%; border-radius: 999px; background: var(--brand); }
+  .topic-acc { width: 30px; text-align: right; font-size: 10px; font-weight: 750; font-variant-numeric: tabular-nums; }
+  .topic-cta { font-size: 9.5px; font-weight: 750; color: var(--brand-ink); white-space: nowrap; }
+
+  /* ---------- Speed ---------- */
+  .time-row { display: grid; grid-template-columns: 74px 1fr 34px; align-items: center; gap: 8px; margin-top: 9px; font-size: 10.5px; }
+  .time-name { font-weight: 650; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .time-bar { height: 7px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+  .time-bar span { display: block; height: 100%; border-radius: 999px; }
+  .time-value { text-align: right; font-size: 10px; font-weight: 750; font-variant-numeric: tabular-nums; color: var(--text-2); }
+  .bar-success { background: var(--success); }
+  .bar-warning { background: var(--warning); }
+  .bar-danger { background: var(--danger); }
+  .time-note { margin: 8px 0 0; font-size: 9.5px; color: var(--text-3); }
+  .diff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  .diff-card { padding: 9px 6px; border-radius: 11px; text-align: center; background: var(--surface-2); }
+  .diff-value { display: block; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .diff-label { display: block; margin-top: 1px; font-size: 8.5px; font-weight: 750; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); }
+  .diff-bar { height: 3px; margin-top: 5px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+  .diff-bar span { display: block; height: 100%; border-radius: 999px; }
+  .scatter { display: block; width: 100%; height: auto; background: var(--surface-2); border-radius: 12px; }
+  .scatter text { font-family: var(--font); }
+  .data-table { margin-top: 8px; font-size: 10px; color: var(--text-2); }
+  .data-table summary { cursor: pointer; font-weight: 650; color: var(--brand-ink); }
+  .data-table table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  .data-table th, .data-table td { text-align: left; padding: 5px 4px; border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  .data-table th { font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); }
+
+  /* ---------- Plan ---------- */
+  .rank-card {
+    position: relative; overflow: hidden; margin-top: 12px; padding: 15px;
+    border-radius: var(--radius); color: #fff;
+    background: linear-gradient(135deg, var(--brand), var(--brand-2));
+    box-shadow: 0 12px 26px rgba(102, 126, 234, 0.28);
+  }
+  .rank-card::after {
+    content: ""; position: absolute; width: 150px; height: 150px; border-radius: 50%;
+    right: -60px; top: -70px; background: rgba(255, 255, 255, 0.12);
+  }
+  .rank-head { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .rank-head h2 { margin: 0; font-size: 12px; font-weight: 700; opacity: 0.9; }
+  .rank-badge { font-size: 9px; font-weight: 750; padding: 3px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.18); }
+  .rank-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; margin-top: 10px; text-align: center; }
+  .rank-value { display: block; font-size: 23px; line-height: 1.05; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+  .rank-label { display: block; margin-top: 2px; font-size: 8.5px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.78; }
+  .rank-progress { position: relative; z-index: 1; height: 5px; margin-top: 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); overflow: hidden; }
+  .rank-progress span { display: block; height: 100%; width: 72%; border-radius: 999px; background: #fff; }
+  .rank-foot { position: relative; z-index: 1; display: flex; justify-content: space-between; margin-top: 5px; font-size: 9px; opacity: 0.82; }
+  .rec { display: flex; gap: 9px; margin-top: 7px; padding: 10px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); }
+  .rec-icon { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex: none; }
+  .rec-body { min-width: 0; flex: 1; }
+  .rec-title { display: block; font-size: 11.5px; font-weight: 750; }
+  .rec-text { margin: 2px 0 5px; font-size: 10.5px; line-height: 1.4; color: var(--text-2); }
+  .rec-why { display: inline-block; padding: 3px 5px; border-radius: 5px; background: var(--surface-2); font-size: 9px; color: var(--text-3); }
+  .rec-cta { display: inline-flex; align-items: center; gap: 2px; margin-top: 6px; font-size: 9.5px; font-weight: 750; color: var(--brand-ink); }
+  .goal { display: flex; align-items: center; gap: 12px; }
+  .ring { width: 62px; height: 62px; flex: none; }
+  .ring circle { fill: none; stroke-width: 7; }
+  .ring .ring-track { stroke: var(--surface-3); }
+  .ring .ring-fill { stroke: var(--brand); stroke-linecap: round; }
+  .ring text { font-family: var(--font); font-size: 13px; font-weight: 800; fill: var(--text); }
+  .goal-body { flex: 1; }
+  .goal-title { margin: 0; font-size: 11.5px; font-weight: 750; }
+  .goal-text { margin: 2px 0 0; font-size: 10px; color: var(--text-3); }
+  .goal-list { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+  .goal-list li { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-2); }
+  .goal-list .icon { width: 12px; height: 12px; }
+  .goal-list .done { color: var(--success); }
+  .goal-list .todo { color: var(--border-strong); }
+
+  /* ---------- Footer / toast ---------- */
+  .app-footer { padding: 16px 14px 0; text-align: center; font-size: 9.5px; color: var(--text-3); }
+  .toast {
+    position: fixed; left: 50%; bottom: 22px; z-index: 100;
+    transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
+    padding: 9px 14px; border-radius: 999px;
+    background: #101828; color: #fff; font-size: 11px; font-weight: 650;
+    box-shadow: 0 10px 30px rgba(16, 24, 40, 0.25);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    max-width: calc(100vw - 40px); text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ---------- Desktop phone frame ---------- */
+  @media (min-width: 640px) {
+    body {
+      min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+      padding: 26px 16px 36px;
+      background:
+        radial-gradient(900px 500px at 50% -10%, rgba(102, 126, 234, 0.18), transparent 60%),
+        #eef0f7;
+    }
+    .preview-meta {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+      font-size: 12px; font-weight: 700; color: #344054;
+    }
+    .preview-meta .badge {
+      font-size: 9px; font-weight: 750; letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 4px 7px; border-radius: 999px; color: #4338ca; background: #e0e7ff;
+    }
+    .phone {
+      width: 390px; height: 844px; min-height: 0; overflow-y: auto;
+      border: 8px solid #0f172a; border-radius: 34px;
+      box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
+      scrollbar-width: none;
+    }
+    .phone::-webkit-scrollbar { display: none; }
+    .preview-note { display: block; margin-top: 10px; font-size: 11px; color: #667085; }
+    .toast { position: absolute; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body>
+<svg class="sr-only" aria-hidden="true" focusable="false">
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8M13 12h8M13 18h8"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></symbol>
+  <symbol id="i-calc" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></symbol>
+</svg>
+
+<div class="preview-wrap">
+  <div class="preview-meta">
+    <span class="badge">Mobile v2</span>
+    Trstprep · Performance Analysis
+  </div>
+  <main class="phone" id="app">
+    <header class="appbar">
+      <button class="icon-btn" type="button" aria-label="Go back" data-toast="Back to dashboard">
+        <svg class="icon" aria-hidden="true"><use href="#i-back"/></svg>
+      </button>
+      <div class="appbar-title">
+        <h1>Performance</h1>
+        <p>Last 30 days · SSC CGL</p>
+      </div>
+      <button class="icon-btn" type="button" id="themeToggle" aria-label="Switch to dark theme">
+        <svg class="icon sun-icon" aria-hidden="true"><use href="#i-sun"/></svg>
+        <svg class="icon moon-icon" aria-hidden="true"><use href="#i-moon"/></svg>
+      </button>
+    </header>
+
+    <div class="filters" role="group" aria-label="Analysis filters">
+      <button class="chip" type="button" data-options="SSC CGL|Banking|Railways|All exams">
+        <span class="chip-label">SSC CGL</span>
+        <svg class="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+      </button>
+      <button class="chip" type="button" data-options="Last 30 days|Last 90 days|All time">
+        <span class="chip-label">Last 30 days</span>
+        <svg class="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+      </button>
+      <button class="chip" type="button" data-options="All tests|Full-length|Sectional">
+        <span class="chip-label">All tests</span>
+        <svg class="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+      </button>
+    </div>
+
+    <div class="content">
+      <section class="kpis" aria-label="Key metrics">
+        <article class="kpi">
+          <div class="kpi-top">
+            <span class="kpi-icon tint-brand"><svg class="icon" aria-hidden="true"><use href="#i-target"/></svg></span>
+            <span class="delta up">+3</span>
+          </div>
+          <p class="kpi-value">24</p>
+          <p class="kpi-label">Tests taken</p>
+        </article>
+        <article class="kpi">
+          <div class="kpi-top">
+            <span class="kpi-icon tint-success"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
+            <span class="delta up">+4 pts</span>
+          </div>
+          <p class="kpi-value">72<small>%</small></p>
+          <p class="kpi-label">Average accuracy</p>
+        </article>
+        <article class="kpi">
+          <div class="kpi-top">
+            <span class="kpi-icon tint-warning"><svg class="icon" aria-hidden="true"><use href="#i-trophy"/></svg></span>
+            <span class="delta up">↑ 38</span>
+          </div>
+          <p class="kpi-value">#412</p>
+          <p class="kpi-label">All India rank</p>
+        </article>
+        <article class="kpi">
+          <div class="kpi-top">
+            <span class="kpi-icon tint-brand"><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg></span>
+            <span class="delta neutral">Top 12%</span>
+          </div>
+          <p class="kpi-value">88<small>th</small></p>
+          <p class="kpi-label">Percentile</p>
+        </article>
+      </section>
+
+      <section class="card" aria-labelledby="trend-title">
+        <div class="card-head">
+          <div>
+            <h2 id="trend-title">Score trend</h2>
+            <p class="card-sub">Last 8 completed tests · out of 200</p>
+          </div>
+          <span class="pill success">+21 pts</span>
+        </div>
+        <svg class="chart" viewBox="0 0 320 140" role="img" aria-label="Score trend over the last 8 tests: 58, 62, 60, 68, 65, 74, 72 and 79 out of 200. Target is 75.">
+          <defs>
+            <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--brand)" stop-opacity="0.28"/>
+              <stop offset="100%" stop-color="var(--brand)" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <g stroke="var(--border)" stroke-width="1">
+            <line x1="28" y1="20" x2="308" y2="20"/>
+            <line x1="28" y1="70" x2="308" y2="70"/>
+            <line x1="28" y1="120" x2="308" y2="120"/>
+          </g>
+          <g fill="var(--text-3)" font-size="8">
+            <text x="0" y="23">100</text>
+            <text x="4" y="73">50</text>
+            <text x="10" y="123">0</text>
+          </g>
+          <line x1="28" y1="45" x2="308" y2="45" stroke="var(--success)" stroke-width="1" stroke-dasharray="4 4" opacity="0.65"/>
+          <text x="274" y="41" fill="var(--success)" font-size="7.5" font-weight="700">Target 75</text>
+          <polygon points="28,120 28,62 68,58 108,60 148,52 188,55 228,46 268,48 308,41 308,120" fill="url(#trendFill)"/>
+          <polyline points="28,62 68,58 108,60 148,52 188,55 228,46 268,48 308,41" fill="none" stroke="var(--brand)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+          <g fill="var(--surface)" stroke="var(--brand)" stroke-width="2">
+            <circle cx="28" cy="62" r="3"><title>Test 1: 58</title></circle>
+            <circle cx="68" cy="58" r="3"><title>Test 2: 62</title></circle>
+            <circle cx="108" cy="60" r="3"><title>Test 3: 60</title></circle>
+            <circle cx="148" cy="52" r="3"><title>Test 4: 68</title></circle>
+            <circle cx="188" cy="55" r="3"><title>Test 5: 65</title></circle>
+            <circle cx="228" cy="46" r="3"><title>Test 6: 74</title></circle>
+            <circle cx="268" cy="48" r="3"><title>Test 7: 72</title></circle>
+            <circle cx="308" cy="41" r="3.5" fill="var(--brand)"><title>Test 8: 79</title></circle>
+          </g>
+        </svg>
+        <div class="chart-foot"><span>8 tests ago</span><span>Latest · 79/200</span></div>
+        <div class="legend-row">
+          <span><i class="dot brand"></i> Your score</span>
+          <span><i class="dot success"></i> Target 75</span>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="focus-title">
+        <div class="section-head">
+          <h2 id="focus-title">Focus now</h2>
+          <span class="muted">2 actions</span>
+        </div>
+        <a class="focus-card danger" href="#" data-toast="Opening 10 Reasoning puzzles…">
+          <span class="focus-icon tint-danger"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg></span>
+          <span class="focus-body">
+            <span class="focus-title">Reasoning puzzles</span>
+            <span class="focus-meta">44% accuracy · 18 attempts</span>
+          </span>
+          <span class="focus-cta">Practice <svg class="icon icon-xs" aria-hidden="true"><use href="#i-chevron-right"/></svg></span>
+        </a>
+        <a class="focus-card warning" href="#" data-toast="Opening a timed Quant set…">
+          <span class="focus-icon tint-warning"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg></span>
+          <span class="focus-body">
+            <span class="focus-title">Quant speed</span>
+            <span class="focus-meta">68s per question · target 60s</span>
+          </span>
+          <span class="focus-cta">Timed set <svg class="icon icon-xs" aria-hidden="true"><use href="#i-chevron-right"/></svg></span>
+        </a>
+      </section>
+
+      <div class="tabs-wrap">
+        <div class="tabs" role="tablist" aria-label="Analysis sections">
+          <button class="tab" type="button" role="tab" id="tab-overview" aria-controls="panel-overview" aria-selected="true" tabindex="0">
+            <svg class="icon" aria-hidden="true"><use href="#i-chart"/></svg>
+            <span>Overview</span>
+          </button>
+          <button class="tab" type="button" role="tab" id="tab-subjects" aria-controls="panel-subjects" aria-selected="false" tabindex="-1">
+            <svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg>
+            <span>Subjects</span>
+          </button>
+          <button class="tab" type="button" role="tab" id="tab-speed" aria-controls="panel-speed" aria-selected="false" tabindex="-1">
+            <svg class="icon" aria-hidden="true"><use href="#i-gauge"/></svg>
+            <span>Speed</span>
+          </button>
+          <button class="tab" type="button" role="tab" id="tab-plan" aria-controls="panel-plan" aria-selected="false" tabindex="-1">
+            <svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>
+            <span>Plan</span>
+          </button>
+        </div>
+      </div>
+
+      <section class="panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" tabindex="0">
+        <section class="card" aria-labelledby="dist-title" style="margin-top:0">
+          <div class="card-head">
+            <div>
+              <h2 id="dist-title">Answer distribution</h2>
+              <p class="card-sub">Across 24 completed tests</p>
+            </div>
+            <span class="pill brand">500 answers</span>
+          </div>
+          <div class="donut-wrap">
+            <svg class="donut" viewBox="0 0 120 120" role="img" aria-label="Answer distribution: 312 correct, 121 wrong, 67 skipped.">
+              <circle class="track" cx="60" cy="60" r="46"/>
+              <g transform="rotate(-90 60 60)" pathLength="100">
+                <circle class="seg-success" cx="60" cy="60" r="46" pathLength="100" stroke-dasharray="62.4 37.6" stroke-dashoffset="0"/>
+                <circle class="seg-danger" cx="60" cy="60" r="46" pathLength="100" stroke-dasharray="24.2 75.8" stroke-dashoffset="-62.4"/>
+                <circle class="seg-muted" cx="60" cy="60" r="46" pathLength="100" stroke-dasharray="13.4 86.6" stroke-dashoffset="-86.6"/>
+              </g>
+              <text x="60" y="57" text-anchor="middle" font-size="20" font-weight="800" fill="var(--text)">62%</text>
+              <text x="60" y="71" text-anchor="middle" font-size="8" fill="var(--text-3)">accuracy</text>
+            </svg>
+            <div class="donut-legend">
+              <div class="donut-legend-row"><i class="dot success"></i> Correct <span class="muted">312</span><b>62.4%</b></div>
+              <div class="donut-legend-row"><i class="dot danger"></i> Wrong <span class="muted">121</span><b>24.2%</b></div>
+              <div class="donut-legend-row"><i class="dot muted"></i> Skipped <span class="muted">67</span><b>13.4%</b></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="recent-title">
+          <div class="card-head">
+            <div>
+              <h2 id="recent-title">Recent tests</h2>
+              <p class="card-sub">Tap a test to open its analysis</p>
+            </div>
+            <a class="pill brand" href="#" data-toast="Opening all attempted tests…">View all</a>
+          </div>
+          <a class="test-row" href="#" data-toast="Opening SSC CGL Tier-1 Mock 12…">
+            <span class="test-icon tint-brand"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-target"/></svg></span>
+            <span class="test-body">
+              <span class="test-title">SSC CGL Tier-1 Mock 12</span>
+              <span class="test-meta">2 days ago · Full-length</span>
+            </span>
+            <span class="test-score"><b>142<small>/200</small></b><span>71% acc</span></span>
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+          </a>
+          <a class="test-row" href="#" data-toast="Opening Reasoning Sectional 04…">
+            <span class="test-icon tint-success"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-layers"/></svg></span>
+            <span class="test-body">
+              <span class="test-title">Reasoning Sectional 04</span>
+              <span class="test-meta">4 days ago · Sectional</span>
+            </span>
+            <span class="test-score"><b>38<small>/50</small></b><span>76% acc</span></span>
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+          </a>
+          <a class="test-row" href="#" data-toast="Opening Quant Chapter: Percentage…">
+            <span class="test-icon tint-warning"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-calc"/></svg></span>
+            <span class="test-body">
+              <span class="test-title">Quant Chapter: Percentage</span>
+              <span class="test-meta">6 days ago · Chapter quiz</span>
+            </span>
+            <span class="test-score"><b>17<small>/25</small></b><span>68% acc</span></span>
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+          </a>
+        </section>
+
+        <section class="card" aria-labelledby="streak-title">
+          <div class="card-head">
+            <div>
+              <h2 id="streak-title">Consistency</h2>
+              <p class="card-sub">Last 14 days · tests per day</p>
+            </div>
+            <span class="pill success"><svg class="icon icon-xs" aria-hidden="true" style="vertical-align:-2px"><use href="#i-flame"/></svg> 6 day streak</span>
+          </div>
+          <div class="streak-labels" aria-hidden="true"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
+          <div class="streak" role="img" aria-label="Fourteen day activity: 1 test, 0, 2, 1, 0, 3, 1, 2, 1, 0, 2, 1, 3, 2.">
+            <span class="streak-cell" data-level="1" aria-label="Monday: 1 test">1</span>
+            <span class="streak-cell" data-level="0" aria-label="Tuesday: no tests"></span>
+            <span class="streak-cell" data-level="2" aria-label="Wednesday: 2 tests">2</span>
+            <span class="streak-cell" data-level="1" aria-label="Thursday: 1 test">1</span>
+            <span class="streak-cell" data-level="0" aria-label="Friday: no tests"></span>
+            <span class="streak-cell" data-level="3" aria-label="Saturday: 3 tests">3</span>
+            <span class="streak-cell" data-level="1" aria-label="Sunday: 1 test">1</span>
+            <span class="streak-cell" data-level="2" aria-label="Monday: 2 tests">2</span>
+            <span class="streak-cell" data-level="1" aria-label="Tuesday: 1 test">1</span>
+            <span class="streak-cell" data-level="0" aria-label="Wednesday: no tests"></span>
+            <span class="streak-cell" data-level="2" aria-label="Thursday: 2 tests">2</span>
+            <span class="streak-cell" data-level="1" aria-label="Friday: 1 test">1</span>
+            <span class="streak-cell" data-level="3" aria-label="Saturday: 3 tests">3</span>
+            <span class="streak-cell" data-level="2" aria-label="Sunday: 2 tests">2</span>
+          </div>
+          <div class="legend-row" style="justify-content:flex-end;margin-top:6px">
+            <span class="muted">Less</span>
+            <span><i class="streak-cell" data-level="0" style="width:10px;height:10px;aspect-ratio:auto"></i><i class="streak-cell" data-level="1" style="width:10px;height:10px;aspect-ratio:auto"></i><i class="streak-cell" data-level="2" style="width:10px;height:10px;aspect-ratio:auto"></i><i class="streak-cell" data-level="3" style="width:10px;height:10px;aspect-ratio:auto"></i></span>
+            <span class="muted">More</span>
+          </div>
+        </section>
+      </section>
+
+      <section class="panel" id="panel-subjects" role="tabpanel" aria-labelledby="tab-subjects" tabindex="0" hidden>
+        <div class="summary-chips" aria-label="Subject summary">
+          <span class="summary-chip good">Strongest: English 78%, Quant 72%</span>
+          <span class="summary-chip bad">Needs work: Reasoning 48%, GA 58%</span>
+        </div>
+
+        <div class="subject">
+          <button class="subject-btn" type="button" aria-expanded="false" aria-controls="topics-quant">
+            <span class="subject-icon tint-brand"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-calc"/></svg></span>
+            <span class="subject-body">
+              <span class="subject-name">Quantitative Aptitude</span>
+              <span class="subject-meta">128 questions · +4 pts vs last month</span>
+            </span>
+            <span class="subject-score"><b>72%</b><span>accuracy</span></span>
+            <svg class="icon icon-sm chev" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+          </button>
+          <div class="subject-topics" id="topics-quant" hidden>
+            <div class="topic"><span class="topic-name">Percentage</span><span class="topic-bar"><span style="width:62%"></span></span><span class="topic-acc">62%</span><a class="topic-cta" href="#" data-toast="Practicing Percentage…">Practice</a></div>
+            <div class="topic"><span class="topic-name">Profit &amp; Loss</span><span class="topic-bar"><span style="width:55%"></span></span><span class="topic-acc">55%</span><a class="topic-cta" href="#" data-toast="Practicing Profit &amp; Loss…">Practice</a></div>
+            <div class="topic"><span class="topic-name">Time &amp; Work</span><span class="topic-bar"><span style="width:74%"></span></span><span class="topic-acc">74%</span><a class="topic-cta" href="#" data-toast="Practicing Time &amp; Work…">Practice</a></div>
+            <div class="topic"><span class="topic-name">Algebra</span><span class="topic-bar"><span style="width:81%"></span></span><span class="topic-acc">81%</span><a class="topic-cta" href="#" data-toast="Practicing Algebra…">Practice</a></div>
+          </div>
+        </div>
+
+        <div class="subject">
+          <button class="subject-btn" type="button" aria-expanded="false" aria-controls="topics-reasoning">
+            <span class="subject-icon tint-danger"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-layers"/></svg></span>
+            <span class="subject-body">
+              <span class="subject-name">Reasoning</span>
+              <span class="subject-meta">96 questions · -2 pts vs last month</span>
+            </span>
+            <span class="subject-score"><b style="color:var(--danger)">48%</b><span>accuracy</span></span>
+            <svg class="icon icon-sm chev" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+          </button>
+          <div class="subject-topics" id="topics-reasoning" hidden>
+            <div class="topic"><span class="topic-name">Puzzles</span><span class="topic-bar"><span style="width:44%;background:var(--danger)"></span></span><span class="topic-acc">44%</span><a class="topic-cta" href="#" data-toast="Practicing Puzzles…">Practice</a></div>
+            <div class="topic"><span class="topic-name">Syllogism</span><span class="topic-bar"><span style="width:71%"></span></span><span class="topic-acc">71%</span><a class="topic-cta" href="#" data-toast="Practicing Syllogism…">Practice</a></div>
+            <div class="topic"><span class="topic-name">Coding-Decoding</span><span class="topic-bar"><span style="width:66%"></span></span><span class="topic-acc">66%</span><a class="topic-cta" href="#" data-toast="Practicing Coding-Decoding…">Practice</a></div>
+            <div class="topic"><span class="topic-name">Seating</span><span class="topic-bar"><span style="width:38%;background:var(--danger)"></span></span><span class="topic-acc">38%</span><a class="topic-cta" href="#" data-toast="Practicing Seating…">Practice</a></div>
+          </div>
+        </div>
+
+        <div class="subject">
+          <button class="subject-btn" type="button" aria-expanded="false" aria-controls="topics-english">
+            <span class="subject-icon tint-success"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-pencil"/></svg></span>
+            <span class="subject-body">
+              <span class="subject-name">English</span>
+              <span class="subject-meta">84 questions · +6 pts vs last month</span>
+            </span>
+            <span class="subject-score"><b style="color:var(--success)">78%</b><span>accuracy</span></span>
+            <svg class="icon icon-sm chev" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+          </button>
+          <div class="subject-topics" id="topics-english" hidden>
+            <div class="topic"><span class="topic-name">Grammar</span><span class="topic-bar"><span style="width:82%"></span></span><span class="topic-acc">82%</span><a class="topic-cta" href="#" data-toast="Practicing Grammar…">Practice</a></div>
+            <div class="topic"><span class="topic-name">Reading Comp.</span><span class="topic-bar"><span style="width:71%"></span></span><span class="topic-acc">71%</span><a class="topic-cta" href="#" data-toast="Practicing Reading Comprehension…">Practice</a></div>
+            <div class="topic"><span class="topic-name">Vocabulary</span><span class="topic-bar"><span style="width:80%"></span></span><span class="topic-acc">80%</span><a class="topic-cta" href="#" data-toast="Practicing Vocabulary…">Practice</a></div>
+          </div>
+        </div>
+
+        <div class="subject">
+          <button class="subject-btn" type="button" aria-expanded="false" aria-controls="topics-ga">
+            <span class="subject-icon tint-warning"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-globe"/></svg></span>
+            <span class="subject-body">
+              <span class="subject-name">General Awareness</span>
+              <span class="subject-meta">72 questions · +1 pt vs last month</span>
+            </span>
+            <span class="subject-score"><b style="color:var(--warning)">58%</b><span>accuracy</span></span>
+            <svg class="icon icon-sm chev" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+          </button>
+          <div class="subject-topics" id="topics-ga" hidden>
+            <div class="topic"><span class="topic-name">Polity</span><span class="topic-bar"><span style="width:58%"></span></span><span class="topic-acc">58%</span><a class="topic-cta" href="#" data-toast="Practicing Polity…">Practice</a></div>
+            <div class="topic"><span class="topic-name">Economy</span><span class="topic-bar"><span style="width:49%;background:var(--danger)"></span></span><span class="topic-acc">49%</span><a class="topic-cta" href="#" data-toast="Practicing Economy…">Practice</a></div>
+            <div class="topic"><span class="topic-name">History</span><span class="topic-bar"><span style="width:64%"></span></span><span class="topic-acc">64%</span><a class="topic-cta" href="#" data-toast="Practicing History…">Practice</a></div>
+          </div>
+        </div>
+
+        <p class="time-note">Topic accuracy comes from your last 30 days of question-level data. Practice links open the matching topic set.</p>
+      </section>
+
+      <section class="panel" id="panel-speed" role="tabpanel" aria-labelledby="tab-speed" tabindex="0" hidden>
+        <section class="card" aria-labelledby="time-title" style="margin-top:0">
+          <div class="card-head">
+            <div>
+              <h2 id="time-title">Time per question</h2>
+              <p class="card-sub">Average seconds · target 60s</p>
+            </div>
+            <span class="pill danger">2 slow</span>
+          </div>
+          <div class="time-row">
+            <span class="time-name">Quant</span>
+            <span class="time-bar" role="progressbar" aria-label="Quant average time" aria-valuemin="0" aria-valuemax="90" aria-valuenow="68"><span class="bar-warning" style="width:76%"></span></span>
+            <span class="time-value">68s</span>
+          </div>
+          <div class="time-row">
+            <span class="time-name">Reasoning</span>
+            <span class="time-bar" role="progressbar" aria-label="Reasoning average time" aria-valuemin="0" aria-valuemax="90" aria-valuenow="74"><span class="bar-danger" style="width:82%"></span></span>
+            <span class="time-value">74s</span>
+          </div>
+          <div class="time-row">
+            <span class="time-name">English</span>
+            <span class="time-bar" role="progressbar" aria-label="English average time" aria-valuemin="0" aria-valuemax="90" aria-valuenow="42"><span class="bar-success" style="width:47%"></span></span>
+            <span class="time-value">42s</span>
+          </div>
+          <div class="time-row">
+            <span class="time-name">General Awareness</span>
+            <span class="time-bar" role="progressbar" aria-label="General Awareness average time" aria-valuemin="0" aria-valuemax="90" aria-valuenow="35"><span class="bar-success" style="width:39%"></span></span>
+            <span class="time-value">35s</span>
+          </div>
+          <p class="time-note">Reasoning is 14s above target. A 10-question timed set is the quickest fix.</p>
+        </section>
+
+        <section class="card" aria-labelledby="diff-title">
+          <div class="card-head">
+            <div>
+              <h2 id="diff-title">Difficulty breakdown</h2>
+              <p class="card-sub">264 questions · accuracy by level</p>
+            </div>
+          </div>
+          <div class="diff-grid">
+            <div class="diff-card">
+              <span class="diff-value" style="color:var(--success)">78%</span>
+              <span class="diff-label">Easy</span>
+              <div class="diff-bar"><span class="bar-success" style="width:78%"></span></div>
+              <span class="muted" style="font-size:8.5px">120 Qs</span>
+            </div>
+            <div class="diff-card">
+              <span class="diff-value" style="color:var(--warning)">64%</span>
+              <span class="diff-label">Medium</span>
+              <div class="diff-bar"><span class="bar-warning" style="width:64%"></span></div>
+              <span class="muted" style="font-size:8.5px">96 Qs</span>
+            </div>
+            <div class="diff-card">
+              <span class="diff-value" style="color:var(--danger)">39%</span>
+              <span class="diff-label">Hard</span>
+              <div class="diff-bar"><span class="bar-danger" style="width:39%"></span></div>
+              <span class="muted" style="font-size:8.5px">48 Qs</span>
+            </div>
+          </div>
+          <p class="time-note">Hard questions are the biggest score lever: 39% accuracy across 48 attempts.</p>
+        </section>
+
+        <section class="card" aria-labelledby="matrix-title">
+          <div class="card-head">
+            <div>
+              <h2 id="matrix-title">Speed vs accuracy</h2>
+              <p class="card-sub">Fast is left · accurate is up</p>
+            </div>
+          </div>
+          <svg class="scatter" viewBox="0 0 320 190" role="img" aria-label="Speed versus accuracy scatter plot. Quant: 68 seconds, 72 percent. Reasoning: 74 seconds, 48 percent. English: 42 seconds, 78 percent. General Awareness: 35 seconds, 58 percent.">
+            <g stroke="var(--border)" stroke-width="1">
+              <line x1="30" y1="150" x2="300" y2="150"/>
+              <line x1="30" y1="20" x2="30" y2="150"/>
+              <line x1="160" y1="20" x2="160" y2="150" stroke-dasharray="3 3"/>
+              <line x1="30" y1="85" x2="300" y2="85" stroke-dasharray="3 3"/>
+            </g>
+            <g fill="var(--text-3)" font-size="8">
+              <text x="2" y="23">100%</text>
+              <text x="8" y="88">50%</text>
+              <text x="14" y="153">0%</text>
+              <text x="28" y="164">20s</text>
+              <text x="152" y="164">45s</text>
+              <text x="284" y="164">90s</text>
+            </g>
+            <g fill="var(--text-3)" font-size="7.5" font-weight="700" letter-spacing="0.03em">
+              <text x="36" y="32">FAST &amp; ACCURATE</text>
+              <text x="168" y="32">ACCURATE, SLOW</text>
+              <text x="36" y="142">FAST, RISKY</text>
+              <text x="168" y="142">NEEDS WORK</text>
+            </g>
+            <g>
+              <circle cx="226" cy="56" r="7" fill="var(--brand)" opacity="0.9"><title>Quant: 68 seconds, 72 percent</title></circle>
+              <text x="226" y="46" text-anchor="middle" fill="var(--text-2)" font-size="8" font-weight="700">Quant</text>
+              <circle cx="244" cy="88" r="7" fill="var(--danger)" opacity="0.9"><title>Reasoning: 74 seconds, 48 percent</title></circle>
+              <text x="244" y="78" text-anchor="middle" fill="var(--danger)" font-size="8" font-weight="700">Reasoning</text>
+              <circle cx="151" cy="49" r="7" fill="var(--success)" opacity="0.9"><title>English: 42 seconds, 78 percent</title></circle>
+              <text x="151" y="39" text-anchor="middle" fill="var(--success)" font-size="8" font-weight="700">English</text>
+              <circle cx="131" cy="75" r="7" fill="var(--warning)" opacity="0.9"><title>General Awareness: 35 seconds, 58 percent</title></circle>
+              <text x="131" y="65" text-anchor="middle" fill="var(--warning)" font-size="8" font-weight="700">GA</text>
+            </g>
+          </svg>
+          <details class="data-table">
+            <summary>View as table</summary>
+            <table>
+              <thead><tr><th>Subject</th><th>Time</th><th>Accuracy</th><th>Zone</th></tr></thead>
+              <tbody>
+                <tr><td>English</td><td>42s</td><td>78%</td><td>Fast &amp; accurate</td></tr>
+                <tr><td>General Awareness</td><td>35s</td><td>58%</td><td>Fast, risky</td></tr>
+                <tr><td>Quant</td><td>68s</td><td>72%</td><td>Accurate, slow</td></tr>
+                <tr><td>Reasoning</td><td>74s</td><td>48%</td><td>Needs work</td></tr>
+              </tbody>
+            </table>
+          </details>
+        </section>
+      </section>
+
+      <section class="panel" id="panel-plan" role="tabpanel" aria-labelledby="tab-plan" tabindex="0" hidden>
+        <div class="rank-card">
+          <div class="rank-head">
+            <h2>All India rank</h2>
+            <span class="rank-badge">Top 12%</span>
+          </div>
+          <div class="rank-grid">
+            <div><span class="rank-value">#412</span><span class="rank-label">Rank</span></div>
+            <div><span class="rank-value">88<small style="font-size:11px">th</small></span><span class="rank-label">Percentile</span></div>
+            <div><span class="rank-value" style="font-size:19px">24.8k</span><span class="rank-label">Students</span></div>
+          </div>
+          <div class="rank-progress"><span></span></div>
+          <div class="rank-foot"><span>Better than 88% of students</span><span>4 pts to Top 10%</span></div>
+        </div>
+
+        <div class="section" aria-labelledby="recs-title">
+          <div class="section-head">
+            <h2 id="recs-title">Recommended next steps</h2>
+            <span class="muted">Data-backed</span>
+          </div>
+
+          <div class="rec">
+            <span class="rec-icon tint-danger"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-alert"/></svg></span>
+            <div class="rec-body">
+              <span class="rec-title">Fix Reasoning puzzles</span>
+              <p class="rec-text">44% accuracy over 18 attempts — your lowest topic.</p>
+              <span class="rec-why">Why: 8 of 18 puzzles wrong</span>
+              <a class="rec-cta" href="#" data-toast="Opening 10 Reasoning puzzles…">Practice 10 puzzles <svg class="icon icon-xs" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+            </div>
+          </div>
+
+          <div class="rec">
+            <span class="rec-icon tint-warning"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-clock"/></svg></span>
+            <div class="rec-body">
+              <span class="rec-title">Cut Quant time</span>
+              <p class="rec-text">68s per question vs the 60s target.</p>
+              <span class="rec-why">Why: 8s above target across 128 Qs</span>
+              <a class="rec-cta" href="#" data-toast="Opening a timed Quant set…">Take timed set <svg class="icon icon-xs" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+            </div>
+          </div>
+
+          <div class="rec">
+            <span class="rec-icon tint-brand"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-globe"/></svg></span>
+            <div class="rec-body">
+              <span class="rec-title">Revise Polity</span>
+              <p class="rec-text">58% accuracy — 12 questions missed this month.</p>
+              <span class="rec-why">Why: 42% of your GA errors</span>
+              <a class="rec-cta" href="#" data-toast="Opening a 10-minute Polity revision…">10-min revision <svg class="icon icon-xs" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+            </div>
+          </div>
+        </div>
+
+        <section class="card" aria-labelledby="goal-title">
+          <div class="goal">
+            <svg class="ring" viewBox="0 0 64 64" role="img" aria-label="Daily goal: 1 of 3 tasks complete.">
+              <circle class="ring-track" cx="32" cy="32" r="26"/>
+              <circle class="ring-fill" cx="32" cy="32" r="26" pathLength="100" stroke-dasharray="33 67" transform="rotate(-90 32 32)"/>
+              <text x="32" y="36" text-anchor="middle">1/3</text>
+            </svg>
+            <div class="goal-body">
+              <p class="goal-title" id="goal-title">Today's goal</p>
+              <p class="goal-text">2 tasks left · about 45 min</p>
+              <ul class="goal-list">
+                <li><svg class="icon done" aria-hidden="true"><use href="#i-check"/></svg> 1 sectional test</li>
+                <li><svg class="icon todo" aria-hidden="true"><use href="#i-minus"/></svg> 2 chapter quizzes</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </section>
+    </div>
+
+    <footer class="app-footer">Updated 2 min ago · Sample data for layout review</footer>
+  </main>
+  <p class="preview-note">390 × 844 · Sample data · Tap tabs, subject rows, and the theme toggle</p>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  const themeToggle = document.getElementById("themeToggle");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+  const setTheme = (theme) => {
+    root.dataset.theme = theme;
+    themeToggle.setAttribute(
+      "aria-label",
+      theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
+    );
+  };
+  setTheme(prefersDark ? "dark" : "light");
+  themeToggle.addEventListener("click", () => {
+    setTheme(root.dataset.theme === "dark" ? "light" : "dark");
+  });
+
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  const panels = tabs.map((tab) => document.getElementById(tab.getAttribute("aria-controls")));
+
+  function activateTab(index, focus = false) {
+    tabs.forEach((tab, i) => {
+      const selected = i === index;
+      tab.setAttribute("aria-selected", String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      panels[i].hidden = !selected;
+    });
+    if (focus) tabs[index].focus();
+  }
+
+  tabs.forEach((tab, i) => {
+    tab.addEventListener("click", () => activateTab(i));
+    tab.addEventListener("keydown", (event) => {
+      let next = null;
+      if (event.key === "ArrowRight") next = (i + 1) % tabs.length;
+      if (event.key === "ArrowLeft") next = (i - 1 + tabs.length) % tabs.length;
+      if (event.key === "Home") next = 0;
+      if (event.key === "End") next = tabs.length - 1;
+      if (next !== null) {
+        event.preventDefault();
+        activateTab(next, true);
+      }
+    });
+  });
+
+  document.querySelectorAll(".subject-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const panel = document.getElementById(btn.getAttribute("aria-controls"));
+      const open = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", String(!open));
+      panel.hidden = open;
+    });
+  });
+
+  const toast = document.getElementById("toast");
+  let timer;
+  function showToast(message) {
+    if (!message) return;
+    toast.textContent = message;
+    toast.classList.add("show");
+    clearTimeout(timer);
+    timer = setTimeout(() => toast.classList.remove("show"), 2200);
+  }
+
+  document.querySelectorAll(".chip[data-options]").forEach((chip) => {
+    const options = chip.dataset.options.split("|");
+    let index = 0;
+    chip.addEventListener("click", () => {
+      index = (index + 1) % options.length;
+      const label = chip.querySelector(".chip-label");
+      label.textContent = options[index];
+      showToast(`${label.textContent} selected`);
+    });
+  });
+
+  document.querySelectorAll("[data-toast]").forEach((el) => {
+    el.addEventListener("click", (event) => {
+      const message = el.getAttribute("data-toast");
+      if (!message) return;
+      event.preventDefault();
+      showToast(message);
+    });
+  });
+})();
+</script>
+</body>
+</html>

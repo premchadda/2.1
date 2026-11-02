@@ -26,6 +26,97 @@ import {
 const DEFAULT_MARKS_PER_QUESTION = 2;
 const DEFAULT_NEGATIVE_MARKS = 0.5;
 
+const normalizeOptionIndex = (val) => {
+  if (val === undefined || val === null || val === "") return null;
+  if (typeof val === "number") return val;
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (/^\d+$/.test(trimmed)) return parseInt(trimmed, 10);
+    if (/^[A-Za-z]$/.test(trimmed)) {
+      return trimmed.toUpperCase().charCodeAt(0) - 65;
+    }
+  }
+  return null;
+};
+
+const resolveReviewAttemptStatus = (
+  currentQ,
+  currentQuestion,
+  answers,
+  resolveCorrectIndex,
+) => {
+  const userAns =
+    answers?.[currentQuestion] ??
+    currentQ?.userAnswer ??
+    currentQ?.selectedOption;
+
+  const isSkipped =
+    userAns === undefined ||
+    userAns === null ||
+    userAns === -1 ||
+    userAns === "" ||
+    (Array.isArray(userAns) && userAns.length === 0);
+
+  if (isSkipped) {
+    return { isSkipped: true, isCorrect: false };
+  }
+
+  // Pre-computed correctness flags from API / database
+  if (currentQ?.isCorrect !== undefined && currentQ?.isCorrect !== null) {
+    return { isSkipped: false, isCorrect: Boolean(currentQ.isCorrect) };
+  }
+  if (currentQ?.is_correct !== undefined && currentQ?.is_correct !== null) {
+    return { isSkipped: false, isCorrect: Boolean(currentQ.is_correct) };
+  }
+
+  // Numeric / integer question type
+  if (currentQ?.type === "integer" || currentQ?.type === "numeric") {
+    const rawCorrect =
+      currentQ?.correctAnswer ??
+      currentQ?.correct_answer ??
+      currentQ?.correctOption ??
+      currentQ?.correct_option;
+    if (rawCorrect === undefined || rawCorrect === null) {
+      return { isSkipped: false, isCorrect: false };
+    }
+    const isCorrect =
+      String(userAns).trim().toLowerCase() ===
+      String(rawCorrect).trim().toLowerCase();
+    return { isSkipped: false, isCorrect };
+  }
+
+  const rawCorrect =
+    typeof resolveCorrectIndex === "function"
+      ? resolveCorrectIndex(currentQ)
+      : (currentQ?.correctOption ??
+        currentQ?.correct_option ??
+        currentQ?.correct_option_id ??
+        currentQ?.correctOptionId ??
+        currentQ?.correctAnswer ??
+        currentQ?.correct_answer);
+
+  if (Array.isArray(userAns) || Array.isArray(rawCorrect)) {
+    const sel = (Array.isArray(userAns) ? userAns : [userAns])
+      .map(normalizeOptionIndex)
+      .filter((v) => v !== null)
+      .sort((a, b) => a - b);
+    const corr = (Array.isArray(rawCorrect) ? rawCorrect : [rawCorrect])
+      .map(normalizeOptionIndex)
+      .filter((v) => v !== null)
+      .sort((a, b) => a - b);
+    const isCorrect =
+      sel.length > 0 &&
+      sel.length === corr.length &&
+      sel.every((v, i) => v === corr[i]);
+    return { isSkipped: false, isCorrect };
+  }
+
+  const selIdx = normalizeOptionIndex(userAns);
+  const corrIdx = normalizeOptionIndex(rawCorrect);
+  const isCorrect = selIdx !== null && corrIdx !== null && selIdx === corrIdx;
+  return { isSkipped: false, isCorrect };
+};
+
 export default function QuestionViewer({
   currentQ,
   currentQuestion,
@@ -133,15 +224,70 @@ export default function QuestionViewer({
             />
           )}
 
-          {/* Negative marking badge */}
-          {!reviewMode &&
-          Number(
-            currentQ?.negative_marks ??
-              currentQ?.negativeMarks ??
-              test?.negativeMarking ??
-              test?.negativeMarks ??
-              DEFAULT_NEGATIVE_MARKS,
-          ) > 0 ? (
+          {/* Attempt status & marks badge */}
+          {reviewMode && (!isReattemptActive || hasReattemptedCurrentQ) ? (
+            (() => {
+              const { isSkipped, isCorrect } = resolveReviewAttemptStatus(
+                currentQ,
+                currentQuestion,
+                answers,
+                resolveCorrectIndex,
+              );
+
+              if (isSkipped) {
+                return (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 text-[10px] sm:text-[11px] font-bold shrink-0">
+                    Skipped
+                  </span>
+                );
+              }
+
+              const positiveMarks = Number(
+                currentQ?.marks ??
+                  currentQ?.positiveMarks ??
+                  currentQ?.positive_marks ??
+                  test?.marksPerQuestion ??
+                  DEFAULT_MARKS_PER_QUESTION,
+              );
+              const negativeMarks = Number(
+                currentQ?.negative_marks ??
+                  currentQ?.negativeMarks ??
+                  test?.negativeMarking ??
+                  test?.negativeMarks ??
+                  DEFAULT_NEGATIVE_MARKS,
+              );
+
+              if (isCorrect) {
+                const posStr =
+                  positiveMarks % 1 === 0
+                    ? positiveMarks.toFixed(1)
+                    : Number(positiveMarks.toFixed(2));
+                return (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px] sm:text-[11px] font-bold shrink-0">
+                    +{posStr}
+                  </span>
+                );
+              }
+
+              const negStr =
+                negativeMarks > 0
+                  ? negativeMarks % 1 === 0 || (negativeMarks * 10) % 1 === 0
+                    ? negativeMarks.toFixed(1)
+                    : Number(negativeMarks.toFixed(2))
+                  : "0.0";
+              return (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 text-[10px] sm:text-[11px] font-bold shrink-0">
+                  -{negStr}
+                </span>
+              );
+            })()
+          ) : Number(
+              currentQ?.negative_marks ??
+                currentQ?.negativeMarks ??
+                test?.negativeMarking ??
+                test?.negativeMarks ??
+                DEFAULT_NEGATIVE_MARKS,
+            ) > 0 ? (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-[10px] sm:text-[11px] font-bold shrink-0">
               <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
               <span>
@@ -166,8 +312,8 @@ export default function QuestionViewer({
             </span>
           )}
 
-          {/* Estimated Reading Time */}
-          {currentQ && (
+          {/* Estimated Reading Time - hidden in review mode */}
+          {!reviewMode && currentQ && (
             <span
               className="flex items-center gap-1 text-gray-600 dark:text-gray-300 text-[10px] sm:text-[11px] font-medium bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded shrink-0"
               title="Estimated reading time"
@@ -483,7 +629,7 @@ export default function QuestionViewer({
                     optionButtonClass =
                       "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 cursor-pointer";
                     optionIndicatorClass =
-                      "border-gray-300 dark:border-gray-500 group-hover:border-indigo-400";
+                      "border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 group-hover:border-indigo-400 group-hover:text-indigo-600";
                     optionTextClass = "text-gray-700 dark:text-gray-300";
                   } else if (isReattemptActive && hasReattemptedCurrentQ) {
                     // Reattempted feedback state
@@ -491,28 +637,28 @@ export default function QuestionViewer({
                       optionButtonClass =
                         "border-green-500 bg-green-50 dark:bg-green-900/20 ring-1 ring-green-500/40";
                       optionIndicatorClass =
-                        "border-green-600 bg-white dark:bg-gray-800 text-green-600";
+                        "border-green-600 bg-green-600 text-white shadow-xs";
                       optionTextClass =
                         "text-green-900 dark:text-green-200 font-medium";
                     } else if (isReattemptChosen && !isCorrectOption) {
                       optionButtonClass =
                         "border-red-500 bg-red-50 dark:bg-red-900/20 ring-1 ring-red-400/40";
                       optionIndicatorClass =
-                        "border-red-500 bg-white dark:bg-gray-800 text-red-500";
+                        "border-red-600 bg-red-600 text-white shadow-xs";
                       optionTextClass =
                         "text-red-900 dark:text-red-200 font-medium";
                     } else if (isOriginalChosen && !isReattemptChosen) {
                       optionButtonClass =
                         "border-amber-400 dark:border-amber-600 bg-amber-50/70 dark:bg-amber-900/20";
                       optionIndicatorClass =
-                        "border-amber-500 bg-white dark:bg-gray-800 text-amber-500";
+                        "border-amber-500 bg-amber-500 text-white shadow-xs";
                       optionTextClass =
                         "text-amber-900 dark:text-amber-200 font-medium";
                     } else {
                       optionButtonClass =
                         "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700";
                       optionIndicatorClass =
-                        "border-gray-300 dark:border-gray-500";
+                        "border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500";
                       optionTextClass = "text-gray-700 dark:text-gray-300";
                     }
                   } else {
@@ -521,21 +667,21 @@ export default function QuestionViewer({
                       optionButtonClass =
                         "border-green-500 bg-green-50 dark:bg-green-900/20";
                       optionIndicatorClass =
-                        "border-green-600 bg-white dark:bg-gray-800";
+                        "border-green-600 bg-green-600 text-white shadow-xs";
                       optionTextClass =
                         "text-green-900 dark:text-green-200 font-medium";
                     } else if (isOriginalChosen && !isCorrectOption) {
                       optionButtonClass =
                         "border-red-500 bg-red-50 dark:bg-red-900/20";
                       optionIndicatorClass =
-                        "border-red-500 bg-white dark:bg-gray-800";
+                        "border-red-600 bg-red-600 text-white shadow-xs";
                       optionTextClass =
                         "text-red-900 dark:text-red-200 font-medium";
                     } else {
                       optionButtonClass =
                         "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700";
                       optionIndicatorClass =
-                        "border-gray-300 dark:border-gray-500";
+                        "border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500";
                       optionTextClass = "text-gray-700 dark:text-gray-300";
                     }
                   }
@@ -545,14 +691,14 @@ export default function QuestionViewer({
                     optionButtonClass =
                       "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 shadow-sm ring-1 ring-indigo-600";
                     optionIndicatorClass =
-                      "border-indigo-600 bg-white dark:bg-gray-800";
+                      "border-indigo-600 bg-indigo-600 text-white shadow-xs";
                     optionTextClass =
                       "text-indigo-900 dark:text-indigo-200 font-medium";
                   } else {
                     optionButtonClass =
                       "border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700";
                     optionIndicatorClass =
-                      "border-gray-300 dark:border-gray-500 group-hover:border-indigo-400 dark:group-hover:border-indigo-500";
+                      "border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 group-hover:border-indigo-400 dark:group-hover:border-indigo-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400";
                     optionTextClass = "text-gray-700 dark:text-gray-300";
                   }
                 }
@@ -572,61 +718,66 @@ export default function QuestionViewer({
                     } ${optionButtonClass} ${reviewMode ? "p-2 sm:p-2.5" : "p-2.5 sm:p-3"}`}
                   >
                     <div
-                      className={`mt-0.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                        reviewMode ? "w-5 h-5 mr-2.5" : "w-5.5 h-5.5 mr-3"
-                      } ${optionIndicatorClass}`}
+                      className={`mt-0.5 w-6 h-6 min-w-[24px] min-h-[24px] rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all aspect-square mr-3 ${optionIndicatorClass}`}
                     >
                       {(() => {
+                        const optionLabel = String.fromCharCode(65 + idx);
                         if (isReattemptActive && !hasReattemptedCurrentQ) {
                           return (
-                            <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 group-hover:text-indigo-500">
-                              {String.fromCharCode(65 + idx)}
+                            <span className="text-xs font-bold leading-none">
+                              {optionLabel}
                             </span>
                           );
                         }
                         if (isReattemptActive && hasReattemptedCurrentQ) {
                           if (isCorrectOption) {
-                            return <Check className="w-3 h-3 text-green-600" />;
+                            return (
+                              <Check
+                                className="w-3.5 h-3.5 text-white"
+                                strokeWidth={3}
+                              />
+                            );
                           }
                           if (isReattemptChosen) {
-                            return <X className="w-3 h-3 text-red-500" />;
-                          }
-                          if (isOriginalChosen) {
                             return (
-                              <div className="w-2 h-2 rounded-full bg-amber-500" />
+                              <X
+                                className="w-3.5 h-3.5 text-white"
+                                strokeWidth={3}
+                              />
                             );
                           }
                           return (
-                            <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500">
-                              {String.fromCharCode(65 + idx)}
+                            <span className="text-xs font-bold leading-none text-white">
+                              {optionLabel}
                             </span>
                           );
                         }
                         if (reviewMode) {
                           if (isCorrectOption) {
                             return (
-                              <div className="w-2 h-2 rounded-full bg-green-600" />
+                              <Check
+                                className="w-3.5 h-3.5 text-white"
+                                strokeWidth={3}
+                              />
                             );
                           }
                           if (isOriginalChosen) {
                             return (
-                              <div className="w-2 h-2 rounded-full bg-red-500" />
+                              <X
+                                className="w-3.5 h-3.5 text-white"
+                                strokeWidth={3}
+                              />
                             );
                           }
                           return (
-                            <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500">
-                              {String.fromCharCode(65 + idx)}
+                            <span className="text-xs font-bold leading-none">
+                              {optionLabel}
                             </span>
                           );
                         }
-                        if (isOriginalChosen) {
-                          return (
-                            <div className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
-                          );
-                        }
                         return (
-                          <span className="text-xs font-bold text-gray-400 dark:text-gray-500 group-hover:text-indigo-400">
-                            {String.fromCharCode(65 + idx)}
+                          <span className="text-xs font-bold leading-none">
+                            {optionLabel}
                           </span>
                         );
                       })()}

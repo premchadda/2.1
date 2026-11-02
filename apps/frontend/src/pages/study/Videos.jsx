@@ -577,7 +577,7 @@ function Videos() {
       </Helmet>
 
       {/* Breadcrumb */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+      <div className="hidden sm:block bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
           <Breadcrumb
             items={[{ label: "Home", path: "/" }, { label: "Video Lectures" }]}

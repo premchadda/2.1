@@ -476,7 +476,7 @@ function Exams() {
       </Helmet>
 
       {/* ── BREADCRUMB ── */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+      <div className="hidden sm:block bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
         <div className="max-w-6xl mx-auto px-4">
           <Breadcrumb
             items={[{ label: "Home", path: "/" }, { label: "Explore Exams" }]}

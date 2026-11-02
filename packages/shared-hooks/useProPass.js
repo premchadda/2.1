@@ -9,15 +9,11 @@
  */
 
 import { useMemo } from "react";
-import { formatRemainingDays as sharedFormatRemainingDays } from "@trstprep/shared-config";
 
-// Local fallback for formatRemainingDays — used only if the shared-config
-// import resolves to undefined (shared-hooks/package.json declares no hard
-// dependency on @trstprep/shared-config, so this avoids a hard-dep breakage).
-// NOTE: checked package.json — no @trstprep/shared-config dep; keep this fallback.
-// Phrasing MUST stay identical to the canonical formatRemainingDays in
-// @trstprep/shared-config so degraded output is indistinguishable.
-function fallbackFormatRemainingDays(days) {
+// Self-contained formatRemainingDays — shared-hooks/package.json declares no hard
+// dependency on @trstprep/shared-config, so this avoids a hard-dep breakage.
+// Phrasing is identical to the canonical formatRemainingDays in @trstprep/shared-config.
+export function formatRemainingDays(days) {
   if (days === null || days === undefined) return "";
   if (days === 0) return "Expires today";
   if (days === 1) return "1 day remaining";
@@ -26,9 +22,6 @@ function fallbackFormatRemainingDays(days) {
   if (days < 365) return `${Math.floor(days / 30)} months remaining`;
   return "1 year+ remaining";
 }
-
-export const formatRemainingDays =
-  sharedFormatRemainingDays ?? fallbackFormatRemainingDays;
 
 // Injectable AuthContext — consumers pass their own useAuth or context
 let _useAuth = null;

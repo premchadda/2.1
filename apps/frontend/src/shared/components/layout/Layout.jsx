@@ -175,7 +175,7 @@ function Layout() {
         id="main-content"
         tabIndex={-1}
         className={`
-           ${isPracticeMode ? "p-0 m-0 w-full max-w-full" : "pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] md:pb-0"}
+           ${isPracticeMode ? "p-0 m-0 w-full max-w-full" : "pb-[calc(3.75rem+env(safe-area-inset-bottom,0px))] md:pb-0"}
            ${!isPracticeMode && isLeftNavMode ? "lg:ml-[260px]" : ""}
          `}
       >

@@ -520,13 +520,13 @@ export default function TestFormModal({
         className={`bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl w-full ${editingId && relationshipSummary ? "max-w-5xl" : "max-w-3xl"} max-h-[94vh] sm:max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-gray-200 dark:border-gray-700`}
       >
         <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50/75 dark:bg-gray-800/75 shrink-0">
-          <div>
+          <div className="min-w-0 pr-2">
             <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
               {editingId ? "Edit Test" : "Create Test"}
             </h2>
             {contextLabel && (
               <p
-                className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-xs sm:max-w-md"
+                className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-[240px] sm:max-w-md"
                 title={contextLabel}
               >
                 {contextLabel}
@@ -536,7 +536,7 @@ export default function TestFormModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500 dark:text-gray-400 min-w-[40px] min-h-[40px] flex items-center justify-center"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500 dark:text-gray-400 min-w-[40px] min-h-[40px] flex items-center justify-center shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -546,7 +546,7 @@ export default function TestFormModal({
           onSubmit={handleSubmit}
           className="flex-1 flex flex-col min-h-0 overflow-hidden"
         >
-          <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 min-h-0">
+          <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 min-h-0 pb-16 sm:pb-6">
             <div
               className={
                 editingId && relationshipSummary
@@ -662,7 +662,7 @@ export default function TestFormModal({
                     <label className="block text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">
                       Test Category *
                     </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 flex-nowrap sm:flex-wrap">
                       {TEST_CATEGORY_TABS.map((tab) => {
                         const isSelected = selectedTabId === tab.id;
                         const TabIcon = tab.icon;
@@ -683,16 +683,14 @@ export default function TestFormModal({
                                 subCategoryLevel4: "",
                               }));
                             }}
-                            className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all text-center ${
+                            className={`px-3 sm:px-3.5 py-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all text-center whitespace-nowrap shrink-0 ${
                               isSelected
                                 ? "bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-500/20"
                                 : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600"
                             }`}
                           >
                             <TabIcon className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate" title={tab.label}>
-                              {tab.label}
-                            </span>
+                            <span>{tab.label}</span>
                           </button>
                         );
                       })}
@@ -1050,18 +1048,18 @@ export default function TestFormModal({
             </div>
           </div>
 
-          <div className="px-4 py-3 sm:px-6 bg-gray-50/90 dark:bg-gray-800/90 border-t border-gray-200 dark:border-gray-700 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 shrink-0 sticky bottom-0 z-10">
+          <div className="px-3.5 py-3 sm:px-6 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex flex-row sm:justify-end gap-2.5 sm:gap-3 shrink-0 sticky bottom-0 z-10">
             <button
               type="button"
               onClick={onClose}
-              className="w-full sm:w-auto px-4 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 text-center"
+              className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 text-center"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 sm:py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all text-xs sm:text-sm font-semibold shadow-sm text-center"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 sm:py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all text-xs sm:text-sm font-bold shadow-xs text-center"
             >
               <Save className="w-4 h-4" />
               {saving ? "Saving..." : `${editingId ? "Update" : "Create"} Test`}

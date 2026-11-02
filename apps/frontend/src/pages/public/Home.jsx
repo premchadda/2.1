@@ -84,18 +84,37 @@ const categoryThemes = {
   },
 };
 
+const CATEGORY_THEME_MATCHERS = [
+  { match: (k) => k.includes("ssc") || k === "1", theme: categoryThemes.ssc },
+  {
+    match: (k) => k.includes("rail") || k.includes("rrb") || k === "2",
+    theme: categoryThemes.railways,
+  },
+  {
+    match: (k) => k.includes("bank") || k === "3",
+    theme: categoryThemes.banking,
+  },
+  {
+    match: (k) => k.includes("upsc") || k.includes("civil") || k === "4",
+    theme: categoryThemes.upsc,
+  },
+  {
+    match: (k) => k.includes("def") || k === "5",
+    theme: categoryThemes.defence,
+  },
+  {
+    match: (k) => k.includes("teach") || k === "6",
+    theme: categoryThemes.teaching,
+  },
+];
+
 const getCategoryTheme = (id) => {
   if (!id) return categoryThemes.default;
   const key = String(id).toLowerCase();
-  if (key.includes("ssc") || key === "1") return categoryThemes.ssc;
-  if (key.includes("rail") || key.includes("rrb") || key === "2")
-    return categoryThemes.railways;
-  if (key.includes("bank") || key === "3") return categoryThemes.banking;
-  if (key.includes("upsc") || key.includes("civil") || key === "4")
-    return categoryThemes.upsc;
-  if (key.includes("def") || key === "5") return categoryThemes.defence;
-  if (key.includes("teach") || key === "6") return categoryThemes.teaching;
-  return categoryThemes[key] || categoryThemes.default;
+  const matched = CATEGORY_THEME_MATCHERS.find((m) => m.match(key));
+  return matched
+    ? matched.theme
+    : categoryThemes[key] || categoryThemes.default;
 };
 
 function Home() {

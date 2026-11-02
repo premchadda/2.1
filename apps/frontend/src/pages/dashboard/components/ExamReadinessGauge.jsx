@@ -34,68 +34,16 @@ export default function ExamReadinessGauge({ className = "" }) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["exam-readiness", selectedExam, selectedCategory],
     queryFn: async () => {
-      try {
-        const res = await api.get(
-          `/api/intelligence/exam-readiness?examType=${selectedExam}&category=${selectedCategory}`,
-        );
-        return res.data?.data || res.data;
-      } catch {
-        // High-resilience pedagogical client fallback
-        return {
-          targetExam:
-            selectedExam === "ssc_cgl"
-              ? "SSC CGL (Tier-1)"
-              : "Competitive Exam",
-          category: selectedCategory,
-          projectedScore: 166,
-          maxMarks: 200,
-          targetCutoff: 150,
-          cutoffMargin: 16,
-          qualifyingProbability: 0.793,
-          predictedPercentile: 97.3,
-          readinessScore: 90,
-          readinessTier: "HIGH_PROBABILITY",
-          highRoiRecommendations: [
-            {
-              topic: "Arithmetic Ratios & Percentage Dynamics",
-              accuracy: 58,
-              projectedLiftMarks: 4.5,
-              recommendedStudyMinutes: 90,
-            },
-            {
-              topic: "Sentence Improvement & Idioms",
-              accuracy: 62,
-              projectedLiftMarks: 3.0,
-              recommendedStudyMinutes: 60,
-            },
-            {
-              topic: "Syllogisms & Logical Deductions",
-              accuracy: 64,
-              projectedLiftMarks: 2.5,
-              recommendedStudyMinutes: 45,
-            },
-          ],
-        };
-      }
+      const res = await api.get(
+        `/api/intelligence/exam-readiness?exam=${encodeURIComponent(selectedExam)}&category=${encodeURIComponent(selectedCategory)}`,
+      );
+      return res.data?.data || res.data;
     },
     staleTime: 1000 * 60 * 5,
+    retry: 1,
   });
 
-  const readiness = data || {
-    projectedScore: 155,
-    maxMarks: 200,
-    targetCutoff: 150,
-    cutoffMargin: 5,
-    qualifyingProbability: 0.72,
-    predictedPercentile: 94.5,
-    readinessTier: "HIGH_PROBABILITY",
-    highRoiRecommendations: [],
-  };
-
-  const probabilityPct = Math.round(
-    (readiness.qualifyingProbability || 0.7) * 100,
-  );
-  const isAboveCutoff = (readiness.cutoffMargin || 0) >= 0;
+  const readiness = data;
 
   if (isLoading && !data) {
     return (
@@ -112,32 +60,40 @@ export default function ExamReadinessGauge({ className = "" }) {
     );
   }
 
-  if (isError && !data) {
+  if (isError || !readiness) {
     return (
       <div
-        className={`bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-red-200 dark:border-red-800 shadow-sm ${className}`}
+        className={`bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gray-100 dark:border-gray-700 shadow-sm ${className}`}
         role="alert"
       >
-        <div className="flex items-start gap-2">
-          <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-5 h-5" />
+          </div>
           <div>
             <p className="text-sm font-bold text-gray-900 dark:text-white">
-              Readiness data unavailable
+              No Readiness Data Available Yet
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              We couldn&apos;t load your cutoff prediction. Please try again.
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
+              Complete mock tests or practice sessions to generate your
+              AI-powered cutoff and readiness prediction.
             </p>
             <button
               onClick={() => refetch()}
-              className="mt-2 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors"
+              className="mt-3 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1.5"
             >
-              Retry
+              Check Again
             </button>
           </div>
         </div>
       </div>
     );
   }
+
+  const probabilityPct = Math.round(
+    (readiness.qualifyingProbability || 0) * 100,
+  );
+  const isAboveCutoff = (readiness.cutoffMargin || 0) >= 0;
 
   return (
     <div

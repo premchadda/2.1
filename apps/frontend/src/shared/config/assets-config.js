@@ -292,7 +292,11 @@ export function getImageSizes(seed) {
 // NOTE: VITE_API_URL is required in production; when unset, assets fall back
 // to same-origin so production builds never point at localhost or a stale host.
 export const ASSET_BASE_URLS = {
-  development: "http://localhost:5001",
+  development:
+    import.meta.env.VITE_API_URL ||
+    (typeof window !== "undefined" && window.location.hostname !== "localhost"
+      ? window.location.origin
+      : "http://localhost:5001"),
   production:
     import.meta.env.VITE_API_URL ||
     (typeof window !== "undefined" ? window.location.origin : ""),

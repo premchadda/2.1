@@ -290,6 +290,10 @@ export default defineConfig(({ mode }) => {
           __dirname,
           "../../packages/shared-hooks",
         ),
+        "@trstprep/shared-config$": path.resolve(
+          __dirname,
+          "../../packages/shared-config/src/index.js",
+        ),
         "@trstprep/shared-config": path.resolve(
           __dirname,
           "../../packages/shared-config",

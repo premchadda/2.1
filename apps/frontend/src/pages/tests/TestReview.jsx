@@ -834,22 +834,6 @@ export default function TestReview() {
                           </span>
                         )}
 
-                        {/* Estimated Reading Time */}
-                        {currentQuestion && (
-                          <span
-                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-gray-600"
-                            title="Estimated reading time"
-                          >
-                            <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-                            <span>
-                              ~
-                              {formatReadingTime(
-                                getEstimatedReadingSeconds(currentQuestion),
-                              )}
-                            </span>
-                          </span>
-                        )}
-
                         {/* Time Spent */}
                         {questionTimeSpent > 0 && (
                           <span

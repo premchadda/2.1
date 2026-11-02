@@ -14,6 +14,7 @@ import { Search, ChevronRight } from "lucide-react";
 import {
   checkIsLive,
   checkIsQuiz,
+  checkIsLiveExpired,
 } from "../../shared/utils/testClassification";
 
 function TagPage({ tagProp }) {
@@ -23,6 +24,7 @@ function TagPage({ tagProp }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSeries, setSelectedSeries] = useState("all");
   const [selectedType, setSelectedType] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("active");
   const [_showFilters, _setShowFilters] = useState(false);
 
   const [testsData, setTestsData] = useState([]);
@@ -185,6 +187,14 @@ function TagPage({ tagProp }) {
   const filteredTests = useMemo(() => {
     if (loading) return [];
     return allTests.filter((test) => {
+      // By default, hide expired quizzes & live tests unless user explicitly selects 'all' or 'expired'
+      const isQuizOrLive = checkIsLive(test) || checkIsQuiz(test);
+      if (isQuizOrLive) {
+        const isExpired = checkIsLiveExpired(test);
+        if (statusFilter === "active" && isExpired) return false;
+        if (statusFilter === "expired" && !isExpired) return false;
+      }
+
       if (
         searchQuery &&
         !test.title?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -203,7 +213,14 @@ function TagPage({ tagProp }) {
       }
       return true;
     });
-  }, [allTests, searchQuery, selectedSeries, selectedType, loading]);
+  }, [
+    allTests,
+    searchQuery,
+    selectedSeries,
+    selectedType,
+    statusFilter,
+    loading,
+  ]);
 
   // Get unique series for filter - called unconditionally
   const seriesOptions = useMemo(() => {
@@ -256,7 +273,7 @@ function TagPage({ tagProp }) {
         canonical={tagProp === "quizzes" ? "/quizzes" : `/tag/${tag}`}
       />
       {/* Breadcrumb Section */}
-      <div className="bg-white border-b border-gray-100 mb-0">
+      <div className="hidden sm:block bg-white border-b border-gray-100 mb-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Breadcrumb
             items={[{ label: "Home", path: "/" }, { label: config.title }]}
@@ -336,6 +353,20 @@ function TagPage({ tagProp }) {
               <option value="Pro">Pro</option>
             </select>
 
+            {/* Status Filter for Quizzes & Live Tests */}
+            {(tag === "quizzes" || tag === "live-tests") && (
+              <select
+                aria-label="Status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-brand-start flex-shrink-0"
+              >
+                <option value="active">Active Only</option>
+                <option value="all">All (incl. Past)</option>
+                <option value="expired">Past / Expired</option>
+              </select>
+            )}
+
             {/* Results Count */}
             <span className="text-xs text-gray-500 flex-shrink-0 hidden md:inline">
               {filteredTests.length} found
@@ -344,12 +375,14 @@ function TagPage({ tagProp }) {
             {/* Clear Button */}
             {(selectedSeries !== "all" ||
               selectedType !== "all" ||
+              statusFilter !== "active" ||
               searchQuery) && (
               <button
                 onClick={() => {
                   setSearchQuery("");
                   setSelectedSeries("all");
                   setSelectedType("all");
+                  setStatusFilter("active");
                 }}
                 className="text-xs text-brand-start font-medium hover:underline flex-shrink-0"
               >

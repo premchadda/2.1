@@ -456,7 +456,11 @@ function ProfileProTab({ proPass, user }) {
         <div className="divide-y divide-gray-100 dark:divide-gray-700">
           <button
             onClick={() =>
-              window.open("https://help.trstprep.com", "_blank", "noopener")
+              window.open(
+                import.meta.env.VITE_HELP_URL || "https://help.trstprep.com",
+                "_blank",
+                "noopener",
+              )
             }
             className="flex items-center gap-3 w-full px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
           >

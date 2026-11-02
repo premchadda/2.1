@@ -3,7 +3,6 @@ import PropTypes from "prop-types";
 import {
   BookOpen,
   Sparkles,
-  Globe,
   Clock,
   Flag,
   ChevronDown,
@@ -199,32 +198,6 @@ export default function TestSolutionsList({
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <div
-                      className="flex items-center gap-1 p-0.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800"
-                      role="group"
-                      aria-label="Solution language"
-                      title="Solution language"
-                    >
-                      <Globe
-                        className="w-3.5 h-3.5 ml-1.5 text-indigo-500 dark:text-indigo-400"
-                        aria-hidden="true"
-                      />
-                      {["en", "hi"].map((lang) => (
-                        <button
-                          key={lang}
-                          type="button"
-                          onClick={() => setLanguage?.(lang)}
-                          aria-pressed={language === lang}
-                          className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer ${
-                            language === lang
-                              ? "bg-indigo-600 text-white shadow-xs"
-                              : "text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-                          }`}
-                        >
-                          {lang}
-                        </button>
-                      ))}
-                    </div>
                     <button
                       type="button"
                       data-testid="interactive-review-btn"
@@ -617,7 +590,7 @@ export default function TestSolutionsList({
                                   }`}
                                 >
                                   <span
-                                    className={`w-5.5 h-5.5 sm:w-6 sm:h-6 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
+                                    className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
                                       isCorrectOpt
                                         ? "bg-emerald-600 text-white"
                                         : isUserChoice
