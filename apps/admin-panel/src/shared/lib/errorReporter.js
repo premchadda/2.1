@@ -7,9 +7,9 @@
  * add a different provider (Datadog, Bugsnag, LogRocket) wrap it behind
  * the same `captureError` / `captureMessage` API.
  *
- * @sentry/browser is intentionally optional. The /* @vite-ignore */
- * comment prevents Vite/Rollup from failing the build when the package
- * is not installed. The try/catch handles the runtime absence case.
+ * @sentry/browser is intentionally optional. The @vite-ignore comment on
+ * the dynamic import prevents Vite/Rollup from failing the build when the
+ * package is not installed. The try/catch handles the runtime absence case.
  */
 
 const isProd = import.meta.env.PROD;
@@ -24,7 +24,7 @@ async function loadSentry() {
     return null;
   }
   try {
-    // @vite-ignore — package is optional; do not fail the build if missing
+    // Package is optional; @vite-ignore prevents build-time resolution failure
     const mod = await import(/* @vite-ignore */ "@sentry/browser");
     sentry = mod;
     mod.init({
