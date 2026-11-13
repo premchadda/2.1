@@ -6,6 +6,10 @@
  * bundle stays small when no Sentry DSN is configured. If you want to
  * add a different provider (Datadog, Bugsnag, LogRocket) wrap it behind
  * the same `captureError` / `captureMessage` API.
+ *
+ * @sentry/browser is intentionally optional. The /* @vite-ignore */
+ * comment prevents Vite/Rollup from failing the build when the package
+ * is not installed. The try/catch handles the runtime absence case.
  */
 
 const isProd = import.meta.env.PROD;
@@ -20,7 +24,8 @@ async function loadSentry() {
     return null;
   }
   try {
-    const mod = await import("@sentry/browser");
+    // @vite-ignore — package is optional; do not fail the build if missing
+    const mod = await import(/* @vite-ignore */ "@sentry/browser");
     sentry = mod;
     mod.init({
       dsn,
