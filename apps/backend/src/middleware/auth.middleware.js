@@ -545,20 +545,16 @@ export const protect = async (req, res, next) => {
             [String(decoded.sessionId)],
           );
           if (sessionCheck.rows.length === 0) {
-            // Session row missing but JWT is cryptographically valid.
-            // Bounded fail-open: allow with a SHORT (60s) provisional cache
-            // entry + loud alert so ops notices. A missing row usually means
-            // session pruning/race, not compromise; hard fail-closed here
-            // would mass-logout valid users. The 60s TTL bounds exposure.
-            console.error(
-              "[Auth][ALERT] Session row missing during validation; provisional 60s allow (JWT valid). sessionId:",
-              String(decoded.sessionId),
-            );
             await setCachedSession(
               decoded.sessionId,
-              { isActive: true, provisional: true },
+              { isActive: false },
               60_000,
             );
+            return res.status(401).json({
+              success: false,
+              message:
+                "Your session has expired or been revoked. Please log in again.",
+            });
           } else if (!sessionCheck.rows[0].is_active) {
             await setCachedSession(decoded.sessionId, { isActive: false });
             return res.status(401).json({

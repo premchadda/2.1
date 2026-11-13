@@ -256,12 +256,7 @@ export default defineConfig(({ mode }) => {
             {
               urlPattern:
                 /\/api\/(users\/profile|users\/dashboard|notifications|attempted-tests).*/i,
-              handler: "NetworkFirst",
-              options: {
-                cacheName: "api-user-state-v2",
-                networkTimeoutSeconds: 3,
-                expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 2 },
-              },
+              handler: "NetworkOnly",
             },
             // 4. Public Catalog & Study Material (StaleWhileRevalidate)
             {

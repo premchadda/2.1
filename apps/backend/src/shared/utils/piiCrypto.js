@@ -23,7 +23,9 @@ export const getKey = () => {
         .update("trstprep-dev-encryption-key-for-local-testing-32-chars")
         .digest();
     }
-    return null;
+    throw new Error(
+      "DB_ENCRYPTION_KEY (or PGCRYPTO_KEY) must be configured with at least 16 characters in production",
+    );
   }
   // Derive a stable 32-byte key from the secret.
   return crypto.createHash("sha256").update(raw).digest();

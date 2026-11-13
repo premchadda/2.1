@@ -5,6 +5,7 @@ import {
   validateAdminApiKey,
 } from "../../middleware/origin.middleware.js";
 import { auditMiddleware } from "../../middleware/audit.middleware.js";
+import { loadAdminPermissions } from "../../middleware/admin-permission.middleware.js";
 import Stage from "../../data/models/Stage.js";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
@@ -15,6 +16,7 @@ const adminMutation = [
   validateAdminApiKey,
   protect,
   admin,
+  loadAdminPermissions,
   auditMiddleware({ includeBody: true }),
 ];
 

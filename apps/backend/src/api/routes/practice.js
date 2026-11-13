@@ -34,6 +34,12 @@ import {
 } from "../../infrastructure/database/postgres-helpers.js";
 import { readQuery } from "../../../config/database-replicas.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
+import {
+  restrictAdminOrigin,
+  validateAdminApiKey,
+} from "../../middleware/origin.middleware.js";
+import { auditMiddleware } from "../../middleware/audit.middleware.js";
+import { loadAdminPermissions } from "../../middleware/admin-permission.middleware.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
 import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
 import { recordPracticeAnalytics } from "../../services/core/analyticsService.js";
@@ -42,6 +48,14 @@ import { getUnifiedBookmarkedQuestionIds } from "./bookmarks.js";
 
 const router = express.Router();
 const practiceSubmissionLimiter = createRateLimiter("moderate");
+const practiceAdminGuard = [
+  restrictAdminOrigin,
+  validateAdminApiKey,
+  protect,
+  admin,
+  loadAdminPermissions,
+  auditMiddleware({ includeBody: true }),
+];
 
 // PII guard for admin list endpoints: mask emails (detail-by-id keeps full email)
 const maskEmail = () => "***@***";
@@ -2813,7 +2827,7 @@ router.get("/reports/my", protect, async (req, res) => {
  * GET /api/practice/reports/admin/all
  * Admin gets ALL reported questions across all users.
  */
-router.get("/reports/admin/all", protect, admin, async (req, res) => {
+router.get("/reports/admin/all", ...practiceAdminGuard, async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(
@@ -2870,49 +2884,57 @@ router.get("/reports/admin/all", protect, admin, async (req, res) => {
  * PUT /api/practice/reports/admin/:id/status
  * Admin updates status of reported question.
  */
-router.put("/reports/admin/:id/status", protect, admin, async (req, res) => {
-  try {
-    const { status, notes } = req.body;
-    const reportId = parsePositiveInt(req.params.id);
-    if (!reportId) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Invalid report ID" });
-    }
-    const safeStatus = status || "resolved";
-    const VALID_REPORT_STATUSES = ["pending", "resolved", "rejected"];
-    if (!VALID_REPORT_STATUSES.includes(safeStatus)) {
-      return res.status(400).json({ success: false, error: "Invalid status" });
-    }
+router.put(
+  "/reports/admin/:id/status",
+  ...practiceAdminGuard,
+  async (req, res) => {
+    try {
+      const { status, notes } = req.body;
+      const reportId = parsePositiveInt(req.params.id);
+      if (!reportId) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Invalid report ID" });
+      }
+      const safeStatus = status || "resolved";
+      const VALID_REPORT_STATUSES = ["pending", "resolved", "rejected"];
+      if (!VALID_REPORT_STATUSES.includes(safeStatus)) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Invalid status" });
+      }
 
-    const result = await pool.query(
-      `
+      const result = await pool.query(
+        `
       UPDATE question_reports
       SET status = $1, notes = COALESCE($2, notes)
       WHERE id = $3
       RETURNING *
     `,
-      [safeStatus, notes || null, reportId],
-    );
+        [safeStatus, notes || null, reportId],
+      );
 
-    if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Report not found" });
+      if (result.rows.length === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Report not found" });
+      }
+
+      res.json({ success: true, data: dbHelpers.toCamel(result.rows[0]) });
+    } catch (err) {
+      console.error("PUT /reports/admin/:id/status error:", err);
+      res
+        .status(500)
+        .json({ success: false, error: sanitizeErrorMessage(err) });
     }
-
-    res.json({ success: true, data: dbHelpers.toCamel(result.rows[0]) });
-  } catch (err) {
-    console.error("PUT /reports/admin/:id/status error:", err);
-    res.status(500).json({ success: false, error: sanitizeErrorMessage(err) });
-  }
-});
+  },
+);
 
 /**
  * GET /api/practice/bookmarks/admin/all
  * Admin gets ALL saved questions/items across all users with full metadata.
  */
-router.get("/bookmarks/admin/all", protect, admin, async (req, res) => {
+router.get("/bookmarks/admin/all", ...practiceAdminGuard, async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(

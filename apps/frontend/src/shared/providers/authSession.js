@@ -122,12 +122,7 @@ export const saveUserCache = (frontendUser, rememberMe = false) => {
   }
 };
 
-export const applyAuthSession = ({
-  token,
-  refreshToken,
-  csrfToken,
-  rememberMe = false,
-} = {}) => {
+export const applyAuthSession = ({ csrfToken } = {}) => {
   // httpOnly cookies are the primary auth mechanism (XSS protection).
   // Body tokens are stored as a cross-origin fallback: when the frontend
   // (Vercel) and backend (Render) are on different origins, cookies with
@@ -137,23 +132,13 @@ export const applyAuthSession = ({
     setCsrfToken(csrfToken);
   }
   try {
-    if (token || refreshToken) {
-      if (rememberMe) {
-        if (token) localStorage.setItem("trstprep_token", token);
-        if (refreshToken)
-          localStorage.setItem("trstprep_refresh_token", refreshToken);
-        sessionStorage.removeItem("trstprep_token");
-        sessionStorage.removeItem("trstprep_auth_token");
-        sessionStorage.removeItem("trstprep_refresh_token");
-      } else {
-        if (token) sessionStorage.setItem("trstprep_token", token);
-        if (refreshToken)
-          sessionStorage.setItem("trstprep_refresh_token", refreshToken);
-        localStorage.removeItem("trstprep_token");
-        localStorage.removeItem("trstprep_auth_token");
-        localStorage.removeItem("trstprep_refresh_token");
-      }
-    }
+    // Rely on httpOnly cookies set by the backend; never persist bearer/refresh tokens in Web Storage.
+    sessionStorage.removeItem("trstprep_token");
+    sessionStorage.removeItem("trstprep_auth_token");
+    sessionStorage.removeItem("trstprep_refresh_token");
+    localStorage.removeItem("trstprep_token");
+    localStorage.removeItem("trstprep_auth_token");
+    localStorage.removeItem("trstprep_refresh_token");
   } catch {
     // storage may throw in private mode
   }

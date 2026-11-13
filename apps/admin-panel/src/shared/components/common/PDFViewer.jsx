@@ -133,13 +133,13 @@ export default function PDFViewer({ isOpen, onClose, pdfData }) {
 
       {/* PDF Viewer — native browser (Edge/Chrome) PDF renderer */}
       <div className="flex-1 bg-gray-800">
-        {src ? (
+        {src && /^(https?:|blob:|\/|data:application\/pdf)/i.test(src) ? (
           <iframe
             src={src}
             className="w-full h-full border-0"
             title={pdfData?.title || "PDF"}
             allow="fullscreen"
-            sandbox="allow-scripts allow-same-origin"
+            sandbox="allow-scripts"
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-white/60 gap-3">

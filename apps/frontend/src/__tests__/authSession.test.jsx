@@ -13,7 +13,8 @@ describe("applyAuthSession & auth storage (dual-storage with rememberMe)", () =>
     sessionStorage.clear();
   });
 
-  it("stores fallback tokens in localStorage when rememberMe is true", () => {
+  it("never persists bearer/refresh tokens to Web Storage when rememberMe is true", () => {
+    localStorage.setItem("trstprep_token", "legacy-token");
     applyAuthSession({
       token: "access-token-123",
       refreshToken: "refresh-token-456",
@@ -21,15 +22,14 @@ describe("applyAuthSession & auth storage (dual-storage with rememberMe)", () =>
       rememberMe: true,
     });
 
-    expect(localStorage.getItem("trstprep_token")).toBe("access-token-123");
-    expect(localStorage.getItem("trstprep_refresh_token")).toBe(
-      "refresh-token-456",
-    );
+    expect(localStorage.getItem("trstprep_token")).toBeNull();
+    expect(localStorage.getItem("trstprep_refresh_token")).toBeNull();
     expect(sessionStorage.getItem("trstprep_token")).toBeNull();
     expect(sessionStorage.getItem("trstprep_refresh_token")).toBeNull();
   });
 
-  it("stores fallback tokens in sessionStorage when rememberMe is false", () => {
+  it("never persists bearer/refresh tokens to Web Storage when rememberMe is false", () => {
+    sessionStorage.setItem("trstprep_refresh_token", "legacy-refresh");
     applyAuthSession({
       token: "access-token-123",
       refreshToken: "refresh-token-456",
@@ -37,10 +37,8 @@ describe("applyAuthSession & auth storage (dual-storage with rememberMe)", () =>
       rememberMe: false,
     });
 
-    expect(sessionStorage.getItem("trstprep_token")).toBe("access-token-123");
-    expect(sessionStorage.getItem("trstprep_refresh_token")).toBe(
-      "refresh-token-456",
-    );
+    expect(sessionStorage.getItem("trstprep_token")).toBeNull();
+    expect(sessionStorage.getItem("trstprep_refresh_token")).toBeNull();
     expect(localStorage.getItem("trstprep_token")).toBeNull();
     expect(localStorage.getItem("trstprep_refresh_token")).toBeNull();
   });

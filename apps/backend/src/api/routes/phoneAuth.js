@@ -314,21 +314,16 @@ router.post(
             });
           }
         }
-        // H1 FIX: phone OTP is a possession factor — the phone number itself is
-        // verified by the OTP challenge above. A synthetic `<phone>@trstprep.local`
-        // email has no mailbox to verify, so mark is_email_verified=true
-        // alongside phone_verified=true; otherwise protect()'s production
-        // email-verification gate returns 403 for every phone-authed user.
-        // An attacker-supplied email is still stored UNVERIFIED-equivalent in
-        // practice: it is only trusted after the existing email-verification
-        // flow (sendVerificationEmail) confirms mailbox control. Do NOT treat
-        // suppliedEmail as verified for recovery/notifications until then.
+        // Phone OTP verifies phone possession. Only synthetic `<phone>@trstprep.local`
+        // emails (no real mailbox) are marked is_email_verified=true; any
+        // caller-supplied email starts unverified until mailbox verification.
+        const isSyntheticEmail = !suppliedEmail;
         let createResult;
         try {
           // Create new user with both plaintext alias and canonical phone_enc
           createResult = await dbHelpers.query(
             `INSERT INTO users (phone, mobile, phone_enc, email, name, auth_type, phone_verified, is_email_verified, last_login, created_at)
-          VALUES ($1, $2, $3, $4, $5, 'phone', true, true, NOW(), NOW())
+          VALUES ($1, $2, $3, $4, $5, 'phone', true, $6, NOW(), NOW())
           RETURNING id, email, name`,
             [
               phoneNumber,
@@ -336,6 +331,7 @@ router.post(
               encryptedPhone,
               finalEmail,
               suppliedName,
+              isSyntheticEmail,
             ],
           );
         } catch (insErr) {
@@ -363,7 +359,7 @@ router.post(
         // protect() does not 403 phone-authed users with synthetic emails).
         // Synchronize mobile and phone_enc if previously null.
         await dbHelpers.query(
-          "UPDATE users SET last_login = NOW(), phone = COALESCE(phone, $1), mobile = COALESCE(mobile, $1), phone_enc = COALESCE(phone_enc, $2), phone_verified = true, is_email_verified = true WHERE id = $3",
+          "UPDATE users SET last_login = NOW(), phone = COALESCE(phone, $1), mobile = COALESCE(mobile, $1), phone_enc = COALESCE(phone_enc, $2), phone_verified = true, is_email_verified = CASE WHEN email LIKE '%@trstprep.local' THEN true ELSE is_email_verified END WHERE id = $3",
           [phoneNumber, encryptedPhone, userId],
         );
       }
@@ -649,7 +645,7 @@ router.post(
 
       // Update user with phone (encrypt phone via encryptPII and store phone, mobile, and phone_enc)
       await dbHelpers.query(
-        "UPDATE users SET phone = $1, mobile = $1, phone_enc = $2, phone_verified = true, is_email_verified = true, updated_at = NOW() WHERE id = $3",
+        "UPDATE users SET phone = $1, mobile = $1, phone_enc = $2, phone_verified = true, updated_at = NOW() WHERE id = $3",
         [phoneNumber, encryptedPhone, userId],
       );
 

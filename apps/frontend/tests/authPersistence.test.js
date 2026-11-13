@@ -149,12 +149,10 @@ describe("Mobile Auth Persistence & Token Fallback", () => {
 
     const result = await client.get("/api/protected-data");
     expect(result.data.data.message).toBe("Success after refresh");
-    expect(refreshData).toEqual({ refreshToken: "valid-refresh-token" });
-    expect(localStorage.getItem("trstprep_token")).toBe(
-      "new-fresh-access-token",
-    );
+    expect(refreshData).toEqual({});
+    expect(localStorage.getItem("trstprep_token")).toBe("expired-token");
     expect(localStorage.getItem("trstprep_refresh_token")).toBe(
-      "new-fresh-refresh-token",
+      "valid-refresh-token",
     );
     expect(retriedHeaders.Authorization).toBe("Bearer new-fresh-access-token");
   });

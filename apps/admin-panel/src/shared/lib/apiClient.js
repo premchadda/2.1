@@ -39,53 +39,9 @@ export const setMemoryRefreshToken = (token) => {
   memoryRefreshToken = token || null;
 };
 
-const readStoredToken = () => {
-  if (memoryToken) return memoryToken;
-  try {
-    const sessionTok =
-      typeof sessionStorage !== "undefined"
-        ? sessionStorage.getItem("trstprep_token")
-        : null;
-    if (sessionTok) return sessionTok;
+const readStoredToken = () => memoryToken || null;
 
-    if (typeof localStorage !== "undefined") {
-      const localTok = localStorage.getItem("trstprep_token");
-      if (localTok) {
-        if (typeof sessionStorage !== "undefined") {
-          sessionStorage.setItem("trstprep_token", localTok);
-        }
-        return localTok;
-      }
-    }
-    return null;
-  } catch {
-    return memoryToken || null;
-  }
-};
-
-const readStoredRefreshToken = () => {
-  if (memoryRefreshToken) return memoryRefreshToken;
-  try {
-    const sessionRefresh =
-      typeof sessionStorage !== "undefined"
-        ? sessionStorage.getItem("trstprep_refresh_token")
-        : null;
-    if (sessionRefresh) return sessionRefresh;
-
-    if (typeof localStorage !== "undefined") {
-      const localRefresh = localStorage.getItem("trstprep_refresh_token");
-      if (localRefresh) {
-        if (typeof sessionStorage !== "undefined") {
-          sessionStorage.setItem("trstprep_refresh_token", localRefresh);
-        }
-        return localRefresh;
-      }
-    }
-    return null;
-  } catch {
-    return memoryRefreshToken || null;
-  }
-};
+const readStoredRefreshToken = () => memoryRefreshToken || null;
 
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (e) => {
@@ -105,22 +61,16 @@ if (typeof window !== "undefined") {
 }
 
 const persistRotatedTokens = (newToken, newRefreshToken) => {
+  if (newToken) memoryToken = newToken;
+  if (newRefreshToken) memoryRefreshToken = newRefreshToken;
   try {
-    if (newToken) {
-      memoryToken = newToken;
-      if (typeof sessionStorage !== "undefined")
-        sessionStorage.setItem("trstprep_token", newToken);
-      // Clean up any remaining legacy localStorage copy
-      if (typeof localStorage !== "undefined")
-        localStorage.removeItem("trstprep_token");
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.removeItem("trstprep_token");
+      sessionStorage.removeItem("trstprep_refresh_token");
     }
-    if (newRefreshToken) {
-      memoryRefreshToken = newRefreshToken;
-      if (typeof sessionStorage !== "undefined")
-        sessionStorage.setItem("trstprep_refresh_token", newRefreshToken);
-      // Clean up any remaining legacy localStorage copy
-      if (typeof localStorage !== "undefined")
-        localStorage.removeItem("trstprep_refresh_token");
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("trstprep_token");
+      localStorage.removeItem("trstprep_refresh_token");
     }
   } catch {
     // ignore storage access errors

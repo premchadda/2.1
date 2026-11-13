@@ -220,6 +220,7 @@ export function AuthProvider({ children }) {
         clearAuthTokens();
         saveUserCache(null);
         setUser(null);
+        purgeUserCaches();
         return { success: false, error: "Session expired" };
       }
       return { success: false, error: "Service temporarily unavailable" };
@@ -253,6 +254,7 @@ export function AuthProvider({ children }) {
           clearAuthTokens();
           setUser(null);
           saveUserCache(null);
+          purgeUserCaches();
         }
         setLoading(false);
         setAuthResolved(true);
@@ -285,6 +287,7 @@ export function AuthProvider({ children }) {
           clearAuthTokens();
           setUser(null);
           saveUserCache(null);
+          purgeUserCaches();
         } else {
           // Terminal non-401 (retries exhausted): /api/auth/me never confirmed
           // a session. Fail CLOSED — drop the optimistic cached identity
@@ -295,6 +298,7 @@ export function AuthProvider({ children }) {
           clearAuthTokens();
           setUser(null);
           saveUserCache(null);
+          purgeUserCaches();
         }
         setLoading(false);
         setAuthResolved(true);

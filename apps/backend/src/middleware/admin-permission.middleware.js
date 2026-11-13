@@ -8,12 +8,8 @@ const resourceForPath = (path = "") => {
   }
   const segments = path.split("?")[0].split("/").filter(Boolean);
   const resource = segments[0] || "content";
-  if (
-    ["users", "enrollments", "sessions", "roles", "permissions"].includes(
-      resource,
-    )
-  )
-    return "users";
+  if (["roles", "permissions"].includes(resource)) return "roles";
+  if (["users", "enrollments", "sessions"].includes(resource)) return "users";
   // Assessment/taxonomy group. Maps to the single "tests" resource so the
   // existing tests:* grants keep working. NOTE (frontend alignment): the
   // admin-panel rbac.js maps practice-questions/categories/tag-configs to

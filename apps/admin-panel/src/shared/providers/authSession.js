@@ -62,15 +62,14 @@ export const applyAuthSession = ({
     if (token || refreshToken) {
       if (token) setMemoryToken(token);
       if (refreshToken) setMemoryRefreshToken(refreshToken);
-      if (token) {
-        sessionStorage.setItem("trstprep_token", token);
-        localStorage.setItem("trstprep_token", token);
-      }
-      if (refreshToken) {
-        sessionStorage.setItem("trstprep_refresh_token", refreshToken);
-        localStorage.setItem("trstprep_refresh_token", refreshToken);
-      }
     }
+    // Never persist bearer/refresh tokens to Web Storage; rely on httpOnly cookies + in-memory cache.
+    sessionStorage.removeItem("trstprep_token");
+    sessionStorage.removeItem("trstprep_auth_token");
+    sessionStorage.removeItem("trstprep_refresh_token");
+    localStorage.removeItem("trstprep_token");
+    localStorage.removeItem("trstprep_auth_token");
+    localStorage.removeItem("trstprep_refresh_token");
   } catch (error) {
     void error;
   }

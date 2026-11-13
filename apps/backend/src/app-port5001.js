@@ -1165,7 +1165,7 @@ app.use(
 app.use("/api/enrollments", enrollmentsAdminRoutes);
 app.use("/api/community", validateCsrfToken, communityRoutes);
 app.use("/api/analytics", validateCsrfToken, analyticsRoutes);
-app.use("/api/fortspy", fortskyRoutes);
+app.use("/api/fortspy", validateCsrfToken, fortskyRoutes);
 app.use("/api/import", protect, admin, adminLimiter, importRoutes);
 app.use("/api/embeddings", embeddingRoutes);
 app.use("/api/node-engine", validateCsrfToken, nodeEngineRoutes);

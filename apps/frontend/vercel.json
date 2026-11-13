@@ -33,7 +33,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://checkout.razorpay.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://trstprep-v-1.onrender.com https://*.onrender.com wss://trstprep-v-1.onrender.com wss://*.onrender.com https://api.razorpay.com https://accounts.google.com https://*.supabase.co; object-src 'none'; frame-src 'self' https://accounts.google.com https://api.razorpay.com https://*.youtube.com https://*.youtube-nocookie.com https://drive.google.com; base-uri 'self';"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://checkout.razorpay.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://trstprep-v-1.onrender.com https://*.onrender.com wss://trstprep-v-1.onrender.com wss://*.onrender.com https://api.razorpay.com https://accounts.google.com https://*.supabase.co; object-src 'none'; frame-src 'self' https://accounts.google.com https://api.razorpay.com https://*.youtube.com https://*.youtube-nocookie.com https://drive.google.com; frame-ancestors 'none'; form-action 'self'; base-uri 'self';"
         }
       ]
     }

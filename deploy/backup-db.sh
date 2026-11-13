@@ -11,6 +11,7 @@
 # Set DATABASE_URL (or the individual PG* vars) in the environment / .env.
 # ==============================================================================
 set -euo pipefail
+umask 077
 
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/trstprep}"
 RETENTION_DAYS="${RETENTION_DAYS:-7}"      # daily dumps kept

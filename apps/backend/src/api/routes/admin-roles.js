@@ -111,8 +111,10 @@ router.get("/roles", async (req, res) => {
   }
 });
 
-async function resolvePermissionIds(client, permissions) {
-  if (!Array.isArray(permissions) || permissions.length === 0) return [];
+async function resolvePermissionRows(client, permissions) {
+  if (!Array.isArray(permissions) || permissions.length === 0) {
+    return { rows: [], missing: [] };
+  }
   const uuidRegex =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -128,7 +130,19 @@ async function resolvePermissionIds(client, permissions) {
   const directUuids = rawValues.filter((v) => uuidRegex.test(v));
   const nameKeys = rawValues.filter((v) => !uuidRegex.test(v));
 
-  const resolved = new Set(directUuids);
+  const rowsById = new Map();
+  const matchedTokens = new Set();
+
+  if (directUuids.length > 0) {
+    const uuidLookup = await client.query(
+      `SELECT id, name, resource, action FROM permissions WHERE id = ANY($1::uuid[])`,
+      [directUuids],
+    );
+    for (const r of uuidLookup.rows) {
+      rowsById.set(r.id, r);
+      matchedTokens.add(String(r.id).toLowerCase());
+    }
+  }
 
   if (nameKeys.length > 0) {
     const lookup = await client.query(
@@ -137,10 +151,80 @@ async function resolvePermissionIds(client, permissions) {
           OR (resource || ':' || action) = ANY($1)`,
       [nameKeys],
     );
-    lookup.rows.forEach((r) => resolved.add(r.id));
+    for (const r of lookup.rows) {
+      rowsById.set(r.id, r);
+      if (r.name) matchedTokens.add(r.name);
+      if (r.resource && r.action)
+        matchedTokens.add(`${r.resource}:${r.action}`);
+    }
   }
 
-  return Array.from(resolved);
+  const missing = rawValues.filter((v) => {
+    const key = uuidRegex.test(v) ? v.toLowerCase() : v;
+    return !matchedTokens.has(key);
+  });
+
+  return { rows: Array.from(rowsById.values()), missing };
+}
+
+async function resolveAndAuthorizePermissions(client, permissions, callerUser) {
+  const { rows, missing } = await resolvePermissionRows(client, permissions);
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      status: 400,
+      error: `Unknown permission(s): ${missing.join(", ")}`,
+    };
+  }
+  if (rows.length === 0) {
+    return { ok: true, ids: [] };
+  }
+
+  const callerPerms = new Set(
+    Array.isArray(callerUser?.permissions) ? callerUser.permissions : [],
+  );
+  if (callerPerms.size === 0 && callerUser?.id) {
+    try {
+      const { rows: dbPerms } = await client.query(
+        `SELECT DISTINCT p.name, p.resource, p.action
+         FROM user_roles ur
+         JOIN role_permissions rp ON rp.role_id = ur.role_id
+         JOIN permissions p ON p.id = rp.permission_id
+         WHERE ur.user_id = $1`,
+        [callerUser.id],
+      );
+      for (const r of dbPerms) {
+        if (r.name) callerPerms.add(r.name);
+        if (r.resource && r.action)
+          callerPerms.add(`${r.resource}:${r.action}`);
+      }
+    } catch {
+      // fall through with empty set -> fail closed below
+    }
+  }
+
+  const hasWildcard = callerPerms.has("*") || callerPerms.has("*:*");
+  if (!hasWildcard) {
+    const unauthorized = rows.filter((r) => {
+      const resAction =
+        r.resource && r.action ? `${r.resource}:${r.action}` : null;
+      const resWildcard = r.resource ? `${r.resource}:*` : null;
+      return !(
+        (r.name && callerPerms.has(r.name)) ||
+        (resAction && callerPerms.has(resAction)) ||
+        (resWildcard && callerPerms.has(resWildcard))
+      );
+    });
+    if (unauthorized.length > 0) {
+      return {
+        ok: false,
+        status: 403,
+        error: "Cannot grant permissions you do not hold",
+      };
+    }
+  }
+
+  return { ok: true, ids: rows.map((r) => r.id) };
 }
 
 /**
@@ -231,8 +315,20 @@ router.post("/roles", protect, admin, async (req, res) => {
 
     const roleId = roleResult.rows[0].id;
 
-    // Assign permissions to role
-    const resolvedPermIds = await resolvePermissionIds(client, permissions);
+    // Assign permissions to role (validate existence & caller subset)
+    const authz = await resolveAndAuthorizePermissions(
+      client,
+      permissions,
+      req.user,
+    );
+    if (!authz.ok) {
+      await client.query("ROLLBACK");
+      return res.status(authz.status).json({
+        success: false,
+        error: authz.error,
+      });
+    }
+    const resolvedPermIds = authz.ids;
     if (resolvedPermIds.length > 0) {
       const permissionValues = resolvedPermIds
         .map((_, index) => `($1, $${index + 2})`)
@@ -309,6 +405,21 @@ router.put("/roles/:id", protect, admin, async (req, res) => {
       });
     }
 
+    // Self-role guard: an admin cannot modify a role assigned to their own account
+    if (req.user?.id) {
+      const selfRole = await client.query(
+        "SELECT 1 FROM user_roles WHERE role_id = $1 AND user_id = $2",
+        [id, req.user.id],
+      );
+      if (selfRole.rows.length > 0) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({
+          success: false,
+          error: "Cannot modify a role assigned to your own account",
+        });
+      }
+    }
+
     const currentName = existingRole.rows[0].name;
 
     // Update role name and description if provided
@@ -377,13 +488,27 @@ router.put("/roles/:id", protect, admin, async (req, res) => {
           });
         }
       }
+      // Validate every permission resolves to a real row and caller holds it
+      const authz = await resolveAndAuthorizePermissions(
+        client,
+        permissions,
+        req.user,
+      );
+      if (!authz.ok) {
+        await client.query("ROLLBACK");
+        return res.status(authz.status).json({
+          success: false,
+          error: authz.error,
+        });
+      }
+
       // Delete existing permissions
       await client.query("DELETE FROM role_permissions WHERE role_id = $1", [
         id,
       ]);
 
       // Insert new permissions
-      const resolvedPermIds = await resolvePermissionIds(client, permissions);
+      const resolvedPermIds = authz.ids;
       if (resolvedPermIds.length > 0) {
         const permissionValues = resolvedPermIds
           .map((_, index) => `($1, $${index + 2})`)
@@ -403,7 +528,15 @@ router.put("/roles/:id", protect, admin, async (req, res) => {
       "SELECT * FROM roles WHERE id = $1",
       [id],
     );
+    const { rows: affectedUsers } = await client.query(
+      "SELECT user_id FROM user_roles WHERE role_id = $1",
+      [id],
+    );
     await client.query("COMMIT");
+
+    for (const row of affectedUsers) {
+      invalidateAdminPermissionsCache(String(row.user_id));
+    }
 
     res.json({
       success: true,
@@ -462,6 +595,21 @@ router.delete("/roles/:id", protect, admin, async (req, res) => {
         success: false,
         error: "Role not found",
       });
+    }
+
+    // Self-role guard: an admin cannot modify a role assigned to their own account
+    if (req.user?.id) {
+      const selfRole = await client.query(
+        "SELECT 1 FROM user_roles WHERE role_id = $1 AND user_id = $2",
+        [id, req.user.id],
+      );
+      if (selfRole.rows.length > 0) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({
+          success: false,
+          error: "Cannot modify a role assigned to your own account",
+        });
+      }
     }
 
     // Check if role has users assigned
@@ -593,9 +741,10 @@ router.post("/roles/:id/assign", protect, admin, async (req, res) => {
     });
   }
 
-  const client = await pool.connect();
+  let client;
 
   try {
+    client = await pool.connect();
     await client.query("BEGIN");
 
     // Check if role exists
@@ -677,14 +826,20 @@ router.post("/roles/:id/assign", protect, admin, async (req, res) => {
       message: `Role assigned to ${user_ids.length} user(s)`,
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    if (client) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // ignore rollback failure on disconnected client
+      }
+    }
     logger.error("Assign role error:", error);
     res.status(500).json({
       success: false,
       error: "Internal server error",
     });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 

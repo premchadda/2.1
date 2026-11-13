@@ -282,16 +282,13 @@ export function createApiClient(options = {}) {
           isRefreshing = true;
           const refreshGeneration = authGeneration;
           try {
-            const fallbackRefreshToken =
-              safeStorageGet(getSessionStore(), "trstprep_refresh_token") ||
-              safeStorageGet(getLocalStore(), "trstprep_refresh_token") ||
-              undefined;
-            const refreshPayload = fallbackRefreshToken
-              ? { refreshToken: fallbackRefreshToken }
-              : {};
-            const refreshRes = await instance.post(refreshUrl, refreshPayload, {
-              _authRefreshAttempted: true,
-            });
+            const refreshRes = await instance.post(
+              refreshUrl,
+              {},
+              {
+                _authRefreshAttempted: true,
+              },
+            );
             // resetAuthState() ran while this refresh was in flight (logout /
             // account switch). The rotated token belongs to the previous
             // session — discard it rather than replaying a stale bearer, and
@@ -308,23 +305,8 @@ export function createApiClient(options = {}) {
             }
             const newAccessToken =
               refreshRes?.data?.data?.token || refreshRes?.data?.token;
-            const newRefreshToken =
-              refreshRes?.data?.data?.refreshToken ||
-              refreshRes?.data?.refreshToken;
             if (newAccessToken) {
               lastRefreshedToken = newAccessToken;
-              if (safeStorageGet(getLocalStore(), "trstprep_token"))
-                safeStorageSet(
-                  getLocalStore(),
-                  "trstprep_token",
-                  newAccessToken,
-                );
-              else if (safeStorageGet(getSessionStore(), "trstprep_token"))
-                safeStorageSet(
-                  getSessionStore(),
-                  "trstprep_token",
-                  newAccessToken,
-                );
               originalRequest.headers = originalRequest.headers || {};
               originalRequest.headers["Authorization"] =
                 `Bearer ${newAccessToken}`;
@@ -332,22 +314,6 @@ export function createApiClient(options = {}) {
               // Cookie-only refresh returns no bearer token. Do not replay an expired bearer token.
               delete originalRequest.headers["Authorization"];
               delete originalRequest.headers["authorization"];
-            }
-            if (newRefreshToken) {
-              if (safeStorageGet(getLocalStore(), "trstprep_refresh_token"))
-                safeStorageSet(
-                  getLocalStore(),
-                  "trstprep_refresh_token",
-                  newRefreshToken,
-                );
-              else if (
-                safeStorageGet(getSessionStore(), "trstprep_refresh_token")
-              )
-                safeStorageSet(
-                  getSessionStore(),
-                  "trstprep_refresh_token",
-                  newRefreshToken,
-                );
             }
             isRefreshing = false;
             processQueue(null);
