@@ -2,14 +2,15 @@
  * Lightweight error reporter.
  *
  * In production we forward uncaught errors to a centralised monitoring
- * service. Today only Sentry is supported, and it's loaded lazily so the
- * bundle stays small when no Sentry DSN is configured. If you want to
- * add a different provider (Datadog, Bugsnag, LogRocket) wrap it behind
- * the same `captureError` / `captureMessage` API.
+ * service. Today only Sentry is supported. The actual @sentry/browser
+ * package is not bundled until it is added as a dependency and the
+ * lockfile is updated. Until then this module is a safe no-op.
  *
- * @sentry/browser is intentionally optional. The @vite-ignore comment on
- * the dynamic import prevents Vite/Rollup from failing the build when the
- * package is not installed. The try/catch handles the runtime absence case.
+ * To activate Sentry later:
+ *   1. pnpm --filter trstprep-admin add @sentry/browser
+ *   2. Restore the dynamic import in loadSentry()
+ *   3. Call initErrorReporter() from main.jsx
+ *   4. Set VITE_SENTRY_DSN in the environment
  */
 
 const isProd = import.meta.env.PROD;
@@ -23,22 +24,11 @@ async function loadSentry() {
     sentry = false;
     return null;
   }
-  try {
-    // Package is optional; @vite-ignore prevents build-time resolution failure
-    const mod = await import(/* @vite-ignore */ "@sentry/browser");
-    sentry = mod;
-    mod.init({
-      dsn,
-      environment: import.meta.env.MODE,
-      release: import.meta.env.VITE_APP_VERSION || "dev",
-      tracesSampleRate: 0.1,
-    });
-    return mod;
-  } catch {
-    // @sentry/browser is optional — silently no-op if not installed
-    sentry = false;
-    return null;
-  }
+  // @sentry/browser is not installed — keep this a pure no-op so the
+  // production build never tries to resolve the package.
+  // Re-enable the dynamic import once the dependency + lockfile are in place.
+  sentry = false;
+  return null;
 }
 
 const SENSITIVE_KEY_RE =
@@ -61,7 +51,6 @@ function stripSensitive(value, seen = new Set()) {
 
 export function initErrorReporter() {
   if (!isProd || !dsn) return;
-  // Wire global error handlers as soon as Sentry is loaded
   loadSentry().then((S) => {
     if (!S) return;
     window.addEventListener("error", (event) => {
