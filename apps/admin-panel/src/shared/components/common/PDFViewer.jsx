@@ -139,6 +139,7 @@ export default function PDFViewer({ isOpen, onClose, pdfData }) {
             className="w-full h-full border-0"
             title={pdfData?.title || "PDF"}
             allow="fullscreen"
+            sandbox="allow-scripts allow-same-origin"
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-white/60 gap-3">

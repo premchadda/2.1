@@ -29,7 +29,7 @@ const STEPS = [
 ];
 
 export default function ExamInfoManager() {
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
   const [examInfoList, setExamInfoList] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +37,7 @@ export default function ExamInfoManager() {
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState("");
   const [currentStep, setCurrentStep] = useState("basic");
-  const [hoveredExam, setHoveredExam] = useState(null);
+  const [_hoveredExam, _setHoveredExam] = useState(null);
 
   const [formData, setFormData] = useState({
     examId: "",
@@ -217,7 +217,7 @@ export default function ExamInfoManager() {
     if (!activeTab && tabs.length > 0) {
       setActiveTab(tabs[0].id);
     }
-  }, [tabs]);
+  }, [tabs, activeTab]);
 
   const isStepComplete = (stepId) => {
     switch (stepId) {
@@ -236,7 +236,7 @@ export default function ExamInfoManager() {
     }
   };
 
-  const hasChanges = () => {
+  const _hasChanges = () => {
     return (
       formData.title ||
       formData.examId ||
@@ -504,7 +504,7 @@ export default function ExamInfoManager() {
 
                 <nav className="flex-1 space-y-1">
                   {STEPS.map((step, idx) => {
-                    const Icon = step.icon;
+                    const _Icon = step.icon;
                     const isActive = currentStep === step.id;
                     const isComplete = isStepComplete(step.id);
 

@@ -129,9 +129,9 @@ function CustomTooltip({ active, payload, label }) {
 
 export default function AdminDashboard() {
   const [timeRange, setTimeRange] = useState("7d");
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [autoRefresh, _setAutoRefresh] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState(() => new Date());
-  const { user, isAdmin, on, socket } = useAuth();
+  const { user: _user, isAdmin, on, socket } = useAuth();
   const queryClient = useQueryClient();
 
   const hasAdmin = typeof isAdmin === "function" ? isAdmin() : false;

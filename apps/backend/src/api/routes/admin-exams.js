@@ -17,16 +17,15 @@ router.use(admin);
 router.post(
   "/exams",
   asyncHandler(async (req, res) => {
-    const {
-      name,
-      slug,
-      description,
-      parentCategoryId,
-      icon,
-      displayOrder,
-      isActive,
-      stageIds,
-    } = req.body;
+    const parentCategoryId =
+      req.body.parentCategoryId ??
+      req.body.parent_category_id ??
+      req.body.categoryId ??
+      req.body.category_id;
+    const { name, slug, description, icon } = req.body;
+    const displayOrder = req.body.displayOrder ?? req.body.display_order;
+    const isActive = req.body.isActive ?? req.body.is_active;
+    const stageIds = req.body.stageIds ?? req.body.stage_ids;
 
     if (!name || !slug || !parentCategoryId) {
       return res.status(400).json({
@@ -87,16 +86,15 @@ router.put(
   "/exams/:id",
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const {
-      name,
-      slug,
-      description,
-      parentCategoryId,
-      icon,
-      displayOrder,
-      isActive,
-      stageIds,
-    } = req.body;
+    const parentCategoryId =
+      req.body.parentCategoryId ??
+      req.body.parent_category_id ??
+      req.body.categoryId ??
+      req.body.category_id;
+    const { name, slug, description, icon } = req.body;
+    const displayOrder = req.body.displayOrder ?? req.body.display_order;
+    const isActive = req.body.isActive ?? req.body.is_active;
+    const stageIds = req.body.stageIds ?? req.body.stage_ids;
 
     // Find exam by examId (slug) OR numeric id — using sequential findOne calls
     // because dbHelpers.findOne does NOT support the $or operator (it silently
@@ -242,13 +240,13 @@ router.post(
     const body = req.body;
 
     let categoryId = null;
+    const rawCategory = body.categoryId ?? body.category_id ?? body.category;
     if (
-      body.categoryId !== undefined &&
-      body.categoryId !== null &&
-      body.categoryId !== ""
+      rawCategory !== undefined &&
+      rawCategory !== null &&
+      rawCategory !== ""
     ) {
-      const parsed = Number(body.categoryId);
-      categoryId = Number.isNaN(parsed) ? null : parsed;
+      categoryId = rawCategory;
     }
 
     const examData = {
@@ -263,7 +261,7 @@ router.post(
       ).trim(),
       description: body.description || null,
       icon: body.icon || null,
-      exam_category_id: categoryId,
+      category_id: categoryId,
       is_active: body.isActive !== false,
       created_at: new Date().toISOString(),
     };
@@ -279,12 +277,12 @@ router.put(
     const body = req.body;
 
     let categoryId = undefined;
-    if (body.categoryId !== undefined) {
-      if (body.categoryId === null || body.categoryId === "") {
+    const rawCategory = body.categoryId ?? body.category_id ?? body.category;
+    if (rawCategory !== undefined) {
+      if (rawCategory === null || rawCategory === "") {
         categoryId = null;
       } else {
-        const parsed = Number(body.categoryId);
-        categoryId = Number.isNaN(parsed) ? null : parsed;
+        categoryId = rawCategory;
       }
     }
 
@@ -297,7 +295,7 @@ router.put(
     }
     if (body.description !== undefined) examData.description = body.description;
     if (body.icon !== undefined) examData.icon = body.icon;
-    if (categoryId !== undefined) examData.exam_category_id = categoryId;
+    if (categoryId !== undefined) examData.category_id = categoryId;
     if (body.isActive !== undefined)
       examData.is_active = Boolean(body.isActive);
     examData.updated_at = new Date().toISOString();

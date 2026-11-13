@@ -21,7 +21,6 @@ import {
   BarChartBig,
   MoreVertical,
   Trash2,
-  RotateCcw,
   Radio,
 } from "lucide-react";
 import { useConfirm } from "../../shared/components/common/ConfirmModal";
@@ -138,7 +137,7 @@ function TestDetails() {
   const [categoryCounts, setCategoryCounts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [allTestCategories, setAllTestCategories] = useState([]);
-  const [exams, setExams] = useState([]);
+  const [_exams, setExams] = useState([]);
   const [userStats, setUserStats] = useState(null);
   const [rankings, setRankings] = useState([]);
   const [rankingsLoading, setRankingsLoading] = useState(true);
@@ -381,14 +380,6 @@ function TestDetails() {
       logger.error("Unenroll error:", err);
       const message = getErrorMessage(err) || "";
       toast.error(`Failed to unenroll: ${message || "Please try again."}`);
-    }
-  };
-
-  const handleManageClick = () => {
-    // For admin users - navigate to admin panel for this series
-    const seriesId = series?._id || series?.id;
-    if (seriesId) {
-      navigate(`/admin/test-series/${seriesId}`);
     }
   };
 
@@ -1280,33 +1271,6 @@ function TestDetails() {
     );
     return cat?.label || series.category;
   }, [series, categories]);
-
-  const examLabel = useMemo(() => {
-    const examRef = series?.examId || series?.exam_id;
-    const directName = series?.examName || series?.exam_name;
-    if (directName) return directName;
-    if (exams.length) {
-      const exam = exams.find((e) =>
-        identifierKeys(e.exam_id, e.examId, e.slug, e.id).some((value) =>
-          identifierKeys(examRef).includes(value),
-        ),
-      );
-      if (exam?.title || exam?.name) return exam.title || exam.name;
-    }
-
-    const fallbackRef =
-      examSlug ||
-      series?.examSlug ||
-      series?.exam_slug ||
-      series?.categoryName ||
-      series?.category_name ||
-      series?.category;
-    if (!fallbackRef || /^\d+$/.test(String(fallbackRef).trim())) {
-      return "Exam";
-    }
-    // Format a slug to title: "ssc-cgl" → "SSC CGL".
-    return String(fallbackRef).replace(/-/g, " ").toUpperCase();
-  }, [series, exams, examSlug]);
 
   // Pagination limit of 5 tests per page
   const TESTS_PER_PAGE = 5;

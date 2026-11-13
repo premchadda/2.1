@@ -39,7 +39,7 @@ export default function CouponsManager() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState(null);
-  const [copiedCode, setCopiedCode] = useState(null);
+  const [copiedCode, _setCopiedCode] = useState(null);
   const [formData, setFormData] = useState({
     code: "",
     description: "",

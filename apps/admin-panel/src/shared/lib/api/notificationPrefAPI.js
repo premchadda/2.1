@@ -7,7 +7,7 @@ export const notificationPrefAPI = {
   subscribe: (data) => {
     if (!data || typeof data !== "object")
       throw new ValidationError("Subscription data required");
-    const { endpoint, keys, subscription } = data;
+    const { endpoint, subscription } = data;
     if (!endpoint && !subscription?.endpoint)
       throw new ValidationError("Push endpoint required");
     return apiClient.post("/notifications-pref/subscribe", data);

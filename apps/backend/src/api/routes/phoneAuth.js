@@ -28,6 +28,8 @@ import {
 import { getRedisClient } from "../../infrastructure/cache/redisClient.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { pool } from "../../infrastructure/database/postgres-helpers.js";
+import { encryptPII } from "../../shared/utils/piiCrypto.js";
+import { getClientIp } from "../../shared/utils/clientIp.js";
 
 const router = express.Router();
 
@@ -51,27 +53,7 @@ let redisWarned = false;
 // email OR ip; the phone: key gives per-number brute-force accounting).
 const phoneAttemptKey = (phoneNumber) => `phone:${String(phoneNumber)}`;
 
-const getClientIp = (req) => {
-  if (req?.ip) {
-    let ip = String(req.ip).trim();
-    if (ip.startsWith("::ffff:")) ip = ip.slice(7);
-    if (ip === "::1") return "127.0.0.1";
-    if (ip) return ip;
-  }
-  const forwardedFor = req.headers?.["x-forwarded-for"];
-  if (forwardedFor) {
-    const first = String(forwardedFor).split(",")[0].trim();
-    if (first.startsWith("::ffff:")) return first.slice(7);
-    return first;
-  }
-  const sock = req.socket?.remoteAddress || req.connection?.remoteAddress;
-  if (sock) {
-    if (sock.startsWith("::ffff:")) return sock.slice(7);
-    if (sock === "::1") return "127.0.0.1";
-    return sock;
-  }
-  return "unknown";
-};
+// getClientIp is imported from ../../shared/utils/clientIp.js
 
 // Phone refresh secret — mirrors auth.controller getRefreshSecret (no predictable
 // fallback: JWT_REFRESH_SECRET must be set).
@@ -296,10 +278,11 @@ router.post(
         return res.status(400).json({ success: false, error: "Invalid OTP" });
       }
 
-      // OTP is valid, find or create user — fetch role/limit for session enforcement
+      // OTP is valid, find or create user — query against phone_enc or mobile or phone
+      const encryptedPhone = encryptPII(phoneNumber);
       const userResult = await dbHelpers.query(
-        "SELECT id, email, name, phone_verified, role, is_pro_user, session_limit FROM users WHERE phone = $1",
-        [phoneNumber],
+        "SELECT id, email, name, phone_verified, role, is_pro_user, session_limit FROM users WHERE phone = $1 OR mobile = $1 OR phone_enc = $2",
+        [phoneNumber, encryptedPhone],
       );
 
       let userId,
@@ -342,12 +325,18 @@ router.post(
         // suppliedEmail as verified for recovery/notifications until then.
         let createResult;
         try {
-          // Create new user
+          // Create new user with both plaintext alias and canonical phone_enc
           createResult = await dbHelpers.query(
-            `INSERT INTO users (phone, email, name, auth_type, phone_verified, is_email_verified, last_login, created_at)
-          VALUES ($1, $2, $3, 'phone', true, true, NOW(), NOW())
+            `INSERT INTO users (phone, mobile, phone_enc, email, name, auth_type, phone_verified, is_email_verified, last_login, created_at)
+          VALUES ($1, $2, $3, $4, $5, 'phone', true, true, NOW(), NOW())
           RETURNING id, email, name`,
-            [phoneNumber, finalEmail, suppliedName],
+            [
+              phoneNumber,
+              phoneNumber,
+              encryptedPhone,
+              finalEmail,
+              suppliedName,
+            ],
           );
         } catch (insErr) {
           // Race safety: unique violation between check and insert -> 409, not 500.
@@ -372,9 +361,10 @@ router.post(
         // Update last login (H1: phone OTP verifies possession — also mark
         // is_email_verified so the production email-verification gate in
         // protect() does not 403 phone-authed users with synthetic emails).
+        // Synchronize mobile and phone_enc if previously null.
         await dbHelpers.query(
-          "UPDATE users SET last_login = NOW(), phone_verified = true, is_email_verified = true WHERE id = $1",
-          [userId],
+          "UPDATE users SET last_login = NOW(), phone = COALESCE(phone, $1), mobile = COALESCE(mobile, $1), phone_enc = COALESCE(phone_enc, $2), phone_verified = true, is_email_verified = true WHERE id = $3",
+          [phoneNumber, encryptedPhone, userId],
         );
       }
 
@@ -643,10 +633,11 @@ router.post(
           .json({ success: false, error: "Invalid or expired OTP" });
       }
 
-      // Check if phone already linked to another user
+      // Check if phone already linked to another user (query against phone, mobile, or phone_enc)
+      const encryptedPhone = encryptPII(phoneNumber);
       const existingUser = await dbHelpers.query(
-        "SELECT id FROM users WHERE phone = $1 AND id != $2",
-        [phoneNumber, userId],
+        "SELECT id FROM users WHERE (phone = $1 OR mobile = $1 OR phone_enc = $2) AND id != $3",
+        [phoneNumber, encryptedPhone, userId],
       );
 
       if (existingUser.rows.length > 0) {
@@ -656,11 +647,10 @@ router.post(
         });
       }
 
-      // Update user with phone (H1: OTP proves possession — mark
-      // is_email_verified alongside phone_verified so protect() does not 403).
+      // Update user with phone (encrypt phone via encryptPII and store phone, mobile, and phone_enc)
       await dbHelpers.query(
-        "UPDATE users SET phone = $1, phone_verified = true, is_email_verified = true, updated_at = NOW() WHERE id = $2",
-        [phoneNumber, userId],
+        "UPDATE users SET phone = $1, mobile = $1, phone_enc = $2, phone_verified = true, is_email_verified = true, updated_at = NOW() WHERE id = $3",
+        [phoneNumber, encryptedPhone, userId],
       );
 
       // Clear OTP

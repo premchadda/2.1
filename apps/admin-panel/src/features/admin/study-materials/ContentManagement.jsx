@@ -11,7 +11,6 @@ import {
   Edit,
   Trash2,
   Calendar,
-  Book,
   Layers,
   X,
   ChevronRight,
@@ -30,7 +29,13 @@ import {
   Clock,
   BadgeCheck,
   Shield,
+  Eye,
+  Play,
 } from "lucide-react";
+import ContentHierarchySidebar from "./components/ContentHierarchySidebar";
+import ContentReader from "../../../shared/components/common/ContentReader";
+import PDFViewer from "../../../shared/components/common/PDFViewer";
+import VideoPlayer from "../../../shared/components/common/VideoPlayer";
 import { toast } from "react-hot-toast";
 import { apiClient as api } from "../../../shared/lib/dataService";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
@@ -98,6 +103,9 @@ export default function ContentManagement() {
   const [viewMode, setViewMode] = useState("grid"); // grid | table
   const [selectedItemIds, setSelectedItemIds] = useState(new Set());
   const [currentPage, setCurrentPage] = useState(1);
+  const [previewVideo, setPreviewVideo] = useState(null);
+  const [previewPdf, setPreviewPdf] = useState(null);
+  const [previewNote, setPreviewNote] = useState(null);
   const [pageSize] = useState(12);
   const [sortBy, setSortBy] = useState("newest"); // newest | oldest | title | duration
   const [filterPro, setFilterPro] = useState("all"); // all | pro | free
@@ -105,17 +113,20 @@ export default function ContentManagement() {
   const searchDebounceRef = useRef(null);
 
   // ── Generic file uploader: POST multipart to /admin/upload, return public URL ──
-  const handleFileUpload = async (file, fieldKey, category) => {
+  const handleFileUpload = async (file, fieldKey, category, event = null) => {
     if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("File exceeds maximum allowed size (50MB)");
+      if (event?.target) event.target.value = "";
+      return;
+    }
     try {
       setUploadingField(fieldKey);
       const fd = new FormData();
       fd.append("file", file);
       fd.append("category", category);
       fd.append("name", file.name);
-      const res = await api.post("/admin/assets/upload", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const res = await api.post("/admin/assets/upload", fd);
       const url = res.data?.data?.url;
       if (!url) throw new Error("No URL returned from server");
       setAdd(fieldKey, url);
@@ -123,6 +134,7 @@ export default function ContentManagement() {
     } catch (err) {
       logger.error("Upload failed:", err);
       toast.error(err?.response?.data?.message || "Upload failed");
+      if (event?.target) event.target.value = "";
     } finally {
       setUploadingField(null);
     }
@@ -182,12 +194,12 @@ export default function ContentManagement() {
         let offset = 0;
         const limit = 200; // max allowed by backend
         let hasMore = true;
-        let firstRes = null;
+        let _firstRes = null;
         while (hasMore) {
           const res = await api.get(
             `/admin/subjects-list?limit=${limit}&offset=${offset}`,
           );
-          firstRes = res;
+          _firstRes = res;
           const pageData = res.data?.data || [];
           const pagination = res.data?.pagination;
           // Handle both paginated and non-paginated shapes
@@ -359,13 +371,7 @@ export default function ContentManagement() {
     } finally {
       setContentLoading(false);
     }
-  }, [
-    activeTab,
-    selectedMaterialId,
-    selectedChapterId,
-    selectedTopicId,
-    getEndpoint,
-  ]);
+  }, [selectedMaterialId, selectedChapterId, selectedTopicId, getEndpoint]);
 
   useEffect(() => {
     fetchContentItems();
@@ -398,7 +404,7 @@ export default function ContentManagement() {
       }
     };
     fetchModalChapters();
-  }, [addForm.studyMaterialId]);
+  }, [addForm.studyMaterialId, chapters, selectedMaterialId]);
 
   // ── When the Add modal's chapter changes, load topics ──
   useEffect(() => {
@@ -427,7 +433,7 @@ export default function ContentManagement() {
       }
     };
     fetchModalTopics();
-  }, [addForm.chapterId]);
+  }, [addForm.chapterId, selectedChapterId, sidebarTopics]);
 
   // ── Edit handlers ──
   const handleEdit = (item) => {
@@ -988,168 +994,19 @@ export default function ContentManagement() {
 
       <div className="flex flex-col xl:flex-row gap-3">
         {/* ── Left Sidebar: Hierarchy Selectors ── */}
-        <div className="xl:w-72 flex flex-col gap-3 xl:sticky xl:top-3 xl:self-start">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-3">
-            <h3 className="text-xs font-black text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-1.5 uppercase tracking-wider">
-              <Book className="w-3.5 h-3.5 text-indigo-500" />
-              Context
-              <span className="ml-auto text-[10px] font-bold text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">
-                {studyMaterials.length}
-              </span>
-            </h3>
-
-            {/* Study Material — enhanced dropdown, no search bar */}
-            <div className="mb-2.5">
-              <label
-                htmlFor="1-subject"
-                className="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1 flex items-center justify-between"
-              >
-                <span>1. Subject</span>
-                <span className="text-[10px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-800">
-                  {studyMaterials.length}
-                </span>
-              </label>
-              <div className="relative">
-                <select
-                  id="1-subject"
-                  value={selectedMaterialId}
-                  onChange={(e) => setSelectedMaterialId(e.target.value)}
-                  className="w-full appearance-none pl-3 pr-8 py-2.5 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 truncate shadow-sm hover:border-indigo-300 dark:hover:border-indigo-600 transition"
-                >
-                  <option value="">
-                    — All Subjects ({studyMaterials.length}) —
-                  </option>
-                  {studyMaterials.map((m) => (
-                    <option key={m._id || m.id} value={String(m._id || m.id)}>
-                      {m.title || m.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
-
-            {/* Chapter */}
-            <div className="mb-2.5">
-              <label
-                htmlFor="2-chapter"
-                className="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1"
-              >
-                2. Chapter
-                {!selectedMaterialId && (
-                  <span className="ml-1 text-gray-300 font-normal normal-case hidden sm:inline">
-                    (pick subject)
-                  </span>
-                )}
-              </label>
-              <select
-                id="2-chapter"
-                value={selectedChapterId}
-                onChange={(e) => setSelectedChapterId(e.target.value)}
-                disabled={!selectedMaterialId}
-                className="w-full px-2.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm disabled:opacity-40 focus:ring-2 focus:ring-indigo-500 truncate"
-              >
-                <option value="">— All Chapters —</option>
-                {chapters.map((c) => (
-                  <option key={c._id || c.id} value={String(c._id || c.id)}>
-                    {c.title || c.name}
-                  </option>
-                ))}
-              </select>
-              {selectedMaterialId && chapters.length === 0 && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  No chapters for this subject.
-                </p>
-              )}
-            </div>
-
-            {/* Topic */}
-            <div>
-              <label
-                htmlFor="3-topic"
-                className="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1"
-              >
-                3. Topic
-                {sidebarTopicsLoading && (
-                  <span className="ml-1 text-indigo-400 font-normal normal-case">
-                    …
-                  </span>
-                )}
-                {!selectedChapterId && (
-                  <span className="ml-1 text-gray-300 font-normal normal-case hidden sm:inline">
-                    (pick chapter)
-                  </span>
-                )}
-              </label>
-              <select
-                id="3-topic"
-                value={selectedTopicId}
-                onChange={(e) => setSelectedTopicId(e.target.value)}
-                disabled={!selectedChapterId || sidebarTopicsLoading}
-                className="w-full px-2.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm disabled:opacity-40 focus:ring-2 focus:ring-indigo-500 truncate"
-              >
-                <option value="">— All Topics —</option>
-                {sidebarTopics.map((t) => (
-                  <option key={t._id || t.id} value={String(t._id || t.id)}>
-                    {t.title || t.name}
-                  </option>
-                ))}
-              </select>
-              {selectedChapterId &&
-                !sidebarTopicsLoading &&
-                sidebarTopics.length === 0 && (
-                  <p className="text-[11px] text-gray-400 mt-1">No topics.</p>
-                )}
-            </div>
-          </div>
-
-          {/* Active Filter breadcrumb — compact */}
-          <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/30 p-3">
-            <div className="flex items-center justify-between mb-1.5">
-              <h4 className="font-black text-indigo-900 dark:text-indigo-300 text-[11px] uppercase tracking-wider">
-                Filter
-              </h4>
-              <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded-full border">
-                {filteredContent.length}
-              </span>
-            </div>
-            <div className="flex items-center gap-1 flex-wrap text-xs font-semibold text-indigo-700 dark:text-indigo-300 leading-tight">
-              <span className="truncate max-w-[120px]">
-                {selectedMaterial
-                  ? selectedMaterial.title || selectedMaterial.name
-                  : "All"}
-              </span>
-              {selectedChapter && (
-                <>
-                  <ChevronRight className="w-3 h-3 opacity-50 shrink-0" />
-                  <span className="truncate max-w-[100px]">
-                    {selectedChapter.title || selectedChapter.name}
-                  </span>
-                </>
-              )}
-              {selectedTopic && (
-                <>
-                  <ChevronRight className="w-3 h-3 opacity-50 shrink-0" />
-                  <span className="truncate max-w-[80px] text-indigo-500">
-                    {selectedTopic.title || selectedTopic.name}
-                  </span>
-                </>
-              )}
-            </div>
-            {(selectedMaterialId || selectedChapterId || selectedTopicId) && (
-              <button
-                onClick={() => {
-                  setSelectedMaterialId("");
-                  setSelectedChapterId("");
-                  setSelectedTopicId("");
-                }}
-                className="mt-2 w-full text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-800 rounded-lg py-1.5 hover:bg-indigo-50 transition"
-              >
-                Clear filter
-              </button>
-            )}
-          </div>
-        </div>
+        <ContentHierarchySidebar
+          studyMaterials={studyMaterials}
+          selectedMaterialId={selectedMaterialId}
+          setSelectedMaterialId={setSelectedMaterialId}
+          selectedChapterId={selectedChapterId}
+          setSelectedChapterId={setSelectedChapterId}
+          selectedTopicId={selectedTopicId}
+          setSelectedTopicId={setSelectedTopicId}
+          chapters={chapters}
+          sidebarTopics={sidebarTopics}
+          sidebarTopicsLoading={sidebarTopicsLoading}
+          filteredContent={filteredContent}
+        />
 
         {/* ── Right Main Area ── */}
         <div className="flex-1 min-w-0 space-y-4">
@@ -1472,6 +1329,68 @@ export default function ContentManagement() {
                                   title="Pro"
                                 />
                               )}
+                              {activeTab === "videos" &&
+                                (item.videoUrl || item.url) && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPreviewVideo({
+                                        title: item.title,
+                                        url: item.videoUrl || item.url,
+                                      })
+                                    }
+                                    className="p-1 sm:p-1.5 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition"
+                                    title="Watch Video"
+                                  >
+                                    <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                  </button>
+                                )}
+                              {activeTab === "pdfs" &&
+                                (item.pdfUrl || item.url) && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPreviewPdf({
+                                        title: item.title,
+                                        url: item.pdfUrl || item.url,
+                                      })
+                                    }
+                                    className="p-1 sm:p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition"
+                                    title="Preview PDF"
+                                  >
+                                    <Eye className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                  </button>
+                                )}
+                              {activeTab === "notes" &&
+                                (item.content ||
+                                  item.htmlContent ||
+                                  item.description) && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPreviewNote({
+                                        title: item.title,
+                                        content:
+                                          item.content ||
+                                          item.htmlContent ||
+                                          item.description,
+                                        category:
+                                          item.category || item.subjectName,
+                                        author:
+                                          item.author || "Trstprep Editorial",
+                                        featuredImage:
+                                          item.featuredImage ||
+                                          item.thumbnailUrl,
+                                        readTime: item.readTime || 5,
+                                        date: item.createdAt || item.updatedAt,
+                                      })
+                                    }
+                                    className="p-1 sm:p-1.5 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition"
+                                    title="Read Notes"
+                                  >
+                                    <BookOpen className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                  </button>
+                                )}
                               <button
                                 onClick={() =>
                                   copyToClipboard(
@@ -1718,6 +1637,69 @@ export default function ContentManagement() {
                             </td>
                             <td className="px-3 py-3">
                               <div className="flex items-center justify-end gap-1">
+                                {activeTab === "videos" &&
+                                  (item.videoUrl || item.url) && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewVideo({
+                                          title: item.title,
+                                          url: item.videoUrl || item.url,
+                                        })
+                                      }
+                                      className="p-1.5 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition"
+                                      title="Watch Video"
+                                    >
+                                      <Play className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                {activeTab === "pdfs" &&
+                                  (item.pdfUrl || item.url) && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewPdf({
+                                          title: item.title,
+                                          url: item.pdfUrl || item.url,
+                                        })
+                                      }
+                                      className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition"
+                                      title="Preview PDF"
+                                    >
+                                      <Eye className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                {activeTab === "notes" &&
+                                  (item.content ||
+                                    item.htmlContent ||
+                                    item.description) && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewNote({
+                                          title: item.title,
+                                          content:
+                                            item.content ||
+                                            item.htmlContent ||
+                                            item.description,
+                                          category:
+                                            item.category || item.subjectName,
+                                          author:
+                                            item.author || "Trstprep Editorial",
+                                          featuredImage:
+                                            item.featuredImage ||
+                                            item.thumbnailUrl,
+                                          readTime: item.readTime || 5,
+                                          date:
+                                            item.createdAt || item.updatedAt,
+                                        })
+                                      }
+                                      className="p-1.5 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition"
+                                      title="Read Notes"
+                                    >
+                                      <BookOpen className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
                                 <button
                                   onClick={() =>
                                     copyToClipboard(
@@ -2421,6 +2403,7 @@ export default function ContentManagement() {
                               e.target.files[0],
                               "videoUrl",
                               "video",
+                              e,
                             )
                           }
                         />
@@ -2488,6 +2471,7 @@ export default function ContentManagement() {
                                 e.target.files[0],
                                 "thumbnail",
                                 "image",
+                                e,
                               )
                             }
                           />
@@ -2645,7 +2629,12 @@ export default function ContentManagement() {
                           accept="application/pdf"
                           className="hidden"
                           onChange={(e) =>
-                            handleFileUpload(e.target.files[0], "pdfUrl", "pdf")
+                            handleFileUpload(
+                              e.target.files[0],
+                              "pdfUrl",
+                              "pdf",
+                              e,
+                            )
                           }
                         />
 
@@ -2855,6 +2844,27 @@ export default function ContentManagement() {
           </div>,
           document.body,
         )}
+
+      {/* Video Preview Modal */}
+      <VideoPlayer
+        isOpen={Boolean(previewVideo)}
+        onClose={() => setPreviewVideo(null)}
+        videoData={previewVideo}
+      />
+
+      {/* PDF Viewer Modal */}
+      <PDFViewer
+        isOpen={Boolean(previewPdf)}
+        onClose={() => setPreviewPdf(null)}
+        pdfData={previewPdf}
+      />
+
+      {/* Content Reader Modal */}
+      <ContentReader
+        isOpen={Boolean(previewNote)}
+        onClose={() => setPreviewNote(null)}
+        contentData={previewNote}
+      />
     </div>
   );
 }

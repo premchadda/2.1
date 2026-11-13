@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
@@ -39,59 +39,68 @@ export default function PromotionManager() {
     pages: 0,
   });
 
+  const fetchPromotions = useCallback(
+    async (signal) => {
+      try {
+        setLoading(true);
+        const params = {
+          page: pagination.page,
+          limit: pagination.limit,
+          search: searchQuery || undefined,
+          type: selectedType || undefined,
+          status: selectedStatus || undefined,
+        };
+        const response = await adminApi.get("/admin/promotions", {
+          params,
+          signal,
+        });
+        const rawData =
+          response.data?.data ||
+          (Array.isArray(response.data) ? response.data : []);
+        setPromotions(Array.isArray(rawData) ? rawData : []);
+        setPagination((prev) => ({
+          ...prev,
+          total:
+            response.data?.pagination?.total ||
+            (Array.isArray(rawData) ? rawData.length : 0),
+          pages:
+            response.data?.pagination?.pages ||
+            (Array.isArray(rawData)
+              ? Math.ceil(rawData.length / pagination.limit)
+              : 0),
+        }));
+      } catch (error) {
+        if (
+          signal?.aborted ||
+          error?.name === "CanceledError" ||
+          error?.name === "AbortError" ||
+          error?.code === "ERR_CANCELED"
+        ) {
+          return;
+        }
+        logger.error("Error fetching promotions:", error);
+        toast.error("Failed to load promotions");
+        setPromotions([]);
+      } finally {
+        if (!signal?.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [
+      pagination.page,
+      pagination.limit,
+      searchQuery,
+      selectedType,
+      selectedStatus,
+    ],
+  );
+
   useEffect(() => {
     const controller = new AbortController();
     fetchPromotions(controller.signal);
     return () => controller.abort();
-  }, [pagination.page, searchQuery, selectedType, selectedStatus]);
-
-  const fetchPromotions = async (signal) => {
-    try {
-      setLoading(true);
-      const params = {
-        page: pagination.page,
-        limit: pagination.limit,
-        search: searchQuery || undefined,
-        type: selectedType || undefined,
-        status: selectedStatus || undefined,
-      };
-      const response = await adminApi.get("/admin/promotions", {
-        params,
-        signal,
-      });
-      const rawData =
-        response.data?.data ||
-        (Array.isArray(response.data) ? response.data : []);
-      setPromotions(Array.isArray(rawData) ? rawData : []);
-      setPagination((prev) => ({
-        ...prev,
-        total:
-          response.data?.pagination?.total ||
-          (Array.isArray(rawData) ? rawData.length : 0),
-        pages:
-          response.data?.pagination?.pages ||
-          (Array.isArray(rawData)
-            ? Math.ceil(rawData.length / pagination.limit)
-            : 0),
-      }));
-    } catch (error) {
-      if (
-        signal?.aborted ||
-        error?.name === "CanceledError" ||
-        error?.name === "AbortError" ||
-        error?.code === "ERR_CANCELED"
-      ) {
-        return;
-      }
-      logger.error("Error fetching promotions:", error);
-      toast.error("Failed to load promotions");
-      setPromotions([]);
-    } finally {
-      if (!signal?.aborted) {
-        setLoading(false);
-      }
-    }
-  };
+  }, [fetchPromotions]);
 
   const handleDelete = async (promotionId) => {
     try {
@@ -170,7 +179,7 @@ export default function PromotionManager() {
     }
   };
 
-  const isExpired = (validUntil) => {
+  const _isExpired = (validUntil) => {
     return new Date(validUntil) < new Date();
   };
 

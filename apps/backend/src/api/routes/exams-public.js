@@ -17,9 +17,20 @@ router.get(
   async (req, res) => {
     try {
       const { examId, year } = req.params;
+      let targetExamId = parseInt(examId, 10);
+      if (Number.isNaN(targetExamId)) {
+        const exam = await dbHelpers.findOne("exams", { slug: examId });
+        targetExamId = exam ? exam.id : null;
+      }
+      if (!targetExamId) {
+        return res.status(404).json({
+          success: false,
+          message: "Exam not found",
+        });
+      }
       const yearlyData = await dbHelpers.findOne("examYearlyData", {
-        examId: parseInt(examId),
-        year: parseInt(year),
+        examId: targetExamId,
+        year: parseInt(year, 10),
         isActive: true,
       });
 
@@ -50,8 +61,19 @@ router.get(
   async (req, res) => {
     try {
       const { examId } = req.params;
+      let targetExamId = parseInt(examId, 10);
+      if (Number.isNaN(targetExamId)) {
+        const exam = await dbHelpers.findOne("exams", { slug: examId });
+        targetExamId = exam ? exam.id : null;
+      }
+      if (!targetExamId) {
+        return res.status(404).json({
+          success: false,
+          message: "Exam not found",
+        });
+      }
       const yearlyData = await dbHelpers.find("examYearlyData", {
-        examId: parseInt(examId),
+        examId: targetExamId,
         isActive: true,
       });
       const years = yearlyData.map((data) => data.year).sort((a, b) => b - a);
@@ -80,9 +102,22 @@ router.get(
       const parsedLimit = parseInt(limit, 10) || 10;
       const offset = ((parseInt(page, 10) || 1) - 1) * parsedLimit;
 
+      // Guard parseInt(req.params.examId, 10): if isNaN, query by slug, otherwise query by numeric id
+      let targetExamId = parseInt(examId, 10);
+      if (Number.isNaN(targetExamId)) {
+        const exam = await dbHelpers.findOne("exams", { slug: examId });
+        if (!exam) {
+          return res.status(404).json({
+            success: false,
+            message: "Exam not found",
+          });
+        }
+        targetExamId = exam.id;
+      }
+
       // Push filter + sort + pagination to SQL
       const conditions = ["exam_id = $1", "is_active = true"];
-      const params = [parseInt(examId, 10)];
+      const params = [targetExamId];
       let paramIndex = 2;
 
       if (type) {

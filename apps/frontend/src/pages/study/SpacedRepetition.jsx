@@ -19,10 +19,7 @@ import {
   ArrowRight,
   RotateCcw,
   RotateCw,
-  HelpCircle,
-  Award,
   Zap,
-  Check,
 } from "lucide-react";
 
 /**
@@ -47,14 +44,7 @@ function normalizeOptions(options) {
 /**
  * Modern 3D Flashcard component with active recall self-assessment.
  */
-function Flashcard({
-  card,
-  onKnow,
-  onNeedsReview,
-  index,
-  currentIndex,
-  totalCards,
-}) {
+function Flashcard({ card, onKnow, onNeedsReview, index }) {
   const [flipped, setFlipped] = useState(false);
   const [answered, setAnswered] = useState(false);
   const [result, setResult] = useState(null);
@@ -779,8 +769,6 @@ export default function SpacedRepetition() {
                     }
                     card={dueCards[currentIndex]}
                     index={0}
-                    currentIndex={currentIndex}
-                    totalCards={dueCards.length}
                     onKnow={handleKnow}
                     onNeedsReview={handleNeedsReview}
                   />

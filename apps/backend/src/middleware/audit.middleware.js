@@ -1,4 +1,5 @@
 import { pool } from "../infrastructure/database/postgres-helpers.js";
+import { getClientIp } from "../shared/utils/clientIp.js";
 
 export const AUDIT_ACTIONS = {
   CREATE: "create",
@@ -41,32 +42,7 @@ export const AUDIT_RESOURCES = {
   BANNERS: "banners",
 };
 
-const getClientIp = (req) => {
-  if (req?.ip) {
-    let ip = String(req.ip).trim();
-    if (ip.startsWith("::ffff:")) ip = ip.slice(7);
-    if (ip === "::1") return "127.0.0.1";
-    if (ip) return ip;
-  }
-  // X-Forwarded-For is client-spoofable: only trust it outside production
-  // (mirrors adminIpAllowlist.resolveClientIp, which ignores XFF in prod, so
-  // the allowlist decision and the audit record can never disagree in prod).
-  if (process.env.NODE_ENV !== "production") {
-    const forwardedFor = req.headers?.["x-forwarded-for"];
-    if (forwardedFor) {
-      const first = String(forwardedFor).split(",")[0].trim();
-      if (first.startsWith("::ffff:")) return first.slice(7);
-      return first;
-    }
-  }
-  const sock = req.socket?.remoteAddress || req.connection?.remoteAddress;
-  if (sock) {
-    if (sock.startsWith("::ffff:")) return sock.slice(7);
-    if (sock === "::1") return "127.0.0.1";
-    return sock;
-  }
-  return "unknown";
-};
+// getClientIp is imported from ../shared/utils/clientIp.js
 
 const getUserAgent = (req) => {
   return req.headers["user-agent"] || "unknown";
@@ -79,14 +55,14 @@ const getUserAgent = (req) => {
  * e.g. smtpPassword, razorpayKeySecret, googleClientSecret, apiKey,
  * api_key, refreshToken, jwtSecret, otpCode, accessKey, clientCredential.
  */
-const SENSITIVE_KEY_PATTERN =
-  /secret|password|token|api[_-]?key|jwt|pass|pwd|otp|private[_-]?key|access[_-]?key|credential/i;
+export const SENSITIVE_KEY_PATTERN =
+  /secret|password|token|api[_-]?key|jwt|pass|pwd|otp|private[_-]?key|access[_-]?key|credential|phone|mobile|aadhar|pan|ssn|card|cvv|account[_-]?number|auth[_-]?code/i;
 
 /**
- * Deep-redact sensitive values inside a captured request body, replacing them
+ * Deep-redact sensitive values inside a captured request body/query/values, replacing them
  * with '[REDACTED]'. Never mutates the original body — returns a new object.
  */
-function redactSensitiveValues(value) {
+export function redactSensitiveValues(value) {
   if (Array.isArray(value)) {
     return value.map((item) => redactSensitiveValues(item));
   }
@@ -149,6 +125,10 @@ export const logAuditEvent = async ({
   newValues = null,
 }) => {
   try {
+    const safeDetails = details ? redactSensitiveValues(details) : null;
+    const safeOldValues = oldValues ? redactSensitiveValues(oldValues) : null;
+    const safeNewValues = newValues ? redactSensitiveValues(newValues) : null;
+
     await pool.query(
       `INSERT INTO audit_logs (
          user_id, action, entity_type, resource, resource_id,
@@ -178,10 +158,10 @@ export const logAuditEvent = async ({
         responseStatusCode,
         adminEmail || null,
         adminName || null,
-        details ? JSON.stringify(details) : null,
+        safeDetails ? JSON.stringify(safeDetails) : null,
         entityId || null,
-        oldValues ? JSON.stringify(oldValues) : null,
-        newValues ? JSON.stringify(newValues) : null,
+        safeOldValues ? JSON.stringify(safeOldValues) : null,
+        safeNewValues ? JSON.stringify(safeNewValues) : null,
       ],
     );
   } catch (error) {
@@ -200,7 +180,6 @@ export const auditMiddleware = (options = {}) => {
 
   const defaultSkipPaths = [
     "/api/admin/stats",
-    "/api/admin/exams",
     "/api/admin/navigation",
     "/api/admin/audit-logs", // don't audit the audit viewer itself
   ];
@@ -256,9 +235,13 @@ export const auditMiddleware = (options = {}) => {
           }
         }
 
+        const safePath = req.originalUrl
+          ? req.originalUrl.split("?")[0]
+          : (req.baseUrl || "") + (req.path || "");
+
         const details = {
           method: req.method,
-          path: req.originalUrl,
+          path: safePath,
           query: redactSensitiveValues(req.query),
         };
 
@@ -278,7 +261,7 @@ export const auditMiddleware = (options = {}) => {
           details,
           status: res.statusCode >= 400 ? "failure" : "success",
           requestMethod: req.method,
-          requestPath: req.originalUrl,
+          requestPath: safePath,
           responseStatusCode: res.statusCode,
         });
       } catch (error) {
@@ -304,6 +287,10 @@ export const createAuditLog = async (
     newValues = null,
   },
 ) => {
+  const safePath = req.originalUrl
+    ? req.originalUrl.split("?")[0]
+    : (req.baseUrl || "") + (req.path || "");
+
   return logAuditEvent({
     action,
     resource,
@@ -316,7 +303,7 @@ export const createAuditLog = async (
     details,
     status,
     requestMethod: req.method,
-    requestPath: req.originalUrl,
+    requestPath: safePath,
     entityType,
     entityId,
     oldValues,

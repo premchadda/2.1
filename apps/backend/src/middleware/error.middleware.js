@@ -3,6 +3,8 @@
  * Addresses Issue #7: Inconsistent Error Handling
  */
 
+import logger from "../infrastructure/logger/logger.js";
+
 // Custom error classes
 export class AppError extends Error {
   constructor(message, statusCode = 500, code = "INTERNAL_ERROR") {
@@ -60,19 +62,25 @@ export class RateLimitError extends AppError {
 export const errorHandler = (err, req, res, _next) => {
   const isProduction = process.env.NODE_ENV === "production";
 
+  // Route through the centralized pino logger (redacts secrets, feeds logBuffer)
   if (isProduction) {
-    console.error("Error:", {
-      code: err.code,
-      statusCode: err.statusCode,
-      isOperational: err.isOperational,
-    });
+    logger.error(
+      {
+        code: err.code,
+        statusCode: err.statusCode,
+        isOperational: err.isOperational,
+      },
+      "[Error] Unhandled error",
+    );
   } else {
-    console.error("Error:", {
-      message: err.message,
-      stack: err.stack,
-      code: err.code,
-      statusCode: err.statusCode,
-    });
+    logger.error(
+      {
+        err: err,
+        code: err.code,
+        statusCode: err.statusCode,
+      },
+      "[Error] Unhandled error (dev)",
+    );
   }
 
   const sanitizeMessage = (e) => {

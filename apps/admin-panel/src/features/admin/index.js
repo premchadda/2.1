@@ -32,6 +32,7 @@ export { default as TopicsManager } from "./study-materials/TopicsManager";
 export { default as ContentManagement } from "./study-materials/ContentManagement";
 export { default as CurriculumBuilder } from "./study-materials/CurriculumBuilder";
 export { default as CurrentAffairsManager } from "./study-materials/CurrentAffairsManager";
+export { default as BlogManager } from "./study-materials/BlogManager";
 
 // Notifications & Comms
 export { default as EmailTemplatesManager } from "./notifications-comms/EmailTemplatesManager";

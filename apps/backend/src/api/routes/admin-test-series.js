@@ -8,7 +8,7 @@ import {
   createSchema,
   validateBody,
 } from "../../middleware/validation/inputValidation.js";
-import { upload } from "../../infrastructure/storage/upload.js";
+import { memoryUpload } from "../../infrastructure/storage/upload.js";
 import { parseAssetId } from "../../shared/utils/parseAssetId.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
 import {
@@ -200,6 +200,15 @@ router.get(
       filter.isActive = String(req.query.isActive).toLowerCase() === "true";
     } else if (includeInactive === "false") {
       filter.isActive = true;
+    }
+    if (req.query.examCategoryId || req.query.exam_category_id) {
+      filter.examCategoryId =
+        req.query.examCategoryId || req.query.exam_category_id;
+    }
+
+    if (req.query.countOnly === "true") {
+      const count = await dbHelpers.count("testSeries", filter);
+      return res.json({ success: true, count, data: { count } });
     }
 
     let series = [];
@@ -430,7 +439,7 @@ router.delete(
 
 router.post(
   "/test-series/bulk-upload",
-  upload.single("file"),
+  memoryUpload.single("file"),
   asyncHandler(async (req, res) => {
     if (!req.file) {
       return res

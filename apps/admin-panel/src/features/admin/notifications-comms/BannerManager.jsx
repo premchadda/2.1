@@ -5,6 +5,7 @@ import { Plus, Trash2, X, Save, Image, Eye, EyeOff } from "lucide-react";
 import { apiClient } from "../../../shared/lib/dataService.js";
 import { toast } from "react-hot-toast";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
+import { isSafeImageUrl } from "../../../shared/lib/sanitizeHtml.js";
 
 export default function BannerManager() {
   const [banners, setBanners] = useState([]);
@@ -65,6 +66,11 @@ export default function BannerManager() {
         startDate: formData.startDate || null,
         endDate: formData.endDate || null,
       };
+      if (payload.imageUrl && !isSafeImageUrl(payload.imageUrl)) {
+        toast.error("Please enter a valid, safe image URL");
+        setSaving(false);
+        return;
+      }
       if (payload.startDate && Number.isNaN(Date.parse(payload.startDate))) {
         toast.error("Invalid start date");
         setSaving(false);
@@ -176,7 +182,7 @@ export default function BannerManager() {
     setShowForm(false);
   };
 
-  const positions = [
+  const _positions = [
     { value: "home", label: "Homepage" },
     { value: "test_series", label: "Test Series" },
     { value: "live", label: "Live Tests" },
@@ -236,7 +242,7 @@ export default function BannerManager() {
             >
               {/* Banner Preview */}
               <div className="h-40 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
-                {banner.imageUrl ? (
+                {banner.imageUrl && isSafeImageUrl(banner.imageUrl) ? (
                   <img
                     loading="lazy"
                     decoding="async"

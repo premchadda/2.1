@@ -57,7 +57,7 @@ export const maintenanceMiddleware = async (req, res, next) => {
           });
           if (decoded && decoded.id) {
             const userRes = await pool.query(
-              "SELECT role FROM users WHERE id = $1",
+              "SELECT role FROM users WHERE id = $1 AND (is_deleted = false OR is_deleted IS NULL) AND is_active = true",
               [decoded.id],
             );
             const liveRole = userRes.rows[0]?.role;

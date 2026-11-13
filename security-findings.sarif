@@ -1,0 +1,1476 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Trstprep Security Audit",
+          "version": "2.1.0",
+          "informationUri": "https://github.com/cloudflare/security-audit-skill",
+          "rules": [
+            {
+              "id": "FINDING-BE-01-CSRF-COOKIE-BYPASS",
+              "name": "FINDING_BE_01_CSRF_COOKIE_BYPASS",
+              "shortDescription": {
+                "text": "Anti-CSRF Token Validation Neutralization via Ambient Cookie Ingestion"
+              },
+              "fullDescription": {
+                "text": "The backend anti-CSRF token verification middleware extracts candidate CSRF tokens from req.cookies._csrf_token when headers are absent. Because cookies are ambient credentials automatically attached by browsers during cross-site requests, any forged request satisfies the csrfTokensEqual validation check identically to an authentic user request, completely disabling CSRF protection across all cookie-authenticated endpoints."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "The backend anti-CSRF token verification middleware extracts candidate CSRF tokens from req.cookies._csrf_token when headers are absent. Because cookies are ambient credentials automatically attached by browsers during cross-site requests, any forged request satisfies the csrfTokensEqual validation check identically to an authentic user request, completely disabling CSRF protection across all cookie-authenticated endpoints.\n\nRoot Cause:\nIn apps/backend/src/middleware/csrf.middleware.js:437, the csrfToken candidate resolution chain includes req.cookies?._csrf_token as a valid input source. Browsers automatically transmit cookies on cross-origin requests unless SameSite=strict is enforced. Combined with production auth settings allowing SameSite=none (auth.service.js:25) or same-site subdomain traversals, an attacker's cross-site request supplies both the session token and the valid CSRF token simultaneously.\n\nRemediation Strategy:\nRemove req.cookies?._csrf_token from candidate token resolution in csrf.middleware.js. Require all CSRF tokens to arrive via custom request headers (X-CSRF-Token, X-XSRF-Token) or body parameters."
+              },
+              "properties": {
+                "severity": "critical",
+                "likelihood": "high",
+                "impact": "critical",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-BE-02-CSRF-TEST-ENGINE-OMISSION",
+              "name": "FINDING_BE_02_CSRF_TEST_ENGINE_OMISSION",
+              "shortDescription": {
+                "text": "Complete Omission of CSRF Protection on Testing Engine & Session Revocation"
+              },
+              "fullDescription": {
+                "text": "The core testing engine routers (/api/tests, /api/attempt, /api/questions) and user session management router (/api/sessions) omit the validateCsrfToken middleware entirely. Because authentication accepts session cookies via protect, an attacker can submit, tamper with, or prematurely terminate active examination attempts or revoke user sessions without authorization."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "The core testing engine routers (/api/tests, /api/attempt, /api/questions) and user session management router (/api/sessions) omit the validateCsrfToken middleware entirely. Because authentication accepts session cookies via protect, an attacker can submit, tamper with, or prematurely terminate active examination attempts or revoke user sessions without authorization.\n\nRoot Cause:\nIn apps/backend/src/app-port5001.js lines 1105, 1129, and 1133, testsRoutes, questionsRoutes, attemptRoutes, and sessionRoutes are registered without mounting validateCsrfToken. Although protect verifies JWT tokens, it extracts them from cookies (req.cookies.token), leaving mutations exposed to CSRF.\n\nRemediation Strategy:\nMount validateCsrfToken on testsRoutes, questionsRoutes, attemptRoutes, and sessionRoutes in apps/backend/src/app-port5001.js."
+              },
+              "properties": {
+                "severity": "critical",
+                "likelihood": "high",
+                "impact": "critical",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-BE-03-OUT-OF-PIPELINE-ADMIN-ROUTES",
+              "name": "FINDING_BE_03_OUT_OF_PIPELINE_ADMIN_ROUTES",
+              "shortDescription": {
+                "text": "Out-of-Pipeline Admin Routes Bypassing Origin, API Key, RBAC & Audit Middleware"
+              },
+              "fullDescription": {
+                "text": "Several administrative routers are mounted directly on top-level paths in app-port5001.js rather than within the canonical admin.js pipeline. While checking basic admin role status, they bypass origin restriction (restrictAdminOrigin), API key validation (validateAdminApiKey), fine-grained permission enforcement (requireAdminPermission), and tamper-proof audit logging (auditMiddleware). In addition, enrollments-admin.js leaks unmasked student PII across all users."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "Several administrative routers are mounted directly on top-level paths in app-port5001.js rather than within the canonical admin.js pipeline. While checking basic admin role status, they bypass origin restriction (restrictAdminOrigin), API key validation (validateAdminApiKey), fine-grained permission enforcement (requireAdminPermission), and tamper-proof audit logging (auditMiddleware). In addition, enrollments-admin.js leaks unmasked student PII across all users.\n\nRoot Cause:\nIn apps/backend/src/app-port5001.js lines 1126, 1144, and 1147, administrative routers (enrollmentsAdminRoutes, stagesRoutes, fortspyRoutes) are mounted at root level with minimal middleware (protect, admin) instead of going through the complete admin pipeline configured in apps/backend/src/api/routes/admin.js.\n\nRemediation Strategy:\nRetire enrollments-admin.js in favor of canonical admin-enrollments.js mounted inside admin.js. Move all standalone administrative endpoints (stages, fortspy, practice) inside admin.js."
+              },
+              "properties": {
+                "severity": "high",
+                "likelihood": "medium",
+                "impact": "high",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-BE-04-UNHANDLED-POOL-CONNECT-CRASH",
+              "name": "FINDING_BE_04_UNHANDLED_POOL_CONNECT_CRASH",
+              "shortDescription": {
+                "text": "Systemic Process Crash on DB Connection Pool Exhaustion across 113 Handlers"
+              },
+              "fullDescription": {
+                "text": "Across 113 route handlers in apps/backend/src/, database client acquisition via const client = await pool.connect(); is invoked outside the handler try/catch block. In Express 4, unhandled promise rejections in async route functions bubble to process.on('unhandledRejection'), which executes fatalShutdown and terminates the Node.js process via process.exit(1)."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "Across 113 route handlers in apps/backend/src/, database client acquisition via const client = await pool.connect(); is invoked outside the handler try/catch block. In Express 4, unhandled promise rejections in async route functions bubble to process.on('unhandledRejection'), which executes fatalShutdown and terminates the Node.js process via process.exit(1).\n\nRoot Cause:\nIn Express 4, async errors are not caught automatically unless wrapped by asyncHandler. When pool.connect() is called prior to try { ... }, any timeout, pool saturation, or database restart causes an unhandled rejection, triggering fatalShutdown in app-port5001.js line 1613.\n\nRemediation Strategy:\nDeclare let client; and move client = await pool.connect(); inside the try block for all 113 identified handlers, ensuring client.release() is called in finally."
+              },
+              "properties": {
+                "severity": "high",
+                "likelihood": "high",
+                "impact": "high",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-BE-05-SESSION-CACHE-FAIL-OPEN",
+              "name": "FINDING_BE_05_SESSION_CACHE_FAIL_OPEN",
+              "shortDescription": {
+                "text": "Session Invalidation Bypass via Provisional Fail-Open Cache Injection"
+              },
+              "fullDescription": {
+                "text": "When a user session is revoked or deleted from the database, the authentication middleware fails open instead of failing closed, synthesizing a provisional active session cache entry with a 60-second TTL. An attacker retaining a compromised JWT can continue accessing the API for up to 60 seconds after explicit revocation."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "help": {
+                "text": "When a user session is revoked or deleted from the database, the authentication middleware fails open instead of failing closed, synthesizing a provisional active session cache entry with a 60-second TTL. An attacker retaining a compromised JWT can continue accessing the API for up to 60 seconds after explicit revocation.\n\nRoot Cause:\nIn apps/backend/src/middleware/auth.middleware.js lines 528-542, when sessionCheck.rows.length === 0, the code logs an alert but calls setCachedSession(decoded.sessionId, { isActive: true, provisional: true }, 60_000) and allows the request through.\n\nRemediation Strategy:\nReplace the provisional cache injection in auth.middleware.js with an immediate 401 Unauthorized response."
+              },
+              "properties": {
+                "severity": "medium",
+                "likelihood": "medium",
+                "impact": "medium",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-BE-06-AUDIT-LOG-URL-PII-LEAK",
+              "name": "FINDING_BE_06_AUDIT_LOG_URL_PII_LEAK",
+              "shortDescription": {
+                "text": "Sensitive URL Parameters and PII Leakage into Audit Logs Database Table"
+              },
+              "fullDescription": {
+                "text": "The audit logging middleware redacts sensitive fields in JSON request bodies and query objects, but records req.originalUrl verbatim into details.path and request_path columns. Any tokens, reset keys, or student personal information transmitted in query strings are permanently stored in plaintext in the public.audit_logs table."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "help": {
+                "text": "The audit logging middleware redacts sensitive fields in JSON request bodies and query objects, but records req.originalUrl verbatim into details.path and request_path columns. Any tokens, reset keys, or student personal information transmitted in query strings are permanently stored in plaintext in the public.audit_logs table.\n\nRoot Cause:\nIn apps/backend/src/middleware/audit.middleware.js lines 258-266, details.path is assigned req.originalUrl without stripping the query string component, bypassing the redaction logic applied to req.query.\n\nRemediation Strategy:\nScrub query string parameters from req.originalUrl before recording in audit_logs."
+              },
+              "properties": {
+                "severity": "medium",
+                "likelihood": "medium",
+                "impact": "medium",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-BE-07-CLIENT-IP-FORWARDED-SPOOF",
+              "name": "FINDING_BE_07_CLIENT_IP_FORWARDED_SPOOF",
+              "shortDescription": {
+                "text": "Client IP Spoofing Risk via Untrusted X-Forwarded-For Header Extraction"
+              },
+              "fullDescription": {
+                "text": "Several backend handlers extract client IP addresses by reading raw req.headers['x-forwarded-for'] rather than utilizing Express's validated req.ip property. This allows clients to spoof IP addresses, potentially evading rate limiters or poisoning audit logs."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "help": {
+                "text": "Several backend handlers extract client IP addresses by reading raw req.headers['x-forwarded-for'] rather than utilizing Express's validated req.ip property. This allows clients to spoof IP addresses, potentially evading rate limiters or poisoning audit logs.\n\nRoot Cause:\nIn apps/backend/src/api/routes/phoneAuth.js:61 and audit.middleware.js:54, custom code parses the raw X-Forwarded-For header directly instead of relying on Express's trust proxy configuration (app.set('trust proxy', 1)).\n\nRemediation Strategy:\nRefactor IP resolution helpers to use req.ip exclusively."
+              },
+              "properties": {
+                "severity": "low",
+                "likelihood": "medium",
+                "impact": "low",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-BE-08-CSRF-EXEMPT-ADMIN-PAYMENTS",
+              "name": "FINDING_BE_08_CSRF_EXEMPT_ADMIN_PAYMENTS",
+              "shortDescription": {
+                "text": "Critical CSRF Bypass on Admin Payments & Sessions via Relative Path Matching"
+              },
+              "fullDescription": {
+                "text": "The CSRF middleware defines exempt path prefixes using relative req.path matching rather than req.originalUrl. Because sub-routers mounted at root match relative paths, administrative endpoints for payment refunds, payment overrides, and session terminations are unintentionally exempted from CSRF token validation."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "The CSRF middleware defines exempt path prefixes using relative req.path matching rather than req.originalUrl. Because sub-routers mounted at root match relative paths, administrative endpoints for payment refunds, payment overrides, and session terminations are unintentionally exempted from CSRF token validation.\n\nRoot Cause:\nIn apps/backend/src/middleware/csrf.middleware.js lines 409-431, csrfExemptPaths contains '/payments' and '/sessions'. The check isExempt = csrfExemptPaths.some((p) => req.path.startsWith(p)) checks relative path, exempting all sub-routes mounted under those names.\n\nRemediation Strategy:\nMatch exemptions strictly against req.originalUrl and limit payment exemptions strictly to webhook endpoints (/api/webhooks/razorpay)."
+              },
+              "properties": {
+                "severity": "critical",
+                "likelihood": "high",
+                "impact": "critical",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-BE-09-PRO-PASS-CAMELCASE-REVOCATION",
+              "name": "FINDING_BE_09_PRO_PASS_CAMELCASE_REVOCATION",
+              "shortDescription": {
+                "text": "Pro Pass Subscription Accidental Revocation via normalizeFields Destructuring"
+              },
+              "fullDescription": {
+                "text": "The global normalizeFields middleware converts incoming request body keys to snake_case. However, admin-users.js destructures camelCase variables ({ isProUser, proPassExpiry, passType }), resulting in undefined variables. The endpoint evaluates isProUser: !!undefined (false) and pass_type: 'free', actively canceling student subscriptions when an administrator attempts to update or extend them."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "The global normalizeFields middleware converts incoming request body keys to snake_case. However, admin-users.js destructures camelCase variables ({ isProUser, proPassExpiry, passType }), resulting in undefined variables. The endpoint evaluates isProUser: !!undefined (false) and pass_type: 'free', actively canceling student subscriptions when an administrator attempts to update or extend them.\n\nRoot Cause:\nIn apps/backend/src/api/routes/admin-users.js line 118, const { isProUser, proPassExpiry, passType } = req.body; fails to match the normalized keys is_pro_user, pro_pass_expiry, and pass_type generated by normalize-fields.js.\n\nRemediation Strategy:\nUpdate destructuring in admin-users.js to check snake_case keys with camelCase fallbacks."
+              },
+              "properties": {
+                "severity": "critical",
+                "likelihood": "high",
+                "impact": "critical",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-CLIENT-01-ADMIN-MATHRENDERER-DOM-XSS",
+              "name": "FINDING_CLIENT_01_ADMIN_MATHRENDERER_DOM_XSS",
+              "shortDescription": {
+                "text": "Stored DOM XSS via Sanitizer Ordering Inversion in MathRenderer Explanation Grid"
+              },
+              "fullDescription": {
+                "text": "In the admin panel MathRenderer component, sanitizeHtml is called BEFORE formatExplanationTables. Inside formatExplanationTables, header cell content is extracted via DOMParser .textContent, which unescapes HTML entities, and then assigned directly to title.innerHTML. This enables stored Cross-Site Scripting (XSS) in the administrative dashboard whenever questions with crafted pedagogical tables are viewed."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "In the admin panel MathRenderer component, sanitizeHtml is called BEFORE formatExplanationTables. Inside formatExplanationTables, header cell content is extracted via DOMParser .textContent, which unescapes HTML entities, and then assigned directly to title.innerHTML. This enables stored Cross-Site Scripting (XSS) in the administrative dashboard whenever questions with crafted pedagogical tables are viewed.\n\nRoot Cause:\nIn apps/admin-panel/src/shared/components/MathRenderer.jsx lines 157-158, the order of sanitization is inverted compared to frontend. Calling sanitizeHtml before formatting allows formatExplanationTables to introduce unescaped HTML elements into title.innerHTML.\n\nRemediation Strategy:\nInvert processing order so sanitizeHtml runs after formatExplanationTables, and assign header text via textContent."
+              },
+              "properties": {
+                "severity": "high",
+                "likelihood": "medium",
+                "impact": "high",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-CLIENT-02-ADMIN-MULTITAB-SESSION-RACE",
+              "name": "FINDING_CLIENT_02_ADMIN_MULTITAB_SESSION_RACE",
+              "shortDescription": {
+                "text": "Multi-Tab Session Wipe Race Condition during Token Rotation"
+              },
+              "fullDescription": {
+                "text": "In the admin panel apiClient, rotated tokens trigger localStorage.removeItem('trstprep_token'). Sibling browser tabs listening for storage events interpret the null newValue as an instruction to clear their own sessionStorage and memory token, immediately aborting active administrative workflows with 401 Unauthorized errors."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "help": {
+                "text": "In the admin panel apiClient, rotated tokens trigger localStorage.removeItem('trstprep_token'). Sibling browser tabs listening for storage events interpret the null newValue as an instruction to clear their own sessionStorage and memory token, immediately aborting active administrative workflows with 401 Unauthorized errors.\n\nRoot Cause:\nIn apps/admin-panel/src/shared/lib/apiClient.js lines 90-105, window.addEventListener('storage') checks if (!e.newValue && typeof sessionStorage !== 'undefined') sessionStorage.removeItem('trstprep_token'). Line 115 in persistRotatedTokens explicitly removes the localStorage key, inadvertently dispatching this eviction event to other tabs.\n\nRemediation Strategy:\nRemove the sessionStorage.removeItem trigger from the storage event listener, or use BroadcastChannel with explicit message types (TOKEN_ROTATED vs LOGOUT)."
+              },
+              "properties": {
+                "severity": "medium",
+                "likelihood": "high",
+                "impact": "medium",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-CLIENT-03-ADMIN-RBAC-PRIVILEGE-ESCALATION",
+              "name": "FINDING_CLIENT_03_ADMIN_RBAC_PRIVILEGE_ESCALATION",
+              "shortDescription": {
+                "text": "Administrative Privilege Escalation via Missing Sub-Role Checks in Role Management UI"
+              },
+              "fullDescription": {
+                "text": "In RolePermissionsManager.jsx, permissions checks evaluate canManage = userPerms.includes('users:edit'). Any junior operator granted users:edit (e.g. for managing student profiles) can access the role configuration interface and grant themselves or other roles wildcard * permissions across all system modules."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "In RolePermissionsManager.jsx, permissions checks evaluate canManage = userPerms.includes('users:edit'). Any junior operator granted users:edit (e.g. for managing student profiles) can access the role configuration interface and grant themselves or other roles wildcard * permissions across all system modules.\n\nRoot Cause:\nIn apps/admin-panel/src/features/admin/users-enrollments/RolePermissionsManager.jsx lines 71-76, canManage permits role editing if userPerms includes users:edit. Backend admin-roles.js also lacks validation preventing callers from assigning permissions greater than their own.\n\nRemediation Strategy:\nRequire isSuper or wildcard * permission to access RolePermissionsManager and update backend admin-roles.js to enforce permission subsets."
+              },
+              "properties": {
+                "severity": "high",
+                "likelihood": "medium",
+                "impact": "high",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-CLIENT-04-ADMIN-PDF-VIEWER-IFRAME-INJECTION",
+              "name": "FINDING_CLIENT_04_ADMIN_PDF_VIEWER_IFRAME_INJECTION",
+              "shortDescription": {
+                "text": "Arbitrary Origin Iframe Embedding & Unrestricted Blob Execution in Admin PDF Viewer"
+              },
+              "fullDescription": {
+                "text": "The PDFViewer component allows embedding arbitrary http:, https:, and blob: URLs inside an unsandboxed iframe within the Admin Panel. An attacker capable of submitting external URLs in study materials or syllabus links can embed third-party web pages or execute arbitrary HTML/JS via blob: URIs."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "help": {
+                "text": "The PDFViewer component allows embedding arbitrary http:, https:, and blob: URLs inside an unsandboxed iframe within the Admin Panel. An attacker capable of submitting external URLs in study materials or syllabus links can embed third-party web pages or execute arbitrary HTML/JS via blob: URIs.\n\nRoot Cause:\nIn apps/admin-panel/src/shared/components/common/PDFViewer.jsx lines 5-20 and 136-143, isSafeUrl allows any http, https, or blob protocol without restricting hostnames to trusted storage origins, and the iframe element lacks a sandbox attribute.\n\nRemediation Strategy:\nAdd sandbox attribute to the iframe and restrict allowed URLs to trusted storage origins."
+              },
+              "properties": {
+                "severity": "medium",
+                "likelihood": "medium",
+                "impact": "medium",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-CLIENT-05-FE-PROFILE-BANNER-CSS-INJECTION",
+              "name": "FINDING_CLIENT_05_FE_PROFILE_BANNER_CSS_INJECTION",
+              "shortDescription": {
+                "text": "Potential CSS Exfiltration and SSRF via Unsanitized user.banner in Profile Header"
+              },
+              "fullDescription": {
+                "text": "The ProfileHeader component interpolates user.banner directly into an inline backgroundImage CSS property without validating URL structure or protocol. An attacker supplying a crafted banner URL can cause broken style attributes or trigger unauthorized outbound tracking requests."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "help": {
+                "text": "The ProfileHeader component interpolates user.banner directly into an inline backgroundImage CSS property without validating URL structure or protocol. An attacker supplying a crafted banner URL can cause broken style attributes or trigger unauthorized outbound tracking requests.\n\nRoot Cause:\nIn apps/frontend/src/pages/dashboard/profile/ProfileHeader.jsx line 52, style={{ backgroundImage: `url(${user.banner})` }} lacks protocol and character sanitization.\n\nRemediation Strategy:\nSanitize user.banner using isSafeImageUrl and encodeURI before setting style."
+              },
+              "properties": {
+                "severity": "low",
+                "likelihood": "low",
+                "impact": "low",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-CLIENT-06-FE-LEADERBOARD-EXPORT-HTML-INJECTION",
+              "name": "FINDING_CLIENT_06_FE_LEADERBOARD_EXPORT_HTML_INJECTION",
+              "shortDescription": {
+                "text": "Export PDF Window HTML Injection via Unescaped Filename Prop in Leaderboard"
+              },
+              "fullDescription": {
+                "text": "In the Leaderboard component's ExportMenu, the filename prop is injected unescaped into title and h2 tags inside printWin.document.write(). While current callers pass static strings, dynamic caller values could break the HTML structure and execute scripts."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "help": {
+                "text": "In the Leaderboard component's ExportMenu, the filename prop is injected unescaped into title and h2 tags inside printWin.document.write(). While current callers pass static strings, dynamic caller values could break the HTML structure and execute scripts.\n\nRoot Cause:\nIn apps/frontend/src/pages/tests/Leaderboard.jsx line 583, helper esc(c) is used for table columns and rows, but filename is interpolated directly into raw HTML without escaping.\n\nRemediation Strategy:\nWrap filename with esc(filename) inside printWin.document.write template."
+              },
+              "properties": {
+                "severity": "low",
+                "likelihood": "low",
+                "impact": "low",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-CLIENT-07-ADMIN-UNBOUNDED-FILE-UPLOAD",
+              "name": "FINDING_CLIENT_07_ADMIN_UNBOUNDED_FILE_UPLOAD",
+              "shortDescription": {
+                "text": "Unbounded File Uploads without Client-Side Pre-flight Size & MIME Checks in Study Materials"
+              },
+              "fullDescription": {
+                "text": "The ContentManagement component in the admin panel uploads files directly to /admin/assets/upload without client-side size or MIME type pre-flight checks. Attempting to upload very large files causes browser unresponsiveness, network buffer exhaustion, or gateway timeouts."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "help": {
+                "text": "The ContentManagement component in the admin panel uploads files directly to /admin/assets/upload without client-side size or MIME type pre-flight checks. Attempting to upload very large files causes browser unresponsiveness, network buffer exhaustion, or gateway timeouts.\n\nRoot Cause:\nIn apps/admin-panel/src/features/admin/study-materials/ContentManagement.jsx lines 108-128, handleFileUpload immediately appends raw file objects into FormData and triggers an API post without pre-flight validation.\n\nRemediation Strategy:\nAdd pre-flight file size checks (e.g. <= 50MB for documents) before constructing FormData."
+              },
+              "properties": {
+                "severity": "low",
+                "likelihood": "medium",
+                "impact": "low",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-CLIENT-08-ADMIN-SW-AUTOUPDATE-RELOAD",
+              "name": "FINDING_CLIENT_08_ADMIN_SW_AUTOUPDATE_RELOAD",
+              "shortDescription": {
+                "text": "Unprompted Mid-Session Reload via Service Worker autoUpdate in Admin Dashboard"
+              },
+              "fullDescription": {
+                "text": "The Vite PWA plugin in the admin panel is configured with registerType: 'autoUpdate'. When a new build is deployed, the service worker client automatically invokes window.location.reload() upon activation, destroying active form state and unsubmitted administrative modifications."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "help": {
+                "text": "The Vite PWA plugin in the admin panel is configured with registerType: 'autoUpdate'. When a new build is deployed, the service worker client automatically invokes window.location.reload() upon activation, destroying active form state and unsubmitted administrative modifications.\n\nRoot Cause:\nIn apps/admin-panel/vite.config.js line 41, registerType is set to 'autoUpdate'. In frontend vite.config.js, this was intentionally changed to 'prompt' to prevent unexpected reloads.\n\nRemediation Strategy:\nChange registerType to 'prompt' in apps/admin-panel/vite.config.js."
+              },
+              "properties": {
+                "severity": "low",
+                "likelihood": "high",
+                "impact": "low",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-DB-01-RLS-POLQUAL-NULL-BYPASS",
+              "name": "FINDING_DB_01_RLS_POLQUAL_NULL_BYPASS",
+              "shortDescription": {
+                "text": "Active Row Level Security Policy Bypass via current_user_id_setting() IS NULL"
+              },
+              "fullDescription": {
+                "text": "Across 43 database tables in PostgreSQL, Row Level Security policies evaluate expressions containing OR (current_user_id_setting() IS NULL). Any database query executed without an explicit session user ID GUC evaluates this condition to TRUE, exposing private multi-tenant records across attempts, two-factor secrets, and payments."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "Across 43 database tables in PostgreSQL, Row Level Security policies evaluate expressions containing OR (current_user_id_setting() IS NULL). Any database query executed without an explicit session user ID GUC evaluates this condition to TRUE, exposing private multi-tenant records across attempts, two-factor secrets, and payments.\n\nRoot Cause:\nIn migration files and live pg_policy catalogs, policies were created with fail-open clauses to accommodate background jobs, allowing unauthenticated connections to view and mutate all tenant data.\n\nRemediation Strategy:\nExecute a migration hardening all 43 policies to remove the NULL bypass clause, requiring explicit role bypass for system workers."
+              },
+              "properties": {
+                "severity": "critical",
+                "likelihood": "high",
+                "impact": "critical",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-DB-02-RLS-DORMANCY-TABLE-OWNER",
+              "name": "FINDING_DB_02_RLS_DORMANCY_TABLE_OWNER",
+              "shortDescription": {
+                "text": "Complete Row Level Security Dormancy via Superuser/Table Owner Database Connection"
+              },
+              "fullDescription": {
+                "text": "The backend runtime connection pool connects to PostgreSQL using the postgres superuser / table owner role because DATABASE_APP_URL is unset in production. Because ZERO public tables have FORCE ROW LEVEL SECURITY enabled, PostgreSQL automatically bypasses all RLS policies for table owners, rendering RLS completely dormant."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "The backend runtime connection pool connects to PostgreSQL using the postgres superuser / table owner role because DATABASE_APP_URL is unset in production. Because ZERO public tables have FORCE ROW LEVEL SECURITY enabled, PostgreSQL automatically bypasses all RLS policies for table owners, rendering RLS completely dormant.\n\nRoot Cause:\nIn apps/backend/config/database-replicas.js lines 49-56, const appConnectionUrl = process.env.DATABASE_APP_URL || process.env.DATABASE_URL. Without DATABASE_APP_URL pointing to a non-owner role (trstprep_app), queries execute as table owner.\n\nRemediation Strategy:\nSet DATABASE_APP_URL to connect as trstprep_app, and apply ALTER TABLE ... FORCE ROW LEVEL SECURITY across core tables."
+              },
+              "properties": {
+                "severity": "high",
+                "likelihood": "high",
+                "impact": "high",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-DB-03-PII-SHADOW-ENCRYPTION-ZERO-POPULATION",
+              "name": "FINDING_DB_03_PII_SHADOW_ENCRYPTION_ZERO_POPULATION",
+              "shortDescription": {
+                "text": "PII Shadow Column Encryption Zero Percent Population Failure"
+              },
+              "fullDescription": {
+                "text": "The database schema includes shadow encryption columns (phone_enc, dob_enc) with triggers to encrypt student PII using pgcrypto. However, the runtime pool fails to set the app.pgcrypto_key session GUC, causing the trigger to silently exit without encrypting data. 100% of user mobile numbers remain in plaintext with null shadow values."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "The database schema includes shadow encryption columns (phone_enc, dob_enc) with triggers to encrypt student PII using pgcrypto. However, the runtime pool fails to set the app.pgcrypto_key session GUC, causing the trigger to silently exit without encrypting data. 100% of user mobile numbers remain in plaintext with null shadow values.\n\nRoot Cause:\nIn apps/backend/config/database-replicas.js lines 159-169, session initialization sets app.current_user_id and app.is_admin, but never sets app.pgcrypto_key from DB_ENCRYPTION_KEY. The trigger trigger_users_pii_enc silently leaves phone_enc null when the GUC is null.\n\nRemediation Strategy:\nSet app.pgcrypto_key in applyIdentityGucs when DB_ENCRYPTION_KEY is present, and backfill existing plaintext rows."
+              },
+              "properties": {
+                "severity": "high",
+                "likelihood": "high",
+                "impact": "high",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-INFRA-01-SUPPLY-CHAIN-PROXY-ADDR-SPOOF",
+              "name": "FINDING_INFRA_01_SUPPLY_CHAIN_PROXY_ADDR_SPOOF",
+              "shortDescription": {
+                "text": "Express proxy-addr IP Spoofing via IPv4-Mapped IPv6 Subnet (Supply Chain)"
+              },
+              "fullDescription": {
+                "text": "The root package dependencies include an unpatched version of proxy-addr (<2.0.8, GHSA-jqcg-44mw-7w3h) as a transitive dependency of Express. This vulnerability allows remote attackers to spoof their client IP address via IPv4-mapped IPv6 subnets, bypassing IP-based rate limiting and administrative IP allowlists."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "The root package dependencies include an unpatched version of proxy-addr (<2.0.8, GHSA-jqcg-44mw-7w3h) as a transitive dependency of Express. This vulnerability allows remote attackers to spoof their client IP address via IPv4-mapped IPv6 subnets, bypassing IP-based rate limiting and administrative IP allowlists.\n\nRoot Cause:\nIn package.json and pnpm-workspace.yaml, package overrides do not pin proxy-addr to >=2.0.8, allowing Express 4 to resolve the vulnerable version.\n\nRemediation Strategy:\nAdd 'proxy-addr': '^2.0.8' to overrides in package.json and pnpm-workspace.yaml."
+              },
+              "properties": {
+                "severity": "critical",
+                "likelihood": "high",
+                "impact": "critical",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-INFRA-02-DOCKER-BUILD-CONTEXT-RUNTIME-FAILURE",
+              "name": "FINDING_INFRA_02_DOCKER_BUILD_CONTEXT_RUNTIME_FAILURE",
+              "shortDescription": {
+                "text": "Broken Container Build Pipeline & Missing Runtime Modules in Dockerfiles"
+              },
+              "fullDescription": {
+                "text": "The backend Dockerfile copies only src/ into the container image, omitting config/. However, src/app-port5001.js imports ../config/database-replicas.js at startup, causing the backend container to crash immediately with MODULE_NOT_FOUND. Furthermore, frontend Dockerfiles fail to include workspace packages."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "The backend Dockerfile copies only src/ into the container image, omitting config/. However, src/app-port5001.js imports ../config/database-replicas.js at startup, causing the backend container to crash immediately with MODULE_NOT_FOUND. Furthermore, frontend Dockerfiles fail to include workspace packages.\n\nRoot Cause:\nIn apps/backend/Dockerfile line 17, COPY config/ ./config/ is missing. In apps/frontend/Dockerfile and apps/admin-panel/Dockerfile, build contexts omit @trstprep/shared-config and @trstprep/shared-hooks.\n\nRemediation Strategy:\nAdd COPY config/ ./config/ to apps/backend/Dockerfile and update build contexts in CI."
+              },
+              "properties": {
+                "severity": "high",
+                "likelihood": "high",
+                "impact": "high",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-INFRA-03-NGINX-SECURITY-HEADER-SHADOWING",
+              "name": "FINDING_INFRA_03_NGINX_SECURITY_HEADER_SHADOWING",
+              "shortDescription": {
+                "text": "Complete Loss of Security Headers in Nginx Reverse Proxy via add_header Inheritance Shadowing"
+              },
+              "fullDescription": {
+                "text": "In deploy/nginx/nginx.conf, critical security headers (Strict-Transport-Security, Content-Security-Policy, X-Frame-Options, X-Content-Type-Options) are declared at the server block level. However, every child location block (/api, /, static assets) declares its own add_header directives. By Nginx design, child add_header statements completely suppress all parent add_header directives, stripping security headers from all HTTP responses."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "In deploy/nginx/nginx.conf, critical security headers (Strict-Transport-Security, Content-Security-Policy, X-Frame-Options, X-Content-Type-Options) are declared at the server block level. However, every child location block (/api, /, static assets) declares its own add_header directives. By Nginx design, child add_header statements completely suppress all parent add_header directives, stripping security headers from all HTTP responses.\n\nRoot Cause:\nIn deploy/nginx/nginx.conf lines 130-139, 182, 208, and 218, Nginx inheritance rules dictate that if an add_header directive is defined in a location block, parent headers are not inherited.\n\nRemediation Strategy:\nMove security headers into a shared snippet (security-headers.conf) and include it inside every child location block."
+              },
+              "properties": {
+                "severity": "high",
+                "likelihood": "high",
+                "impact": "high",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-INFRA-04-NGINX-REAL-IP-METRICS-BYPASS",
+              "name": "FINDING_INFRA_04_NGINX_REAL_IP_METRICS_BYPASS",
+              "shortDescription": {
+                "text": "Metric Scrape and Rate-Limiting Bypass via Missing Reverse-Proxy IP Resolution"
+              },
+              "fullDescription": {
+                "text": "In deploy/nginx/nginx.conf, the /metrics location restricts access to private subnets (10.0.0.0/8, 172.16.0.0/12). However, Nginx lacks set_real_ip_from and real_ip_header directives. When deployed behind a cloud load balancer, all incoming traffic arrives from private subnet IPs, exposing Prometheus metrics publicly and collapsing global rate limits into a single 30 req/s bucket."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "In deploy/nginx/nginx.conf, the /metrics location restricts access to private subnets (10.0.0.0/8, 172.16.0.0/12). However, Nginx lacks set_real_ip_from and real_ip_header directives. When deployed behind a cloud load balancer, all incoming traffic arrives from private subnet IPs, exposing Prometheus metrics publicly and collapsing global rate limits into a single 30 req/s bucket.\n\nRoot Cause:\ndeploy/nginx/nginx.conf lines 12-14 and 161-172 omit real_ip module configuration, causing $remote_addr and $binary_remote_addr to evaluate to the upstream load balancer's private IP address.\n\nRemediation Strategy:\nAdd set_real_ip_from and real_ip_header X-Forwarded-For to the http block in deploy/nginx/nginx.conf."
+              },
+              "properties": {
+                "severity": "high",
+                "likelihood": "high",
+                "impact": "high",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-INFRA-05-ENV-SECRETS-GITIGNORE-BLINDSPOTS",
+              "name": "FINDING_INFRA_05_ENV_SECRETS_GITIGNORE_BLINDSPOTS",
+              "shortDescription": {
+                "text": "Missing Gitignore Protection & Pre-Commit Regex Gaps for Environment Secret Files"
+              },
+              "fullDescription": {
+                "text": "The root .gitignore file specifies .env, .env.local, and *.env, but fails to match dot-prefixed environment variants such as .env.development, .env.test, or .env.production. Furthermore, .husky/pre-commit and data-guard.yml use overly narrow regexes, allowing staged environment files to bypass pre-commit and CI leak checks undetected."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "The root .gitignore file specifies .env, .env.local, and *.env, but fails to match dot-prefixed environment variants such as .env.development, .env.test, or .env.production. Furthermore, .husky/pre-commit and data-guard.yml use overly narrow regexes, allowing staged environment files to bypass pre-commit and CI leak checks undetected.\n\nRoot Cause:\nIn .gitignore lines 22-30, git ignore patterns lack .env.*. In .husky/pre-commit line 3, grep -E checks only 4 static filenames, omitting .env.development and .env.test. In data-guard.yml line 54, grep checks only exact .env.\n\nRemediation Strategy:\nAdd .env.* to .gitignore (with !.env.example exceptions) and broaden pre-commit and CI regexes."
+              },
+              "properties": {
+                "severity": "high",
+                "likelihood": "high",
+                "impact": "high",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-INFRA-06-SUPPLY-CHAIN-FOLLOW-REDIRECTS-LEAK",
+              "name": "FINDING_INFRA_06_SUPPLY_CHAIN_FOLLOW_REDIRECTS_LEAK",
+              "shortDescription": {
+                "text": "Outbound Credential Leakage via follow-redirects HTTP Header Preservation"
+              },
+              "fullDescription": {
+                "text": "The root repository includes an unpatched version of follow-redirects (1.16.0, GHSA-mrwp-f3q8-3g9p) via Axios dependencies in packages/shared-config, apps/backend, and apps/frontend. When making outbound requests that encounter cross-origin HTTP redirects, Authorization and custom API key headers are inappropriately preserved and transmitted to untrusted third parties."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "The root repository includes an unpatched version of follow-redirects (1.16.0, GHSA-mrwp-f3q8-3g9p) via Axios dependencies in packages/shared-config, apps/backend, and apps/frontend. When making outbound requests that encounter cross-origin HTTP redirects, Authorization and custom API key headers are inappropriately preserved and transmitted to untrusted third parties.\n\nRoot Cause:\nfollow-redirects <=1.16.1 fails to scrub sensitive headers when following redirects across different origins. package.json lacks an override for follow-redirects >=1.16.2.\n\nRemediation Strategy:\nAdd 'follow-redirects': '^1.16.2' to overrides in package.json and pnpm-workspace.yaml."
+              },
+              "properties": {
+                "severity": "high",
+                "likelihood": "medium",
+                "impact": "high",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-INFRA-07-DOCKER-COMPOSE-WEAK-CREDENTIALS",
+              "name": "FINDING_INFRA_07_DOCKER_COMPOSE_WEAK_CREDENTIALS",
+              "shortDescription": {
+                "text": "Unauthenticated Docker Compose Redis & Weak Database Password Defaults"
+              },
+              "fullDescription": {
+                "text": "In docker-compose.yml, the Redis container is started without a password (--requirepass), and PostgreSQL container defaults to weak password 'postgres'. Any container or process on the host network can read or manipulate cached sessions, BullMQ background queues, or the database without authentication."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "help": {
+                "text": "In docker-compose.yml, the Redis container is started without a password (--requirepass), and PostgreSQL container defaults to weak password 'postgres'. Any container or process on the host network can read or manipulate cached sessions, BullMQ background queues, or the database without authentication.\n\nRoot Cause:\nIn docker-compose.yml lines 240-274, redis command lacks --requirepass and postgres environment specifies POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}.\n\nRemediation Strategy:\nConfigure --requirepass in Redis command and require non-default passwords in docker-compose.yml."
+              },
+              "properties": {
+                "severity": "medium",
+                "likelihood": "medium",
+                "impact": "medium",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-INFRA-08-DOCKER-COMPOSE-MISSING-ENV-VARS",
+              "name": "FINDING_INFRA_08_DOCKER_COMPOSE_MISSING_ENV_VARS",
+              "shortDescription": {
+                "text": "Missing Production Environment Variable Injection in Docker Compose Backend Services"
+              },
+              "fullDescription": {
+                "text": "In docker-compose.yml, backend-1 and backend-2 services pass only an explicit list of 9 environment variables, omitting critical keys such as ADMIN_API_KEY, DB_ENCRYPTION_KEY, CSRF_PEPPER, and JWT_2FA_SECRET, and lack an env_file declaration. This causes backend containers to run with missing encryption keys and dormant security protections."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "help": {
+                "text": "In docker-compose.yml, backend-1 and backend-2 services pass only an explicit list of 9 environment variables, omitting critical keys such as ADMIN_API_KEY, DB_ENCRYPTION_KEY, CSRF_PEPPER, and JWT_2FA_SECRET, and lack an env_file declaration. This causes backend containers to run with missing encryption keys and dormant security protections.\n\nRoot Cause:\nIn docker-compose.yml lines 38-47 and 91-100, the environment block omits core security variables and lacks an env_file: - .env reference.\n\nRemediation Strategy:\nAdd env_file: - .env to backend-1, backend-2, and worker in docker-compose.yml."
+              },
+              "properties": {
+                "severity": "medium",
+                "likelihood": "medium",
+                "impact": "medium",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-INFRA-09-CI-WORKFLOWS-EXCESSIVE-PERMISSIONS",
+              "name": "FINDING_INFRA_09_CI_WORKFLOWS_EXCESSIVE_PERMISSIONS",
+              "shortDescription": {
+                "text": "Excessive Default GITHUB_TOKEN Permissions & Unpinned Actions in CI Workflows"
+              },
+              "fullDescription": {
+                "text": "GitHub Actions workflows (ci.yml, data-guard.yml, no-env.yml, security.yml) omit top-level permissions declarations, granting default write-capable tokens to build steps. In addition, ci.yml downloads Trivy via unpinned wget shell scripts and runs Semgrep using the floating :latest image tag."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "help": {
+                "text": "GitHub Actions workflows (ci.yml, data-guard.yml, no-env.yml, security.yml) omit top-level permissions declarations, granting default write-capable tokens to build steps. In addition, ci.yml downloads Trivy via unpinned wget shell scripts and runs Semgrep using the floating :latest image tag.\n\nRoot Cause:\nIn .github/workflows/*.yml, top-level permissions: contents: read is absent. In ci.yml lines 90-91 and 149-154, tool installations are unpinned.\n\nRemediation Strategy:\nAdd permissions: contents: read at top level of all workflows and pin Trivy action and Semgrep image tag."
+              },
+              "properties": {
+                "severity": "medium",
+                "likelihood": "low",
+                "impact": "medium",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-INFRA-10-BACKUP-SCRIPT-RETENTION-DEFECT",
+              "name": "FINDING_INFRA_10_BACKUP_SCRIPT_RETENTION_DEFECT",
+              "shortDescription": {
+                "text": "Ineffective Retention Filter & Permissive File Permissions in Database Backup Script"
+              },
+              "fullDescription": {
+                "text": "The database backup script (deploy/backup-db.sh) attempts to preserve weekly Sunday backups by excluding filenames matching *-sun-*.* from retention pruning. However, generated backup filenames never contain -sun-, causing all weekly backups to be deleted when older than RETENTION_DAYS. In addition, backup files are written with the process default umask rather than restricted 077 permissions."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "help": {
+                "text": "The database backup script (deploy/backup-db.sh) attempts to preserve weekly Sunday backups by excluding filenames matching *-sun-*.* from retention pruning. However, generated backup filenames never contain -sun-, causing all weekly backups to be deleted when older than RETENTION_DAYS. In addition, backup files are written with the process default umask rather than restricted 077 permissions.\n\nRoot Cause:\nIn deploy/backup-db.sh lines 18 and 57, TIMESTAMP is generated without a Sunday identifier, but the cleanup find command searches for ! -name '*-sun-*.*'. No umask 077 is set at script startup.\n\nRemediation Strategy:\nAdd umask 077 and append -sun tag to Sunday backups in deploy/backup-db.sh."
+              },
+              "properties": {
+                "severity": "low",
+                "likelihood": "high",
+                "impact": "low",
+                "confidence": "high"
+              }
+            },
+            {
+              "id": "FINDING-INFRA-11-DOCS-ADMIN-API-KEY-CONFLICT",
+              "name": "FINDING_INFRA_11_DOCS_ADMIN_API_KEY_CONFLICT",
+              "shortDescription": {
+                "text": "Conflicting Admin API Key Configuration Guidance in Documentation"
+              },
+              "fullDescription": {
+                "text": "In README.md line 135, setup instructions advise setting VITE_ADMIN_API_KEY=same-as-backend-ADMIN_API_KEY. Because VITE_ prefixed environment variables are compiled into static frontend JavaScript bundles, following this guidance exposes the backend administrative secret key publicly to any student or external observer."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "help": {
+                "text": "In README.md line 135, setup instructions advise setting VITE_ADMIN_API_KEY=same-as-backend-ADMIN_API_KEY. Because VITE_ prefixed environment variables are compiled into static frontend JavaScript bundles, following this guidance exposes the backend administrative secret key publicly to any student or external observer.\n\nRoot Cause:\nIn README.md line 135, legacy documentation contradicts the removal of VITE_ADMIN_API_KEY from apps/admin-panel/.env.example and origin.middleware.js.\n\nRemediation Strategy:\nRemove VITE_ADMIN_API_KEY guidance from README.md line 135."
+              },
+              "properties": {
+                "severity": "low",
+                "likelihood": "high",
+                "impact": "low",
+                "confidence": "high"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "FINDING-BE-01-CSRF-COOKIE-BYPASS",
+          "level": "error",
+          "message": {
+            "text": "Anti-CSRF Token Validation Neutralization via Ambient Cookie Ingestion: The backend anti-CSRF token verification middleware extracts candidate CSRF tokens from req.cookies._csrf_token when headers are absent. Because cookies are ambient credentials automatically attached by browsers during cross-site requests, any forged request satisfies the csrfTokensEqual validation check identically to an authentic user request, completely disabling CSRF protection across all cookie-authenticated endpoints."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/backend/src/middleware/csrf.middleware.js",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 437
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Remove req.cookies?._csrf_token from candidate token resolution in csrf.middleware.js. Require all CSRF tokens to arrive via custom request headers (X-CSRF-Token, X-XSRF-Token) or body parameters."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-BE-02-CSRF-TEST-ENGINE-OMISSION",
+          "level": "error",
+          "message": {
+            "text": "Complete Omission of CSRF Protection on Testing Engine & Session Revocation: The core testing engine routers (/api/tests, /api/attempt, /api/questions) and user session management router (/api/sessions) omit the validateCsrfToken middleware entirely. Because authentication accepts session cookies via protect, an attacker can submit, tamper with, or prematurely terminate active examination attempts or revoke user sessions without authorization."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/backend/src/app-port5001.js",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 1105
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Mount validateCsrfToken on testsRoutes, questionsRoutes, attemptRoutes, and sessionRoutes in apps/backend/src/app-port5001.js."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-BE-03-OUT-OF-PIPELINE-ADMIN-ROUTES",
+          "level": "error",
+          "message": {
+            "text": "Out-of-Pipeline Admin Routes Bypassing Origin, API Key, RBAC & Audit Middleware: Several administrative routers are mounted directly on top-level paths in app-port5001.js rather than within the canonical admin.js pipeline. While checking basic admin role status, they bypass origin restriction (restrictAdminOrigin), API key validation (validateAdminApiKey), fine-grained permission enforcement (requireAdminPermission), and tamper-proof audit logging (auditMiddleware). In addition, enrollments-admin.js leaks unmasked student PII across all users."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/backend/src/app-port5001.js",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 1144
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Retire enrollments-admin.js in favor of canonical admin-enrollments.js mounted inside admin.js. Move all standalone administrative endpoints (stages, fortspy, practice) inside admin.js."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-BE-04-UNHANDLED-POOL-CONNECT-CRASH",
+          "level": "error",
+          "message": {
+            "text": "Systemic Process Crash on DB Connection Pool Exhaustion across 113 Handlers: Across 113 route handlers in apps/backend/src/, database client acquisition via const client = await pool.connect(); is invoked outside the handler try/catch block. In Express 4, unhandled promise rejections in async route functions bubble to process.on('unhandledRejection'), which executes fatalShutdown and terminates the Node.js process via process.exit(1)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/backend/src/api/routes/admin-navigation.js",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 141
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Declare let client; and move client = await pool.connect(); inside the try block for all 113 identified handlers, ensuring client.release() is called in finally."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-BE-05-SESSION-CACHE-FAIL-OPEN",
+          "level": "warning",
+          "message": {
+            "text": "Session Invalidation Bypass via Provisional Fail-Open Cache Injection: When a user session is revoked or deleted from the database, the authentication middleware fails open instead of failing closed, synthesizing a provisional active session cache entry with a 60-second TTL. An attacker retaining a compromised JWT can continue accessing the API for up to 60 seconds after explicit revocation."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/backend/src/middleware/auth.middleware.js",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 528
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Replace the provisional cache injection in auth.middleware.js with an immediate 401 Unauthorized response."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-BE-06-AUDIT-LOG-URL-PII-LEAK",
+          "level": "warning",
+          "message": {
+            "text": "Sensitive URL Parameters and PII Leakage into Audit Logs Database Table: The audit logging middleware redacts sensitive fields in JSON request bodies and query objects, but records req.originalUrl verbatim into details.path and request_path columns. Any tokens, reset keys, or student personal information transmitted in query strings are permanently stored in plaintext in the public.audit_logs table."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/backend/src/middleware/audit.middleware.js",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 258
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Scrub query string parameters from req.originalUrl before recording in audit_logs."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-BE-07-CLIENT-IP-FORWARDED-SPOOF",
+          "level": "note",
+          "message": {
+            "text": "Client IP Spoofing Risk via Untrusted X-Forwarded-For Header Extraction: Several backend handlers extract client IP addresses by reading raw req.headers['x-forwarded-for'] rather than utilizing Express's validated req.ip property. This allows clients to spoof IP addresses, potentially evading rate limiters or poisoning audit logs."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/backend/src/api/routes/phoneAuth.js",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 61
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Refactor IP resolution helpers to use req.ip exclusively."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-BE-08-CSRF-EXEMPT-ADMIN-PAYMENTS",
+          "level": "error",
+          "message": {
+            "text": "Critical CSRF Bypass on Admin Payments & Sessions via Relative Path Matching: The CSRF middleware defines exempt path prefixes using relative req.path matching rather than req.originalUrl. Because sub-routers mounted at root match relative paths, administrative endpoints for payment refunds, payment overrides, and session terminations are unintentionally exempted from CSRF token validation."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/backend/src/middleware/csrf.middleware.js",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 410
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Match exemptions strictly against req.originalUrl and limit payment exemptions strictly to webhook endpoints (/api/webhooks/razorpay)."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-BE-09-PRO-PASS-CAMELCASE-REVOCATION",
+          "level": "error",
+          "message": {
+            "text": "Pro Pass Subscription Accidental Revocation via normalizeFields Destructuring: The global normalizeFields middleware converts incoming request body keys to snake_case. However, admin-users.js destructures camelCase variables ({ isProUser, proPassExpiry, passType }), resulting in undefined variables. The endpoint evaluates isProUser: !!undefined (false) and pass_type: 'free', actively canceling student subscriptions when an administrator attempts to update or extend them."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/backend/src/api/routes/admin-users.js",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 118
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Update destructuring in admin-users.js to check snake_case keys with camelCase fallbacks."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-CLIENT-01-ADMIN-MATHRENDERER-DOM-XSS",
+          "level": "error",
+          "message": {
+            "text": "Stored DOM XSS via Sanitizer Ordering Inversion in MathRenderer Explanation Grid: In the admin panel MathRenderer component, sanitizeHtml is called BEFORE formatExplanationTables. Inside formatExplanationTables, header cell content is extracted via DOMParser .textContent, which unescapes HTML entities, and then assigned directly to title.innerHTML. This enables stored Cross-Site Scripting (XSS) in the administrative dashboard whenever questions with crafted pedagogical tables are viewed."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/admin-panel/src/shared/components/MathRenderer.jsx",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 157
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Invert processing order so sanitizeHtml runs after formatExplanationTables, and assign header text via textContent."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-CLIENT-02-ADMIN-MULTITAB-SESSION-RACE",
+          "level": "warning",
+          "message": {
+            "text": "Multi-Tab Session Wipe Race Condition during Token Rotation: In the admin panel apiClient, rotated tokens trigger localStorage.removeItem('trstprep_token'). Sibling browser tabs listening for storage events interpret the null newValue as an instruction to clear their own sessionStorage and memory token, immediately aborting active administrative workflows with 401 Unauthorized errors."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/admin-panel/src/shared/lib/apiClient.js",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 94
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Remove the sessionStorage.removeItem trigger from the storage event listener, or use BroadcastChannel with explicit message types (TOKEN_ROTATED vs LOGOUT)."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-CLIENT-03-ADMIN-RBAC-PRIVILEGE-ESCALATION",
+          "level": "error",
+          "message": {
+            "text": "Administrative Privilege Escalation via Missing Sub-Role Checks in Role Management UI: In RolePermissionsManager.jsx, permissions checks evaluate canManage = userPerms.includes('users:edit'). Any junior operator granted users:edit (e.g. for managing student profiles) can access the role configuration interface and grant themselves or other roles wildcard * permissions across all system modules."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/admin-panel/src/features/admin/users-enrollments/RolePermissionsManager.jsx",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 71
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Require isSuper or wildcard * permission to access RolePermissionsManager and update backend admin-roles.js to enforce permission subsets."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-CLIENT-04-ADMIN-PDF-VIEWER-IFRAME-INJECTION",
+          "level": "warning",
+          "message": {
+            "text": "Arbitrary Origin Iframe Embedding & Unrestricted Blob Execution in Admin PDF Viewer: The PDFViewer component allows embedding arbitrary http:, https:, and blob: URLs inside an unsandboxed iframe within the Admin Panel. An attacker capable of submitting external URLs in study materials or syllabus links can embed third-party web pages or execute arbitrary HTML/JS via blob: URIs."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/admin-panel/src/shared/components/common/PDFViewer.jsx",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 5
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Add sandbox attribute to the iframe and restrict allowed URLs to trusted storage origins."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-CLIENT-05-FE-PROFILE-BANNER-CSS-INJECTION",
+          "level": "note",
+          "message": {
+            "text": "Potential CSS Exfiltration and SSRF via Unsanitized user.banner in Profile Header: The ProfileHeader component interpolates user.banner directly into an inline backgroundImage CSS property without validating URL structure or protocol. An attacker supplying a crafted banner URL can cause broken style attributes or trigger unauthorized outbound tracking requests."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/frontend/src/pages/dashboard/profile/ProfileHeader.jsx",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 52
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Sanitize user.banner using isSafeImageUrl and encodeURI before setting style."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-CLIENT-06-FE-LEADERBOARD-EXPORT-HTML-INJECTION",
+          "level": "note",
+          "message": {
+            "text": "Export PDF Window HTML Injection via Unescaped Filename Prop in Leaderboard: In the Leaderboard component's ExportMenu, the filename prop is injected unescaped into title and h2 tags inside printWin.document.write(). While current callers pass static strings, dynamic caller values could break the HTML structure and execute scripts."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/frontend/src/pages/tests/Leaderboard.jsx",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 583
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Wrap filename with esc(filename) inside printWin.document.write template."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-CLIENT-07-ADMIN-UNBOUNDED-FILE-UPLOAD",
+          "level": "note",
+          "message": {
+            "text": "Unbounded File Uploads without Client-Side Pre-flight Size & MIME Checks in Study Materials: The ContentManagement component in the admin panel uploads files directly to /admin/assets/upload without client-side size or MIME type pre-flight checks. Attempting to upload very large files causes browser unresponsiveness, network buffer exhaustion, or gateway timeouts."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/admin-panel/src/features/admin/study-materials/ContentManagement.jsx",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 108
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Add pre-flight file size checks (e.g. <= 50MB for documents) before constructing FormData."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-CLIENT-08-ADMIN-SW-AUTOUPDATE-RELOAD",
+          "level": "note",
+          "message": {
+            "text": "Unprompted Mid-Session Reload via Service Worker autoUpdate in Admin Dashboard: The Vite PWA plugin in the admin panel is configured with registerType: 'autoUpdate'. When a new build is deployed, the service worker client automatically invokes window.location.reload() upon activation, destroying active form state and unsubmitted administrative modifications."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/admin-panel/vite.config.js",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 41
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Change registerType to 'prompt' in apps/admin-panel/vite.config.js."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-DB-01-RLS-POLQUAL-NULL-BYPASS",
+          "level": "error",
+          "message": {
+            "text": "Active Row Level Security Policy Bypass via current_user_id_setting() IS NULL: Across 43 database tables in PostgreSQL, Row Level Security policies evaluate expressions containing OR (current_user_id_setting() IS NULL). Any database query executed without an explicit session user ID GUC evaluates this condition to TRUE, exposing private multi-tenant records across attempts, two-factor secrets, and payments."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "docs/legacy-migrations/003_baseline_harmonization.sql",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Execute a migration hardening all 43 policies to remove the NULL bypass clause, requiring explicit role bypass for system workers."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-DB-02-RLS-DORMANCY-TABLE-OWNER",
+          "level": "error",
+          "message": {
+            "text": "Complete Row Level Security Dormancy via Superuser/Table Owner Database Connection: The backend runtime connection pool connects to PostgreSQL using the postgres superuser / table owner role because DATABASE_APP_URL is unset in production. Because ZERO public tables have FORCE ROW LEVEL SECURITY enabled, PostgreSQL automatically bypasses all RLS policies for table owners, rendering RLS completely dormant."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/backend/config/database-replicas.js",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 49
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Set DATABASE_APP_URL to connect as trstprep_app, and apply ALTER TABLE ... FORCE ROW LEVEL SECURITY across core tables."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-DB-03-PII-SHADOW-ENCRYPTION-ZERO-POPULATION",
+          "level": "error",
+          "message": {
+            "text": "PII Shadow Column Encryption Zero Percent Population Failure: The database schema includes shadow encryption columns (phone_enc, dob_enc) with triggers to encrypt student PII using pgcrypto. However, the runtime pool fails to set the app.pgcrypto_key session GUC, causing the trigger to silently exit without encrypting data. 100% of user mobile numbers remain in plaintext with null shadow values."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/backend/config/database-replicas.js",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 159
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Set app.pgcrypto_key in applyIdentityGucs when DB_ENCRYPTION_KEY is present, and backfill existing plaintext rows."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-INFRA-01-SUPPLY-CHAIN-PROXY-ADDR-SPOOF",
+          "level": "error",
+          "message": {
+            "text": "Express proxy-addr IP Spoofing via IPv4-Mapped IPv6 Subnet (Supply Chain): The root package dependencies include an unpatched version of proxy-addr (<2.0.8, GHSA-jqcg-44mw-7w3h) as a transitive dependency of Express. This vulnerability allows remote attackers to spoof their client IP address via IPv4-mapped IPv6 subnets, bypassing IP-based rate limiting and administrative IP allowlists."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "package.json",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 50
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Add 'proxy-addr': '^2.0.8' to overrides in package.json and pnpm-workspace.yaml."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-INFRA-02-DOCKER-BUILD-CONTEXT-RUNTIME-FAILURE",
+          "level": "error",
+          "message": {
+            "text": "Broken Container Build Pipeline & Missing Runtime Modules in Dockerfiles: The backend Dockerfile copies only src/ into the container image, omitting config/. However, src/app-port5001.js imports ../config/database-replicas.js at startup, causing the backend container to crash immediately with MODULE_NOT_FOUND. Furthermore, frontend Dockerfiles fail to include workspace packages."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "apps/backend/Dockerfile",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 17
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Add COPY config/ ./config/ to apps/backend/Dockerfile and update build contexts in CI."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-INFRA-03-NGINX-SECURITY-HEADER-SHADOWING",
+          "level": "error",
+          "message": {
+            "text": "Complete Loss of Security Headers in Nginx Reverse Proxy via add_header Inheritance Shadowing: In deploy/nginx/nginx.conf, critical security headers (Strict-Transport-Security, Content-Security-Policy, X-Frame-Options, X-Content-Type-Options) are declared at the server block level. However, every child location block (/api, /, static assets) declares its own add_header directives. By Nginx design, child add_header statements completely suppress all parent add_header directives, stripping security headers from all HTTP responses."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/nginx/nginx.conf",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 130
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Move security headers into a shared snippet (security-headers.conf) and include it inside every child location block."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-INFRA-04-NGINX-REAL-IP-METRICS-BYPASS",
+          "level": "error",
+          "message": {
+            "text": "Metric Scrape and Rate-Limiting Bypass via Missing Reverse-Proxy IP Resolution: In deploy/nginx/nginx.conf, the /metrics location restricts access to private subnets (10.0.0.0/8, 172.16.0.0/12). However, Nginx lacks set_real_ip_from and real_ip_header directives. When deployed behind a cloud load balancer, all incoming traffic arrives from private subnet IPs, exposing Prometheus metrics publicly and collapsing global rate limits into a single 30 req/s bucket."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/nginx/nginx.conf",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 161
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Add set_real_ip_from and real_ip_header X-Forwarded-For to the http block in deploy/nginx/nginx.conf."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-INFRA-05-ENV-SECRETS-GITIGNORE-BLINDSPOTS",
+          "level": "error",
+          "message": {
+            "text": "Missing Gitignore Protection & Pre-Commit Regex Gaps for Environment Secret Files: The root .gitignore file specifies .env, .env.local, and *.env, but fails to match dot-prefixed environment variants such as .env.development, .env.test, or .env.production. Furthermore, .husky/pre-commit and data-guard.yml use overly narrow regexes, allowing staged environment files to bypass pre-commit and CI leak checks undetected."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".gitignore",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 22
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Add .env.* to .gitignore (with !.env.example exceptions) and broaden pre-commit and CI regexes."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-INFRA-06-SUPPLY-CHAIN-FOLLOW-REDIRECTS-LEAK",
+          "level": "error",
+          "message": {
+            "text": "Outbound Credential Leakage via follow-redirects HTTP Header Preservation: The root repository includes an unpatched version of follow-redirects (1.16.0, GHSA-mrwp-f3q8-3g9p) via Axios dependencies in packages/shared-config, apps/backend, and apps/frontend. When making outbound requests that encounter cross-origin HTTP redirects, Authorization and custom API key headers are inappropriately preserved and transmitted to untrusted third parties."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "package.json",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 50
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Add 'follow-redirects': '^1.16.2' to overrides in package.json and pnpm-workspace.yaml."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-INFRA-07-DOCKER-COMPOSE-WEAK-CREDENTIALS",
+          "level": "warning",
+          "message": {
+            "text": "Unauthenticated Docker Compose Redis & Weak Database Password Defaults: In docker-compose.yml, the Redis container is started without a password (--requirepass), and PostgreSQL container defaults to weak password 'postgres'. Any container or process on the host network can read or manipulate cached sessions, BullMQ background queues, or the database without authentication."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "docker-compose.yml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 240
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Configure --requirepass in Redis command and require non-default passwords in docker-compose.yml."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-INFRA-08-DOCKER-COMPOSE-MISSING-ENV-VARS",
+          "level": "warning",
+          "message": {
+            "text": "Missing Production Environment Variable Injection in Docker Compose Backend Services: In docker-compose.yml, backend-1 and backend-2 services pass only an explicit list of 9 environment variables, omitting critical keys such as ADMIN_API_KEY, DB_ENCRYPTION_KEY, CSRF_PEPPER, and JWT_2FA_SECRET, and lack an env_file declaration. This causes backend containers to run with missing encryption keys and dormant security protections."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "docker-compose.yml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 38
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Add env_file: - .env to backend-1, backend-2, and worker in docker-compose.yml."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-INFRA-09-CI-WORKFLOWS-EXCESSIVE-PERMISSIONS",
+          "level": "warning",
+          "message": {
+            "text": "Excessive Default GITHUB_TOKEN Permissions & Unpinned Actions in CI Workflows: GitHub Actions workflows (ci.yml, data-guard.yml, no-env.yml, security.yml) omit top-level permissions declarations, granting default write-capable tokens to build steps. In addition, ci.yml downloads Trivy via unpinned wget shell scripts and runs Semgrep using the floating :latest image tag."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/data-guard.yml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Add permissions: contents: read at top level of all workflows and pin Trivy action and Semgrep image tag."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-INFRA-10-BACKUP-SCRIPT-RETENTION-DEFECT",
+          "level": "note",
+          "message": {
+            "text": "Ineffective Retention Filter & Permissive File Permissions in Database Backup Script: The database backup script (deploy/backup-db.sh) attempts to preserve weekly Sunday backups by excluding filenames matching *-sun-*.* from retention pruning. However, generated backup filenames never contain -sun-, causing all weekly backups to be deleted when older than RETENTION_DAYS. In addition, backup files are written with the process default umask rather than restricted 077 permissions."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/backup-db.sh",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 18
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Add umask 077 and append -sun tag to Sunday backups in deploy/backup-db.sh."
+            }
+          }
+        },
+        {
+          "ruleId": "FINDING-INFRA-11-DOCS-ADMIN-API-KEY-CONFLICT",
+          "level": "note",
+          "message": {
+            "text": "Conflicting Admin API Key Configuration Guidance in Documentation: In README.md line 135, setup instructions advise setting VITE_ADMIN_API_KEY=same-as-backend-ADMIN_API_KEY. Because VITE_ prefixed environment variables are compiled into static frontend JavaScript bundles, following this guidance exposes the backend administrative secret key publicly to any student or external observer."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "README.md",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 135
+                }
+              }
+            }
+          ],
+          "remediation": {
+            "description": {
+              "text": "Remove VITE_ADMIN_API_KEY guidance from README.md line 135."
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

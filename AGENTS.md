@@ -44,7 +44,7 @@ and cross-cutting connections.
 These are real, graph-surfaced landmines. Check them every session:
 
 1. **Active credential / PII leaks in git history**
-   (`docs/SECURITY_POSTURE.md`, `.github/workflows/data-guard.yml`)
+   (`docs/SECURITY_AI_REMEDIATION.md`, `docs/SECURITY_POSTURE.md`, `.github/workflows/data-guard.yml`)
    - `apps/backend/.env` with Supabase `DATABASE_URL`, `JWT_SECRET` /
      `JWT_REFRESH_SECRET`, Razorpay keys was committed → DB takeover + JWT
      forgery risk. Never log, echo, or commit secrets. (The file is untracked
@@ -70,7 +70,7 @@ These are real, graph-surfaced landmines. Check them every session:
      columns, exam_id type fix, RLS policies, duplicate table reconciliation,
      achievement consolidation).
 
-- Migrations 102–153 present (142 `.sql` files, numbered 0–153 with
+- Migrations 102–154 present (143 `.sql` files, numbered 0–154 with
   retired gaps 004–017): attempt numbering, bookmarks, Node Engine V2
   tables, practice redesign, `test_category_series` junction ensure,
   webhook events, RLS waves, taxonomy cascades, lifecycle/shuffle seed,
@@ -83,7 +83,8 @@ These are real, graph-surfaced landmines. Check them every session:
   grants, 148 question section/active aggregate index, 149 CSRF + section
   alias indexes, 150 tests(active,status,created) index, 151 test-category
   and pro-flag reconciliation, 152 orphan-test retirement + junction dedupe,
-  153 test dedupe + category-link repair — next file is `154_*`).
+  153 test dedupe + category-link repair, 154 error reports and video progress fix —
+  next file is `155_*`).
   - NOTE: the live DB has drifted ahead of shipped migrations (verified
     Sept 2026 via information_schema) — e.g. `revision_queue.priority` is
     INTEGER, `practice_answers` carries `is_skipped`/`time_taken_sec`/`mode`.

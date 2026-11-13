@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import { setTimeout as sleep } from "timers/promises";
-import crypto, { randomUUID } from "crypto";
+import { randomUUID } from "crypto";
 import { parseNumericId } from "../../shared/utils/db-utils.js";
 import {
   ENTITY_PREFIXES,
@@ -16,9 +16,7 @@ import {
 } from "../../../config/database-replicas.js";
 import { ValidationError } from "../../middleware/error.middleware.js";
 import { getRedisClient, isRedisReady } from "../cache/redisClient.js";
-
-const ENCRYPTION_ALGORITHM = "aes-256-gcm";
-const GCM_IV_LENGTH = 12;
+import { encryptPii, decryptPii } from "../../shared/utils/piiCrypto.js";
 
 // Configurable default row limit for query helpers. Override via the
 // DEFAULT_QUERY_LIMIT env var (falls back to 1000 to avoid loading whole
@@ -28,78 +26,15 @@ const DEFAULT_QUERY_LIMIT = Number.isFinite(
 )
   ? Number(process.env.DEFAULT_QUERY_LIMIT)
   : 1000;
-const getEncryptionKey = () => {
-  const secret = process.env.DB_ENCRYPTION_KEY || process.env.PGCRYPTO_KEY;
-  if (!secret) {
-    throw new ValidationError(
-      "DB_ENCRYPTION_KEY must be configured (32+ characters, never reuse JWT_SECRET)",
-    );
-  }
-  if (secret.length < 32) {
-    throw new ValidationError(
-      "DB_ENCRYPTION_KEY must be at least 32 characters",
-    );
-  }
-  return crypto.createHash("sha256").update(secret).digest();
-};
 
 export const encryptValue = (text) => {
   if (text === null || text === undefined) return text;
-  if (typeof text !== "string") text = String(text);
-
-  const iv = crypto.randomBytes(GCM_IV_LENGTH);
-  const cipher = crypto.createCipheriv(
-    ENCRYPTION_ALGORITHM,
-    getEncryptionKey(),
-    iv,
-  );
-  let encrypted = cipher.update(text, "utf8", "hex");
-  encrypted += cipher.final("hex");
-  const authTag = cipher.getAuthTag().toString("hex");
-  return `${iv.toString("hex")}:${authTag}:${encrypted}`;
+  return encryptPii(text);
 };
 
 export const decryptValue = (encryptedText) => {
   if (!encryptedText || typeof encryptedText !== "string") return encryptedText;
-  if (!encryptedText.includes(":")) return encryptedText;
-
-  const parts = encryptedText.split(":");
-  if (parts.length < 2) return encryptedText;
-  try {
-    // GCM format: iv:authTag:encrypted (3 parts) — preferred
-    if (parts.length === 3) {
-      const [ivHex, authTagHex, encryptedHex] = parts;
-      if (!ivHex || !authTagHex || !encryptedHex) return encryptedText;
-      const iv = Buffer.from(ivHex, "hex");
-      const authTag = Buffer.from(authTagHex, "hex");
-      const decipher = crypto.createDecipheriv(
-        ENCRYPTION_ALGORITHM,
-        getEncryptionKey(),
-        iv,
-      );
-      decipher.setAuthTag(authTag);
-      let decrypted = decipher.update(encryptedHex, "hex", "utf8");
-      decrypted += decipher.final("utf8");
-      return decrypted;
-    }
-    // Legacy CBC format: iv:encrypted (2 parts) — backward compat during key rotation
-    if (parts.length === 2) {
-      const [ivHex, encryptedHex] = parts;
-      if (!ivHex || !encryptedHex) return encryptedText;
-      const iv = Buffer.from(ivHex, "hex");
-      const decipher = crypto.createDecipheriv(
-        "aes-256-cbc",
-        getEncryptionKey(),
-        iv,
-      );
-      let decrypted = decipher.update(encryptedHex, "hex", "utf8");
-      decrypted += decipher.final("utf8");
-      return decrypted;
-    }
-    return encryptedText;
-  } catch {
-    return encryptedText;
-  }
+  return decryptPii(encryptedText);
 };
 
 dotenv.config();
@@ -2401,6 +2336,23 @@ export const withTransaction = async (fn, options = {}) => {
   } finally {
     client.release();
   }
+};
+
+export const execSavepoint = async (client, action, name) => {
+  const safeName = String(name).trim();
+  if (!/^[a-zA-Z0-9_]+$/.test(safeName)) {
+    throw new ValidationError(`Invalid savepoint name: ${safeName}`);
+  }
+  const validActions = [
+    "SAVEPOINT",
+    "RELEASE SAVEPOINT",
+    "ROLLBACK TO SAVEPOINT",
+  ];
+  if (!validActions.includes(action)) {
+    throw new ValidationError(`Invalid savepoint action: ${action}`);
+  }
+  const sql = [action, safeName].join(" ");
+  return client.query(sql);
 };
 
 export const dbHelpers = new PostgresHelpers(pool);

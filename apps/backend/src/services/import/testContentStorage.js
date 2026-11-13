@@ -102,7 +102,11 @@ async function readTestContentByPath(contentPath) {
     return JSON.parse(body);
   }
 
-  const filePath = path.join(process.cwd(), contentPath);
+  const resolvedBase = path.resolve(STORAGE_DIR);
+  const filePath = path.resolve(BACKEND_ROOT, contentPath);
+  if (!filePath.startsWith(resolvedBase + path.sep)) {
+    throw new Error("Invalid test content path: path traversal blocked");
+  }
   const raw = await fs.readFile(filePath, "utf8");
   return JSON.parse(raw);
 }

@@ -347,19 +347,32 @@ router.post(
       // Move file to imported/ folder (after successful DB commit)
       const path = await import("path");
       const fs = await import("fs/promises");
-      const uploadsDir = path.default.join(
+      const safeToken = (val, fallback) => {
+        if (!val) return fallback;
+        const cleaned = String(val).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+        return cleaned || fallback;
+      };
+
+      const baseImportedDir = path.default.resolve(
         process.cwd(),
         "uploads",
         "test-imports",
         "imported",
-        json.examCategoryId || "_uncategorized",
-        String(json.examId || "_no-exam"),
-        String(json.stageId || "_no-stage"),
-        String(json.categoryId || "_no-category"),
-        json.testType || "_no-type",
-        String(json.testSeriesId || "_no-series"),
-        String(extractYear(json) || "_no-year"),
       );
+      const uploadsDir = path.default.resolve(
+        baseImportedDir,
+        safeToken(json.examCategoryId, "_uncategorized"),
+        safeToken(json.examId, "_no-exam"),
+        safeToken(json.stageId, "_no-stage"),
+        safeToken(json.categoryId, "_no-category"),
+        safeToken(json.testType, "_no-type"),
+        safeToken(json.testSeriesId, "_no-series"),
+        safeToken(extractYear(json), "_no-year"),
+      );
+
+      if (!uploadsDir.startsWith(baseImportedDir + path.default.sep) && uploadsDir !== baseImportedDir) {
+        throw new Error("Path traversal blocked in test import archive path");
+      }
       try {
         await fs.default.mkdir(uploadsDir, { recursive: true });
         // M38: use path.basename() to strip directory traversal (e.g. '../../etc/passwd')
@@ -426,11 +439,18 @@ router.post(
         });
       }
 
-      // Save the file to a temp location on disk to avoid holding it in memory across requests
+      const rawSessionId = req.body?.uploadSessionId || req.query?.uploadSessionId;
+      const uploadSessionId = rawSessionId
+        ? String(rawSessionId).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64)
+        : `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+      // Save the file to an isolated temp location on disk keyed by user + sessionId
       const tempDir = path.join(process.cwd(), "uploads", "test-imports");
       await fs.mkdir(tempDir, { recursive: true });
-      const tempPath = path.join(tempDir, `temp-${req.user.id}.json`);
-      await fs.writeFile(tempPath, req.file.buffer);
+      const sessionPath = path.join(tempDir, `temp-${req.user.id}_${uploadSessionId}.json`);
+      const legacyPath = path.join(tempDir, `temp-${req.user.id}.json`);
+      await fs.writeFile(sessionPath, req.file.buffer);
+      await fs.writeFile(legacyPath, req.file.buffer);
 
       // Analyze the JSON
       const isArray = Array.isArray(json);
@@ -454,11 +474,16 @@ router.post(
           pyqYear: t.pyqYear || extractYear(t) || null,
           sectionsCount,
           questionsCount,
-          examCategoryId: t.examCategoryId || "",
-          examId: t.examId || "",
-          testSeriesId: t.testSeriesId || "",
-          stageId: t.stageId || "",
-          categoryId: t.categoryId || "",
+          examCategoryId: t.examCategoryId || t.exam_category_id || "",
+          examId: t.examSlug || (t.examId ? String(t.examId) : "") || "",
+          examTitle: t.examTitle || t.examName || "",
+          testSeriesId: t.seriesSlug || (t.testSeriesId ? String(t.testSeriesId) : "") || "",
+          seriesTitle: t.seriesTitle || t.seriesName || "",
+          stageId: t.stageSlug || (t.stageId ? String(t.stageId) : "") || "",
+          stageName: t.stageName || t.stageTitle || "",
+          categoryId: t.categorySlug || (t.categoryId ? String(t.categoryId) : "") || "",
+          category: t.category || t.categoryName || "",
+          subcategory: t.subcategory || t.subCategory || t.sub_category || "",
         };
       });
 
@@ -470,6 +495,7 @@ router.post(
         data: {
           tests: testList,
           schemaValidation,
+          uploadSessionId,
         },
       });
     } catch (error) {
@@ -491,20 +517,37 @@ router.get(
   async (req, res) => {
     try {
       const index = parseInt(req.params.index, 10);
-      const tempPath = path.join(
+      const rawSessionId = req.query?.uploadSessionId || req.headers["x-upload-session-id"];
+      const uploadSessionId = rawSessionId ? String(rawSessionId).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64) : null;
+      const sessionPath = uploadSessionId
+        ? path.join(process.cwd(), "uploads", "test-imports", `temp-${req.user.id}_${uploadSessionId}.json`)
+        : null;
+      const legacyPath = path.join(
         process.cwd(),
         "uploads",
         "test-imports",
         `temp-${req.user.id}.json`,
       );
 
-      try {
-        await fs.access(tempPath);
-      } catch {
-        return res.status(404).json({
-          success: false,
-          message: "No uploaded file found. Please upload the file again.",
-        });
+      let tempPath = null;
+      if (sessionPath) {
+        try {
+          await fs.access(sessionPath);
+          tempPath = sessionPath;
+        } catch {
+          // Fall through to legacy
+        }
+      }
+      if (!tempPath) {
+        try {
+          await fs.access(legacyPath);
+          tempPath = legacyPath;
+        } catch {
+          return res.status(404).json({
+            success: false,
+            message: "No uploaded file found. Please upload the file again.",
+          });
+        }
       }
 
       const fileContent = await fs.readFile(tempPath, "utf8");
@@ -559,22 +602,38 @@ router.post("/full-test/import-selected", protect, admin, async (req, res) => {
     const storageMode =
       req.body.storageMode === "json-file" ? "json-file" : "database";
 
-    const tempPath = path.join(
+    const rawSessionId = req.body?.uploadSessionId || req.query?.uploadSessionId || req.headers["x-upload-session-id"];
+    const uploadSessionId = rawSessionId ? String(rawSessionId).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64) : null;
+    const sessionPath = uploadSessionId
+      ? path.join(process.cwd(), "uploads", "test-imports", `temp-${req.user.id}_${uploadSessionId}.json`)
+      : null;
+    const legacyPath = path.join(
       process.cwd(),
       "uploads",
       "test-imports",
       `temp-${req.user.id}.json`,
     );
-    console.log("[Bulk Import] Looking for temp file at:", tempPath);
 
-    try {
-      await fs.access(tempPath);
-    } catch {
-      console.error("[Bulk Import] Temp file not found at:", tempPath);
-      return res.status(404).json({
-        success: false,
-        message: "No uploaded file found. Please upload the file again.",
-      });
+    let tempPath = null;
+    if (sessionPath) {
+      try {
+        await fs.access(sessionPath);
+        tempPath = sessionPath;
+      } catch {
+        // Fall through to legacy
+      }
+    }
+    if (!tempPath) {
+      try {
+        await fs.access(legacyPath);
+        tempPath = legacyPath;
+      } catch {
+        console.error("[Bulk Import] Temp file not found at session/legacy paths");
+        return res.status(404).json({
+          success: false,
+          message: "No uploaded file found. Please upload the file again.",
+        });
+      }
     }
 
     const fileContent = await fs.readFile(tempPath, "utf8");

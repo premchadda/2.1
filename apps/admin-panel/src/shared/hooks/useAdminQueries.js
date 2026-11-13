@@ -109,7 +109,10 @@ export function useAdminTests(params = {}, options = {}) {
   });
 }
 
-// 6. Admin Test Categories (10m staleTime)
+// 6. Admin Test Categories (1m staleTime)
+/**
+ * @deprecated Unused hook. Use `useExamCategories` or direct `adminAPI.getTestCategories` calls.
+ */
 export function useAdminTestCategories(params = {}, options = {}) {
   return useQuery({
     queryKey: ADMIN_QUERY_KEYS.testCategories(params),
@@ -117,7 +120,7 @@ export function useAdminTestCategories(params = {}, options = {}) {
       const res = await adminAPI.getTestCategories(params);
       return res.data?.data || res.data || [];
     },
-    staleTime: 1000 * 60 * 10, // 10 minutes
+    staleTime: 1000 * 60 * 1, // 1 minute
     ...options,
   });
 }

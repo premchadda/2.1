@@ -13,6 +13,7 @@ import { practiceAPI } from "../../shared/lib/practiceAPI";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
 import FundamentalsGym from "./components/FundamentalsGym";
 import PracticeWorkspace from "./components/PracticeWorkspace";
+import PracticeSessionCanvas from "./components/PracticeSessionCanvas";
 import PracticeTopicTree from "./components/PracticeTopicTree";
 import ClickableCard from "../../shared/components/ui/ClickableCard.jsx";
 import { useProPass } from "@trstprep/shared-hooks";
@@ -175,6 +176,7 @@ export default function PracticeLab() {
   }); // dashboard | setup | session | fundamentals | complete | exam_practice | chapter_detail
 
   const [activeSession, setActiveSession] = useState(null);
+  const [canvasMode, setCanvasMode] = useState(false);
   const [completeSummary, setCompleteSummary] = useState(null);
   const [selectedChapter, setSelectedChapter] = useState(null);
   // Where the user launched the session from — "Back to Section" returns here.
@@ -751,33 +753,64 @@ export default function PracticeLab() {
         />
       )}
 
-      {/* Screen 4: 3-Layer Practice Workspace */}
+      {/* Screen 4: 3-Layer Practice Workspace or Zen Canvas */}
       {screen === "session" && activeSession && (
-        <PracticeWorkspace
-          session={activeSession}
-          onExit={() => {
-            if (typeof document !== "undefined" && document.fullscreenElement) {
-              document.exitFullscreen().catch(() => {});
+        canvasMode ? (
+          <div className="relative">
+            <div className="fixed top-3 right-4 z-50">
+              <button
+                onClick={() => setCanvasMode(false)}
+                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-md hover:bg-indigo-700 transition"
+              >
+                Standard Workspace
+              </button>
+            </div>
+            <PracticeSessionCanvas
+              session={activeSession}
+              onExit={() => {
+                if (typeof document !== "undefined" && document.fullscreenElement) {
+                  document.exitFullscreen().catch(() => {});
+                }
+                navigateScreen(sessionReturnScreen || "dashboard");
+              }}
+              onComplete={(summary) => {
+                if (typeof document !== "undefined" && document.fullscreenElement) {
+                  document.exitFullscreen().catch(() => {});
+                }
+                if (!summary) return;
+                setCompleteSummary(summary);
+                navigateScreen("complete");
+              }}
+            />
+          </div>
+        ) : (
+          <PracticeWorkspace
+            session={activeSession}
+            onToggleCanvasMode={() => setCanvasMode(true)}
+            onExit={() => {
+              if (typeof document !== "undefined" && document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+              }
+              navigateScreen(sessionReturnScreen || "dashboard");
+            }}
+            onLaunchTopicSession={(topicId) =>
+              handleStartSession({
+                mode: "learn",
+                topicId,
+                count: 10,
+                difficulty: "mixed",
+              })
             }
-            navigateScreen(sessionReturnScreen || "dashboard");
-          }}
-          onLaunchTopicSession={(topicId) =>
-            handleStartSession({
-              mode: "learn",
-              topicId,
-              count: 10,
-              difficulty: "mixed",
-            })
-          }
-          onComplete={(summary) => {
-            if (typeof document !== "undefined" && document.fullscreenElement) {
-              document.exitFullscreen().catch(() => {});
-            }
-            if (!summary) return;
-            setCompleteSummary(summary);
-            navigateScreen("complete");
-          }}
-        />
+            onComplete={(summary) => {
+              if (typeof document !== "undefined" && document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+              }
+              if (!summary) return;
+              setCompleteSummary(summary);
+              navigateScreen("complete");
+            }}
+          />
+        )
       )}
 
       {/* Screen 5: End of Session Mastery Screen */}

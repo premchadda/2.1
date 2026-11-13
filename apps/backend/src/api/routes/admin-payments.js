@@ -7,6 +7,7 @@ import { protect, admin } from "../../middleware/auth.middleware.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
+import { getClientIp } from "../../shared/utils/clientIp.js";
 
 const router = express.Router();
 
@@ -57,8 +58,7 @@ const ensurePaymentsTable = async () => {
   paymentsTableEnsured = true;
 };
 
-const getClientIp = (req) =>
-  req.headers["x-forwarded-for"]?.split(",")[0] || req.socket?.remoteAddress;
+// getClientIp is imported from ../../shared/utils/clientIp.js
 
 // GET /admin/payments — default list of payments
 router.get(

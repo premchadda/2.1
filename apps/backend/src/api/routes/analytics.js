@@ -2,6 +2,7 @@ import express from "express";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import { sanitizeUser } from "../../shared/utils/user-utils.js";
 
 const router = express.Router();
 
@@ -492,9 +493,11 @@ router.get("/export", protect, admin, async (req, res) => {
 
     let exportData;
     switch (type) {
-      case "users":
-        exportData = await dbHelpers.find("users");
+      case "users": {
+        const rawUsers = await dbHelpers.find("users");
+        exportData = rawUsers.map((u) => sanitizeUser(u));
         break;
+      }
       case "tests":
         exportData = await dbHelpers.find("tests", { isActive: true });
         break;

@@ -380,7 +380,7 @@ function SectionsManager({ testId: propTestId } = {}) {
   const [formData, setFormData] = useState(DEFAULT_SECTION_FORM);
   const [errors, setErrors] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
-  const [testId, setTestId] = useState(propTestId || "");
+  const [testId, _setTestId] = useState(propTestId || "");
   const [selectedPresetId, setSelectedPresetId] = useState(EXAM_PRESETS[0].id);
   const [selectedPresetCategory, setSelectedPresetCategory] = useState("SSC");
   const [selectedPresetExam, setSelectedPresetExam] = useState("CGL");
@@ -396,11 +396,7 @@ function SectionsManager({ testId: propTestId } = {}) {
     return () => window.removeEventListener("click", handleGlobalClick);
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [testId, activeTab, linkingSeriesId, linkingStageId]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setErrors({});
@@ -444,7 +440,11 @@ function SectionsManager({ testId: propTestId } = {}) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [testId, activeTab, linkingSeriesId, linkingStageId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Keep URL in sync so the tab + linking scope is shareable
   useEffect(() => {
@@ -477,6 +477,8 @@ function SectionsManager({ testId: propTestId } = {}) {
     linkingExamId,
     linkingSeriesId,
     linkingStageId,
+    searchParams,
+    setSearchParams,
   ]);
 
   useEffect(() => {
@@ -700,7 +702,7 @@ function SectionsManager({ testId: propTestId } = {}) {
     );
   }, [sections, searchQuery, testId]);
 
-  const getCategoryName = (categoryId) => {
+  const _getCategoryName = (categoryId) => {
     if (!categoryId) return "No category";
     const cat = categories.find(
       (c) => c.id === categoryId || c.categoryId === categoryId,
@@ -731,7 +733,7 @@ function SectionsManager({ testId: propTestId } = {}) {
     return s?.name || s?.title || "Stage";
   };
 
-  const getExamCategoryName = (catIdVal) => {
+  const _getExamCategoryName = (catIdVal) => {
     if (!catIdVal) return null;
     const c = examCategories.find(
       (item) =>
@@ -740,7 +742,7 @@ function SectionsManager({ testId: propTestId } = {}) {
     return c?.name || c?.label || "Category";
   };
 
-  const getExamName = (examIdVal) => {
+  const _getExamName = (examIdVal) => {
     if (!examIdVal) return null;
     const e = exams.find(
       (item) =>

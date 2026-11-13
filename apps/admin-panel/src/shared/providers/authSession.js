@@ -62,12 +62,14 @@ export const applyAuthSession = ({
     if (token || refreshToken) {
       if (token) setMemoryToken(token);
       if (refreshToken) setMemoryRefreshToken(refreshToken);
-      if (token) sessionStorage.setItem("trstprep_token", token);
-      if (refreshToken)
+      if (token) {
+        sessionStorage.setItem("trstprep_token", token);
+        localStorage.setItem("trstprep_token", token);
+      }
+      if (refreshToken) {
         sessionStorage.setItem("trstprep_refresh_token", refreshToken);
-      localStorage.removeItem("trstprep_token");
-      localStorage.removeItem("trstprep_auth_token");
-      localStorage.removeItem("trstprep_refresh_token");
+        localStorage.setItem("trstprep_refresh_token", refreshToken);
+      }
     }
   } catch (error) {
     void error;

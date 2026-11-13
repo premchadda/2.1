@@ -22,7 +22,7 @@ export default function PageComingSoon({ pageKey, children, fallback }) {
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [config, setConfig] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [showRealContent, setShowRealContent] = useState(false);
+  const [showRealContent, _setShowRealContent] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

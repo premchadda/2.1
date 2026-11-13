@@ -1,8 +1,18 @@
-import { useState, useEffect, useMemo, useRef, memo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, memo } from "react";
 import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
-import { Trash2, Save, FileText, CheckCircle, Hash, Clock } from "lucide-react";
+import {
+  Trash2,
+  Save,
+  FileText,
+  CheckCircle,
+  Hash,
+  Clock,
+  History,
+  ShieldAlert,
+  ListFilter,
+} from "lucide-react";
 
 import { adminAPI, questionsAPI } from "../../../shared/lib/dataService";
 import { useExamCategories } from "../../../shared/hooks/useExamCategories";
@@ -34,6 +44,8 @@ import SeriesDrillGrid from "./components/SeriesDrillGrid";
 import TestListingDrill from "./components/TestListingDrill";
 import QuestionDetailList from "./components/QuestionDetailList";
 import SeriesWorkspaceModal from "./components/SeriesWorkspaceModal";
+import AuditQuestionsView from "./components/AuditQuestionsView";
+import ImportHistoryModal from "./components/ImportHistoryModal";
 
 import {
   QUESTION_CATEGORIES,
@@ -155,13 +167,13 @@ function QuestionsManager() {
   const [subCategoryLevel1, setSubCategoryLevel1] = useState("");
   const [subCategoryLevel2, setSubCategoryLevel2] = useState("");
   const [subCategoryLevel3, setSubCategoryLevel3] = useState("");
-  const [subCategoryLevel4, setSubCategoryLevel4] = useState("");
+  const [_subCategoryLevel4, setSubCategoryLevel4] = useState("");
   const [showTestForm, setShowTestForm] = useState(false);
   const [editingTestId, setEditingTestId] = useState(null);
   const [testFormData, setTestFormData] = useState(DEFAULT_TEST_FORM);
   const [testSaving, setTestSaving] = useState(false);
   const [showTestBulkUpload, setShowTestBulkUpload] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [_errors, setErrors] = useState({});
   const [testQuestionsLoading, setTestQuestionsLoading] = useState(false);
 
   const deleteTimeoutRef = useRef(null);
@@ -174,9 +186,9 @@ function QuestionsManager() {
   const [currentPage, setCurrentPage] = useState(1);
   const QUESTIONS_PER_PAGE = 20;
 
-  const [page, setPage] = useState(1);
+  const [page, _setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, _setSearchTerm] = useState("");
 
   // Previews state (NF-02)
   const [previewQuestion, setPreviewQuestion] = useState(null);
@@ -191,7 +203,7 @@ function QuestionsManager() {
   const [previewTest, setPreviewTest] = useState(null);
 
   // Left rail and saved filters state (NF-04)
-  const [leftRailOpen, setLeftRailOpen] = useState(true);
+  const [_leftRailOpen, _setLeftRailOpen] = useState(true);
   const [savedFilters, setSavedFilters] = useState(() => {
     try {
       const stored = localStorage.getItem("trstprep_saved_filters_questions");
@@ -266,7 +278,7 @@ function QuestionsManager() {
     setPreviewTest(t);
   };
 
-  const handleSaveFilter = () => {
+  const _handleSaveFilter = () => {
     const name = prompt("Enter a name for this custom filter view:");
     if (!name || !name.trim()) return;
 
@@ -291,7 +303,7 @@ function QuestionsManager() {
     toast.success(`Filter "${name}" saved!`);
   };
 
-  const handleApplyFilter = (filterData) => {
+  const _handleApplyFilter = (filterData) => {
     if (filterData.activeCategory) setActiveCategory(filterData.activeCategory);
     if (filterData.activeExamCategoryId !== undefined)
       setActiveExamCategoryId(filterData.activeExamCategoryId);
@@ -304,7 +316,7 @@ function QuestionsManager() {
     toast.success("Saved filter view applied");
   };
 
-  const handleDeleteSavedFilter = (e, filterId) => {
+  const _handleDeleteSavedFilter = (e, filterId) => {
     e.stopPropagation();
     const updated = savedFilters.filter((f) => f.id !== filterId);
     setSavedFilters(updated);
@@ -334,6 +346,7 @@ function QuestionsManager() {
     selectedSection,
     selectedSeries,
     selectedTest,
+    setSearchParams,
   ]);
 
   const initialUrlSeriesIdRef = useRef(searchParams.get("seriesId"));
@@ -392,6 +405,16 @@ function QuestionsManager() {
     setSelectedIds([]);
   };
 
+  const resetForm = useCallback(() => {
+    setFormData({
+      ...DEFAULT_FORM_DATA,
+      category: activeCategory,
+      section: selectedSection !== "all" ? selectedSection : "",
+    });
+    setEditingId(null);
+    setShowForm(false);
+  }, [activeCategory, selectedSection]);
+
   useEffect(() => {
     if (searchParams.get("create") === "true") {
       resetForm();
@@ -401,15 +424,17 @@ function QuestionsManager() {
       delete params.create;
       setSearchParams(params);
     }
-  }, [searchParams]);
+  }, [searchParams, resetForm, setSearchParams]);
 
   // Bulk import state
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [showImportHistory, setShowImportHistory] = useState(false);
+  const [activeViewMode, setActiveViewMode] = useState("questions"); // "questions" | "audit"
   const [showActivityLog, setShowActivityLog] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
 
   // Trash view state
-  const [showTrash, setShowTrash] = useState(false);
+  const [showTrash, _setShowTrash] = useState(false);
   const [allTestCategories, setAllTestCategories] = useState([]);
   const [trashedQuestions, setTrashedQuestions] = useState([]);
   const [questionStats, setQuestionStats] = useState(null);
@@ -641,7 +666,7 @@ function QuestionsManager() {
     if (!loading) {
       fetchQuestionsPage(page, searchTerm);
     }
-  }, [page, searchTerm]);
+  }, [page, searchTerm, loading]);
 
   const flatTestCategories = useMemo(
     () => flattenCategories(allTestCategories),
@@ -1051,19 +1076,22 @@ function QuestionsManager() {
       });
   }, [selectedSeries, testsList, activeTestCategoryRefs, activeStageRefs]);
 
-  const testMatchesSubCategory = (test, category, refs) => {
-    if (recordMatchesTestCategory(test, refs)) return true;
-    const seriesId = getSeriesId(selectedSeries);
-    if (!category || !seriesId || !categoryLinksSeries(category, seriesId))
-      return false;
-    const matchesExplicitChild = activeTestSubCategories.some((child) =>
-      recordMatchesTestCategory(
-        test,
-        buildCategorySelectionRefs(getEntityId(child), flatTestCategories),
-      ),
-    );
-    return !matchesExplicitChild;
-  };
+  const testMatchesSubCategory = useCallback(
+    (test, category, refs) => {
+      if (recordMatchesTestCategory(test, refs)) return true;
+      const seriesId = getSeriesId(selectedSeries);
+      if (!category || !seriesId || !categoryLinksSeries(category, seriesId))
+        return false;
+      const matchesExplicitChild = activeTestSubCategories.some((child) =>
+        recordMatchesTestCategory(
+          test,
+          buildCategorySelectionRefs(getEntityId(child), flatTestCategories),
+        ),
+      );
+      return !matchesExplicitChild;
+    },
+    [selectedSeries, activeTestSubCategories, flatTestCategories],
+  );
 
   const workspaceTests = useMemo(() => {
     if (selectedTestSubCategoryId === "all") return seriesTests;
@@ -1079,9 +1107,7 @@ function QuestionsManager() {
     selectedTestSubCategoryId,
     selectedTestSubCategoryRecord,
     selectedTestSubCategoryRefs,
-    selectedSeries,
-    activeTestSubCategories,
-    flatTestCategories,
+    testMatchesSubCategory,
   ]);
 
   const testQuestions = useMemo(() => {
@@ -1442,7 +1468,7 @@ function QuestionsManager() {
     setQuestions((prev) => prev.filter((q) => (q._id || q.id) !== id));
 
     // Show a toast with an Undo button and a 5-second timer
-    const toastId = toast(
+    const _toastId = toast(
       (t) => (
         <div className="flex items-center justify-between gap-4 py-1">
           <div className="flex flex-col text-left">
@@ -1569,16 +1595,6 @@ function QuestionsManager() {
       logger.error("Failed to toggle status:", error);
       toast.error("Failed to update status");
     }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      ...DEFAULT_FORM_DATA,
-      category: activeCategory,
-      section: selectedSection !== "all" ? selectedSection : "",
-    });
-    setEditingId(null);
-    setShowForm(false);
   };
 
   const refreshTests = async () => {
@@ -1815,12 +1831,19 @@ function QuestionsManager() {
       }
     } catch (err) {
       logger.error("Bulk import failed:", err);
-      throw new Error(err.response?.data?.message || "Import failed");
+      const customErr = new Error(
+        err.response?.data?.message || err.message || "Import failed",
+      );
+      customErr.skipDetails =
+        err.response?.data?.skipDetails ||
+        err.response?.data?.errors ||
+        err.response?.data?.data?.errors;
+      throw customErr;
     }
   };
 
   // Export handler
-  const handleExport = async () => {
+  const _handleExport = async () => {
     try {
       const params = new URLSearchParams();
       if (selectedTest)
@@ -2085,24 +2108,87 @@ function QuestionsManager() {
         )}
 
         {!showTrash && (
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Questions</h2>
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-gray-200 shadow-xs">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveViewMode("questions")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                  activeViewMode === "questions"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                <ListFilter className="w-3.5 h-3.5" />
+                Question Catalog
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveViewMode("audit")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                  activeViewMode === "audit"
+                    ? "bg-rose-600 text-white shadow-xs"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                Audit & QA
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowImportHistory(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
+                title="View import history and validation logs"
+              >
+                <History className="w-3.5 h-3.5 text-gray-500" />
+                Import History
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBulkImport(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg transition-colors"
+              >
+                Bulk Import
+              </button>
             </div>
           </div>
         )}
 
-        {/* ===== LEVEL 1: Test Series Grid (filtered by active category) ===== */}
-        {!showTrash && drillLevel === "series" && (
-          <SeriesDrillGrid
-            seriesList={filteredSeriesList}
-            seriesStatsMap={seriesStatsMap}
-            onSelectSeries={setSelectedSeries}
-          />
+        {/* Audit Mode Inspector */}
+        {!showTrash && activeViewMode === "audit" && (
+          <div className="mb-6">
+            {testQuestionsLoading ? (
+              <div className="p-8 text-center bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs">
+                <LoadingSpinner />
+                <p className="text-xs text-gray-500 mt-2">
+                  Analyzing questions for quality assurance...
+                </p>
+              </div>
+            ) : (
+              <AuditQuestionsView
+                questions={testQuestions.length > 0 ? testQuestions : questions}
+                onEditQuestion={handleEdit}
+              />
+            )}
+          </div>
         )}
 
+        {/* ===== LEVEL 1: Test Series Grid (filtered by active category) ===== */}
+        {!showTrash &&
+          activeViewMode === "questions" &&
+          drillLevel === "series" && (
+            <SeriesDrillGrid
+              seriesList={filteredSeriesList}
+              seriesStatsMap={seriesStatsMap}
+              onSelectSeries={setSelectedSeries}
+            />
+          )}
+
         {/* ===== LEVEL 2: Test Listing ===== */}
-        {drillLevel === "tests" && (
+        {activeViewMode === "questions" && drillLevel === "tests" && (
           <TestListingDrill
             subCategoryOptionsLevel1={subCategoryOptionsLevel1}
             subCategoryOptionsLevel2={subCategoryOptionsLevel2}
@@ -2126,7 +2212,7 @@ function QuestionsManager() {
         )}
 
         {/* ===== LEVEL 3: Question Detail Cards ===== */}
-        {drillLevel === "questions" && (
+        {activeViewMode === "questions" && drillLevel === "questions" && (
           <QuestionDetailList
             testQuestions={testQuestions}
             filteredTestQuestions={filteredTestQuestions}
@@ -2269,6 +2355,12 @@ function QuestionsManager() {
             testTitle: selectedTest?.title || selectedTest?.name || "",
             section: selectedSection,
           }}
+        />
+
+        {/* Import History Modal */}
+        <ImportHistoryModal
+          isOpen={showImportHistory}
+          onClose={() => setShowImportHistory(false)}
         />
 
         {/* Activity Log Modal */}

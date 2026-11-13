@@ -4,6 +4,7 @@ import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
+import { getClientIp } from "../../shared/utils/clientIp.js";
 
 const router = express.Router();
 
@@ -223,9 +224,7 @@ router.put("/doubts/:id/status", async (req, res) => {
         adminId: req.user.id,
         adminEmail: req.user.email,
         adminName: req.user.name,
-        ipAddress:
-          req.headers["x-forwarded-for"]?.split(",")[0] ||
-          req.socket?.remoteAddress,
+        ipAddress: getClientIp(req),
         userAgent: req.headers["user-agent"],
         details: {
           doubtId: id,
@@ -284,9 +283,7 @@ router.delete("/doubts/:id", async (req, res) => {
         adminId: req.user.id,
         adminEmail: req.user.email,
         adminName: req.user.name,
-        ipAddress:
-          req.headers["x-forwarded-for"]?.split(",")[0] ||
-          req.socket?.remoteAddress,
+        ipAddress: getClientIp(req),
         userAgent: req.headers["user-agent"],
         details: {
           doubtId: id,

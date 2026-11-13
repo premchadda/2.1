@@ -25,7 +25,7 @@
  *   ClassX.solution_text → questions.explanation
  */
 
-import { pool } from "../../infrastructure/database/postgres-helpers.js";
+import { pool, execSavepoint } from "../../infrastructure/database/postgres-helpers.js";
 
 const SOURCE_NAME = "classx";
 
@@ -136,10 +136,17 @@ export async function importClassXQuestions(rows, config = {}) {
     }
 
     for (let i = 0; i < rows.length; i++) {
+      const spName = `sp_q_${Number(i)}`;
+      if (!dryRun) {
+        await execSavepoint(client, "SAVEPOINT", spName);
+      }
       try {
         const mapped = mapClassXToQuestion(rows[i], config);
 
         if (!mapped) {
+          if (!dryRun) {
+            await execSavepoint(client, "RELEASE SAVEPOINT", spName);
+          }
           results.skipped++;
           results.errors.push({
             index: i,
@@ -155,6 +162,9 @@ export async function importClassXQuestions(rows, config = {}) {
             mapped.externalQuestionId,
           );
           if (existing) {
+            if (!dryRun) {
+              await execSavepoint(client, "RELEASE SAVEPOINT", spName);
+            }
             results.duplicates++;
             results.skipped++;
             continue;
@@ -221,6 +231,10 @@ export async function importClassXQuestions(rows, config = {}) {
           );
         }
 
+        if (!dryRun) {
+          await execSavepoint(client, "RELEASE SAVEPOINT", spName);
+        }
+
         results.imported++;
         results.questions.push({
           id: questionId,
@@ -228,6 +242,13 @@ export async function importClassXQuestions(rows, config = {}) {
           externalId: mapped.externalQuestionId,
         });
       } catch (err) {
+        if (!dryRun) {
+          try {
+            await execSavepoint(client, "ROLLBACK TO SAVEPOINT", spName);
+          } catch {
+            // ignore rollback error
+          }
+        }
         results.failed++;
         results.errors.push({
           index: i,

@@ -17,11 +17,13 @@ import {
   HelpCircle,
   Eye,
   Award,
+  Upload,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { adminAPI } from "../../../shared/lib/dataService";
 import { useSubjects } from "../../../shared/hooks/useSubjects.js";
 import { StatsCard } from "./components/StatsCard";
+import { BulkImportModal } from "./components/BulkImportModal.jsx";
 
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 import EmptyState from "../../../shared/components/ui/EmptyState";
@@ -50,10 +52,10 @@ const DEFAULT_QUIZ_FORM = {
 };
 
 export default function QuizzesManager() {
-  const { subjects, loading: subjectsLoading } = useSubjects();
+  const { subjects, loading: _subjectsLoading } = useSubjects();
   const [quizzes, setQuizzes] = useState([]);
   const [chapters, setChapters] = useState([]);
-  const [topics, setTopics] = useState([]);
+  const [_topics, setTopics] = useState([]);
   const [allQuestions, setAllQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -83,10 +85,11 @@ export default function QuizzesManager() {
 
   // AI Quiz Generator Modal State
   const [showAiModal, setShowAiModal] = useState(false);
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false);
   const [aiTopic, setAiTopic] = useState("");
   const [aiSubject, setAiSubject] = useState("");
   const [aiCount, setAiCount] = useState(5);
-  const [aiDifficulty, setAiDifficulty] = useState("medium");
+  const [aiDifficulty, _setAiDifficulty] = useState("medium");
   const [aiGenerating, setAiGenerating] = useState(false);
 
   // Preview Drawer
@@ -251,7 +254,7 @@ export default function QuizzesManager() {
     selectedStatus,
     selectedProFilter,
     searchQuery,
-    subjects,
+    subjectLookup,
   ]);
 
   // Paginated List
@@ -597,6 +600,40 @@ export default function QuizzesManager() {
     }
   };
 
+  // Bulk Import Quizzes Handler
+  const handleBulkImport = async (file) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await adminAPI.bulkUploadQuizzes(formData);
+      const count = res.data?.count ?? res.data?.data?.length ?? 0;
+      const skipped = res.data?.skipped ?? 0;
+      if (count === 0) {
+        toast.error(
+          skipped > 0
+            ? `No quizzes imported (${skipped} rows were skipped)`
+            : "No valid quizzes were imported from file",
+        );
+        return;
+      }
+      toast.success(
+        `Imported ${count} quizzes successfully!${skipped > 0 ? ` (${skipped} rows skipped)` : ""}`,
+      );
+      setShowBulkImportModal(false);
+      fetchAllData();
+    } catch (err) {
+      logger.error("Failed to bulk import quizzes:", err);
+      const customErr = new Error(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to import quizzes",
+      );
+      customErr.skipDetails =
+        err.response?.data?.skipDetails || err.response?.data?.errors;
+      throw customErr;
+    }
+  };
+
   // Available questions in picker
   const pickerFilteredQuestions = useMemo(() => {
     const query = pickerSearch.toLowerCase();
@@ -645,6 +682,14 @@ export default function QuizzesManager() {
           >
             <Sparkles className="w-3.5 h-3.5 text-purple-500 animate-pulse" />
             AI Quiz Builder
+          </button>
+
+          <button
+            onClick={() => setShowBulkImportModal(true)}
+            className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-xs font-bold rounded-xl flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            Bulk Import Quizzes
           </button>
 
           <button
@@ -1985,6 +2030,14 @@ export default function QuizzesManager() {
           </div>
         </div>
       )}
+
+      <BulkImportModal
+        isOpen={showBulkImportModal}
+        onClose={() => setShowBulkImportModal(false)}
+        onImport={handleBulkImport}
+        title="Bulk Import Quizzes"
+        expectedColumns="title, description, duration, totalQuestions, difficulty, subject, chapter, topic"
+      />
     </div>
   );
 }

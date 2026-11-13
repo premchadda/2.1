@@ -9,8 +9,12 @@ import {
   getLiveTestCandidates,
   executeProctorIntervention,
 } from "../../services/core/liveProctoringConsoleService.js";
+import { protect, admin } from "../../middleware/auth.middleware.js";
 
 const router = express.Router();
+
+router.use(protect);
+router.use(admin);
 
 // GET /api/admin/live-tests - List all live test sessions
 router.get("/", async (req, res) => {
@@ -178,7 +182,9 @@ router.get("/:id/proctoring/candidates", async (req, res) => {
 // POST /api/admin/live-tests/:id/proctoring/intervene - Real-time proctor intervention command
 router.post("/:id/proctoring/intervene", async (req, res) => {
   try {
-    const { attemptId, action, reason } = req.body || {};
+    const attemptId = req.body?.attempt_id ?? req.body?.attemptId;
+    const action = req.body?.action;
+    const reason = req.body?.reason;
     if (!attemptId || !action) {
       return res
         .status(400)

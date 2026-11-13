@@ -283,6 +283,7 @@ export const deleteCacheByPrefix = async (
 ) => {
   const namespacedPrefix = `${toNamespacedKey(namespace, prefix)}${subPrefix}`;
 
+  let redisDeleted = 0;
   if (isRedisReady()) {
     const redis = getRedisClient();
     let cursor = "0";
@@ -300,19 +301,22 @@ export const deleteCacheByPrefix = async (
     } while (cursor !== "0");
     if (keys.length > 0) {
       await redis.del(...keys);
+      redisDeleted = keys.length;
     }
-    return keys.length;
+  } else {
+    logMemoryFallbackWarningIfNeeded();
   }
 
-  logMemoryFallbackWarningIfNeeded();
-  let deleted = 0;
+  // CAC-01 FIX: Always purge L1 local memory cache alongside L2 Redis.
+  // Returning early on Redis ready caused stale L1 reads to persist indefinitely.
+  let localDeleted = 0;
   for (const key of localCache.keys()) {
     if (key.startsWith(namespacedPrefix)) {
       localCache.delete(key);
-      deleted += 1;
+      localDeleted += 1;
     }
   }
-  return deleted;
+  return redisDeleted + localDeleted;
 };
 
 export const cacheWithFallback = async (

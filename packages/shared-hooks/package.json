@@ -5,6 +5,9 @@
   "main": "index.js",
   "types": "types/index.d.ts",
   "type": "module",
+  "scripts": {
+    "test": "node --experimental-vm-modules ../../apps/backend/node_modules/jest/bin/jest.js"
+  },
   "files": [
     "*.js",
     "*.jsx",
@@ -14,6 +17,8 @@
   ],
   "exports": {
     ".": "./index.js",
+    "./src/index.js": "./src/index.js",
+    "./src": "./src/index.js",
     "./useStages": "./useStages.js",
     "./useExamCategories": "./useExamCategories.js",
     "./useTestCategories": "./useTestCategories.js",

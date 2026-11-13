@@ -49,6 +49,11 @@ const VERCEL_ALLOWLIST = new Set([
   "https://trstprep-admin.vercel.app",
 ]);
 
+// Dedicated admin panel allowlist — isolates administrative mutations from the student portal
+const ADMIN_VERCEL_ALLOWLIST = new Set([
+  "https://trstprep-admin.vercel.app",
+]);
+
 // Strict IPv4 private ranges with octet 0-255 validation
 const OCTET = "(?:25[0-5]|2[0-4]\\d|1?\\d{1,2})";
 const PRIVATE_IPV4_REGEX = new RegExp(
@@ -282,30 +287,19 @@ export const restrictAdminOrigin = (req, res, next) => {
 
   if (sameOriginHost(originHost, requestHost)) return next();
 
-  const envOrigins = (
-    process.env.ALLOWED_ORIGINS ||
-    process.env.CORS_ORIGIN ||
-    ""
-  )
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const trustedOrigins = new Set(
+  const adminOrigins = new Set(
     [
-      ...envOrigins,
-      ...(process.env.ALLOWED_LAN_HOSTS || "")
-        .split(",")
-        .map((h) => h.trim())
-        .filter(Boolean)
-        .map((h) => (h.startsWith("http") ? h : `http://${h}`)),
-      process.env.FRONTEND_URL,
       process.env.ADMIN_PANEL_URL,
-      ...VERCEL_ALLOWLIST,
+      process.env.ADMIN_URL,
+      ...(process.env.ADMIN_ALLOWED_ORIGINS || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      ...ADMIN_VERCEL_ALLOWLIST,
     ].filter(Boolean),
   );
 
-  if (trustedOrigins.has(origin) || VERCEL_ALLOWLIST.has(origin)) return next();
+  if (adminOrigins.has(origin)) return next();
 
   if (ADMIN_PANEL_URL) {
     try {
@@ -367,7 +361,7 @@ export const validateAdminApiKey = (req, res, next) => {
         req.headers["x-forwarded-host"] || req.headers.host || null;
 
       if (sameOriginHost(originHost, requestHost)) return next();
-      if (VERCEL_ALLOWLIST.has(origin)) return next();
+      if (ADMIN_VERCEL_ALLOWLIST.has(origin)) return next();
 
       if (ADMIN_PANEL_URL) {
         try {
@@ -377,15 +371,15 @@ export const validateAdminApiKey = (req, res, next) => {
         }
       }
 
-      const envOrigins = (
-        process.env.ALLOWED_ORIGINS ||
-        process.env.CORS_ORIGIN ||
+      const adminOrigins = (
+        process.env.ADMIN_ALLOWED_ORIGINS ||
+        process.env.ADMIN_PANEL_URL ||
         ""
       )
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
-      if (envOrigins.includes(origin)) return next();
+      if (adminOrigins.includes(origin)) return next();
 
       const lanOrigins = (process.env.ALLOWED_LAN_HOSTS || "")
         .split(",")

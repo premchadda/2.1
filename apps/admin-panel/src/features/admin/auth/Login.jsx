@@ -55,7 +55,7 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [showSessionConflict, setShowSessionConflict] = useState(false);
   const [conflictSessions, setConflictSessions] = useState([]);
-  const [attempts, setAttempts] = useState(0);
+  const [_attempts, setAttempts] = useState(0);
   const [lockUntil, setLockUntil] = useState(0);
   const [rememberMe, setRememberMe] = useState(false);
   const [honeypot, setHoneypot] = useState("");

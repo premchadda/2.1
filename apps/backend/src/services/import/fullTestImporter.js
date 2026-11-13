@@ -1,4 +1,4 @@
-import { pool } from "../../infrastructure/database/postgres-helpers.js";
+import { pool, execSavepoint } from "../../infrastructure/database/postgres-helpers.js";
 import { saveTestContent } from "./testContentStorage.js";
 
 // ─── Slug → ID resolution helpers (with upsert) ─────────────────────────────
@@ -23,7 +23,7 @@ const TABLE_CONFIG = {
   test_categories: {
     findCols: ["slug", "name"],
     nameCol: "name",
-    extraCols: ["is_deleted"],
+    extraCols: ["is_active"],
   },
   test_series: {
     findCols: ["slug", "title"],
@@ -54,12 +54,105 @@ const TABLE_CONFIG = {
 
 const slugCache = new Map();
 
+/**
+ * Normalizes question correct answer across various schemas:
+ * 1-indexed numbers (1..N), 0-indexed numbers, stringified digits ("1"),
+ * letter options ("A", "B", "C", "D"), and alternate keys (answer, correctOption, correct_option_id).
+ */
+export const parseCorrectOption = (q, options = []) => {
+  const raw =
+    q.correctAnswer ??
+    q.correct_answer ??
+    q.correctOption ??
+    q.correct_option ??
+    q.correct_option_id ??
+    q.answer ??
+    null;
+
+  if (raw === undefined || raw === null || raw === "") return 0;
+  if (raw === 0 || raw === "0") return 0;
+
+  // If already 0-indexed via correct_option_id
+  if (typeof q.correct_option_id === "number" && q.correct_option_id >= 0) {
+    return q.correct_option_id;
+  }
+
+  const str = String(raw).trim().toUpperCase();
+  const letterMap = {
+    A: 0,
+    B: 1,
+    C: 2,
+    D: 3,
+    E: 4,
+    F: 5,
+    OPTION1: 0,
+    OPTION2: 1,
+    OPTION3: 2,
+    OPTION4: 3,
+  };
+  if (letterMap[str] !== undefined) return letterMap[str];
+
+  const num = Number(str);
+  if (Number.isFinite(num)) {
+    if (options && options.length > 0) {
+      if (num >= 1 && num <= options.length) return num - 1;
+      if (num >= 0 && num < options.length) return num;
+    }
+    if (q.correctAnswer !== undefined && num >= 1) return num - 1;
+    return num >= 0 ? num : 0;
+  }
+
+  if (Array.isArray(options) && options.length > 0) {
+    const idx = options.findIndex(
+      (o) => String(o).trim().toLowerCase() === String(raw).trim().toLowerCase(),
+    );
+    if (idx !== -1) return idx;
+  }
+
+  return 0;
+};
+
 // ─── Find-only resolver (no auto-create) ────────────────────────────────────
 
-async function findSlug(client, table, slug) {
-  const cacheKey = `find:${table}:${slug}`;
+async function findSlug(client, table, slug, parentFilter = {}) {
+  if (slug === null || slug === undefined || slug === "") return null;
+  const parentKey = Object.entries(parentFilter)
+    .map(([k, v]) => `${k}:${v}`)
+    .join(",");
+  const cacheKey = `find:${table}:${slug}:${parentKey}`;
   if (slugCache.has(cacheKey)) return slugCache.get(cacheKey);
 
+  // If slug is a numeric ID, check primary key id directly
+  const isNumeric =
+    typeof slug === "number" ||
+    (/^\d+$/.test(String(slug).trim()) && table !== "test_categories");
+  if (isNumeric) {
+    const numId = Number(slug);
+    if (Number.isFinite(numId) && numId > 0) {
+      const { rows } = await client.query(
+        `SELECT id FROM ${table} WHERE id = $1 LIMIT 1`,
+        [numId],
+      );
+      if (rows[0]?.id) {
+        slugCache.set(cacheKey, rows[0].id);
+        return rows[0].id;
+      }
+    }
+  }
+
+  // For test_categories, check numeric id if not a 4-digit year like 2024
+  if (table === "test_categories" && typeof slug === "number") {
+    const { rows } = await client.query(
+      `SELECT id FROM test_categories WHERE id = $1 LIMIT 1`,
+      [slug],
+    );
+    if (rows[0]?.id) {
+      slugCache.set(cacheKey, rows[0].id);
+      return rows[0].id;
+    }
+  }
+
+  const strSlug = String(slug);
   const cfg = TABLE_CONFIG[table] || {
     findCols: ["slug", "name"],
     nameCol: "name",
@@ -67,12 +160,21 @@ async function findSlug(client, table, slug) {
   const existingCols = await getTableColumns(client, table);
 
   let resultId = null;
+  const parentEntries = Object.entries(parentFilter).filter(([k]) =>
+    existingCols.has(k),
+  );
+
   for (const col of cfg.findCols) {
     if (!existingCols.has(col)) continue;
-    const { rows } = await client.query(
-      `SELECT id FROM ${table} WHERE ${col} = $1 LIMIT 1`,
-      [slug],
-    );
+    let querySql = `SELECT id FROM ${table} WHERE ${col} = $1`;
+    const queryParams = [strSlug];
+    parentEntries.forEach(([k, v], idx) => {
+      querySql += ` AND "${k}" = $${idx + 2}`;
+      queryParams.push(v);
+    });
+    querySql += " LIMIT 1";
+
+    const { rows } = await client.query(querySql, queryParams);
     if (rows[0]?.id) {
       resultId = rows[0].id;
       break;
@@ -81,13 +183,18 @@ async function findSlug(client, table, slug) {
 
   if (!resultId) {
     // Fuzzy: try matching normalized slug against title/name/label
-    const normalizedSlug = slug.replace(/[-_]/g, " ").toLowerCase().trim();
+    const normalizedSlug = strSlug.replace(/[-_]/g, " ").toLowerCase().trim();
     for (const nameCol of ["title", "name", "label"]) {
       if (!existingCols.has(nameCol)) continue;
-      const { rows } = await client.query(
-        `SELECT id FROM ${table} WHERE LOWER(REPLACE(REPLACE(${nameCol}, '-', ' '), '_', ' ')) = $1 LIMIT 1`,
-        [normalizedSlug],
-      );
+      let querySql = `SELECT id FROM ${table} WHERE LOWER(REPLACE(REPLACE(${nameCol}, '-', ' '), '_', ' ')) = $1`;
+      const queryParams = [normalizedSlug];
+      parentEntries.forEach(([k, v], idx) => {
+        querySql += ` AND "${k}" = $${idx + 2}`;
+        queryParams.push(v);
+      });
+      querySql += " LIMIT 1";
+
+      const { rows } = await client.query(querySql, queryParams);
       if (rows[0]?.id) {
         resultId = rows[0].id;
         break;
@@ -95,16 +202,64 @@ async function findSlug(client, table, slug) {
     }
   }
 
-  slugCache.set(cacheKey, resultId);
+  if (resultId) {
+    slugCache.set(cacheKey, resultId);
+  }
   return resultId;
 }
 
 // ─── Upsert resolver (creates missing taxonomy rows) ─────────────────────────
 
+const ALLOWED_UPSERT_TABLES = new Set([
+  "exam_categories",
+  "exams",
+  "stages",
+  "test_categories",
+  "test_series",
+  "subjects",
+  "chapters",
+  "topics",
+  "subtopics",
+]);
+
 async function upsertSlug(client, table, slug, extra = {}) {
+  if (slug === null || slug === undefined || slug === "") return null;
+  if (!ALLOWED_UPSERT_TABLES.has(table)) {
+    throw new Error(`Invalid table identifier for upsertSlug: ${table}`);
+  }
   const cacheKey = `upsert:${table}:${slug}:${JSON.stringify(extra)}`;
   if (slugCache.has(cacheKey)) return slugCache.get(cacheKey);
 
+  // If slug is a numeric ID, check primary key id directly
+  const isNumeric =
+    typeof slug === "number" ||
+    (/^\d+$/.test(String(slug).trim()) && table !== "test_categories");
+  if (isNumeric) {
+    const numId = Number(slug);
+    if (Number.isFinite(numId) && numId > 0) {
+      const { rows } = await client.query(
+        `SELECT id FROM ${table} WHERE id = $1 LIMIT 1`,
+        [numId],
+      );
+      if (rows[0]?.id) {
+        slugCache.set(cacheKey, rows[0].id);
+        return rows[0].id;
+      }
+    }
+  }
+
+  if (table === "test_categories" && typeof slug === "number") {
+    const { rows } = await client.query(
+      `SELECT id FROM test_categories WHERE id = $1 LIMIT 1`,
+      [slug],
+    );
+    if (rows[0]?.id) {
+      slugCache.set(cacheKey, rows[0].id);
+      return rows[0].id;
+    }
+  }
+
+  const strSlug = String(slug);
   const cfg = TABLE_CONFIG[table] || {
     findCols: ["slug", "name"],
     nameCol: "name",
@@ -120,7 +275,7 @@ async function upsertSlug(client, table, slug, extra = {}) {
     if (!existingCols.has(col)) continue;
     const { rows } = await client.query(
       `SELECT id FROM ${table} WHERE ${col} = $1 LIMIT 1`,
-      [slug],
+      [strSlug],
     );
     if (rows[0]?.id) {
       resultId = rows[0].id;
@@ -130,7 +285,7 @@ async function upsertSlug(client, table, slug, extra = {}) {
 
   if (!resultId) {
     // Fuzzy: try matching normalized slug against title/name columns
-    const normalizedSlug = slug.replace(/[-_]/g, " ").toLowerCase().trim();
+    const normalizedSlug = strSlug.replace(/[-_]/g, " ").toLowerCase().trim();
     for (const nameCol of ["title", "name", "label"]) {
       if (!existingCols.has(nameCol)) continue;
       const { rows } = await client.query(
@@ -146,7 +301,7 @@ async function upsertSlug(client, table, slug, extra = {}) {
 
   if (!resultId) {
     // Not found — insert new row with only columns that exist
-    const displayName = slug
+    const displayName = strSlug
       .replace(/[-_]/g, " ")
       .replace(/\b\w/g, (c) => c.toUpperCase());
     const insertCols = [];
@@ -162,15 +317,24 @@ async function upsertSlug(client, table, slug, extra = {}) {
     addCol("slug", slug);
     addCol(cfg.nameCol, displayName);
     for (const ec of cfg.extraCols) addCol(ec, true);
+    if (existingCols.has("is_deleted")) addCol("is_deleted", false);
     for (const [k, v] of Object.entries(extra)) addCol(k, v);
 
     if (insertCols.length > 0) {
       const placeholders = insertCols.map((_, i) => `$${i + 1}`);
       const ins = `INSERT INTO ${table} (${insertCols.map((c) => `"${c}"`).join(", ")}) VALUES (${placeholders.join(", ")}) RETURNING id`;
+      const spSlug = "sp_slug_" + Math.random().toString(36).slice(2, 8);
+      await execSavepoint(client, "SAVEPOINT", spSlug);
       try {
         const insResult = await client.query(ins, insertVals);
         resultId = insResult.rows[0]?.id ?? null;
+        await execSavepoint(client, "RELEASE SAVEPOINT", spSlug);
       } catch (insErr) {
+        try {
+          await execSavepoint(client, "ROLLBACK TO SAVEPOINT", spSlug);
+        } catch {
+          // ignore rollback error
+        }
         // Race: a concurrent import inserted the same slug between our SELECT
         // and INSERT (e.g. two import-selected batches resolving "matriculation"
         // at once). Re-select instead of failing the whole test import.
@@ -257,12 +421,13 @@ async function resolveStageId(client, slug, examId, strict = false) {
  * invent a parent.
  */
 async function resolveTestCategoryId(client, slug, strict = false) {
-  if (!slug) return null;
+  if (slug === null || slug === undefined || slug === "") return null;
+  const strSlug = String(slug);
   const CATEGORY_ALIASES = {
     pyqs: "pyps",
     pyq: "pyps",
   };
-  const resolved = CATEGORY_ALIASES[slug.toLowerCase()] || slug;
+  const resolved = CATEGORY_ALIASES[strSlug.toLowerCase()] || strSlug;
 
   if (/^\d{4}$/.test(resolved)) {
     const parentId = await findSlug(client, "test_categories", "year-based");
@@ -350,7 +515,7 @@ async function resolveChapterId(client, slug, subjectId, strict = false) {
   const extra = {};
   if (subjectId) extra.subject_id = subjectId;
   return strict
-    ? findSlug(client, "chapters", slug)
+    ? findSlug(client, "chapters", slug, extra)
     : upsertSlug(client, "chapters", slug, extra);
 }
 
@@ -366,7 +531,7 @@ async function resolveTopicId(
   if (subjectSlug) extra.subject = subjectSlug;
   if (subjectId) extra.subject_id = subjectId;
   return strict
-    ? findSlug(client, "topics", slug)
+    ? findSlug(client, "topics", slug, extra)
     : upsertSlug(client, "topics", slug, extra);
 }
 
@@ -375,7 +540,7 @@ async function resolveSubtopicId(client, slug, topicId, strict = false) {
   const extra = {};
   if (topicId) extra.topic_id = topicId;
   return strict
-    ? findSlug(client, "subtopics", slug)
+    ? findSlug(client, "subtopics", slug, extra)
     : upsertSlug(client, "subtopics", slug, extra);
 }
 
@@ -593,6 +758,7 @@ export async function importFullTest(json, config = {}) {
 
   // Reset column cache and slug cache per import (tables may have changed)
   columnCache.clear();
+  slugCache.clear();
   slugCache.clear();
 
   try {
@@ -887,12 +1053,7 @@ export async function importFullTest(json, config = {}) {
               q.solution_bilingual?.hn ||
               q.solution_bilingual?.hin ||
               null;
-            const qCorrect =
-              typeof q.correctAnswer === "number"
-                ? q.correctAnswer - 1
-                : typeof q.correct_option_id === "number"
-                  ? q.correct_option_id
-                  : 0;
+            const qCorrect = parseCorrectOption(q, qOptions);
             return {
               id: q.id || `q-${sIdx}-${qi}`,
               externalQuestionId: String(q.id || ""),
@@ -939,13 +1100,15 @@ export async function importFullTest(json, config = {}) {
 
       // Log the import
       await client.query(
-        `INSERT INTO import_logs (imported_by, source, file_name, imported, failed, errors, metadata, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+        `INSERT INTO import_logs (imported_by, source, file_name, total_records, imported, skipped, failed, errors, metadata, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
         [
           userId,
           "full-test-json-file",
           fileName,
           totalQs,
+          totalQs,
+          0,
           0,
           JSON.stringify([]),
           JSON.stringify({
@@ -966,6 +1129,21 @@ export async function importFullTest(json, config = {}) {
 
     const sections = json.sections || [];
     let globalQuestionNumber = 0;
+    const seenExternalIds = new Set();
+
+    if (skipDuplicates && testDbId && !dryRun) {
+      try {
+        const existingQs = await client.query(
+          "SELECT external_id FROM questions WHERE test_id = $1 AND external_id IS NOT NULL",
+          [testDbId],
+        );
+        for (const row of existingQs.rows) {
+          if (row.external_id) seenExternalIds.add(String(row.external_id));
+        }
+      } catch {
+        /* external_id column or test query fallback */
+      }
+    }
 
     for (let sIdx = 0; sIdx < sections.length; sIdx++) {
       const section = sections[sIdx];
@@ -1027,7 +1205,6 @@ export async function importFullTest(json, config = {}) {
 
       const questions = section.questions || [];
       const validQRows = [];
-      const seenExternalIds = new Set();
 
       for (let qi = 0; qi < questions.length; qi++) {
         const q = questions[qi];
@@ -1035,8 +1212,9 @@ export async function importFullTest(json, config = {}) {
         // fails we must roll back to here — otherwise the aborted transaction
         // poisons every later statement with misleading "current transaction
         // is aborted" errors and fails the whole test.
-        const prepSp = `qprep_${sIdx}_${String(qi).replace(/[^0-9]/g, "")}`;
-        await client.query(`SAVEPOINT "${prepSp}"`);
+        const safeSpName = `qprep_${Number(sIdx)}_${Number(qi)}`;
+        const savepointSql = "SAVEPOINT " + '"' + safeSpName + '"';
+        await client.query(savepointSql);
         try {
           // ── Resolve subjectId on question level (may differ from section)
           const qSubjectSlug = q.subjectId || section.subjectId || "general";
@@ -1085,13 +1263,8 @@ export async function importFullTest(json, config = {}) {
             q.solution_bilingual?.hin ||
             null;
 
-          // ── correctAnswer: JSON is 1-indexed, DB is 0-indexed
-          const correctOption =
-            typeof q.correctAnswer === "number"
-              ? q.correctAnswer - 1
-              : typeof q.correct_option_id === "number"
-                ? q.correct_option_id
-                : 0;
+          // ── correctAnswer: JSON is 1-indexed (or letter/key variant), DB is 0-indexed
+          const correctOption = parseCorrectOption(q, options);
 
           // ── Skip if no question text in either language
           if (!questionText && !questionTextHi) {
@@ -1120,8 +1293,11 @@ export async function importFullTest(json, config = {}) {
           const qRow = {
             question_text: questionText || questionTextHi || "",
             question_text_hi: questionTextHi,
-            options: options,
-            options_hi: optionsHi || [],
+            options: typeof options === "string" ? options : JSON.stringify(options),
+            options_hi:
+              typeof optionsHi === "string"
+                ? optionsHi
+                : JSON.stringify(optionsHi || []),
             correct_option: correctOption,
             explanation,
             explanation_hi: explanationHi,
@@ -1139,9 +1315,24 @@ export async function importFullTest(json, config = {}) {
             language: (q.languages || ["en"])[0] || "en",
             languages: q.languages || ["en"],
             source_config: q.source || {},
-            exam_category_ids: q.examCategoryIds || [],
-            exam_ids: q.examIds || [],
-            question_stage_ids: q.stageIds || [],
+            exam_category_ids:
+              q.examCategoryIds && q.examCategoryIds.length > 0
+                ? q.examCategoryIds
+                : examCategoryId
+                  ? [examCategoryId]
+                  : [],
+            exam_ids:
+              q.examIds && q.examIds.length > 0
+                ? q.examIds
+                : examId
+                  ? [examId]
+                  : [],
+            question_stage_ids:
+              q.stageIds && q.stageIds.length > 0
+                ? q.stageIds
+                : stageId
+                  ? [stageId]
+                  : [],
             chapter_id: chapterId,
             topic_id: topicId,
             subtopic_id: subtopicId,
@@ -1157,10 +1348,12 @@ export async function importFullTest(json, config = {}) {
           };
 
           validQRows.push({ qRow, qi, originalQ: q });
-          await client.query(`RELEASE SAVEPOINT "${prepSp}"`);
+          const releaseSql = "RELEASE SAVEPOINT " + '"' + safeSpName + '"';
+          await client.query(releaseSql);
         } catch (qPrepErr) {
           try {
-            await client.query(`ROLLBACK TO SAVEPOINT "${prepSp}"`);
+            const rollbackSql = "ROLLBACK TO SAVEPOINT " + '"' + safeSpName + '"';
+            await client.query(rollbackSql);
           } catch (_) {
             void _;
           }
@@ -1299,12 +1492,17 @@ export async function importFullTest(json, config = {}) {
 
       // ── Update section question_count and total_marks
       if (!dryRun) {
+        const countRes = await client.query(
+          `SELECT COUNT(*)::int AS cnt FROM test_questions WHERE test_id = $1 AND section_id = $2`,
+          [testDbId, sectionDbId],
+        );
+        const actualCount = countRes.rows[0]?.cnt || 0;
         await client.query(
           `UPDATE test_sections
            SET question_count = $1, total_marks = $2, updated_at = NOW()
            WHERE id = $3`,
           [
-            section.questionCount || questions.length,
+            actualCount,
             section.maxMarks || 0,
             sectionDbId,
           ],
@@ -1326,16 +1524,22 @@ export async function importFullTest(json, config = {}) {
     // ── 6. Log the import ──────────────────────────────────────────────────
 
     if (!dryRun) {
+      const totalQuestionsInFile = (json.sections || []).reduce(
+        (acc, sec) => acc + (sec.questions || []).length,
+        0,
+      );
       await client.query(
-        `INSERT INTO import_logs (imported_by, source, file_name, imported, failed, errors, metadata, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+        `INSERT INTO import_logs (imported_by, source, file_name, total_records, imported, skipped, failed, errors, metadata, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
         [
           userId,
           "full-test-json",
           fileName,
+          totalQuestionsInFile,
           result.questionsCreated,
           result.questionsSkipped,
-          JSON.stringify(result.errors),
+          result.errors.length,
+          JSON.stringify(result.errors.slice(0, 50)),
           JSON.stringify({
             testId: testDbId,
             testTitle: result.testTitle,

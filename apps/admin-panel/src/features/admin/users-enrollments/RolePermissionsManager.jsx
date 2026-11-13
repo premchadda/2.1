@@ -51,7 +51,7 @@ export default function RolePermissionsManager({
 }) {
   const { user } = useAuth();
   const [roles, setRoles] = useState([]);
-  const [permissions, setPermissions] = useState([]);
+  const [_permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({

@@ -21,12 +21,20 @@ dist/
 
 # Environment files (CRITICAL - Never commit)
 .env
+.env.*
+.env.production
+.env.development
+.env.staging
 .env.local
 .env.*.local
-apps/backend/.env
-apps/frontend/.env
-apps/admin-panel/.env
+apps/backend/.env*
+apps/frontend/.env*
+apps/admin-panel/.env*
 *.env
+!.env.example
+!.env.*.example
+!apps/*/.env.example
+!apps/*/.env.*.example
 
 # Uploads and exports
 uploads/

@@ -35,7 +35,7 @@ import { apiClient } from "../../../shared/lib/dataService.js";
 import { useAuth } from "../../../shared/providers/AuthContext";
 import { toast } from "react-hot-toast";
 
-const COLORS = [
+const _COLORS = [
   "#6366f1",
   "#10b981",
   "#f59e0b",
@@ -154,7 +154,7 @@ export default function AdminAnalytics() {
   const [refreshing, setRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState("7d");
   const [errors, setErrors] = useState({});
-  const [lastFetched, setLastFetched] = useState(null);
+  const [_lastFetched, setLastFetched] = useState(null);
   const { user } = useAuth();
   const isUserAdmin = user?.role === "admin";
 
@@ -194,13 +194,13 @@ export default function AdminAnalytics() {
         ] = results;
 
         const newErrors = {};
-        let hasAnyData = false;
+        let _hasAnyData = false;
 
         if (analyticsRes.status === "fulfilled") {
           const normalized = normalizeAnalyticsResponse(analyticsRes);
           if (normalized) {
             setAnalytics(normalized);
-            hasAnyData = true;
+            _hasAnyData = true;
           } else {
             newErrors.analytics = "Invalid analytics response format";
           }
@@ -213,7 +213,7 @@ export default function AdminAnalytics() {
           const normalized = normalizeStatsResponse(statsRes);
           if (normalized) {
             setStats(normalized);
-            hasAnyData = true;
+            _hasAnyData = true;
           } else {
             newErrors.stats = "Invalid stats response format";
           }
@@ -225,7 +225,7 @@ export default function AdminAnalytics() {
           const normalized = normalizeActiveUsersResponse(activeUsersRes);
           if (normalized) {
             setActiveUsers(normalized);
-            hasAnyData = true;
+            _hasAnyData = true;
           } else {
             newErrors.activeUsers = "Invalid active users response format";
           }
@@ -238,7 +238,7 @@ export default function AdminAnalytics() {
           const normalized = normalizeTestActivityResponse(testActivityRes);
           if (normalized) {
             setTestActivity(normalized);
-            hasAnyData = true;
+            _hasAnyData = true;
           } else {
             newErrors.testActivity = "Invalid test activity response format";
           }
@@ -251,7 +251,7 @@ export default function AdminAnalytics() {
           const normalized = normalizeRevenueResponse(revenueRes);
           if (normalized) {
             setRevenue(normalized);
-            hasAnyData = true;
+            _hasAnyData = true;
           }
         } else if (!isAbortError(revenueRes.reason)) {
           setRevenue(null);

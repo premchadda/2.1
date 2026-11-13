@@ -13,7 +13,7 @@
  * This middleware applies them at the request boundary.
  */
 
-import { camelToSnake } from "../utils/naming-conventions.js";
+import { camelToSnake, snakeToCamel } from "../utils/naming-conventions.js";
 
 /**
  * Known legacy field name aliases that the frontend may send.
@@ -157,8 +157,35 @@ export function normalizeRequestBody(body) {
       const keyIsCanonical = key === canonicalKey;
       const prevIsCanonical = prevKey === canonicalKey;
       if (keyIsCanonical && !prevIsCanonical) {
-        result[canonicalKey] = value;
+        let normalizedValue;
+        if (
+          value &&
+          typeof value === "object" &&
+          !Array.isArray(value) &&
+          !(value instanceof Date)
+        ) {
+          normalizedValue = normalizeRequestBody(value);
+        } else if (Array.isArray(value)) {
+          normalizedValue = value.map((item) =>
+            item && typeof item === "object" && !Array.isArray(item)
+              ? normalizeRequestBody(item)
+              : item,
+          );
+        } else {
+          normalizedValue = value;
+        }
+
+        result[canonicalKey] = normalizedValue;
         winners[canonicalKey] = key;
+
+        // Synchronize camelCase alias and previous alias with the overriding canonical value
+        const camelKey = snakeToCamel(canonicalKey);
+        if (camelKey && camelKey !== canonicalKey) {
+          result[camelKey] = normalizedValue;
+        }
+        if (prevKey && prevKey !== canonicalKey) {
+          result[prevKey] = normalizedValue;
+        }
       }
       if (typeof console !== "undefined" && process.env.NODE_ENV !== "test") {
         console.warn(
@@ -170,21 +197,35 @@ export function normalizeRequestBody(body) {
     winners[canonicalKey] = key;
 
     // Recursively normalize nested objects/arrays
+    let normalizedValue;
     if (
       value &&
       typeof value === "object" &&
       !Array.isArray(value) &&
       !(value instanceof Date)
     ) {
-      result[canonicalKey] = normalizeRequestBody(value);
+      normalizedValue = normalizeRequestBody(value);
     } else if (Array.isArray(value)) {
-      result[canonicalKey] = value.map((item) =>
+      normalizedValue = value.map((item) =>
         item && typeof item === "object" && !Array.isArray(item)
           ? normalizeRequestBody(item)
           : item,
       );
     } else {
-      result[canonicalKey] = value;
+      normalizedValue = value;
+    }
+
+    result[canonicalKey] = normalizedValue;
+
+    // Dual-alias: preserve original camelCase key and snakeToCamel(canonicalKey)
+    // so existing route handlers expecting camelCase (e.g. stageIds, examIds, isActive)
+    // are not starved by normalization.
+    const camelKey = snakeToCamel(canonicalKey);
+    if (camelKey && camelKey !== canonicalKey && !(camelKey in result)) {
+      result[camelKey] = normalizedValue;
+    }
+    if (key !== canonicalKey && !(key in result)) {
+      result[key] = normalizedValue;
     }
   }
 

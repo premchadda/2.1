@@ -230,7 +230,7 @@ const normalizeQuestionTimers = async (questionTimers) => {
 //          two active attempts for the same test. Clients must use the canonical path.
 //          Kept as an explicit 410 to surface the deprecation in logs rather than a
 //          silent 404 that looks like a routing bug.
-router.post("/start", (req, res) => {
+router.post("/start", protect, (req, res) => {
   res.status(410).json({
     success: false,
     code: "ENDPOINT_DEPRECATED",
@@ -242,7 +242,7 @@ router.post("/start", (req, res) => {
 // @route   POST /api/attempt/pause
 // @desc    Pause an active test attempt
 // @access  Private
-router.post("/pause", async (req, res) => {
+router.post("/pause", protect, async (req, res) => {
   try {
     const { attemptId, remainingTime, currentQuestionIndex, questionTimers } =
       req.body;
@@ -365,7 +365,7 @@ router.post("/pause", async (req, res) => {
 // @route   POST /api/attempt/resume
 // @desc    Resume a paused test attempt
 // @access  Private
-router.post("/resume", async (req, res) => {
+router.post("/resume", protect, async (req, res) => {
   try {
     const { attemptId } = req.body;
     const userId = req.user.id;
@@ -472,7 +472,7 @@ router.post("/resume", async (req, res) => {
 // @route   POST /api/attempt/save-progress
 // @desc    Save attempt progress (auto-save or manual)
 // @access  Private
-router.post("/save-progress", async (req, res) => {
+router.post("/save-progress", protect, async (req, res) => {
   try {
     const {
       attemptId,

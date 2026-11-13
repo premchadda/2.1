@@ -60,11 +60,26 @@ if (purify) {
         node.removeAttribute(attr.name);
       }
     });
-    // Remove style attribute if present — CSS exfiltration vector (already
-    // excluded from ALLOWED_ATTR, but belt-and-suspenders for inline styles
-    // injected via parser quirks).
+    // Style attribute hygiene: CSS exfiltration / expression vector.
+    // Allow inline style ONLY on KaTeX math layout nodes for dimension/alignment
+    // (height, vertical-align, top, width, margin, etc.) and strictly forbid
+    // url(), expression(), javascript:, @import, or behaviors.
     if (node.hasAttribute("style")) {
-      node.removeAttribute("style");
+      const cls = node.getAttribute("class") || "";
+      const isKatexNode =
+        /katex|vlist|strut|mord|mbin|mrel|msupsub|mfrac|accent|delimsizing|nulldelimiter/i.test(
+          cls,
+        ) || (typeof node.closest === "function" && node.closest(".katex") !== null);
+      const styleVal = node.getAttribute("style") || "";
+      const isSafeCss =
+        !/url\(|expression\(|javascript:|behavior|@import/i.test(styleVal) &&
+        /^(?:(?:[a-z-]+):\s*[-0-9.a-z%#]+\s*(?:;|$)\s*)+$/i.test(
+          styleVal.trim(),
+        );
+
+      if (!isKatexNode || !isSafeCss) {
+        node.removeAttribute("style");
+      }
     }
   });
 }
@@ -134,9 +149,12 @@ export const ALLOWED_TAGS = [
 ];
 
 export const ALLOWED_ATTR = [
-  // ALLOWED_ATTR hygiene: only safe attrs; no on*, no style, no srcdoc, no action/formaction.
+  // ALLOWED_ATTR hygiene: only safe attrs; no on*, no srcdoc, no action/formaction.
+  // "style" is allowed here so DOMPurify delegates to afterSanitizeAttributes hook,
+  // where inline styles are strictly stripped everywhere except on KaTeX math nodes.
   // SVG attributes are case-sensitive — lowercase duplicates (viewbox,
   // preserveaspectratio) are intentionally NOT listed.
+  "style",
   "href",
   "src",
   "alt",

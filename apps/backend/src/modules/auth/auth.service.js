@@ -9,7 +9,7 @@ export const generateToken = (id, role = "user", options = {}) => {
     throw new Error("JWT secret not configured");
   }
   const payload = { id, role, ...options.claims };
-  const expiresIn = options.expiresIn || process.env.JWT_EXPIRES_IN || "7d";
+  const expiresIn = options.expiresIn || process.env.JWT_EXPIRES_IN || "24h";
   // Pin HS256 explicitly at the signer so no other `alg` is ever issued
   // (verifiers already accept HS256 only — algorithm-confusion defense).
   return jwt.sign(payload, secret, { expiresIn, algorithm: "HS256" });

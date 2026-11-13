@@ -33,7 +33,8 @@ const filterBulkAllowed = (body, allowed) =>
 // ===== TEST SERIES BULK OPERATIONS =====
 router.post("/test-series/bulk-operation", async (req, res) => {
   try {
-    const { operation, seriesIds, ...payload } = req.body;
+    const { operation, ...payload } = req.body || {};
+    const seriesIds = req.body?.series_ids ?? req.body?.seriesIds;
 
     if (!Array.isArray(seriesIds) || seriesIds.length === 0) {
       return res.status(400).json({
@@ -245,7 +246,8 @@ router.post("/tests/bulk-reassign", async (req, res) => {
 // ===== QUESTIONS BULK REORDER =====
 router.post("/questions/bulk-reorder", async (req, res) => {
   try {
-    const { testId, questionOrder } = req.body;
+    const testId = req.body?.test_id ?? req.body?.testId;
+    const questionOrder = req.body?.question_order ?? req.body?.questionOrder;
 
     if (!Array.isArray(questionOrder) || questionOrder.length === 0) {
       return res.status(400).json({
@@ -311,7 +313,9 @@ router.post("/questions/bulk-reorder", async (req, res) => {
 router.post("/questions/:id/convert", async (req, res) => {
   try {
     const { id } = req.params;
-    const { toPractice, toTest, testId } = req.body;
+    const toPractice = req.body?.to_practice ?? req.body?.toPractice;
+    const toTest = req.body?.to_test ?? req.body?.toTest;
+    const testId = req.body?.test_id ?? req.body?.testId;
 
     // Determine target state
     const shouldBePractice = toPractice === true || toTest === false;
@@ -374,7 +378,8 @@ router.post("/questions/:id/convert", async (req, res) => {
 // Bulk convert practice/test questions
 router.post("/questions/bulk-convert", async (req, res) => {
   try {
-    const { questionIds, toPractice } = req.body;
+    const questionIds = req.body?.question_ids ?? req.body?.questionIds;
+    const toPractice = req.body?.to_practice ?? req.body?.toPractice;
 
     if (!Array.isArray(questionIds) || questionIds.length === 0) {
       return res
@@ -383,12 +388,10 @@ router.post("/questions/bulk-convert", async (req, res) => {
     }
 
     if (questionIds.length > MAX_BULK_IDS) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: `Cannot convert more than ${MAX_BULK_IDS} questions at once`,
-        });
+      return res.status(400).json({
+        success: false,
+        message: `Cannot convert more than ${MAX_BULK_IDS} questions at once`,
+      });
     }
 
     const isPractice = toPractice === true;

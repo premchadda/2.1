@@ -58,7 +58,7 @@ const DEFAULT_FORM_DATA = {
 };
 
 export default function PracticeQuestionsManager() {
-  const { subjects, loading: subjectsLoading } = useSubjects();
+  const { subjects, loading: _subjectsLoading } = useSubjects();
   const [questions, setQuestions] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [topics, setTopics] = useState([]);
@@ -740,8 +740,20 @@ export default function PracticeQuestionsManager() {
       if (activeSubjectTab !== "all")
         formDataObj.append("subject", activeSubjectTab);
 
-      await adminAPI.bulkUploadQuestions(formDataObj);
-      toast.success("Practice questions imported successfully!");
+      const res = await adminAPI.bulkUploadQuestions(formDataObj);
+      const count = res.data?.count ?? res.data?.data?.length ?? 0;
+      const skipped = res.data?.skipped ?? 0;
+      if (count === 0) {
+        toast.error(
+          skipped > 0
+            ? `No questions imported (${skipped} rows were skipped)`
+            : "No valid questions were imported from file",
+        );
+        return;
+      }
+      toast.success(
+        `Imported ${count} practice questions successfully!${skipped > 0 ? ` (${skipped} rows skipped)` : ""}`,
+      );
       setShowBulkImport(false);
       fetchAllData();
     } catch (err) {
@@ -1398,7 +1410,7 @@ export default function PracticeQuestionsManager() {
                                 <span>
                                   Opt{" "}
                                   {correctIdx
-                                    .map((i, pos) =>
+                                    .map((i, _pos) =>
                                       String.fromCharCode(65 + i),
                                     )
                                     .join(", ")}

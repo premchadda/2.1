@@ -1,32 +1,62 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { 
-  Clock, ArrowLeft, Sparkles, Bell,
-  Radio, Target, Video, Newspaper, MessageCircle,
-  Users, Award, Gift, BarChart, BookOpen, Zap,
-  Trophy, Star, Flame, CheckCircle, XCircle
-} from 'lucide-react'
+import { Link } from "react-router-dom";
+import {
+  Clock,
+  ArrowLeft,
+  Sparkles,
+  Bell,
+  Radio,
+  Target,
+  Video,
+  Newspaper,
+  MessageCircle,
+  Users,
+  Award,
+  Gift,
+  BarChart,
+  BookOpen,
+  Zap,
+  Trophy,
+  Star,
+  Flame,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
 
 // Icon mapping for string-based icon selection
 const ICON_MAP = {
-  Clock, Radio, Target, Video, Newspaper, MessageCircle,
-  Users, Award, Gift, BarChart, BookOpen, Zap,
-  Trophy, Star, Flame, CheckCircle, XCircle, Sparkles
-}
+  Clock,
+  Radio,
+  Target,
+  Video,
+  Newspaper,
+  MessageCircle,
+  Users,
+  Award,
+  Gift,
+  BarChart,
+  BookOpen,
+  Zap,
+  Trophy,
+  Star,
+  Flame,
+  CheckCircle,
+  XCircle,
+  Sparkles,
+};
 
-function ComingSoon({ 
-  title = 'Coming Soon',
-  message = 'We are working hard to bring this content to you.',
-  submessage = 'Stay tuned for updates!',
+function ComingSoon({
+  title = "Coming Soon",
+  message = "We are working hard to bring this content to you.",
+  submessage = "Stay tuned for updates!",
   showNotificationButton = false,
-  backLink = '/',
-  backText = 'Go Back',
+  backLink = "/",
+  backText = "Go Back",
   estimatedTime = null,
-  icon: IconProp = null
+  icon: IconProp = null,
 }) {
-  const navigate = useNavigate()
-  
   // Resolve icon - could be component or string
-  const CustomIcon = typeof IconProp === 'string' ? ICON_MAP[IconProp] : IconProp
+  const CustomIcon =
+    typeof IconProp === "string" ? ICON_MAP[IconProp] : IconProp;
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
@@ -55,15 +85,9 @@ function ComingSoon({
         </h1>
 
         {/* Message */}
-        <p className="text-lg text-gray-600 mb-2">
-          {message}
-        </p>
-        
-        {submessage && (
-          <p className="text-gray-500 mb-6">
-            {submessage}
-          </p>
-        )}
+        <p className="text-lg text-gray-600 mb-2">{message}</p>
+
+        {submessage && <p className="text-gray-500 mb-6">{submessage}</p>}
 
         {/* Estimated Time */}
         {estimatedTime && (
@@ -87,7 +111,7 @@ function ComingSoon({
             <button
               onClick={() => {
                 // Could trigger a notification signup modal
-                alert('You will be notified when this content is available!')
+                alert("You will be notified when this content is available!");
               }}
               className="block w-full mt-4 text-gray-600 hover:text-indigo-600 font-medium transition-colors"
             >
@@ -100,15 +124,18 @@ function ComingSoon({
         {/* Additional Help */}
         <div className="mt-12 pt-8 border-t border-gray-200">
           <p className="text-sm text-gray-500">
-            Looking for something else?{' '}
-            <Link to="/" className="text-indigo-600 hover:text-indigo-700 font-medium">
+            Looking for something else?{" "}
+            <Link
+              to="/"
+              className="text-indigo-600 hover:text-indigo-700 font-medium"
+            >
               Browse all content
             </Link>
           </p>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default ComingSoon
+export default ComingSoon;

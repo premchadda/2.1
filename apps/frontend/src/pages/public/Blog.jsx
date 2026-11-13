@@ -16,6 +16,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import api from "../../shared/lib/api";
 import { AnimatedHero, Breadcrumb } from "../../shared/components";
+import LazyImage from "../../shared/components/common/LazyImage";
 import SearchBox from "../../shared/components/common/SearchBox";
 import { getPublicStats } from "../../shared/lib/dataService";
 import { useEffect } from "react";
@@ -248,9 +249,7 @@ export default function Blog() {
                 >
                   <div className="flex flex-col lg:flex-row">
                     <div className="lg:w-1/2 h-64 lg:h-[500px] overflow-hidden relative">
-                      <img
-                        loading="lazy"
-                        decoding="async"
+                      <LazyImage
                         src={featuredPost.imageUrl}
                         alt={featuredPost.title}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
@@ -314,9 +313,7 @@ export default function Blog() {
                   style={{ animationDelay: `${idx * 100}ms` }}
                 >
                   <div className="h-56 relative overflow-hidden">
-                    <img
-                      loading="lazy"
-                      decoding="async"
+                    <LazyImage
                       src={blog.imageUrl}
                       alt={blog.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"

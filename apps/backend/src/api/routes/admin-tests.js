@@ -22,6 +22,7 @@ import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 import { protect, admin } from "../../middleware/auth.middleware.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
+import { getClientIp } from "../../shared/utils/clientIp.js";
 
 const router = express.Router();
 router.use(protect);
@@ -822,7 +823,8 @@ router.post("/tests", validateBody(testSchema), async (req, res) => {
     }
 
     // FIX: Unify stage linking — prefer stageIds[] array, deprecate tier string matching
-    const stageIds = Array.isArray(req.body.stageIds) ? req.body.stageIds : [];
+    const rawStageIds = req.body.stageIds ?? req.body.stage_ids;
+    const stageIds = Array.isArray(rawStageIds) ? rawStageIds : [];
     if (req.body.tier && !stageIds.length) {
       const matchedStages = await dbHelpers.find("stages", {
         name: req.body.tier,
@@ -852,6 +854,7 @@ router.post("/tests", validateBody(testSchema), async (req, res) => {
         req.body.promotionBannerAssetId || req.body.promotion_banner_asset_id,
       ),
       stageIds,
+      stage_ids: stageIds,
       stage_id: stageId,
       stageId,
       status: req.body.status || "draft",
@@ -928,9 +931,14 @@ router.put("/tests/:id", validateBody(testSchema), async (req, res) => {
     }
 
     // FIX BUG [T-MEDIUM]: Apply stage resolution logic on PUT (same as POST)
-    const existingStageIds = Array.isArray(test.stageIds) ? test.stageIds : [];
-    const stageIds = Array.isArray(req.body.stageIds)
-      ? req.body.stageIds
+    const existingStageIds = Array.isArray(test.stageIds)
+      ? test.stageIds
+      : Array.isArray(test.stage_ids)
+        ? test.stage_ids
+        : [];
+    const rawStageIds = req.body.stageIds ?? req.body.stage_ids;
+    const stageIds = Array.isArray(rawStageIds)
+      ? rawStageIds
       : existingStageIds;
     if (req.body.tier && stageIds.length === existingStageIds.length) {
       const matchedStages = await dbHelpers.find("stages", {
@@ -960,6 +968,7 @@ router.put("/tests/:id", validateBody(testSchema), async (req, res) => {
         req.body.promotionBannerAssetId || req.body.promotion_banner_asset_id,
       ),
       stageIds,
+      stage_ids: stageIds,
       stage_id: stageId,
       stageId,
     });
@@ -1002,7 +1011,11 @@ router.put("/tests/:id", validateBody(testSchema), async (req, res) => {
 // PUT /api/admin/tests/:id/lifecycle - State machine transition with versioning & audit
 router.put("/tests/:id/lifecycle", async (req, res) => {
   try {
-    const { status, scheduledAt, note, shuffleSeed } = req.body || {};
+    const body = req.body || {};
+    const status = body.status;
+    const scheduledAt = body.scheduled_at ?? body.scheduledAt;
+    const note = body.note;
+    const shuffleSeed = body.shuffle_seed ?? body.shuffleSeed;
     if (!status || typeof status !== "string") {
       return res.status(400).json({
         success: false,
@@ -1372,9 +1385,7 @@ router.post("/tests/:id/duplicate", async (req, res) => {
       adminId: req.user?.id,
       adminEmail: req.user?.email,
       adminName: req.user?.name,
-      ipAddress:
-        req.headers["x-forwarded-for"]?.split(",")[0] ||
-        req.socket?.remoteAddress,
+      ipAddress: getClientIp(req),
       userAgent: req.headers["user-agent"],
       details: {
         duplicatedFrom: String(sourceTestId),
@@ -1695,7 +1706,13 @@ router.put("/tests/:id/reassign", async (req, res) => {
 // POST /api/admin/tests/bulk-publish - Bulk publish/unpublish tests
 router.post("/tests/bulk-publish", async (req, res) => {
   try {
-    const { testIds, active } = req.body;
+    const testIds = req.body?.test_ids ?? req.body?.testIds;
+    const active =
+      typeof req.body?.active === "boolean"
+        ? req.body.active
+        : typeof req.body?.is_active === "boolean"
+          ? req.body.is_active
+          : req.body?.isActive;
     if (!Array.isArray(testIds) || testIds.length === 0) {
       return res
         .status(400)
@@ -1720,9 +1737,7 @@ router.post("/tests/bulk-publish", async (req, res) => {
       adminId: req.user?.id,
       adminEmail: req.user?.email,
       adminName: req.user?.name,
-      ipAddress:
-        req.headers["x-forwarded-for"]?.split(",")[0] ||
-        req.socket?.remoteAddress,
+      ipAddress: getClientIp(req),
       userAgent: req.headers["user-agent"],
       details: { testIds, active, updatedCount: result.rowCount },
       status: "success",

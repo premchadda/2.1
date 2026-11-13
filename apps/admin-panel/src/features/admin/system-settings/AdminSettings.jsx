@@ -24,6 +24,58 @@ import {
 } from "lucide-react";
 import { apiClient } from "../../../shared/lib/dataService.js";
 import { toast } from "react-hot-toast";
+import { settingsSchema } from "../../../shared/lib/settingsSchema.js";
+
+const validTabs = [
+  "general",
+  "features",
+  "appearance",
+  "security",
+  "email",
+  "payment",
+  "notifications",
+];
+
+const SENSITIVE_FIELD_PATTERNS = [
+  "secret",
+  "password",
+  "token",
+  "apikey",
+  "keyid",
+  "keysecret",
+  "publickey",
+  "privatekey",
+];
+
+const isSensitiveField = (fieldName) => {
+  const fn = fieldName.toLowerCase();
+  if (fn === "keywords" || fn === "seokeywords") return false;
+  return SENSITIVE_FIELD_PATTERNS.some((pattern) => fn.includes(pattern));
+};
+
+const maskSecret = (value) => {
+  if (!value || value.length <= 4) return "••••";
+  return "••••" + value.slice(-4);
+};
+
+const maskSettingsSecrets = (obj, prefix = "") => {
+  const masked = {};
+  const maskedPaths = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const fullPath = prefix ? `${prefix}.${key}` : key;
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const { result, paths } = maskSettingsSecrets(value, fullPath);
+      masked[key] = result;
+      Object.assign(maskedPaths, paths);
+    } else if (typeof value === "string" && isSensitiveField(key) && value) {
+      masked[key] = maskSecret(value);
+      maskedPaths[fullPath] = true;
+    } else {
+      masked[key] = value;
+    }
+  }
+  return { result: masked, paths: maskedPaths };
+};
 
 export default function AdminSettings() {
   const [settings, setSettings] = useState({
@@ -235,16 +287,8 @@ export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
   const [searchParams, setSearchParams] = useSearchParams();
-  const validTabs = [
-    "general",
-    "features",
-    "appearance",
-    "security",
-    "email",
-    "payment",
-    "notifications",
-  ];
 
   const getInitialTab = () => {
     const tab = searchParams.get("tab");
@@ -306,7 +350,7 @@ export default function AdminSettings() {
     if (sub && ["page", "section"].includes(sub) && sub !== comingSoonTab) {
       setComingSoonTab(sub);
     }
-  }, [searchParams]);
+  }, [searchParams, activeTab, comingSoonTab]);
 
   useEffect(() => {
     if (!searchParams.get("tab")) {
@@ -315,48 +359,7 @@ export default function AdminSettings() {
       if (activeTab === "features") newParams.set("sub", comingSoonTab);
       setSearchParams(newParams, { replace: true });
     }
-  }, []);
-
-  const SENSITIVE_FIELD_PATTERNS = [
-    "secret",
-    "password",
-    "token",
-    "apikey",
-    "keyid",
-    "keysecret",
-    "publickey",
-    "privatekey",
-  ];
-
-  const isSensitiveField = (fieldName) => {
-    const fn = fieldName.toLowerCase();
-    if (fn === "keywords" || fn === "seokeywords") return false;
-    return SENSITIVE_FIELD_PATTERNS.some((pattern) => fn.includes(pattern));
-  };
-
-  const maskSecret = (value) => {
-    if (!value || value.length <= 4) return "••••";
-    return "••••" + value.slice(-4);
-  };
-
-  const maskSettingsSecrets = (obj, prefix = "") => {
-    const masked = {};
-    const maskedPaths = {};
-    for (const [key, value] of Object.entries(obj)) {
-      const fullPath = prefix ? `${prefix}.${key}` : key;
-      if (value && typeof value === "object" && !Array.isArray(value)) {
-        const { result, paths } = maskSettingsSecrets(value, fullPath);
-        masked[key] = result;
-        Object.assign(maskedPaths, paths);
-      } else if (typeof value === "string" && isSensitiveField(key) && value) {
-        masked[key] = maskSecret(value);
-        maskedPaths[fullPath] = true;
-      } else {
-        masked[key] = value;
-      }
-    }
-    return { result: masked, paths: maskedPaths };
-  };
+  }, [searchParams, activeTab, comingSoonTab, setSearchParams]);
 
   const stripUnchangedSecrets = (settingsToSave) => {
     const cleaned = structuredClone(settingsToSave);
@@ -402,11 +405,7 @@ export default function AdminSettings() {
     }
   };
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiClient.get("/admin/settings");
@@ -463,12 +462,60 @@ export default function AdminSettings() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   const handleSave = async () => {
     try {
       setSaving(true);
       setSaveStatus(null);
+
+      // Prepare settings with number coercion for schema validation
+      const prepared = {
+        ...settings,
+        security: settings.security
+          ? {
+              ...settings.security,
+              passwordMinLength:
+                Number(settings.security.passwordMinLength) || 8,
+              maxLoginAttempts: Number(settings.security.maxLoginAttempts) || 5,
+              sessionTimeout: Number(settings.security.sessionTimeout) ?? 3600,
+            }
+          : undefined,
+        email: settings.email
+          ? {
+              ...settings.email,
+              smtpPort: Number(settings.email.smtpPort) || 587,
+            }
+          : undefined,
+        payment: settings.payment
+          ? {
+              ...settings.payment,
+              taxRate: Number(settings.payment.taxRate) ?? 0,
+            }
+          : undefined,
+      };
+
+      // Execute Zod Schema Validation
+      const validation = settingsSchema.safeParse(prepared);
+      if (!validation.success) {
+        const errorMap = {};
+        validation.error.issues.forEach((issue) => {
+          const key = issue.path.join(".");
+          errorMap[key] = issue.message;
+        });
+        setValidationErrors(errorMap);
+        const firstError =
+          validation.error.issues[0]?.message || "Validation failed";
+        toast.error(`Validation Error: ${firstError}`);
+        setSaving(false);
+        return;
+      }
+
+      setValidationErrors({});
 
       // Flatten nested settings objects to match the backend's flat whitelist.
       // The backend (admin-settings.js) accepts top-level keys like `smtpHost`,
@@ -552,6 +599,13 @@ export default function AdminSettings() {
   };
 
   const handleInputChange = (path, value) => {
+    if (validationErrors[path]) {
+      setValidationErrors((prev) => {
+        const next = { ...prev };
+        delete next[path];
+        return next;
+      });
+    }
     setSettings((prev) => {
       const newSettings = { ...prev };
       const keys = path.split(".");
@@ -696,6 +750,23 @@ export default function AdminSettings() {
         </div>
       </div>
 
+      {/* Validation Error Summary Banner */}
+      {Object.keys(validationErrors).length > 0 && (
+        <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold text-sm mb-1">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            Please resolve the following validation errors:
+          </div>
+          <ul className="list-disc list-inside text-xs text-red-600 dark:text-red-400 space-y-0.5">
+            {Object.entries(validationErrors).map(([field, msg]) => (
+              <li key={field}>
+                <span className="font-semibold">{field}:</span> {msg}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div
         className={
           activeTab === "features" || activeTab === "general"
@@ -751,6 +822,11 @@ export default function AdminSettings() {
                       }
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
+                    {validationErrors["siteName"] && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {validationErrors["siteName"]}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label
@@ -768,6 +844,11 @@ export default function AdminSettings() {
                       }
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
+                    {validationErrors["siteUrl"] && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {validationErrors["siteUrl"]}
+                      </p>
+                    )}
                   </div>
                   <div className="md:col-span-2">
                     <label

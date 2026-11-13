@@ -682,4 +682,6 @@ export const getTopPerformers = (limit = 10, seriesId = null) => {
 };
 export const getTopPerformersLeaderboard = getTopPerformers;
 
+export { adminAPI } from "./adminAPI.js";
+
 export default apiClient;

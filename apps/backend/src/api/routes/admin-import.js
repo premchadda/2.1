@@ -18,7 +18,7 @@ import {
   importClassXTestsWithQuestions,
 } from "../../services/import/classxImporter.js";
 import { universalImport } from "../../services/import/enhancedImporter.js";
-import { lintQuestionImport } from "../../services/import/questionImportLinter.js";
+import { lintQuestionImportAsync } from "../../services/import/questionImportLinter.js";
 import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import { sendError } from "../../shared/utils/sendResponse.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
@@ -50,6 +50,24 @@ const importUpload = multer({
     cb(null, true);
   },
 });
+
+const handleImportUpload = (req, res, next) => {
+  importUpload.single("file")(req, res, (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return res.status(400).json({
+            success: false,
+            message: "File exceeds maximum allowed size (50MB)",
+          });
+        }
+        return res.status(400).json({ success: false, message: err.message });
+      }
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next();
+  });
+};
 
 /**
  * Parse JSON from either request body or uploaded file.
@@ -90,7 +108,7 @@ function parseImportData(req) {
  *   - JSON body: { questions: [...], config: { testId, sectionId, ... } }
  *   - JSON body: [ ...questions ]
  */
-router.post("/import/classx", importUpload.single("file"), async (req, res) => {
+router.post("/import/classx", handleImportUpload, async (req, res) => {
   try {
     const { data, fileName } = parseImportData(req);
     const questions = Array.isArray(data) ? data : data.questions || [];
@@ -140,53 +158,49 @@ router.post("/import/classx", importUpload.single("file"), async (req, res) => {
  * POST /api/admin/import/classx/preview
  * Dry-run preview: validate and map ClassX JSON without inserting.
  */
-router.post(
-  "/import/classx/preview",
-  importUpload.single("file"),
-  async (req, res) => {
-    try {
-      const { data, fileName } = parseImportData(req);
-      const questions = Array.isArray(data) ? data : data.questions || [];
+router.post("/import/classx/preview", handleImportUpload, async (req, res) => {
+  try {
+    const { data, fileName } = parseImportData(req);
+    const questions = Array.isArray(data) ? data : data.questions || [];
 
-      if (questions.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "No questions found in import data",
-        });
-      }
-
-      const config = {
-        testId: req.body.testId || req.body.test_id || null,
-        sectionId: req.body.sectionId || req.body.section_id || null,
-        topicId: req.body.topicId || req.body.topic_id || null,
-        marks: parseOptionalFloat(req.body.marks, 1),
-        negativeMarks: parseOptionalFloat(
-          req.body.negativeMarks ?? req.body.negative_marks,
-          0.5,
-        ),
-        dryRun: true,
-        fileName,
-        userId: req.user?.id || null,
-      };
-
-      const results = await importClassXQuestions(questions, config);
-
-      res.json({
-        success: true,
-        message: `Preview: ${results.imported} questions would be imported`,
-        data: {
-          total: results.total,
-          wouldImport: results.imported,
-          wouldSkip: results.skipped,
-          preview: results.questions.slice(0, 10), // First 10 questions
-          errors: results.errors.slice(0, 20),
-        },
+    if (questions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No questions found in import data",
       });
-    } catch (error) {
-      sendError(res, error);
     }
-  },
-);
+
+    const config = {
+      testId: req.body.testId || req.body.test_id || null,
+      sectionId: req.body.sectionId || req.body.section_id || null,
+      topicId: req.body.topicId || req.body.topic_id || null,
+      marks: parseOptionalFloat(req.body.marks, 1),
+      negativeMarks: parseOptionalFloat(
+        req.body.negativeMarks ?? req.body.negative_marks,
+        0.5,
+      ),
+      dryRun: true,
+      fileName,
+      userId: req.user?.id || null,
+    };
+
+    const results = await importClassXQuestions(questions, config);
+
+    res.json({
+      success: true,
+      message: `Preview: ${results.imported} questions would be imported`,
+      data: {
+        total: results.total,
+        wouldImport: results.imported,
+        wouldSkip: results.skipped,
+        preview: results.questions.slice(0, 10), // First 10 questions
+        errors: results.errors.slice(0, 20),
+      },
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
 
 /**
  * POST /api/admin/import/questions/dry-run-lint
@@ -195,7 +209,7 @@ router.post(
  */
 router.post(
   "/import/questions/dry-run-lint",
-  importUpload.single("file"),
+  handleImportUpload,
   async (req, res) => {
     try {
       const { data, fileName } = parseImportData(req);
@@ -214,7 +228,7 @@ router.post(
       if (testId) {
         try {
           const exRes = await pool.query(
-            `SELECT id, question_text FROM questions WHERE test_id = $1 OR "testId" = $1 LIMIT 500`,
+            `SELECT id, question_text FROM questions WHERE test_id = $1 LIMIT 500`,
             [testId],
           );
           existingQuestions = exRes.rows || [];
@@ -226,9 +240,13 @@ router.post(
         }
       }
 
-      const report = lintQuestionImport(rawQuestions, existingQuestions, {
-        similarityThreshold: parseFloat(req.body.similarityThreshold) || 0.85,
-      });
+      const report = await lintQuestionImportAsync(
+        rawQuestions,
+        existingQuestions,
+        {
+          similarityThreshold: parseFloat(req.body.similarityThreshold) || 0.85,
+        },
+      );
 
       res.json({
         success: true,
@@ -247,54 +265,50 @@ router.post(
  *
  * Body: { tests: [...], questions: [...], config: { seriesId, ... } }
  */
-router.post(
-  "/import/classx/tests",
-  importUpload.single("file"),
-  async (req, res) => {
-    try {
-      const { data, fileName } = parseImportData(req);
-      const importData = Array.isArray(data) ? { questions: data } : data;
+router.post("/import/classx/tests", handleImportUpload, async (req, res) => {
+  try {
+    const { data, fileName } = parseImportData(req);
+    const importData = Array.isArray(data) ? { questions: data } : data;
 
-      const config = {
-        seriesId: req.body.seriesId || req.body.series_id || null,
-        topicId: req.body.topicId || req.body.topic_id || null,
-        duration: parseInt(req.body.duration) || 60,
-        marks: parseOptionalFloat(req.body.marks, 1),
-        negativeMarks: parseOptionalFloat(
-          req.body.negativeMarks ?? req.body.negative_marks,
-          0.5,
-        ),
-        fileName,
-        userId: req.user?.id || null,
-      };
+    const config = {
+      seriesId: req.body.seriesId || req.body.series_id || null,
+      topicId: req.body.topicId || req.body.topic_id || null,
+      duration: parseInt(req.body.duration) || 60,
+      marks: parseOptionalFloat(req.body.marks, 1),
+      negativeMarks: parseOptionalFloat(
+        req.body.negativeMarks ?? req.body.negative_marks,
+        0.5,
+      ),
+      fileName,
+      userId: req.user?.id || null,
+    };
 
-      const results = await importClassXTestsWithQuestions(importData, config);
+    const results = await importClassXTestsWithQuestions(importData, config);
 
-      res.json({
-        success: true,
-        message: `Imported ${results.tests.imported} tests and ${results.questions.imported} questions`,
-        data: {
-          tests: {
-            total: results.tests.total,
-            imported: results.tests.imported,
-            skipped: results.tests.skipped,
-            errors: results.tests.errors.slice(0, 10),
-          },
-          questions: {
-            total: results.questions.total,
-            imported: results.questions.imported,
-            skipped: results.questions.skipped,
-            failed: results.questions.failed,
-            errors: results.questions.errors.slice(0, 10),
-          },
-          testIdMap: results.testIdMap,
+    res.json({
+      success: true,
+      message: `Imported ${results.tests.imported} tests and ${results.questions.imported} questions`,
+      data: {
+        tests: {
+          total: results.tests.total,
+          imported: results.tests.imported,
+          skipped: results.tests.skipped,
+          errors: results.tests.errors.slice(0, 10),
         },
-      });
-    } catch (error) {
-      sendError(res, error);
-    }
-  },
-);
+        questions: {
+          total: results.questions.total,
+          imported: results.questions.imported,
+          skipped: results.questions.skipped,
+          failed: results.questions.failed,
+          errors: results.questions.errors.slice(0, 10),
+        },
+        testIdMap: results.testIdMap,
+      },
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
 
 /**
  * GET /api/admin/import/history
@@ -337,12 +351,19 @@ router.get("/import/history", async (req, res) => {
  */
 router.get("/import/history/:id", async (req, res) => {
   try {
+    const importId = parseInt(req.params.id, 10);
+    if (isNaN(importId) || importId <= 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid import log ID" });
+    }
+
     const result = await pool.query(
       `SELECT il.*, u.name AS imported_by_name
        FROM import_logs il
        LEFT JOIN users u ON il.imported_by = u.id
        WHERE il.id = $1`,
-      [req.params.id],
+      [importId],
     );
 
     if (result.rows.length === 0) {
@@ -369,55 +390,51 @@ router.get("/import/history/:id", async (req, res) => {
  *   - topicId: Optional topic ID
  *   - skipDuplicates: Skip duplicate questions (default: true)
  */
-router.post(
-  "/import/universal",
-  importUpload.single("file"),
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({
-          success: false,
-          message: "No file uploaded",
-        });
-      }
-
-      const config = {
-        testId: req.body.testId || req.body.test_id || null,
-        sectionId: req.body.sectionId || req.body.section_id || null,
-        topicId: req.body.topicId || req.body.topic_id || null,
-        marks: parseOptionalFloat(req.body.marks, 1),
-        negativeMarks: parseOptionalFloat(
-          req.body.negativeMarks ?? req.body.negative_marks,
-          0.5,
-        ),
-        difficulty: req.body.difficulty || "medium",
-        skipDuplicates: req.body.skipDuplicates !== false,
-        fileName: req.file.originalname,
-        userId: req.user?.id || null,
-      };
-
-      const results = await universalImport(
-        req.file.buffer,
-        req.file.originalname,
-        config,
-      );
-
-      res.json({
-        success: true,
-        message: `Imported ${results.imported} of ${results.total} questions`,
-        data: {
-          total: results.total,
-          imported: results.imported,
-          skipped: results.skipped,
-          duplicates: results.duplicates,
-          failed: results.failed,
-          errors: results.errors.slice(0, 20),
-        },
+router.post("/import/universal", handleImportUpload, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded",
       });
-    } catch (error) {
-      sendError(res, error);
     }
-  },
-);
+
+    const config = {
+      testId: req.body.testId || req.body.test_id || null,
+      sectionId: req.body.sectionId || req.body.section_id || null,
+      topicId: req.body.topicId || req.body.topic_id || null,
+      marks: parseOptionalFloat(req.body.marks, 1),
+      negativeMarks: parseOptionalFloat(
+        req.body.negativeMarks ?? req.body.negative_marks,
+        0.5,
+      ),
+      difficulty: req.body.difficulty || "medium",
+      skipDuplicates: req.body.skipDuplicates !== false,
+      fileName: req.file.originalname,
+      userId: req.user?.id || null,
+    };
+
+    const results = await universalImport(
+      req.file.buffer,
+      req.file.originalname,
+      config,
+    );
+
+    res.json({
+      success: true,
+      message: `Imported ${results.imported} of ${results.total} questions`,
+      data: {
+        total: results.total,
+        imported: results.imported,
+        skipped: results.skipped,
+        duplicates: results.duplicates,
+        failed: results.failed,
+        errors: results.errors.slice(0, 20),
+      },
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
 
 export default router;

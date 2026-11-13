@@ -195,16 +195,21 @@ const INTEGER_FIELDS = new Set([
   "order",
   "orderIndex",
   "order_index",
-  "marks",
-  "negativeMarks",
-  "negative_marks",
   "createdBy",
   "created_by",
 ]);
 
+const FLOAT_FIELDS = new Set(["marks", "negativeMarks", "negative_marks"]);
+
 const safeParseInt = (value) => {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const safeParseFloat = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number.parseFloat(value);
   return Number.isNaN(parsed) ? null : parsed;
 };
 
@@ -868,6 +873,94 @@ router.post("/questions/bulk/predict-difficulty", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/admin/questions/import-history
+ * GET /api/admin/import-history
+ * Returns unified question import history from audit_logs and import_logs.
+ * Registered BEFORE /questions/:id to avoid parameter shadowing.
+ */
+const handleGetImportHistory = async (req, res) => {
+  try {
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 20, 1),
+      100,
+    );
+
+    const query = `
+      SELECT * FROM (
+        SELECT
+          a.id::text as id,
+          COALESCE(a.action, 'question_import') as action,
+          COALESCE(a.details::text, a.description, '') as details,
+          a.created_at as "timestamp",
+          COALESCE(a.admin_name, a.admin_email, u.email, u.name, 'Admin') as "adminUser"
+        FROM audit_logs a
+        LEFT JOIN users u ON a.user_id = u.id
+        WHERE a.action ILIKE '%import%' OR a.resource ILIKE '%import%' OR a.details::text ILIKE '%import%'
+        
+        UNION ALL
+        
+        SELECT
+          ('import_' || il.id::text) as id,
+          ('import_' || il.source) as action,
+          json_build_object(
+            'fileName', il.file_name,
+            'totalRecords', il.total_records,
+            'imported', il.imported,
+            'skipped', il.skipped,
+            'failed', il.failed,
+            'errors', il.errors,
+            'metadata', il.metadata
+          )::text as details,
+          il.created_at as "timestamp",
+          COALESCE(u.email, u.name, 'System') as "adminUser"
+        FROM import_logs il
+        LEFT JOIN users u ON il.imported_by = u.id
+      ) unified_history
+      ORDER BY "timestamp" DESC
+      LIMIT $1
+    `;
+
+    let result;
+    try {
+      result = await pool.query(query, [limit]);
+    } catch (dbErr) {
+      logger.warn(
+        "Import history UNION query failed, falling back to audit_logs only:",
+        dbErr?.message,
+      );
+      const fallbackQuery = `
+        SELECT
+          a.id::text as id,
+          COALESCE(a.action, 'question_import') as action,
+          COALESCE(a.details::text, a.description, '') as details,
+          a.created_at as "timestamp",
+          COALESCE(a.admin_name, a.admin_email, u.email, u.name, 'Admin') as "adminUser"
+        FROM audit_logs a
+        LEFT JOIN users u ON a.user_id = u.id
+        WHERE a.action ILIKE '%import%' OR a.resource ILIKE '%import%' OR a.details::text ILIKE '%import%'
+        ORDER BY a.created_at DESC
+        LIMIT $1
+      `;
+      result = await pool.query(fallbackQuery, [limit]);
+    }
+
+    res.json({
+      success: true,
+      data: result.rows,
+    });
+  } catch (error) {
+    logger.error("GET /questions/import-history error:", error);
+    res.status(500).json({
+      success: false,
+      message: sanitizeErrorMessage(error),
+    });
+  }
+};
+
+router.get("/questions/import-history", handleGetImportHistory);
+router.get("/import-history", handleGetImportHistory);
+
 // GET /api/admin/questions/:id - Get single question
 router.get("/questions/:id", async (req, res) => {
   try {
@@ -920,6 +1013,8 @@ router.post("/questions", async (req, res) => {
       if (!VALID_QUESTION_FIELDS.has(key)) continue;
       if (INTEGER_FIELDS.has(key)) {
         filteredBody[key] = safeParseInt(value);
+      } else if (FLOAT_FIELDS.has(key)) {
+        filteredBody[key] = safeParseFloat(value);
       } else {
         filteredBody[key] = value;
       }
@@ -1027,6 +1122,8 @@ router.post("/questions/practice", async (req, res) => {
       if (!VALID_QUESTION_FIELDS.has(key)) continue;
       if (INTEGER_FIELDS.has(key)) {
         filteredBody[key] = safeParseInt(value);
+      } else if (FLOAT_FIELDS.has(key)) {
+        filteredBody[key] = safeParseFloat(value);
       } else {
         filteredBody[key] = value;
       }
@@ -1075,7 +1172,9 @@ router.post("/questions/practice", async (req, res) => {
 // PUT /api/admin/questions/reorder - Reorder questions
 router.put("/questions/reorder", async (req, res) => {
   try {
-    const { questionId, fromPosition, toPosition } = req.body;
+    const questionId = req.body.questionId ?? req.body.question_id;
+    const fromPosition = req.body.fromPosition ?? req.body.from_position;
+    const toPosition = req.body.toPosition ?? req.body.to_position;
     if (!questionId || fromPosition === undefined || toPosition === undefined) {
       return res
         .status(400)
@@ -1142,6 +1241,8 @@ router.put("/questions/:id", async (req, res) => {
       if (!VALID_QUESTION_FIELDS.has(key)) continue;
       if (INTEGER_FIELDS.has(key)) {
         filteredBody[key] = safeParseInt(value);
+      } else if (FLOAT_FIELDS.has(key)) {
+        filteredBody[key] = safeParseFloat(value);
       } else {
         filteredBody[key] = value;
       }
@@ -1239,11 +1340,11 @@ router.delete("/questions/:id", async (req, res) => {
       try {
         await pool.query(
           "DELETE FROM test_questions WHERE test_id = $1 AND question_id = $2",
-          [testId, req.params.id],
+          [testId, deleted.id],
         );
       } catch (jErr) {
         logger.warn(
-          `[Questions] Error removing junction row for question ${req.params.id}: ${jErr.message}`,
+          `[Questions] Error removing junction row for question ${deleted.id}: ${jErr.message}`,
         );
       }
       await syncTestStats(testId);
@@ -1423,11 +1524,13 @@ router.post(
         section: req.body.section || req.body.section_name || "",
         testSeriesId: getTestSeriesId(req.body) || null,
         seriesId: req.body.seriesId || req.body.series_id || null,
-        studyMaterialId: req.body.studyMaterialId || null,
-        chapterId: req.body.chapterId || null,
-        topicId: req.body.topicId || null,
+        studyMaterialId:
+          req.body.studyMaterialId ?? req.body.study_material_id ?? null,
+        chapterId: req.body.chapterId ?? req.body.chapter_id ?? null,
+        topicId: req.body.topicId ?? req.body.topic_id ?? null,
         marks: Number(req.body.marks) || 1,
-        negativeMarks: Number(req.body.negativeMarks) || 0,
+        negativeMarks:
+          Number(req.body.negativeMarks ?? req.body.negative_marks) || 0,
       };
 
       const questionSkipDetails = [];
@@ -1511,14 +1614,17 @@ router.post(
 
       const CHUNK_SIZE = 500;
       let allInserted = [];
-      for (let i = 0; i < mapped.length; i += CHUNK_SIZE) {
-        const chunk = mapped.slice(i, i + CHUNK_SIZE);
-        const inserted = await dbHelpers.insertMany(
-          "questions",
-          chunk.map((q, idx) => normalizeQuestionPayloadForDb(q, i + idx)),
-        );
-        allInserted = allInserted.concat(inserted);
-      }
+      await pool.withTransaction(async (client) => {
+        for (let i = 0; i < mapped.length; i += CHUNK_SIZE) {
+          const chunk = mapped.slice(i, i + CHUNK_SIZE);
+          const inserted = await dbHelpers.insertMany(
+            "questions",
+            chunk.map((q, idx) => normalizeQuestionPayloadForDb(q, i + idx)),
+            client,
+          );
+          allInserted = allInserted.concat(inserted);
+        }
+      });
 
       // Sync stats for affected tests
       const affectedTestIds = [
@@ -1559,9 +1665,10 @@ router.post(
       }
       res.status(201).json({
         success: true,
-        data: allInserted,
         count: allInserted.length,
+        ids: allInserted.map((q) => q.id),
         skipped: normalizedRows.length - mapped.length,
+        skipDetails: questionSkipDetails,
       });
     } catch (error) {
       logger.error("[Questions Bulk Debug] Error processing request:", error);

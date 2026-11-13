@@ -10,6 +10,32 @@ import { responseCache } from "../../middleware/responseCache.middleware.js";
 
 const router = express.Router();
 
+// SEC: Never pass the DATABASE_URL (which embeds credentials) via argv —
+// command lines are visible in /proc/<pid>/cmdline and process listings.
+// libpq reads PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE from the environment,
+// so the DSN is handed to pg_dump/pg_restore/psql through `env` instead.
+const buildPgEnv = () => {
+  const raw = process.env.DATABASE_URL || "";
+  const pgEnv = { ...process.env };
+  try {
+    const u = new URL(raw);
+    pgEnv.PGHOST = u.hostname;
+    pgEnv.PGPORT = u.port || "5432";
+    pgEnv.PGUSER = decodeURIComponent(u.username || "postgres");
+    pgEnv.PGPASSWORD = decodeURIComponent(u.password || "");
+    pgEnv.PGDATABASE =
+      decodeURIComponent((u.pathname || "/postgres").slice(1)) || "postgres";
+    const sslmode = u.searchParams?.get("sslmode");
+    if (sslmode) pgEnv.PGSSLMODE = sslmode;
+  } catch (e) {
+    logger.warn(
+      { err: e },
+      "[Backups] DATABASE_URL could not be parsed; pg_* will use local socket defaults",
+    );
+  }
+  return pgEnv;
+};
+
 router.use(protect);
 router.use(admin);
 
@@ -100,15 +126,15 @@ router.post("/", rejectOnServerless, async (req, res) => {
 
     // Strategy 1: Try pg_dump (preferred - produces binary dump)
     try {
-      const dbUrl = process.env.DATABASE_URL || "";
       const dumpFile = `${backupFile}.dump`;
       const filePath = path.default.join(backupDir, dumpFile);
+      const pgEnv = buildPgEnv();
 
       await new Promise((resolve, reject) => {
         execFile(
           "pg_dump",
-          ["-Fc", "-f", filePath, "--dbname", dbUrl],
-          { timeout: 300000, maxBuffer: 10 * 1024 * 1024 },
+          ["-Fc", "-f", filePath],
+          { timeout: 300000, maxBuffer: 10 * 1024 * 1024, env: pgEnv },
           (error, stdout, stderr) => {
             if (error)
               reject(new Error(`pg_dump failed: ${stderr || error.message}`));
@@ -377,7 +403,7 @@ router.post("/:id/restore", rejectOnServerless, admin, async (req, res) => {
         .json({ success: false, message: "Backup file not found on disk" });
     }
 
-    const dbUrl = process.env.DATABASE_URL || "";
+    const pgEnv = buildPgEnv();
 
     if (backup.format === "pg_dump_binary") {
       // Use pg_restore for binary dumps
@@ -390,10 +416,10 @@ router.post("/:id/restore", rejectOnServerless, admin, async (req, res) => {
             "--no-owner",
             "--no-privileges",
             "--dbname",
-            dbUrl,
+            pgEnv.PGDATABASE || "postgres",
             filePath,
           ],
-          { timeout: 600000, maxBuffer: 20 * 1024 * 1024 },
+          { timeout: 600000, maxBuffer: 20 * 1024 * 1024, env: pgEnv },
           (error, stdout, stderr) => {
             if (error)
               reject(
@@ -408,8 +434,8 @@ router.post("/:id/restore", rejectOnServerless, admin, async (req, res) => {
       await new Promise((resolve, reject) => {
         execFile(
           "psql",
-          ["--dbname", dbUrl, "-f", filePath],
-          { timeout: 600000, maxBuffer: 20 * 1024 * 1024 },
+          ["--dbname", pgEnv.PGDATABASE || "postgres", "-f", filePath],
+          { timeout: 600000, maxBuffer: 20 * 1024 * 1024, env: pgEnv },
           (error, stdout, stderr) => {
             if (error)
               reject(
@@ -470,15 +496,15 @@ router.post("/trigger", rejectOnServerless, admin, async (req, res) => {
     if (!fs.default.existsSync(backupDir))
       fs.default.mkdirSync(backupDir, { recursive: true });
 
-    const dbUrl = process.env.DATABASE_URL || "";
+    const pgEnv = buildPgEnv();
     const dumpFile = `${backupFile}.dump`;
     const filePath = pathNode.default.join(backupDir, dumpFile);
 
     await new Promise((resolve, reject) => {
       execFile(
         "pg_dump",
-        ["-Fc", "-f", filePath, "--dbname", dbUrl],
-        { timeout: 300000, maxBuffer: 10 * 1024 * 1024 },
+        ["-Fc", "-f", filePath],
+        { timeout: 300000, maxBuffer: 10 * 1024 * 1024, env: pgEnv },
         (error, stdout, stderr) => {
           if (error)
             reject(new Error(`pg_dump failed: ${stderr || error.message}`));

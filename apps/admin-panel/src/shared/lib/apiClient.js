@@ -49,14 +49,12 @@ const readStoredToken = () => {
     if (sessionTok) return sessionTok;
 
     if (typeof localStorage !== "undefined") {
-      const legacyTok = localStorage.getItem("trstprep_token");
-      if (legacyTok) {
-        // Migrate to session storage and scrub from persistent localStorage
+      const localTok = localStorage.getItem("trstprep_token");
+      if (localTok) {
         if (typeof sessionStorage !== "undefined") {
-          sessionStorage.setItem("trstprep_token", legacyTok);
+          sessionStorage.setItem("trstprep_token", localTok);
         }
-        localStorage.removeItem("trstprep_token");
-        return legacyTok;
+        return localTok;
       }
     }
     return null;
@@ -75,14 +73,12 @@ const readStoredRefreshToken = () => {
     if (sessionRefresh) return sessionRefresh;
 
     if (typeof localStorage !== "undefined") {
-      const legacyRefresh = localStorage.getItem("trstprep_refresh_token");
-      if (legacyRefresh) {
-        // Migrate to session storage and scrub from persistent localStorage
+      const localRefresh = localStorage.getItem("trstprep_refresh_token");
+      if (localRefresh) {
         if (typeof sessionStorage !== "undefined") {
-          sessionStorage.setItem("trstprep_refresh_token", legacyRefresh);
+          sessionStorage.setItem("trstprep_refresh_token", localRefresh);
         }
-        localStorage.removeItem("trstprep_refresh_token");
-        return legacyRefresh;
+        return localRefresh;
       }
     }
     return null;
@@ -90,6 +86,23 @@ const readStoredRefreshToken = () => {
     return memoryRefreshToken || null;
   }
 };
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key === "trstprep_token") {
+      memoryToken = e.newValue || null;
+      if (!e.newValue && typeof sessionStorage !== "undefined") {
+        sessionStorage.removeItem("trstprep_token");
+      }
+    }
+    if (e.key === "trstprep_refresh_token") {
+      memoryRefreshToken = e.newValue || null;
+      if (!e.newValue && typeof sessionStorage !== "undefined") {
+        sessionStorage.removeItem("trstprep_refresh_token");
+      }
+    }
+  });
+}
 
 const persistRotatedTokens = (newToken, newRefreshToken) => {
   try {

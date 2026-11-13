@@ -239,4 +239,163 @@ router.get("/engagement", async (req, res) => {
   }
 });
 
+/**
+ * Diagnostics & Deep System Analytics
+ * Calculates difficulty balance, test reliability/dropout metrics, and Practice↔Mock score correlation.
+ */
+const handleGetDiagnostics = async (req, res) => {
+  try {
+    // 1. Difficulty balance from questions table
+    const diffResult = await dbHelpers.pool.query(`
+      SELECT 
+        LOWER(COALESCE(difficulty, 'medium')) as diff_level,
+        COUNT(*)::int as count
+      FROM questions
+      WHERE is_active = true
+      GROUP BY LOWER(COALESCE(difficulty, 'medium'))
+    `);
+
+    let easyCount = 0;
+    let medCount = 0;
+    let hardCount = 0;
+    diffResult.rows.forEach((r) => {
+      const level = String(r.diff_level).toLowerCase();
+      if (level === "easy") easyCount += r.count;
+      else if (level === "hard") hardCount += r.count;
+      else medCount += r.count;
+    });
+
+    const totalQuestions = easyCount + medCount + hardCount;
+    const difficulty = {
+      easy:
+        totalQuestions > 0
+          ? Math.round((easyCount / totalQuestions) * 1000) / 10
+          : 33.3,
+      medium:
+        totalQuestions > 0
+          ? Math.round((medCount / totalQuestions) * 1000) / 10
+          : 33.4,
+      hard:
+        totalQuestions > 0
+          ? Math.round((hardCount / totalQuestions) * 1000) / 10
+          : 33.3,
+    };
+
+    // 2. Reliability from recent attempts (last 100 sessions)
+    const attemptsResult = await dbHelpers.pool.query(`
+      SELECT 
+        id,
+        status,
+        is_completed,
+        COALESCE(time_spent, 0)::int as time_spent,
+        COALESCE(score, 0)::numeric as score
+      FROM attempts
+      ORDER BY created_at DESC
+      LIMIT 100
+    `);
+
+    const recentSessions = attemptsResult.rows;
+    const totalRecentSessions = recentSessions.length;
+    const completedSessions = recentSessions.filter(
+      (a) => a.status === "completed" || a.is_completed === true,
+    );
+    const anomalousDropouts = recentSessions.filter(
+      (a) =>
+        a.status !== "completed" &&
+        !a.is_completed &&
+        (a.time_spent < 60 || Number(a.score) === 0),
+    ).length;
+
+    const completionRate =
+      totalRecentSessions > 0
+        ? Math.round((completedSessions.length / totalRecentSessions) * 1000) /
+          10
+        : 100;
+
+    const reliability = {
+      completionRate,
+      anomalousDropouts,
+      totalRecentSessions,
+    };
+
+    // 3. Practice bridge: comparing attempts scores of users with vs without practice_sessions
+    const bridgeResult = await dbHelpers.pool.query(`
+      WITH user_practice AS (
+        SELECT DISTINCT user_id FROM practice_sessions
+      ),
+      user_attempt_scores AS (
+        SELECT 
+          a.user_id,
+          AVG(COALESCE(a.score, 0)) as avg_score,
+          CASE WHEN up.user_id IS NOT NULL THEN true ELSE false END as has_practice
+        FROM attempts a
+        LEFT JOIN user_practice up ON a.user_id = up.user_id
+        WHERE a.status = 'completed' OR a.is_completed = true
+        GROUP BY a.user_id, (up.user_id IS NOT NULL)
+      )
+      SELECT 
+        has_practice,
+        AVG(avg_score)::numeric(5,2) as group_avg
+      FROM user_attempt_scores
+      GROUP BY has_practice
+    `);
+
+    let practiceActiveAvgScore = null;
+    let mockOnlyAvgScore = null;
+
+    bridgeResult.rows.forEach((r) => {
+      if (r.has_practice) {
+        practiceActiveAvgScore = parseFloat(r.group_avg);
+      } else {
+        mockOnlyAvgScore = parseFloat(r.group_avg);
+      }
+    });
+
+    // Derive score defaults from real attempt data if one cohort is empty
+    let overallAvg = 0;
+    if (practiceActiveAvgScore === null || mockOnlyAvgScore === null) {
+      try {
+        const overallRes = await dbHelpers.pool.query(
+          `SELECT AVG(COALESCE(score, 0)) as overall_avg FROM attempts WHERE status = 'completed' OR is_completed = true`,
+        );
+        overallAvg = parseFloat(overallRes.rows[0]?.overall_avg || 0);
+      } catch {
+        overallAvg = 0;
+      }
+    }
+
+    const finalPracticeScore =
+      practiceActiveAvgScore ??
+      (overallAvg > 0 ? Math.round(overallAvg * 10) / 10 : 0);
+    const finalMockScore =
+      mockOnlyAvgScore ??
+      (overallAvg > 0 ? Math.round(overallAvg * 10) / 10 : 0);
+    const delta = Math.round((finalPracticeScore - finalMockScore) * 10) / 10;
+
+    const practiceBridge = {
+      practiceActiveAvgScore: finalPracticeScore,
+      mockOnlyAvgScore: finalMockScore,
+      delta,
+    };
+
+    res.json({
+      success: true,
+      data: {
+        difficulty,
+        reliability,
+        practiceBridge,
+      },
+    });
+  } catch (error) {
+    logger.error("GET /diagnostics error:", error);
+    res.status(500).json({
+      success: false,
+      message: error?.message || "Failed to calculate deep diagnostics",
+    });
+  }
+};
+
+router.get("/diagnostics", handleGetDiagnostics);
+router.get("/deep/diagnostics", handleGetDiagnostics);
+
 export default router;

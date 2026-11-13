@@ -1,7 +1,11 @@
 import express from "express";
 import sessionController from "../../modules/sessions/session.controller.js";
+import { protect, admin } from "../../middleware/auth.middleware.js";
 
 const router = express.Router();
+
+router.use(protect);
+router.use(admin);
 
 /**
  * Admin Session Management Routes

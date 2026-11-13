@@ -73,43 +73,51 @@ export const adminAPI = {
       { ids, status },
       { timeout: 60000 },
     ),
-  bulkUploadTests: (formData) =>
+  bulkUploadTests: (formData, config = {}) =>
     apiClient.post("/admin/tests/bulk", formData, {
       timeout: 300000,
+      ...config,
     }),
-  bulkUploadQuizzes: (formData) =>
+  bulkUploadQuizzes: (formData, config = {}) =>
     apiClient.post("/admin/quizzes/bulk", formData, {
       timeout: 300000,
+      ...config,
       // Backend expects multipart field name "file" for FormData uploads.
     }),
   // JSON variant (backend also accepts { quizzes: [...] }).
-  bulkUploadQuizzesJson: (data) =>
+  bulkUploadQuizzesJson: (data, config = {}) =>
     apiClient.post(
       "/admin/quizzes/bulk",
       { quizzes: Array.isArray(data) ? data : (data?.quizzes ?? []) },
-      { timeout: 300000 },
+      { timeout: 300000, ...config },
     ),
 
   // Full Test JSON Import
-  previewFullTest: (formData) =>
+  previewFullTest: (formData, config = {}) =>
     apiClient.post("/import/full-test/preview", formData, {
       timeout: 300000,
+      ...config,
     }),
-  importFullTest: (formData) =>
+  importFullTest: (formData, config = {}) =>
     apiClient.post("/import/full-test/import", formData, {
       timeout: 300000,
+      ...config,
     }),
-  uploadFullTestJson: (formData) =>
+  uploadFullTestJson: (formData, config = {}) =>
     apiClient.post("/import/full-test/upload", formData, {
       timeout: 300000,
+      ...config,
     }),
-  previewSingleTest: (index) =>
+  previewSingleTest: (index, params = {}, config = {}) =>
     apiClient.get(`/import/full-test/preview-test/${enc(index)}`, {
+      params,
       timeout: 300000,
+      ...config,
     }),
-  importSelectedTests: (data) =>
+  importSelectedTests: (data, config = {}) =>
     apiClient.post("/import/full-test/import-selected", data, {
       timeout: 300000,
+      ...config,
     }),
 
   // Test Categories
@@ -266,12 +274,15 @@ export const adminAPI = {
     apiClient.delete(`/admin/questions/${requireId(id, "id")}`),
   bulkDeleteQuestions: (ids) =>
     apiClient.delete("/admin/questions/bulk", { data: { ids } }),
-  bulkUploadQuestions: (formData) =>
-    apiClient.post("/admin/questions/bulk", formData, { timeout: 300000 }),
+  bulkUploadQuestions: (formData, config = {}) =>
+    apiClient.post("/admin/questions/bulk", formData, {
+      timeout: 300000,
+      ...config,
+    }),
 
   // Import
   getImportHistory: (limit = 20) =>
-    apiClient.get("/admin/import/history", { params: { limit } }),
+    apiClient.get("/admin/questions/import-history", { params: { limit } }),
 
   // Moderation
   getModerationDoubts: (params) =>

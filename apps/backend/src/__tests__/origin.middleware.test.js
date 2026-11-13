@@ -1,5 +1,8 @@
 import { jest, describe, test, expect, beforeEach } from "@jest/globals";
-import { validateOrigin } from "../middleware/origin.middleware.js";
+import {
+  validateOrigin,
+  restrictAdminOrigin,
+} from "../middleware/origin.middleware.js";
 
 describe("Origin Validation Middleware", () => {
   let mockReq;
@@ -63,5 +66,36 @@ describe("Origin Validation Middleware", () => {
     mockReq.headers.host = "localhost:5001";
     validateOrigin(mockReq, mockRes, nextFunction);
     expect(mockRes.status).toHaveBeenCalledWith(403);
+  });
+
+  describe("restrictAdminOrigin", () => {
+    test("should allow requests from admin vercel allowlist", () => {
+      mockReq.headers.origin = "https://trstprep-admin.vercel.app";
+      mockReq.headers.host = "api.trstprep.com";
+      restrictAdminOrigin(mockReq, mockRes, nextFunction);
+      expect(nextFunction).toHaveBeenCalled();
+    });
+
+    test("should block requests from student frontend vercel allowlist", () => {
+      process.env.NODE_ENV = "production";
+      mockReq.headers.origin = "https://trstprep.vercel.app";
+      mockReq.headers.host = "api.trstprep.com";
+      restrictAdminOrigin(mockReq, mockRes, nextFunction);
+      expect(mockRes.status).toHaveBeenCalledWith(403);
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: "ADMIN_ORIGIN",
+        }),
+      );
+    });
+
+    test("should allow configured ADMIN_PANEL_URL", () => {
+      process.env.NODE_ENV = "production";
+      process.env.ADMIN_PANEL_URL = "https://admin.trstprep.com";
+      mockReq.headers.origin = "https://admin.trstprep.com";
+      mockReq.headers.host = "api.trstprep.com";
+      restrictAdminOrigin(mockReq, mockRes, nextFunction);
+      expect(nextFunction).toHaveBeenCalled();
+    });
   });
 });

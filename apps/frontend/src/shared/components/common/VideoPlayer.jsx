@@ -1,21 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { logger } from "@trstprep/shared-config";
 import {
   X,
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  Maximize,
-  Minimize,
-  SkipBack,
-  SkipForward,
-  Settings,
   ExternalLink,
   Shield,
-  Lock,
-  Info,
-  AlertTriangle,
 } from "lucide-react";
 import api from "../../lib/api";
 import { useAuth } from "../../providers/AuthContext";
@@ -23,7 +11,6 @@ import videoTelemetry from "../../lib/telemetry/videoTelemetry";
 import DynamicWatermark from "./VideoPlayer/DynamicWatermark.jsx";
 import { getEmbedInfo } from "./VideoPlayer/EmbedResolver.js";
 import NativePlayer from "./VideoPlayer/NativePlayer.jsx";
-import { formatTime } from "../../lib/format.js";
 
 // FortSpy player removed — standard HTML5 NativePlayer and YouTube/embed modes are canonical.
 
@@ -36,26 +23,17 @@ export default function VideoPlayer({
 }) {
   const { user } = useAuth();
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [, setCurrentTime] = useState(0);
   const [duration, _setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [playbackRate, setPlaybackRate] = useState(1);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showControls, setShowControls] = useState(true);
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
   const [savedProgress, setSavedProgress] = useState({
     lastTimestamp: 0,
     totalTimeSpent: 0,
   });
   const [_showResumeBanner, _setShowResumeBanner] = useState(false);
-  const containerRef = useRef(null);
   const overlayRef = useRef(null);
-  const controlsTimeout = useRef(null);
   const viewRecordedRef = useRef(false);
   const watchTimeSecondsRef = useRef(0);
-  const throttleRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -184,18 +162,6 @@ export default function VideoPlayer({
       setCurrentTime(0);
     }
   }, [isOpen]);
-
-  const handleMouseMove = useCallback(() => {
-    if (throttleRef.current) return;
-    throttleRef.current = setTimeout(() => {
-      throttleRef.current = null;
-    }, 100);
-    setShowControls(true);
-    if (controlsTimeout.current) clearTimeout(controlsTimeout.current);
-    controlsTimeout.current = setTimeout(() => {
-      if (isPlaying) setShowControls(false);
-    }, 3000);
-  }, [isPlaying]);
 
   if (!isOpen) return null;
 

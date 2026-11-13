@@ -253,6 +253,14 @@ export const adminNavConfig = {
           badge: null,
         },
         {
+          id: "blogs",
+          name: "Blog & Articles",
+          path: "/admin/blogs",
+          icon: FileText,
+          description: "Author and publish exam preparation articles",
+          badge: null,
+        },
+        {
           id: "content-management",
           name: "Content Manager",
           path: "/admin/content-management",

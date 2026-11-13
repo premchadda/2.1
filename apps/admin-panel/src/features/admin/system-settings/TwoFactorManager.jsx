@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { logger } from "@trstprep/shared-config";
 import {
   KeyRound,
@@ -52,7 +52,7 @@ export default function TwoFactorManager() {
     }
   };
 
-  const fetchUsersOverview = async () => {
+  const fetchUsersOverview = useCallback(async () => {
     try {
       setUsersLoading(true);
       const res = await adminAPI.getUsersTwoFactorOverview({
@@ -65,19 +65,16 @@ export default function TwoFactorManager() {
     } finally {
       setUsersLoading(false);
     }
-  };
+  }, [userSearch]);
 
   useEffect(() => {
     fetchStatus();
-    fetchUsersOverview();
   }, []);
 
   useEffect(() => {
-    if (userSearch !== undefined) {
-      const t = setTimeout(() => fetchUsersOverview(), 300);
-      return () => clearTimeout(t);
-    }
-  }, [userSearch]);
+    const t = setTimeout(() => fetchUsersOverview(), userSearch ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [fetchUsersOverview, userSearch]);
 
   useEffect(() => {
     let active = true;

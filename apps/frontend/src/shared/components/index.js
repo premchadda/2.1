@@ -12,6 +12,7 @@ export { default as ContentReader } from "./common/ContentReader.jsx";
 export { default as HorizontalScroll } from "./common/HorizontalScroll.jsx";
 export { default as PDFViewer } from "./common/PDFViewer.jsx";
 export { default as VideoPlayer } from "./common/VideoPlayer.jsx";
+export { default as LazyImage } from "./common/LazyImage.jsx";
 
 export { default as ProtectedRoute } from "./auth/ProtectedRoute.jsx";
 

@@ -2,7 +2,7 @@ import express from "express";
 import subscriptionService, {
   FEATURES,
 } from "../../services/SubscriptionService.js";
-import { protect } from "../../middleware/auth.middleware.js";
+import { protect, admin } from "../../middleware/auth.middleware.js";
 import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
@@ -90,10 +90,10 @@ router.get("/has-feature/:feature", protect, async (req, res) => {
   }
 });
 
-// Create subscription (would be called by payment webhook)
-router.post("/create", protect, async (req, res) => {
+// Create subscription (Admin-only manual provisioning; student activations flow through /api/payments/verify)
+router.post("/create", protect, admin, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const targetUserId = req.body.userId || req.user.id;
     // Client-supplied expiryDate is IGNORED for duration: expiry is computed
     // server-side from the plan mapping below (30/365 days, capped at 366,
     // never in the past). The raw client value is only used to detect plan
@@ -101,7 +101,7 @@ router.post("/create", protect, async (req, res) => {
     const { planType, paymentDetails } = req.body;
 
     const subscription = await subscriptionService.createSubscription(
-      userId,
+      targetUserId,
       planType,
       undefined,
       paymentDetails,

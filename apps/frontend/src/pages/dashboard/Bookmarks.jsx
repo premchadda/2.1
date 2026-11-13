@@ -26,7 +26,6 @@ import { getSubjectEmoji } from "../../shared/config";
 import { getVideoUrl } from "../study/studyMaterialUtils";
 import { toast } from "react-hot-toast";
 import MathRenderer from "../../shared/components/MathRenderer";
-import sanitizeHtml from "../../shared/lib/sanitizeHtml";
 import QuestionDetailModal from "./components/QuestionDetailModal";
 
 // Bookmark ids already warned about an unknown itemType (module scope so the

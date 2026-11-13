@@ -400,10 +400,29 @@ const AUTH_RATE_LIMIT_MAX = parseInt(
  * Origin / jwt.decode bypasses removed - unverified claims must not skip rate limits.
  */
 export const isUserAdminRequest = (req) => {
-  if (!req || !req.user) return false;
+  if (!req) return false;
   try {
-    if (req.user.isAdmin === true || req.user.role === ROLES.ADMIN) {
+    if (
+      req.user &&
+      (req.user.isAdmin === true || req.user.role === ROLES.ADMIN)
+    ) {
       return true;
+    }
+    // If protect() has not executed yet, cryptographically verify token
+    const authHeader = req.headers?.authorization;
+    const token =
+      (authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null) ||
+      req.cookies?.token;
+    if (token && process.env.JWT_SECRET) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+        algorithms: ["HS256"],
+      });
+      if (
+        (decoded?.isAdmin === true || decoded?.role === ROLES.ADMIN) &&
+        (!decoded.type || ["session", "web", "phone"].includes(decoded.type))
+      ) {
+        return true;
+      }
     }
   } catch {
     // fail closed

@@ -2,6 +2,7 @@ import {
   Routes,
   Route,
   Navigate,
+  Link,
   useLocation,
   useNavigate,
 } from "react-router-dom";
@@ -46,6 +47,9 @@ const ContentManagement = lazy(
 );
 const CurrentAffairsManager = lazy(
   () => import("./features/admin/study-materials/CurrentAffairsManager"),
+);
+const BlogManager = lazy(
+  () => import("./features/admin/study-materials/BlogManager"),
 );
 const CategoriesManager = lazy(
   () => import("./features/admin/exams-categories/CategoriesManager"),
@@ -304,6 +308,11 @@ function App() {
 
             <Route path="notifications" element={<NotificationsManager />} />
             <Route path="current-affairs" element={<CurrentAffairsManager />} />
+            <Route path="blogs" element={<BlogManager />} />
+            <Route
+              path="blog"
+              element={<Navigate to="/admin/blogs" replace />}
+            />
             <Route
               path="practice-questions"
               element={<PracticeQuestionsManager />}
@@ -449,12 +458,12 @@ function App() {
                   <p style={{ color: "#64748b", marginBottom: "1rem" }}>
                     Admin page not found
                   </p>
-                  <a
-                    href="/admin"
+                  <Link
+                    to="/admin"
                     style={{ color: "#6366f1", textDecoration: "underline" }}
                   >
                     &larr; Back to Dashboard
-                  </a>
+                  </Link>
                 </div>
               }
             />
@@ -485,12 +494,12 @@ function App() {
                 <p style={{ color: "#64748b", marginBottom: "1rem" }}>
                   Page not found
                 </p>
-                <a
-                  href="/admin"
+                <Link
+                  to="/admin"
                   style={{ color: "#6366f1", textDecoration: "underline" }}
                 >
                   &larr; Back to Dashboard
-                </a>
+                </Link>
               </div>
             }
           />

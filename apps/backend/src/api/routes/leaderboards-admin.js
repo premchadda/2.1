@@ -14,8 +14,15 @@ import {
 } from "../../middleware/admin-permission.middleware.js";
 import { auditMiddleware } from "../../middleware/audit.middleware.js";
 import { validateCsrfToken } from "../../middleware/csrf.middleware.js";
-import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
+import {
+  createRateLimiter,
+  adminLimiter,
+} from "../../middleware/rateLimiterFactory.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import {
+  recalculateDailyLeaderboard,
+  recalculateWeeklyLeaderboard,
+} from "../../services/core/leaderboardService.js";
 
 const router = express.Router();
 const leaderboardResetLimiter = createRateLimiter("strict");
@@ -23,12 +30,13 @@ const leaderboardResetLimiter = createRateLimiter("strict");
 // PII guard for list endpoints: mask emails (detail-by-id keeps full email)
 const maskEmail = () => "***@***";
 
-// Apply full admin security chain to all leaderboard admin routes
+// Apply full canonical admin security chain to all leaderboard admin routes
 router.use(restrictAdminOrigin);
 router.use(validateAdminApiKey);
-router.use(validateCsrfToken);
 router.use(protect);
 router.use(admin);
+router.use(adminLimiter);
+router.use(validateCsrfToken);
 router.use(loadAdminPermissions);
 router.use(requireAdminPermission);
 router.use(auditMiddleware({ includeBody: true }));
@@ -337,6 +345,46 @@ router.delete("/:id", async (req, res) => {
     res.json({
       success: true,
       message: "Leaderboard moved to trash",
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// @route   POST /api/leaderboards/recalculate/daily
+// @desc    Recalculate daily global leaderboard - Admin
+// @access  Private/Admin
+router.post("/recalculate/daily", async (req, res) => {
+  try {
+    const result = await recalculateDailyLeaderboard(
+      req.body?.date ? new Date(req.body.date) : new Date(),
+    );
+    res.json({
+      success: true,
+      data: result,
+      message: "Daily leaderboard recalculated successfully",
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// @route   POST /api/leaderboards/recalculate/weekly
+// @desc    Recalculate weekly global leaderboard - Admin
+// @access  Private/Admin
+router.post("/recalculate/weekly", async (req, res) => {
+  try {
+    const result = await recalculateWeeklyLeaderboard(
+      req.body?.date ? new Date(req.body.date) : new Date(),
+    );
+    res.json({
+      success: true,
+      data: result,
+      message: "Weekly leaderboard recalculated successfully",
     });
   } catch (error) {
     res

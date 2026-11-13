@@ -40,7 +40,11 @@ export default function ExamCategoriesManager() {
       const catResponse = await apiClient.get("/admin/exam-categories");
       if (catResponse.data?.success) {
         setCategories(
-          catResponse.data.data.sort((a, b) => a.displayOrder - b.displayOrder),
+          catResponse.data.data.sort(
+            (a, b) =>
+              (a.displayOrder ?? a.display_order ?? 0) -
+              (b.displayOrder ?? b.display_order ?? 0),
+          ),
         );
       }
     } catch (error) {
@@ -53,10 +57,36 @@ export default function ExamCategoriesManager() {
   const handleCategorySubmit = async (e) => {
     e.preventDefault();
 
+    const label = String(
+      categoryFormData.label || categoryFormData.name || "",
+    ).trim();
+    const rawBusinessId = String(
+      categoryFormData.categoryId ||
+        categoryFormData.category_id ||
+        categoryFormData.id ||
+        categoryFormData.slug ||
+        label,
+    ).trim();
+
+    const slug = String(categoryFormData.slug || rawBusinessId || label)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
+    const businessCategoryId = String(rawBusinessId || slug)
+      .toLowerCase()
+      .trim();
+
     const payload = {
       ...categoryFormData,
-      name: (categoryFormData.name || categoryFormData.label || "").trim(),
-      displayOrder: Number(categoryFormData.displayOrder),
+      id: editingCategoryId || businessCategoryId,
+      categoryId: businessCategoryId,
+      category_id: businessCategoryId,
+      label,
+      name: label,
+      slug: slug || businessCategoryId,
+      displayOrder: Number(categoryFormData.displayOrder) || 0,
+      display_order: Number(categoryFormData.displayOrder) || 0,
     };
 
     try {
@@ -82,47 +112,67 @@ export default function ExamCategoriesManager() {
   };
 
   const handleEditCategory = (item) => {
-    const categoryId = item.id || item.categoryId || item._id;
+    const rawId = item.id ?? item._id;
+    const businessKey =
+      item.category_id ||
+      item.categoryId ||
+      item.slug ||
+      (typeof rawId === "string" ? rawId : "");
     setCategoryFormData({
-      id: categoryId,
+      id: businessKey,
+      categoryId: businessKey,
+      category_id: businessKey,
       label: item.label || item.name || "",
       icon: item.icon || "",
-      slug: item.slug || "",
-      displayOrder: item.displayOrder || 0,
-      isActive: item.isActive !== undefined ? item.isActive : true,
+      slug: item.slug || businessKey,
+      displayOrder: item.displayOrder ?? item.display_order ?? 0,
+      isActive:
+        item.isActive !== undefined
+          ? item.isActive
+          : item.is_active !== undefined
+            ? item.is_active
+            : true,
     });
-    setEditingCategoryId(categoryId);
+    setEditingCategoryId(rawId);
     setShowCategoryForm(true);
   };
 
   const handleDeleteCategory = async (category) => {
     try {
       const categoryId = category.id || category.categoryId || category._id;
-      const seriesResponse = await apiClient.get("/admin/test-series");
+      let linkedSeriesCount = 0;
       let proceed = false;
 
-      if (seriesResponse.data && seriesResponse.data.success) {
-        const linkedSeriesCount = seriesResponse.data.data.filter(
-          (s) =>
-            s.category === categoryId ||
-            String(s.category) === String(categoryId),
-        ).length;
-
-        if (linkedSeriesCount > 0) {
-          proceed = await confirmOnce({
-            title: "Warning: Linked Test Series",
-            message: `WARNING: This exam category has ${linkedSeriesCount} test series attached to it.\n\nDeleting this category will orphan these test series (hide them from the user interface until reassigned).\n\nAre you sure you want to proceed and delete this category?`,
-            confirmText: "Delete Category",
-            confirmStyle: "danger",
-          });
-        } else {
-          proceed = await confirmOnce({
-            title: "Delete Category",
-            message: "Are you sure you want to delete this category?",
-            confirmText: "Delete",
-            confirmStyle: "danger",
-          });
+      try {
+        const seriesResponse = await apiClient.get("/admin/test-series", {
+          params: { examCategoryId: categoryId, countOnly: "true" },
+        });
+        if (seriesResponse.data && seriesResponse.data.success) {
+          if (typeof seriesResponse.data.count === "number") {
+            linkedSeriesCount = seriesResponse.data.count;
+          } else {
+            const catSlug = category.slug || category.categoryId || categoryId;
+            linkedSeriesCount = (seriesResponse.data.data || []).filter(
+              (s) =>
+                s.examCategoryId === categoryId ||
+                s.exam_category_id === categoryId ||
+                s.category === categoryId ||
+                String(s.category) === String(catSlug) ||
+                String(s.category) === String(categoryId),
+            ).length;
+          }
         }
+      } catch (fetchErr) {
+        logger.warn("Could not count linked series before delete:", fetchErr);
+      }
+
+      if (linkedSeriesCount > 0) {
+        proceed = await confirmOnce({
+          title: "Warning: Linked Test Series",
+          message: `WARNING: This exam category has ${linkedSeriesCount} test series attached to it.\n\nDeleting this category will orphan these test series (hide them from the user interface until reassigned).\n\nAre you sure you want to proceed and delete this category?`,
+          confirmText: "Delete Category",
+          confirmStyle: "danger",
+        });
       } else {
         proceed = await confirmOnce({
           title: "Delete Category",
@@ -372,7 +422,12 @@ export default function ExamCategoriesManager() {
       <div className="space-y-2.5 sm:space-y-3">
         {categories.map((category) => (
           <div
-            key={category._id}
+            key={
+              category.id ||
+              category._id ||
+              category.categoryId ||
+              category.slug
+            }
             className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 shadow-2xs hover:shadow-xs transition-all overflow-hidden"
           >
             <div className="flex items-center justify-between p-3.5 sm:p-4 gap-3">

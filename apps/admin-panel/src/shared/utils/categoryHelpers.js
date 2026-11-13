@@ -59,6 +59,35 @@ export const getCategoryPathLabel = (categoryId, flatCategories = []) => {
 export const TEST_CATEGORY_TAB_IDS = ["mock-tests", "pyp", "live-tests"];
 
 /**
+ * Determines whether a category is a Top-level / Test Category or Subcategory.
+ * @param {Object} category
+ * @returns {"top" | "sub"}
+ */
+export const getCategoryKind = (category) => {
+  const parentId = category?.parentId ?? category?.parent_id;
+  const level = Number(category?.level ?? 0);
+  return !parentId || parentId === "" || parentId === 0 || level === 0
+    ? "top"
+    : "sub";
+};
+
+/**
+ * Returns a display prefix tag: "[T]" for Top category, "[S]" (or "[S2]", etc.) for Subcategory.
+ * @param {Object} category
+ * @param {number} [depth]
+ * @returns {string}
+ */
+export const getCategoryPrefixTag = (category, depth) => {
+  const d =
+    depth !== undefined
+      ? depth
+      : Number(category?.level) ||
+        (getCategoryKind(category) === "top" ? 0 : 1);
+  if (d === 0) return "[T]";
+  return d > 1 ? `[S${d}]` : "[S]";
+};
+
+/**
  * Normalized aliases of the three top-level test-category roots, used to map a
  * linked category row back to its tab group.
  */
@@ -126,5 +155,7 @@ export default {
   getCategoryPath,
   getCategoryPathLabel,
   resolveTestCategoryTabId,
+  getCategoryKind,
+  getCategoryPrefixTag,
   TEST_CATEGORY_TAB_IDS,
 };

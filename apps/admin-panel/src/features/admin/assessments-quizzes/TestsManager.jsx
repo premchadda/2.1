@@ -3,6 +3,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useCallback,
   memo,
   lazy,
   Suspense,
@@ -15,7 +16,7 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
-  Edit,
+  Edit as _Edit,
   Edit3,
   FileText,
   Folder,
@@ -414,7 +415,7 @@ const getCategoryRelationshipLabels = (
   };
 };
 
-const Badge = ({ children, tone = "gray" }) => {
+const _Badge = ({ children, tone = "gray" }) => {
   const tones = {
     gray: "bg-gray-100 text-gray-700 border-gray-200",
     green: "bg-green-50 text-green-700 border-green-200",
@@ -534,6 +535,12 @@ const BulkUploadModal = ({
       toast.error("Please select a file");
       return;
     }
+    if (!validationResult?.isValid) {
+      toast.error(
+        "Please validate the file and resolve any issues before uploading",
+      );
+      return;
+    }
     setUploading(true);
     try {
       await onUpload(file);
@@ -613,7 +620,18 @@ const BulkUploadModal = ({
               </div>
             )}
 
-            <div>
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDragEnter={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const droppedFile = e.dataTransfer?.files?.[0];
+                if (droppedFile) {
+                  setFile(droppedFile);
+                  setValidationResult(null);
+                }
+              }}
+            >
               <label
                 htmlFor="upload-file"
                 className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
@@ -694,8 +712,17 @@ const BulkUploadModal = ({
             </button>
             <button
               type="submit"
-              disabled={uploading || !file}
+              disabled={uploading || !file || !validationResult?.isValid}
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 sm:py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-xs sm:text-sm font-semibold shadow-sm"
+              title={
+                !file
+                  ? "Please select a file"
+                  : !validationResult
+                    ? "Please validate the file before uploading"
+                    : !validationResult.isValid
+                      ? "Validation failed - resolve issues to upload"
+                      : "Upload validated tests"
+              }
             >
               <Upload className="w-4 h-4" />
               {uploading ? "Uploading..." : "Upload"}
@@ -760,7 +787,7 @@ function TestsManager() {
     SECTION_PRESETS[0]?.id || "",
   );
   const [scopedSections, setScopedSections] = useState([]);
-  const [scopedSectionsLoading, setScopedSectionsLoading] = useState(false);
+  const [_scopedSectionsLoading, setScopedSectionsLoading] = useState(false);
   const [selectedTestIds, setSelectedTestIds] = useState([]);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [subcatCompactView, setSubcatCompactView] = useState(false);
@@ -914,7 +941,7 @@ function TestsManager() {
       next.set("tab", "mock-tests");
       setSearchParams(next, { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, activeTestCategory, setSearchParams]);
 
   const handleTabChange = (tabId) => {
     setActiveTestCategory(tabId);
@@ -1077,7 +1104,7 @@ function TestsManager() {
       );
   }, [subCategoryLevel2, flatTestCategories]);
 
-  const subCategoryOptionsLevel4 = useMemo(() => {
+  const _subCategoryOptionsLevel4 = useMemo(() => {
     if (!subCategoryLevel3) return [];
     return flatTestCategories
       .filter(
@@ -1093,7 +1120,7 @@ function TestsManager() {
   }, [subCategoryLevel3, flatTestCategories]);
 
   // Compute the final selectedTestSubCategoryId from cascading levels
-  const cascadingSelectedSubCategoryId = useMemo(() => {
+  const _cascadingSelectedSubCategoryId = useMemo(() => {
     return (
       subCategoryLevel4 ||
       subCategoryLevel3 ||
@@ -1395,20 +1422,29 @@ function TestsManager() {
           )
         );
       });
-  }, [selectedSeries, tests, activeTestCategoryRefs, activeStageRefs]);
+  }, [
+    selectedSeries,
+    tests,
+    activeTestCategoryRefs,
+    activeStageRefs,
+    activeTestCategory,
+  ]);
 
   // Test matches selected subcategory (including descendants)
-  const testMatchesSubCategory = (test, selectedId) => {
-    if (!selectedId || selectedId === "all") return true;
-    if (selectedId === UNASSIGNED_SUBCATEGORY_ID) {
-      return !activeTestSubCategories.some((category) => {
-        const categoryId = getEntityId(category);
-        return categoryId && testMatchesSubCategory(test, categoryId);
-      });
-    }
-    const refs = buildCategorySelectionRefs(selectedId, flatTestCategories);
-    return recordMatchesTestCategory(test, refs);
-  };
+  const testMatchesSubCategory = useCallback(
+    (test, selectedId) => {
+      if (!selectedId || selectedId === "all") return true;
+      if (selectedId === UNASSIGNED_SUBCATEGORY_ID) {
+        return !activeTestSubCategories.some((category) => {
+          const categoryId = getEntityId(category);
+          return categoryId && testMatchesSubCategory(test, categoryId);
+        });
+      }
+      const refs = buildCategorySelectionRefs(selectedId, flatTestCategories);
+      return recordMatchesTestCategory(test, refs);
+    },
+    [activeTestSubCategories, flatTestCategories],
+  );
 
   // Get test count for a category (including its descendants)
   // NOTE: Must count from seriesTests (pre-subcategory filter), not workspaceTests,
@@ -1431,7 +1467,7 @@ function TestsManager() {
     return seriesTests.filter((test) =>
       testMatchesSubCategory(test, selectedTestSubCategoryId),
     );
-  }, [seriesTests, selectedTestSubCategoryId, flatTestCategories]);
+  }, [seriesTests, selectedTestSubCategoryId, testMatchesSubCategory]);
   // Client-side pagination over the already-fetched workspaceTests list
   // (backend has no server pagination for this manager; server pagination
   // is still future work). Bulk selection/count logic below intentionally
@@ -1480,7 +1516,7 @@ function TestsManager() {
     ? stages.find((stage) => idsEqual(getEntityId(stage), activeStageId))
         ?.name || activeStageId
     : "No stage selected";
-  const unassignedSubCategoryCount = getCategoryTestCount(
+  const _unassignedSubCategoryCount = getCategoryTestCount(
     UNASSIGNED_SUBCATEGORY_ID,
   );
   const selectedTestSubCategoryLabel =
@@ -1533,7 +1569,7 @@ function TestsManager() {
     [tests, flatTestCategories],
   );
 
-  const tabScopedStats = useMemo(() => {
+  const _tabScopedStats = useMemo(() => {
     const tabTests = tests.filter((test) => {
       if (activeTestCategory === "live-tests") {
         return (

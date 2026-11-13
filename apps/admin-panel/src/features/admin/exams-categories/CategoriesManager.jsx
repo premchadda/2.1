@@ -44,7 +44,7 @@ const TABS = [
     icon: ExternalLink,
   },
   {
-    id: "series-exam-relations",
+    id: "series-subcategory-relations",
     label: "Child Relations",
     icon: ClipboardList,
   },
@@ -78,6 +78,22 @@ const hasMatchingId = (value, targetIds) => {
   );
 };
 
+const SERIES_CATEGORY_FIELDS = ["categoryId", "category", "category_id"];
+const SERIES_CATEGORY_PATH_FIELDS = [
+  "categoryPathIds",
+  "category_path_ids",
+  "categoryPath",
+];
+
+const TEST_CATEGORY_FIELDS = ["categoryId", "category", "category_id"];
+const TEST_CATEGORY_PATH_FIELDS = ["categoryPathIds", "category_path_ids"];
+
+const getCategoryLinkedSeriesIds = (category) => [
+  ...normalizeIdList(category.testSeriesId),
+  ...normalizeIdList(category.test_series_id),
+  ...normalizeIdList(category.test_series_ids),
+];
+
 /** Ids of node + all descendants (prevent choosing self/descendant as parent). */
 function getDescendantIdSet(rootId, flatCategories) {
   if (!rootId) return new Set();
@@ -107,7 +123,10 @@ function TestSeriesMultiSelect({
   const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef(null);
 
-  const safeSelectedIds = selectedIds || [];
+  const safeSelectedIds = useMemo(
+    () => (Array.isArray(selectedIds) ? selectedIds : []),
+    [selectedIds],
+  );
 
   // Get selected series names for display
   const selectedNames = useMemo(() => {
@@ -182,7 +201,7 @@ function TestSeriesMultiSelect({
           ) : (
             selectedNames.map((name, index) => (
               <span
-                key={index}
+                key={`${name}-${index}`}
                 className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-medium rounded-md border border-purple-200 dark:border-purple-800/50 max-w-[200px] truncate"
               >
                 <span className="truncate" title={name}>
@@ -305,6 +324,281 @@ function TestSeriesMultiSelect({
   );
 }
 
+const normParentId = (p) =>
+  p === undefined || p === null || p === "" ? null : String(p);
+
+function CategoryItem({
+  category,
+  depth = 0,
+  expandedCategories,
+  categoryCountsMap,
+  hoveredCategory,
+  childrenByParent,
+  examCategories,
+  stages,
+  onToggleExpand,
+  onHoverCategory,
+  onReorderCategory,
+  onAddChild,
+  onEdit,
+  onDelete,
+}) {
+  const catId = category._id || category.id;
+  const hasChildren = category.children && category.children.length > 0;
+  const isExpanded = !!expandedCategories?.[catId];
+  const counts = categoryCountsMap?.get(String(catId)) || {
+    seriesCount: 0,
+    testsCount: 0,
+  };
+  const isHovered = hoveredCategory === catId;
+
+  const sibs = childrenByParent?.get(normParentId(category.parentId)) || [];
+  const sidx = sibs.findIndex((c) => isSameEntityId(c._id ?? c.id, catId));
+
+  const examCategoryLabel = category.examCategoryId
+    ? examCategories?.find((ec) =>
+        isSameEntityId(ec._id ?? ec.id, category.examCategoryId),
+      )?.label
+    : null;
+
+  // Adaptive indentation for mobile vs desktop
+  const mobileIndent = Math.min(depth * 10, 30) + 6;
+  const desktopIndent = depth * 22 + 16;
+
+  return (
+    <div className="border-b border-gray-100 dark:border-gray-700/80 last:border-b-0">
+      <div
+        className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 sm:py-3 px-2 sm:px-3 hover:bg-gray-50 dark:hover:bg-gray-750/70 transition-colors gap-2"
+        style={{
+          paddingLeft: `max(${mobileIndent}px, var(--tree-pad, ${desktopIndent}px))`,
+        }}
+      >
+        {/* Main Info */}
+        <div className="flex items-start sm:items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+          {hasChildren ? (
+            <button
+              type="button"
+              onClick={() => onToggleExpand(catId)}
+              className="p-1 -ml-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md shrink-0 text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-0 transition-colors"
+              aria-label={isExpanded ? "Collapse" : "Expand"}
+            >
+              {isExpanded ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+            </button>
+          ) : (
+            <div className="w-4 sm:w-5 shrink-0" />
+          )}
+
+          {/* [T] vs [S] Differentiation Badge */}
+          <span
+            className={`px-1.5 py-0.5 text-[9px] font-bold uppercase rounded shrink-0 select-none ${
+              depth === 0
+                ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
+                : "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
+            }`}
+            title={
+              depth === 0
+                ? "Top-level Test Category [T]"
+                : `Subcategory Level ${depth} [S]`
+            }
+          >
+            {depth === 0 ? "T" : depth > 1 ? `S${depth}` : "S"}
+          </span>
+
+          <span className="text-lg sm:text-xl shrink-0 select-none">
+            {category.icon || (depth === 0 ? "📂" : "📁")}
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <span className="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm">
+                {category.name}
+              </span>
+
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
+                ({category.slug})
+              </span>
+
+              <span
+                className={`px-1.5 py-0.2 text-[9px] sm:text-[10px] font-semibold rounded ${
+                  category.isActive !== false
+                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                    : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                }`}
+              >
+                {category.isActive !== false ? "Active" : "Inactive"}
+              </span>
+
+              {examCategoryLabel && (
+                <span className="px-1.5 py-0.2 text-[9px] sm:text-[10px] font-semibold rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                  {examCategoryLabel}
+                </span>
+              )}
+            </div>
+
+            {/* Sub-row with connected counts and stages */}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mt-1">
+              {/* Test Series Count */}
+              <div
+                className="relative inline-flex items-center cursor-pointer"
+                onMouseEnter={() => onHoverCategory(catId)}
+                onMouseLeave={() => onHoverCategory(null)}
+                onClick={() =>
+                  onHoverCategory(hoveredCategory === catId ? null : catId)
+                }
+              >
+                <span className="text-xs">📚</span>
+                <span className="ml-0.5 px-1.5 py-0.2 text-[10px] font-bold bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded-full">
+                  {counts.seriesCount}
+                </span>
+
+                {isHovered && (
+                  <div className="absolute z-50 bottom-full left-0 mb-1.5 p-2.5 bg-gray-900 text-white text-[11px] rounded-lg shadow-2xl min-w-[160px] pointer-events-none">
+                    <div className="font-semibold mb-1 border-b border-gray-700 pb-1">
+                      Connected Items
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Test Series:</span>
+                      <span className="font-bold text-purple-300">
+                        {counts.seriesCount}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Tests:</span>
+                      <span className="font-bold text-blue-300">
+                        {counts.testsCount}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Tests Count */}
+              <div className="inline-flex items-center">
+                <span className="text-xs">📝</span>
+                <span className="ml-0.5 px-1.5 py-0.2 text-[10px] font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full">
+                  {counts.testsCount}
+                </span>
+              </div>
+
+              {/* Stage Badges */}
+              {Array.isArray(category.stageIds) &&
+                category.stageIds.length > 0 &&
+                stages && (
+                  <div className="flex gap-1 flex-wrap">
+                    {category.stageIds.map((stageId) => {
+                      const stage = stages.find((s) =>
+                        isSameEntityId(s._id ?? s.id, stageId),
+                      );
+                      if (!stage) return null;
+                      return (
+                        <span
+                          key={stageId}
+                          className="px-1.5 py-0.2 text-[9px] font-semibold rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40"
+                        >
+                          {stage.name}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+              {hasChildren && (
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+                  ({category.children.length} sub)
+                </span>
+              )}
+            </div>
+
+            {category.description && (
+              <p
+                className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5"
+                title={category.description}
+              >
+                {category.description}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Action Buttons Bar */}
+        <div className="flex items-center gap-1 self-end sm:self-center shrink-0 bg-gray-50/90 dark:bg-gray-700/50 sm:bg-transparent p-1 sm:p-0 rounded-lg border border-gray-200/50 dark:border-gray-600/30 sm:border-0">
+          <button
+            type="button"
+            onClick={() => onReorderCategory(category, "up")}
+            disabled={sidx <= 0}
+            className="p-1.5 sm:p-1 text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors disabled:opacity-25 disabled:pointer-events-none"
+            title="Move up among siblings"
+          >
+            <ArrowUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onReorderCategory(category, "down")}
+            disabled={sidx < 0 || sidx >= sibs.length - 1}
+            className="p-1.5 sm:p-1 text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors disabled:opacity-25 disabled:pointer-events-none"
+            title="Move down among siblings"
+          >
+            <ArrowDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onAddChild(category)}
+            className="p-1.5 sm:p-1 text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors"
+            title="Add Child Category"
+          >
+            <FolderPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onEdit(category)}
+            className="p-1.5 sm:p-1 text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors"
+            title="Edit Category"
+          >
+            <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(catId)}
+            className="p-1.5 sm:p-1 text-gray-400 dark:text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+            title="Move to trash"
+          >
+            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Children Rows */}
+      {hasChildren && isExpanded && (
+        <div className="bg-gray-50/40 dark:bg-gray-900/30">
+          {category.children.map((child) => (
+            <CategoryItem
+              key={child._id || child.id}
+              category={child}
+              depth={depth + 1}
+              expandedCategories={expandedCategories}
+              categoryCountsMap={categoryCountsMap}
+              hoveredCategory={hoveredCategory}
+              childrenByParent={childrenByParent}
+              examCategories={examCategories}
+              stages={stages}
+              onToggleExpand={onToggleExpand}
+              onHoverCategory={onHoverCategory}
+              onReorderCategory={onReorderCategory}
+              onAddChild={onAddChild}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CategoriesManager() {
   const { stages, loading: stagesLoading } = useStages({
     preferAdminCounts: true,
@@ -396,11 +690,7 @@ export default function CategoriesManager() {
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  useEffect(() => {
-    fetchAllData();
-  }, [refreshTrigger]);
-
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -413,7 +703,9 @@ export default function CategoriesManager() {
         logger.warn("Could not restore expanded state:", e);
       }
 
-      const catResponse = await adminAPI.getTestCategories();
+      const catResponse = await adminAPI.getTestCategories({
+        includeInactive: true,
+      });
       if (catResponse.data.success) {
         setCategories(catResponse.data.data || []);
       }
@@ -451,7 +743,11 @@ export default function CategoriesManager() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [addActivityLog, showToast]);
+
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData, refreshTrigger]);
 
   // Validate slug uniqueness against active categories (supports numeric ID normalization)
   const validateSlug = useCallback(
@@ -472,91 +768,88 @@ export default function CategoriesManager() {
     [categories, editingId],
   );
 
-  const SERIES_CATEGORY_FIELDS = ["categoryId", "category", "category_id"];
-  const SERIES_CATEGORY_PATH_FIELDS = [
-    "categoryPathIds",
-    "category_path_ids",
-    "categoryPath",
-  ];
+  const getCategoryAndDescendantIds = useCallback(
+    (category) => {
+      const ids = [];
+      const visited = new Set();
+      const walk = (node) => {
+        if (!node) return;
+        const nid = String(node._id || node.id);
+        if (visited.has(nid)) return;
+        visited.add(nid);
+        ids.push(nid);
+        if (node.slug) ids.push(String(node.slug));
+        const children =
+          node.children ||
+          categories.filter((c) =>
+            isSameEntityId(c.parentId, node._id ?? node.id),
+          );
+        children.forEach(walk);
+      };
+      walk(category);
+      return ids;
+    },
+    [categories],
+  );
 
-  const TEST_CATEGORY_FIELDS = ["categoryId", "category", "category_id"];
-  const TEST_CATEGORY_PATH_FIELDS = ["categoryPathIds", "category_path_ids"];
-
-  const getCategoryLinkedSeriesIds = (category) => [
-    ...normalizeIdList(category.testSeriesId),
-    ...normalizeIdList(category.test_series_id),
-    ...normalizeIdList(category.test_series_ids),
-  ];
-
-  const getCategoryAndDescendantIds = (category) => {
-    const ids = [];
-    const walk = (node) => {
-      if (!node) return;
-      ids.push(String(node._id || node.id));
-      if (node.slug) ids.push(String(node.slug));
-      const children =
-        node.children ||
-        categories.filter((c) =>
-          isSameEntityId(c.parentId, node._id ?? node.id),
+  const getRelatedSeriesForCategories = useCallback(
+    (categoryIds) => {
+      const linkedSeriesIds = new Set();
+      categories
+        .filter((cat) =>
+          categoryIds.some((categoryId) =>
+            isSameEntityId(cat._id ?? cat.id, categoryId),
+          ),
+        )
+        .forEach((cat) =>
+          getCategoryLinkedSeriesIds(cat).forEach((id) =>
+            linkedSeriesIds.add(String(id)),
+          ),
         );
-      children.forEach(walk);
-    };
-    walk(category);
-    return ids;
-  };
 
-  const getRelatedSeriesForCategories = (categoryIds) => {
-    const linkedSeriesIds = new Set();
-    categories
-      .filter((cat) =>
-        categoryIds.some((categoryId) =>
-          isSameEntityId(cat._id ?? cat.id, categoryId),
-        ),
-      )
-      .forEach((cat) =>
-        getCategoryLinkedSeriesIds(cat).forEach((id) =>
-          linkedSeriesIds.add(String(id)),
-        ),
-      );
-
-    const related = testSeries.filter((s) => {
-      const seriesId = s._id || s.id;
-      if (hasMatchingId(seriesId, Array.from(linkedSeriesIds))) return true;
-      if (
-        SERIES_CATEGORY_FIELDS.some((field) =>
+      const related = testSeries.filter((s) => {
+        const seriesId = s._id || s.id;
+        if (hasMatchingId(seriesId, Array.from(linkedSeriesIds))) return true;
+        if (
+          SERIES_CATEGORY_FIELDS.some((field) =>
+            hasMatchingId(s[field], categoryIds),
+          )
+        )
+          return true;
+        return SERIES_CATEGORY_PATH_FIELDS.some((field) =>
           hasMatchingId(s[field], categoryIds),
+        );
+      });
+
+      const byId = new Map();
+      related.forEach((s) => byId.set(String(s._id || s.id), s));
+      return Array.from(byId.values());
+    },
+    [categories, testSeries],
+  );
+
+  const getRelatedTestsForCategories = useCallback(
+    (categoryIds) => {
+      const related = tests.filter((t) => {
+        if (hasMatchingId(t.testCategoryId || t.test_category_id, categoryIds))
+          return true;
+        if (
+          TEST_CATEGORY_FIELDS.some((field) =>
+            hasMatchingId(t[field], categoryIds),
+          )
         )
-      )
-        return true;
-      return SERIES_CATEGORY_PATH_FIELDS.some((field) =>
-        hasMatchingId(s[field], categoryIds),
-      );
-    });
-
-    const byId = new Map();
-    related.forEach((s) => byId.set(String(s._id || s.id), s));
-    return Array.from(byId.values());
-  };
-
-  const getRelatedTestsForCategories = (categoryIds) => {
-    const related = tests.filter((t) => {
-      if (hasMatchingId(t.testCategoryId || t.test_category_id, categoryIds))
-        return true;
-      if (
-        TEST_CATEGORY_FIELDS.some((field) =>
+          return true;
+        return TEST_CATEGORY_PATH_FIELDS.some((field) =>
           hasMatchingId(t[field], categoryIds),
-        )
-      )
-        return true;
-      return TEST_CATEGORY_PATH_FIELDS.some((field) =>
-        hasMatchingId(t[field], categoryIds),
-      );
-    });
+        );
+      });
 
-    const byId = new Map();
-    related.forEach((t) => byId.set(String(t._id || t.id), t));
-    return Array.from(byId.values());
-  };
+      const byId = new Map();
+      related.forEach((t) => byId.set(String(t._id || t.id), t));
+      return Array.from(byId.values());
+    },
+    [tests],
+  );
 
   // Memoized counts map to avoid O(C*(S+T)) per render per node — compute once per data change
   const categoryCountsMap = useMemo(() => {
@@ -570,9 +863,14 @@ export default function CategoriesManager() {
       map.set(id, { seriesCount, testsCount });
     }
     return map;
-  }, [categories, testSeries, tests]);
+  }, [
+    categories,
+    getCategoryAndDescendantIds,
+    getRelatedSeriesForCategories,
+    getRelatedTestsForCategories,
+  ]);
 
-  const getTotalCountsRecursive = (category) => {
+  const _getTotalCountsRecursive = (category) => {
     const id = String(category?._id ?? category?.id ?? "");
     return categoryCountsMap.get(id) || { seriesCount: 0, testsCount: 0 };
   };
@@ -735,34 +1033,8 @@ export default function CategoriesManager() {
         isSameEntityId(c._id ?? c.id, id),
       );
 
-      const descendantArray = Array.from(descendantIds).filter(
-        (did) => !isSameEntityId(did, id),
-      );
-      // Batch delete children with limited concurrency (3) and track failures for transaction-like reporting
-      const batchDelete = async (ids, concurrency = 3) => {
-        const results = [];
-        for (let i = 0; i < ids.length; i += concurrency) {
-          const batch = ids.slice(i, i + concurrency);
-          const batchRes = await Promise.allSettled(
-            batch.map((did) => adminAPI.deleteTestCategory(did)),
-          );
-          results.push(...batchRes);
-        }
-        return results;
-      };
-      const childResults = descendantArray.length
-        ? await batchDelete(descendantArray)
-        : [];
-      const failedChildren = childResults.filter(
-        (r) => r.status === "rejected",
-      ).length;
-      if (failedChildren > 0) {
-        showToast(
-          `${failedChildren} child categories failed to delete - continuing with parent`,
-          "warning",
-        );
-      }
-
+      // The backend DELETE /test-categories/:id atomically cascades and soft-deletes
+      // the parent and all its descendants, and cleans up test_category_series junction rows.
       const response = await adminAPI.deleteTestCategory(id);
 
       if (response.data.success) {
@@ -847,11 +1119,20 @@ export default function CategoriesManager() {
     if (idx < 0 || j < 0 || j >= siblings.length) return;
     const a = siblings[idx];
     const b = siblings[j];
-    const oa = a.displayOrder ?? idx;
-    const ob = b.displayOrder ?? j;
+
+    // If both siblings have identical or missing displayOrder, normalize to their array indices
+    let oa = Number(a.displayOrder);
+    let ob = Number(b.displayOrder);
+    if (isNaN(oa) || isNaN(ob) || oa === ob) {
+      oa = idx;
+      ob = j;
+    }
+
     try {
-      await adminAPI.updateTestCategory(a._id || a.id, { displayOrder: ob });
-      await adminAPI.updateTestCategory(b._id || b.id, { displayOrder: oa });
+      await Promise.all([
+        adminAPI.updateTestCategory(a._id || a.id, { displayOrder: ob }),
+        adminAPI.updateTestCategory(b._id || b.id, { displayOrder: oa }),
+      ]);
       showToast("Category order updated");
       await fetchAllData();
     } catch (error) {
@@ -934,7 +1215,7 @@ export default function CategoriesManager() {
     items.forEach((item) => {
       const id = String(item._id || item.id);
       const parentId = item.parentId != null ? String(item.parentId) : null;
-      if (parentId && map[parentId]) {
+      if (parentId && map[parentId] && parentId !== id) {
         map[parentId].children.push(map[id]);
       } else {
         roots.push(map[id]);
@@ -978,11 +1259,15 @@ export default function CategoriesManager() {
     if (!parent) return null;
     const path = [parent.name];
     let current = parent;
+    const visited = new Set([String(parent._id || parent.id)]);
     while (current.parentId != null && current.parentId !== "") {
       const parentCat = categories.find((c) =>
         isSameEntityId(c._id ?? c.id, current.parentId),
       );
       if (parentCat) {
+        const pid = String(parentCat._id || parentCat.id);
+        if (visited.has(pid)) break;
+        visited.add(pid);
         path.unshift(parentCat.name);
         current = parentCat;
       } else {
@@ -1014,7 +1299,12 @@ export default function CategoriesManager() {
       }
     });
     return relations;
-  }, [categories, testSeries, tests]);
+  }, [
+    categories,
+    getCategoryAndDescendantIds,
+    getRelatedSeriesForCategories,
+    getRelatedTestsForCategories,
+  ]);
 
   const seriesSubcategoryRelationsData = useMemo(() => {
     const relations = [];
@@ -1041,7 +1331,7 @@ export default function CategoriesManager() {
       }
     });
     return relations;
-  }, [categories, testSeries, tests]);
+  }, [categories, getRelatedSeriesForCategories, getRelatedTestsForCategories]);
 
   // Orphan detection
   const orphanStats = useMemo(() => {
@@ -1055,12 +1345,17 @@ export default function CategoriesManager() {
     });
 
     const orphanedCategories = categories.filter((c) => {
-      if (!Array.isArray(c.stageIds) || c.stageIds.length === 0) {
-        return true;
-      }
-      return !c.stageIds.some((stageId) =>
-        stagesLinkedToSeries.has(String(stageId)),
-      );
+      // If directly linked to any test series, it is not orphaned
+      const directSeries = getCategoryLinkedSeriesIds(c);
+      if (directSeries.length > 0) return false;
+
+      // If linked to test series via stages, it is not orphaned
+      const hasLinkedStage =
+        Array.isArray(c.stageIds) &&
+        c.stageIds.some((stageId) => stagesLinkedToSeries.has(String(stageId)));
+      if (hasLinkedStage) return false;
+
+      return true;
     });
 
     return {
@@ -1097,6 +1392,7 @@ export default function CategoriesManager() {
       showToast("Please paste valid JSON categories to import", "error");
       return;
     }
+    let count = 0;
     try {
       setImporting(true);
       const parsed = JSON.parse(importJsonText);
@@ -1105,8 +1401,14 @@ export default function CategoriesManager() {
         throw new Error("Invalid JSON format. Expected array of categories.");
       }
 
-      let count = 0;
-      const importNode = async (node, parentId = null) => {
+      const MAX_DEPTH = 10;
+      const importNode = async (node, parentId = null, depth = 0) => {
+        if (depth > MAX_DEPTH) {
+          throw new Error(
+            `Category tree depth exceeds maximum allowed level (${MAX_DEPTH})`,
+          );
+        }
+
         const payload = {
           name: node.name,
           slug: node.slug,
@@ -1117,19 +1419,24 @@ export default function CategoriesManager() {
           displayOrder: node.displayOrder || 0,
           isActive: node.isActive !== false,
           parentId,
+          testSeriesId:
+            node.testSeriesId ||
+            node.test_series_id ||
+            node.test_series_ids ||
+            [],
         };
         const created = await adminAPI.createTestCategory(payload);
         count++;
         if (Array.isArray(node.children) && node.children.length > 0) {
           const newId = created.data?.data?._id || created.data?.data?.id;
           for (const child of node.children) {
-            await importNode(child, newId);
+            await importNode(child, newId, depth + 1);
           }
         }
       };
 
       for (const root of list) {
-        await importNode(root, null);
+        await importNode(root, null, 0);
       }
 
       showToast(`Imported ${count} categories successfully!`);
@@ -1138,241 +1445,21 @@ export default function CategoriesManager() {
       triggerTreeRefresh();
     } catch (err) {
       logger.error("Import error:", err);
+      if (count > 0) {
+        await fetchAllData();
+        triggerTreeRefresh();
+      }
       showToast(
-        err.response?.data?.message ||
-          err.message ||
-          "Failed to import categories",
+        count > 0
+          ? `Import stopped after ${count} categories: ${err.response?.data?.message || err.message || "Failed to import"}`
+          : err.response?.data?.message ||
+              err.message ||
+              "Failed to import categories",
         "error",
       );
     } finally {
       setImporting(false);
     }
-  };
-
-  // Recursive Category Tree Item - memoized via closure stability (uses maps)
-  const CategoryItem = ({ category, depth = 0 }) => {
-    const catId = category._id || category.id;
-    const hasChildren = category.children && category.children.length > 0;
-    const isExpanded = !!expandedCategories[catId];
-    const counts = getTotalCountsRecursive(category);
-    const isHovered = hoveredCategory === catId;
-
-    const sibs = childrenByParent.get(normParentId(category.parentId)) || [];
-    const sidx = sibs.findIndex((c) => isSameEntityId(c._id ?? c.id, catId));
-
-    const examCategoryLabel = category.examCategoryId
-      ? examCategories.find((ec) =>
-          isSameEntityId(ec._id ?? ec.id, category.examCategoryId),
-        )?.label
-      : null;
-
-    // Adaptive indentation for mobile vs desktop
-    const mobileIndent = Math.min(depth * 10, 30) + 6;
-    const desktopIndent = depth * 22 + 16;
-
-    return (
-      <div className="border-b border-gray-100 dark:border-gray-700/80 last:border-b-0">
-        <div
-          className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 sm:py-3 px-2 sm:px-3 hover:bg-gray-50 dark:hover:bg-gray-750/70 transition-colors gap-2"
-          style={{
-            paddingLeft: `max(${mobileIndent}px, var(--tree-pad, ${desktopIndent}px))`,
-          }}
-        >
-          {/* Main Info */}
-          <div className="flex items-start sm:items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
-            {hasChildren ? (
-              <button
-                type="button"
-                onClick={() => toggleExpand(catId)}
-                className="p-1 -ml-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md shrink-0 text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-0 transition-colors"
-                aria-label={isExpanded ? "Collapse" : "Expand"}
-              >
-                {isExpanded ? (
-                  <ChevronDown className="w-4 h-4" />
-                ) : (
-                  <ChevronRight className="w-4 h-4" />
-                )}
-              </button>
-            ) : (
-              <div className="w-4 sm:w-5 shrink-0" />
-            )}
-
-            <span className="text-lg sm:text-xl shrink-0 select-none">
-              {category.icon || (depth === 0 ? "📂" : "📁")}
-            </span>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                <span className="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm">
-                  {category.name}
-                </span>
-
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
-                  ({category.slug})
-                </span>
-
-                <span
-                  className={`px-1.5 py-0.2 text-[9px] sm:text-[10px] font-semibold rounded ${
-                    category.isActive !== false
-                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                      : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-                  }`}
-                >
-                  {category.isActive !== false ? "Active" : "Inactive"}
-                </span>
-
-                {examCategoryLabel && (
-                  <span className="px-1.5 py-0.2 text-[9px] sm:text-[10px] font-semibold rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
-                    {examCategoryLabel}
-                  </span>
-                )}
-              </div>
-
-              {/* Sub-row with connected counts and stages */}
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mt-1">
-                {/* Test Series Count */}
-                <div
-                  className="relative inline-flex items-center cursor-pointer"
-                  onMouseEnter={() => setHoveredCategory(catId)}
-                  onMouseLeave={() => setHoveredCategory(null)}
-                  onClick={() =>
-                    setHoveredCategory(hoveredCategory === catId ? null : catId)
-                  }
-                >
-                  <span className="text-xs">📚</span>
-                  <span className="ml-0.5 px-1.5 py-0.2 text-[10px] font-bold bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded-full">
-                    {counts.seriesCount}
-                  </span>
-
-                  {isHovered && (
-                    <div className="absolute z-50 bottom-full left-0 mb-1.5 p-2.5 bg-gray-900 text-white text-[11px] rounded-lg shadow-2xl min-w-[160px] pointer-events-none">
-                      <div className="font-semibold mb-1 border-b border-gray-700 pb-1">
-                        Connected Items
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Test Series:</span>
-                        <span className="font-bold text-purple-300">
-                          {counts.seriesCount}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Tests:</span>
-                        <span className="font-bold text-blue-300">
-                          {counts.testsCount}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Tests Count */}
-                <div className="inline-flex items-center">
-                  <span className="text-xs">📝</span>
-                  <span className="ml-0.5 px-1.5 py-0.2 text-[10px] font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full">
-                    {counts.testsCount}
-                  </span>
-                </div>
-
-                {/* Stage Badges */}
-                {Array.isArray(category.stageIds) &&
-                  category.stageIds.length > 0 && (
-                    <div className="flex gap-1 flex-wrap">
-                      {category.stageIds.map((stageId) => {
-                        const stage = stages.find((s) =>
-                          isSameEntityId(s._id ?? s.id, stageId),
-                        );
-                        if (!stage) return null;
-                        return (
-                          <span
-                            key={stageId}
-                            className="px-1.5 py-0.2 text-[9px] font-semibold rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40"
-                          >
-                            {stage.name}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                {hasChildren && (
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
-                    ({category.children.length} sub)
-                  </span>
-                )}
-              </div>
-
-              {category.description && (
-                <p
-                  className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5"
-                  title={category.description}
-                >
-                  {category.description}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Action Buttons Bar */}
-          <div className="flex items-center gap-1 self-end sm:self-center shrink-0 bg-gray-50/90 dark:bg-gray-700/50 sm:bg-transparent p-1 sm:p-0 rounded-lg border border-gray-200/50 dark:border-gray-600/30 sm:border-0">
-            <button
-              type="button"
-              onClick={() => handleReorderCategory(category, "up")}
-              disabled={sidx <= 0}
-              className="p-1.5 sm:p-1 text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors disabled:opacity-25 disabled:pointer-events-none"
-              title="Move up among siblings"
-            >
-              <ArrowUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleReorderCategory(category, "down")}
-              disabled={sidx < 0 || sidx >= sibs.length - 1}
-              className="p-1.5 sm:p-1 text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors disabled:opacity-25 disabled:pointer-events-none"
-              title="Move down among siblings"
-            >
-              <ArrowDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => openAddChild(category)}
-              className="p-1.5 sm:p-1 text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors"
-              title="Add Child Category"
-            >
-              <FolderPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleEdit(category)}
-              className="p-1.5 sm:p-1 text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors"
-              title="Edit Category"
-            >
-              <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDelete(catId)}
-              className="p-1.5 sm:p-1 text-gray-400 dark:text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
-              title="Move to trash"
-            >
-              <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Children Rows */}
-        {hasChildren && isExpanded && (
-          <div className="bg-gray-50/40 dark:bg-gray-900/30">
-            {category.children.map((child) => (
-              <CategoryItem
-                key={child._id || child.id}
-                category={child}
-                depth={depth + 1}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    );
   };
 
   if (loading) {
@@ -1563,6 +1650,18 @@ export default function CategoriesManager() {
                         key={category._id || category.id}
                         category={category}
                         depth={0}
+                        expandedCategories={expandedCategories}
+                        categoryCountsMap={categoryCountsMap}
+                        hoveredCategory={hoveredCategory}
+                        childrenByParent={childrenByParent}
+                        examCategories={examCategories}
+                        stages={stages}
+                        onToggleExpand={toggleExpand}
+                        onHoverCategory={setHoveredCategory}
+                        onReorderCategory={handleReorderCategory}
+                        onAddChild={openAddChild}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
                       />
                     ))}
                   </div>
@@ -2047,15 +2146,28 @@ export default function CategoriesManager() {
               {/* Modal Header */}
               <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between shrink-0 bg-gray-50/50 dark:bg-gray-900/40">
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
-                    {editingId
-                      ? "Edit Category"
-                      : parentCategory
-                        ? "Add Child Category"
-                        : "Add Root Category"}
-                  </h2>
-                  {parentCategory && !editingId && (
-                    <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5 truncate max-w-[280px] sm:max-w-md">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+                      {editingId
+                        ? "Edit Category"
+                        : parentCategory
+                          ? "Add Child Category"
+                          : "Add Root Category"}
+                    </h2>
+                    <span
+                      className={`px-2 py-0.5 text-[10px] font-bold rounded-md ${
+                        parentCategory
+                          ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
+                          : "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
+                      }`}
+                    >
+                      {parentCategory
+                        ? `[S] Subcategory (Level ${(parentCategory.level || 0) + 1})`
+                        : "[T] Top-level Category"}
+                    </span>
+                  </div>
+                  {parentCategory && (
+                    <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 truncate max-w-[280px] sm:max-w-md">
                       Parent: {getParentPath(parentCategory)}
                     </p>
                   )}
@@ -2109,12 +2221,57 @@ export default function CategoriesManager() {
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="slug"
-                    className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                  >
-                    Slug <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label
+                      htmlFor="slug"
+                      className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      Slug <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center gap-1.5 text-[10px]">
+                      <span className="text-gray-400">Prefix:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const clean = formData.slug.replace(/^[ts]-/, "");
+                          const newSlug = `t-${clean}`;
+                          setFormData({ ...formData, slug: newSlug });
+                          setSlugError(validateSlug(newSlug, editingId));
+                        }}
+                        className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800 transition-colors"
+                        title="Prefix slug with t- for Top Category"
+                      >
+                        + t-
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const clean = formData.slug.replace(/^[ts]-/, "");
+                          const newSlug = `s-${clean}`;
+                          setFormData({ ...formData, slug: newSlug });
+                          setSlugError(validateSlug(newSlug, editingId));
+                        }}
+                        className="px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 border border-purple-200 dark:border-purple-800 transition-colors"
+                        title="Prefix slug with s- for Subcategory"
+                      >
+                        + s-
+                      </button>
+                      {/^[ts]-/.test(formData.slug) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newSlug = formData.slug.replace(/^[ts]-/, "");
+                            setFormData({ ...formData, slug: newSlug });
+                            setSlugError(validateSlug(newSlug, editingId));
+                          }}
+                          className="px-1 py-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                          title="Remove prefix"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
                   <input
                     id="slug"
                     type="text"
@@ -2171,13 +2328,18 @@ export default function CategoriesManager() {
                     }}
                     className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-750 text-gray-900 dark:text-white"
                   >
-                    <option value="">-- Root Category (No Parent) --</option>
+                    <option value="">
+                      -- [T] Root Category (No Parent) --
+                    </option>
                     {parentSelectRows.map(({ node, depth }) => {
                       const nid = node._id || node.id;
+                      const prefix =
+                        depth === 0
+                          ? "[T] "
+                          : `${"\u00A0\u00A0".repeat(depth)}↳ [S${depth > 1 ? depth : ""}] `;
                       return (
                         <option key={nid} value={nid}>
-                          {"\u00A0\u00A0".repeat(depth)}
-                          {depth ? "↳ " : ""}
+                          {prefix}
                           {node.name}
                         </option>
                       );

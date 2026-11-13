@@ -513,8 +513,10 @@ router.get("/for-test", protect, admin, async (req, res) => {
 router.post("/preset", protect, admin, async (req, res) => {
   try {
     // Reassigned below once public ids are resolved to numeric ids.
-    let { testId, testSeriesId, stageId } = req.body;
-    const { sections: presetSections } = req.body;
+    let testId = req.body?.test_id ?? req.body?.testId;
+    let testSeriesId = req.body?.test_series_id ?? req.body?.testSeriesId;
+    let stageId = req.body?.stage_id ?? req.body?.stageId;
+    const { sections: presetSections } = req.body || {};
 
     const resolveId = async (table, value) => {
       if (!value) return null;

@@ -1,6 +1,7 @@
 import express from "express";
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import logger from "../../infrastructure/logger/logger.js";
 import { protect, optionalAuth } from "../../middleware/auth.middleware.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import {
@@ -127,8 +128,8 @@ const recordAdminPayment = async ({
   // LOW default-client trap: transactional callers must pass client; warn on
   // pool fallback so cross-ledger atomicity regressions are visible in logs.
   if (!client) {
-    console.warn(
-      "[payments] recordAdminPayment called without txn client — falling back to pool (non-atomic)",
+    logger.warn(
+      "[payments] recordAdminPayment called without txn client - falling back to pool (non-atomic)",
     );
   }
   const conn = client || pool;
@@ -489,7 +490,7 @@ router.post("/create-order", protect, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Create order error:", error);
+    logger.error({ err: error }, "Create order error");
     res.status(500).json({
       success: false,
       message: "Payment processing failed. Please try again.",
@@ -522,8 +523,13 @@ router.post(
 
       if (isMockOrder && process.env.NODE_ENV !== "production") {
         // Mock orders ONLY allowed when NODE_ENV !== production (never in production, even with demoMode)
-        console.warn(
-          `[Payments] Mock verify accepted for ${razorpay_order_id} user=${req.user.id} demoMode=${isDemoMode}`,
+        logger.warn(
+          {
+            orderId: razorpay_order_id,
+            userId: req.user.id,
+            demoMode: isDemoMode,
+          },
+          "[Payments] Mock verify accepted",
         );
         isSignatureValid = true;
       } else if (razorpayKeySecret) {
@@ -588,8 +594,13 @@ router.post(
               razorpayOrder.amount_paid > 0 &&
               razorpayOrder.amount_paid !== expectedAmountPaise
             ) {
-              console.error(
-                `[Payments] Amount mismatch: order ${razorpay_order_id} paid ${razorpayOrder.amount_paid} paise, expected ${expectedAmountPaise} paise`,
+              logger.error(
+                {
+                  orderId: razorpay_order_id,
+                  amountPaid: razorpayOrder.amount_paid,
+                  expectedAmount: expectedAmountPaise,
+                },
+                "[Payments] Amount mismatch",
               );
               return res.status(400).json({
                 success: false,
@@ -598,9 +609,9 @@ router.post(
               });
             }
           } catch (orderFetchErr) {
-            console.error(
-              "[Payments] Failed to fetch order for plan verification:",
-              orderFetchErr.message,
+            logger.error(
+              { err: orderFetchErr },
+              "[Payments] Failed to fetch order for plan verification",
             );
             // Fail-closed: don't grant Pro if we can't verify the plan from the order.
             return res.status(400).json({
@@ -776,9 +787,9 @@ router.post(
                 [authoritativeCouponCode, String(req.user.id)],
               );
             } catch (couponErr) {
-              console.error(
-                "Error updating coupon usage in verify:",
-                couponErr.message,
+              logger.error(
+                { err: couponErr },
+                "Error updating coupon usage in verify",
               );
             }
           }
@@ -800,9 +811,9 @@ router.post(
               verifyClient,
             );
           } catch (txnErr) {
-            console.error(
-              "Error recording transaction in verify:",
-              txnErr.message,
+            logger.error(
+              { err: txnErr },
+              "Error recording transaction in verify",
             );
           }
           try {
@@ -822,9 +833,9 @@ router.post(
               client: verifyClient,
             });
           } catch (paymentErr) {
-            console.error(
-              "Error recording admin payment in verify:",
-              paymentErr.message,
+            logger.error(
+              { err: paymentErr },
+              "Error recording admin payment in verify",
             );
           }
 
@@ -896,7 +907,7 @@ router.post(
               receiptHtml,
             );
           } catch (e) {
-            console.error("Payment confirmation email error:", e.message);
+            logger.error({ err: e }, "Payment confirmation email error");
           }
         })();
       } else {
@@ -906,7 +917,7 @@ router.post(
         });
       }
     } catch (error) {
-      console.error("Verify payment error:", error);
+      logger.error({ err: error }, "Verify payment error");
       res.status(500).json({
         success: false,
         message: "Payment verification failed. Please try again.",
@@ -1004,14 +1015,14 @@ router.post(
         );
       } catch (e) {
         // never fail webhook on audit write
-        console.warn("[webhook_events] persist failed:", e.message);
+        logger.warn({ err: e }, "[webhook_events] persist failed");
       }
     };
 
     try {
       const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
       if (!secret) {
-        console.error("Razorpay webhook secret not configured");
+        logger.error("Razorpay webhook secret not configured");
         await persistWebhookEvent({
           status: "failed",
           error: "Webhook secret not configured",
@@ -1125,8 +1136,9 @@ router.post(
             // MED canonical days: shared PLAN_DURATION_DAYS; unknown → no grant.
             const expiryDays = resolvePlanDays(planId);
             if (!expiryDays) {
-              console.warn(
-                `[webhook] unknown planId ${planId} for payment ${gatewayPaymentId} — skipping Pro grant`,
+              logger.warn(
+                { planId, gatewayPaymentId },
+                "[webhook] Unknown planId - skipping Pro grant",
               );
               return;
             }
@@ -1173,9 +1185,9 @@ router.post(
                   [couponCode, String(userId)],
                 );
               } catch (couponErr) {
-                console.error(
-                  "Error updating coupon usage in webhook:",
-                  couponErr.message,
+                logger.error(
+                  { err: couponErr },
+                  "Error updating coupon usage in webhook",
                 );
               }
             }
@@ -1362,7 +1374,7 @@ router.post(
       }
       res.json({ success: true, message: "Webhook processed" });
     } catch (error) {
-      console.error("Webhook error:", error);
+      logger.error({ err: error }, "Webhook error");
       try {
         await pool.query(
           `INSERT INTO webhook_events (gateway, event, status, payload, headers, signature_valid, error)

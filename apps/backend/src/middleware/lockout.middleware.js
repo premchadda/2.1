@@ -3,6 +3,7 @@ import { logAuditEvent } from "./audit.middleware.js";
 import logger from "../infrastructure/logger/logger.js";
 import { getRuntimeSecuritySettings } from "../services/SettingsService.js";
 import { isUserAdminRequest } from "./auth.middleware.js";
+import { getClientIp } from "../shared/utils/clientIp.js";
 
 export const LOCKOUT_CONFIG = {
   MAX_ATTEMPTS: 5,
@@ -17,27 +18,7 @@ export const LOCKOUT_CONFIG = {
   ],
 };
 
-const getClientIp = (req) => {
-  if (req?.ip) {
-    let ip = String(req.ip).trim();
-    if (ip.startsWith("::ffff:")) ip = ip.slice(7);
-    if (ip === "::1") return "127.0.0.1";
-    if (ip) return ip;
-  }
-  const forwardedFor = req.headers?.["x-forwarded-for"];
-  if (forwardedFor) {
-    const first = String(forwardedFor).split(",")[0].trim();
-    if (first.startsWith("::ffff:")) return first.slice(7);
-    return first;
-  }
-  const sock = req.socket?.remoteAddress || req.connection?.remoteAddress;
-  if (sock) {
-    if (sock.startsWith("::ffff:")) return sock.slice(7);
-    if (sock === "::1") return "127.0.0.1";
-    return sock;
-  }
-  return "unknown";
-};
+// getClientIp is imported from ../shared/utils/clientIp.js
 
 export const checkAccountLockout = async (email, ipAddress) => {
   const normalizedEmail = String(email ?? "").toLowerCase();
@@ -166,6 +147,8 @@ const LOCKOUT_PATHS = [
   "/reset-password",
   "/verify-otp",
   "/forgot-password",
+  "/verify-email",
+  "/resend-verification",
   "/2fa/verify",
   "/2fa/enroll",
   "/login/2fa",
@@ -198,6 +181,9 @@ const isLockoutPath = (path) => {
     path.endsWith("/login/2fa")
   )
     return true;
+  if (path === "/verify-email" || path.startsWith("/verify-email/"))
+    return true;
+  if (path === "/resend-verification") return true;
   return LOCKOUT_PATHS.some((p) => path === p || path.endsWith(p));
 };
 
@@ -247,8 +233,13 @@ export const lockoutMiddleware = async (req, res, next) => {
   if (lockoutStatus.locked) {
     if (process.env.NODE_ENV !== "production") {
       logger.warn(
-        `[Lockout] Account locked for ${email} from IP ${ipAddress}. ` +
-          `Attempts: ${lockoutStatus.attemptCount}, Remaining: ${lockoutStatus.lockoutMinutes} minutes`,
+        {
+          email,
+          ipAddress,
+          attemptCount: lockoutStatus.attemptCount,
+          lockoutMinutes: lockoutStatus.lockoutMinutes,
+        },
+        "[Lockout] Account locked",
       );
     }
 

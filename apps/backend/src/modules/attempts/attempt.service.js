@@ -10,6 +10,7 @@ import logger from "../../infrastructure/logger/logger.js";
 import {
   resolveQuestionMarks,
   scoreMcqAnswer,
+  normalizeScorerOption,
 } from "../../shared/utils/scoreAttempt.js";
 
 const repo = new AttemptRepository();
@@ -140,41 +141,29 @@ export const attemptService = {
         answer?.selectedOption !== undefined
           ? answer.selectedOption
           : answer?.answer;
-      let selectedOption = null;
-      if (
-        rawSelected !== undefined &&
-        rawSelected !== null &&
-        rawSelected !== ""
-      ) {
-        if (Number.isFinite(Number(rawSelected))) {
-          selectedOption = Number(rawSelected);
-        } else {
-          const s = String(rawSelected).trim();
-          const m = s.match(/^[A-Za-z]$/);
-          selectedOption = m ? s.toUpperCase().charCodeAt(0) - 65 : null;
-        }
-      }
-      const rawCorrect =
+      const selectedOption = normalizeScorerOption(rawSelected);
+
+      let rawCorrect =
         question.correct_option ??
         question.correctOption ??
         question.correct_answer ??
         question.correct;
-      let correctIndex = -1;
+
       if (
-        rawCorrect !== undefined &&
-        rawCorrect !== null &&
-        rawCorrect !== ""
+        (rawCorrect === undefined || rawCorrect === null || rawCorrect === "") &&
+        Array.isArray(question.options)
       ) {
-        const asNum = Number(rawCorrect);
-        if (Number.isFinite(asNum)) {
-          correctIndex = asNum;
-        } else {
-          const s = String(rawCorrect).trim();
-          const m = s.match(/^[A-Da-d]$/);
-          correctIndex = m ? s.toUpperCase().charCodeAt(0) - 65 : -1;
+        const correctIndices = question.options
+          .map((opt, idx) =>
+            opt?.isCorrect || opt?.is_correct || opt?.correct ? idx : -1,
+          )
+          .filter((idx) => idx >= 0);
+        if (correctIndices.length > 0) {
+          rawCorrect =
+            correctIndices.length === 1 ? correctIndices[0] : correctIndices;
         }
       }
-      const correctOption = correctIndex;
+      const correctOption = normalizeScorerOption(rawCorrect);
 
       const { positive: qMarks, negative: qNegMarks } = resolveQuestionMarks(
         question,
@@ -190,70 +179,30 @@ export const attemptService = {
         "mcq"
       ).toLowerCase();
 
-      let isCorrect = false;
-      let isWrong = false;
+      const scored = scoreMcqAnswer({
+        selectedOption,
+        correctOption,
+        positive: qMarks,
+        negative: qNegMarks,
+        allowPartial: questionType === "msq",
+      });
 
-      if (selectedOption === null) {
-        unattempted++;
-      } else if (questionType === "msq" && Array.isArray(question.options)) {
-        const correctOptions = question.options
-          .map((opt, idx) =>
-            opt?.isCorrect || opt?.is_correct || opt?.correct ? idx : -1,
-          )
-          .filter((idx) => idx >= 0);
-        const selectedArr = Array.isArray(selectedOption)
-          ? selectedOption
-          : [selectedOption];
-        const selectedSet = new Set(selectedArr);
-        const correctSet = new Set(correctOptions);
-
-        const allCorrectSelected = correctOptions.every((idx) =>
-          selectedSet.has(idx),
-        );
-        const noWrongSelected = selectedArr.every((idx) => correctSet.has(idx));
-
-        if (
-          allCorrectSelected &&
-          noWrongSelected &&
-          selectedArr.length === correctOptions.length
-        ) {
-          isCorrect = true;
-          correct++;
-          totalScore += qMarks;
-        } else if (noWrongSelected && selectedArr.length > 0) {
-          const partialCount = selectedArr.filter((idx) =>
-            correctSet.has(idx),
-          ).length;
-          const partial = qMarks * (partialCount / correctOptions.length);
-          totalScore += partial;
-        } else {
-          isWrong = true;
-          wrong++;
-          totalScore -= qNegMarks;
-        }
-      } else {
-        const scored = scoreMcqAnswer({
-          selectedOption,
-          correctOption,
-          positive: qMarks,
-          negative: qNegMarks,
-        });
-
-        isCorrect = scored.isCorrect;
-        isWrong = scored.isWrong;
-        correct += scored.correct;
-        wrong += scored.wrong;
-        unattempted += scored.unattempted;
-        totalScore += scored.delta;
-      }
+      const isCorrect = scored.isCorrect;
+      const isWrong = scored.isWrong;
+      const isPartial = Boolean(scored.isPartial);
+      correct += scored.correct;
+      wrong += scored.wrong;
+      unattempted += scored.unattempted;
+      totalScore += scored.delta;
 
       evaluatedAnswers.push({
         questionId: question.id,
         selectedOption,
         isCorrect,
         isWrong,
+        isPartial,
         timeSpent: answer?.timeSpent || 0,
-        marks: isCorrect ? qMarks : isWrong ? -qNegMarks : 0,
+        marks: scored.delta,
       });
     }
 

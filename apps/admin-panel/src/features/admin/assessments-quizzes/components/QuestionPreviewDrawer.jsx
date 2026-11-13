@@ -2,7 +2,7 @@ import React from "react";
 import PropTypes from "prop-types";
 import { createPortal } from "react-dom";
 import { X, Edit2, Sparkles, CheckCircle2 } from "lucide-react";
-import { Badge } from "./Badge";
+import { Badge as _Badge } from "./Badge";
 import { DIFFICULTY_LEVELS } from "../../../../shared/config/difficultyConfig.js";
 import MathRenderer from "../../../../shared/components/MathRenderer";
 

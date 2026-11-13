@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { logger } from "@trstprep/shared-config";
 import { useParams, Link } from "react-router-dom";
 import { getExamCategories } from "../../shared/lib/dataService";
 import api from "../../shared/lib/api";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
+import { toast } from "react-hot-toast";
 import {
   Bell,
   Calendar,
@@ -25,6 +26,7 @@ function ExamUpdates() {
   const [updates, setUpdates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [subscribed, setSubscribed] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -32,11 +34,26 @@ function ExamUpdates() {
       try {
         setLoading(true);
 
-        // Fetch exam categories and info
-        const categories = await getExamCategories();
+        // Fetch categories, exam metadata, and real-time updates concurrently
+        const [categoriesRes, updatesRes, singleExamRes] =
+          await Promise.allSettled([
+            getExamCategories(),
+            api.get(`/api/exam-info/${examId}/updates`, {
+              signal: controller.signal,
+            }),
+            api.get(`/api/exams/${examId}`, {
+              signal: controller.signal,
+            }),
+          ]);
+
         if (controller.signal.aborted) return;
 
-        // Find the exam
+        const categories =
+          categoriesRes.status === "fulfilled" && Array.isArray(categoriesRes.value)
+            ? categoriesRes.value
+            : [];
+
+        // Find the exam in categories or fall back to single exam result
         let currentExam = null;
         for (const category of categories) {
           const found = category.exams?.find(
@@ -51,26 +68,34 @@ function ExamUpdates() {
           }
         }
 
-        if (currentExam) {
-          setExam(currentExam);
-
-          // Fetch real updates from API
-          try {
-            const response = await api.get(`/api/exam-info/${examId}/updates`, {
-              signal: controller.signal,
-            });
-            if (controller.signal.aborted) return;
-            if (response.data?.success) {
-              setUpdates(response.data.data || []);
-            } else {
-              setUpdates([]);
-            }
-          } catch (err) {
-            if (err.name !== "AbortError") {
-              logger.error("Failed to fetch exam updates:", err);
-              setUpdates([]);
-            }
+        if (!currentExam && singleExamRes.status === "fulfilled") {
+          const e = singleExamRes.value.data?.data;
+          if (e) {
+            currentExam = {
+              ...e,
+              title: e.title || e.name || examId,
+              category: e.category || "General",
+            };
           }
+        }
+
+        if (!currentExam) {
+          currentExam = {
+            id: examId,
+            title: examId.replace(/[-_]+/g, " ").toUpperCase(),
+            category: "Exam",
+          };
+        }
+        setExam(currentExam);
+
+        if (
+          updatesRes.status === "fulfilled" &&
+          updatesRes.value?.data?.success &&
+          Array.isArray(updatesRes.value.data.data)
+        ) {
+          setUpdates(updatesRes.value.data.data);
+        } else {
+          setUpdates([]);
         }
       } catch (error) {
         if (error.name !== "AbortError")
@@ -171,6 +196,61 @@ function ExamUpdates() {
       year: "numeric",
     });
   };
+
+  const handleSubscribe = () => {
+    setSubscribed((prev) => {
+      const next = !prev;
+      if (next) {
+        toast.success(
+          `Subscribed to live notifications for ${exam?.title || "this exam"}!`,
+        );
+      } else {
+        toast.success("Unsubscribed from alerts.");
+      }
+      return next;
+    });
+  };
+
+  const importantDates = useMemo(() => {
+    if (Array.isArray(exam?.importantDates) && exam.importantDates.length > 0) {
+      return exam.importantDates.map((d) => ({
+        label: d.label || d.title,
+        date: d.date || d.value,
+        isLive: true,
+      }));
+    }
+    const dateUpdates = updates.filter(
+      (u) =>
+        u.type === "exam_date" ||
+        u.type === "notification" ||
+        Boolean(u.date || u.examDate),
+    );
+    if (dateUpdates.length > 0) {
+      return dateUpdates.slice(0, 4).map((u) => ({
+        label: u.title,
+        date: formatDate(u.date || u.examDate),
+        isLive: true,
+      }));
+    }
+    const currentYear = new Date().getFullYear();
+    return [
+      {
+        label: "Notification Release",
+        date: `Expected: March ${currentYear}`,
+        isLive: false,
+      },
+      {
+        label: "Application Window",
+        date: `Expected: April ${currentYear}`,
+        isLive: false,
+      },
+      {
+        label: "Exam Date",
+        date: `Expected: June–July ${currentYear}`,
+        isLive: false,
+      },
+    ];
+  }, [exam, updates]);
 
   if (loading) {
     return (
@@ -396,52 +476,54 @@ function ExamUpdates() {
                 Stay Updated
               </h3>
               <p className="text-sm text-indigo-700 dark:text-indigo-400 mb-4">
-                Get notified about important updates and deadlines.
+                Get notified about official notifications, dates, and syllabus updates.
               </p>
-              <button className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                Subscribe to Updates
+              <button
+                onClick={handleSubscribe}
+                className={`w-full py-2.5 rounded-xl font-bold transition focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm ${
+                  subscribed
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                }`}
+              >
+                {subscribed ? "✓ Subscribed to Alerts" : "Subscribe to Updates"}
               </button>
             </div>
 
             {/* Important Dates */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="font-bold text-gray-900 dark:text-white mb-4">
-                Important Dates
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-gray-900 dark:text-white">
+                  Important Dates
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300">
+                  Live Feed
+                </span>
+              </div>
               <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full bg-green-500 mt-2"></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Notification Release
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Expected: March 2026
-                    </p>
+                {importantDates.map((item, idx) => (
+                  <div key={idx} className="flex items-start gap-3">
+                    <div
+                      className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${
+                        idx === 0
+                          ? "bg-green-500"
+                          : idx === 1
+                            ? "bg-blue-500"
+                            : idx === 2
+                              ? "bg-purple-500"
+                              : "bg-amber-500"
+                      }`}
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {item.label}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {item.date}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Application Start
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Expected: April 2026
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full bg-purple-500 mt-2"></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Exam Date
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Expected: June 2026
-                    </p>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           </div>

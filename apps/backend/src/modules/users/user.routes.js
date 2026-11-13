@@ -134,10 +134,22 @@ const profileUpdateSchema = createSchema()
 
 /**
  * Delete old profile asset file from disk
- * @param {string} oldPath - The old file path (e.g., /assets/avatar/avatar_123_1234567890.jpg)
+ * @param {string} oldPath - The old file path (e.g., /assets/avatar/avatar_123_1234567890.webp)
+ * @param {string|number|null} userId - The owner user ID to prevent unauthorized file deletion
  */
-const deleteOldProfileAsset = (oldPath) => {
+const deleteOldProfileAsset = (oldPath, userId = null) => {
   if (!oldPath || typeof oldPath !== "string") return;
+
+  const fileName = path.basename(oldPath);
+  // Strict format check: must be avatar_<userId>_<timestamp>.<ext> or banner_<userId>_<timestamp>.<ext>
+  const fileMatch = fileName.match(/^(avatar|banner)_(\d+)_\d+\.(webp|jpg|jpeg|png)$/i);
+  if (!fileMatch) {
+    return;
+  }
+  if (userId && String(fileMatch[2]) !== String(userId)) {
+    // Attempted to delete another user's asset or non-profile file — rejected
+    return;
+  }
 
   // Full URLs (Supabase/S3) — try to extract storage key and delete via provider
   if (oldPath.startsWith("http://") || oldPath.startsWith("https://")) {
@@ -149,7 +161,6 @@ const deleteOldProfileAsset = (oldPath) => {
       );
       if (publicMatch) {
         const storageKey = decodeURIComponent(publicMatch[2]);
-        // Build a synthetic asset object for deleteStoredAssetFile
         deleteStoredAssetFile({
           metadata: { provider: "supabase", storageKey },
         }).catch(() => {});
@@ -160,17 +171,13 @@ const deleteOldProfileAsset = (oldPath) => {
     return;
   }
 
-  // Local paths under /assets/avatar/, /uploads/, or localhost
-  const fileName = path.basename(oldPath);
+  // Local paths: ONLY allow unlinking inside uploads/avatars/ matching the pattern.
+  // Never touch uploads/images or other directories.
   const avatarPath = path.join(__dirname, "../../../uploads/avatars", fileName);
-  const imagePath = path.join(__dirname, "../../../uploads/images", fileName);
 
   try {
     if (fs.existsSync(avatarPath)) {
       fs.unlinkSync(avatarPath);
-    }
-    if (fs.existsSync(imagePath)) {
-      fs.unlinkSync(imagePath);
     }
   } catch (error) {
     console.error(
@@ -189,29 +196,37 @@ const deleteOldProfileAsset = (oldPath) => {
  * @returns {string|null} New file path
  */
 const saveProfileAsset = async (imageData, userId, prefix, oldPath = null) => {
+  // Only accept standard image mime types; reject text/html, svg, or other scriptable types
   const matches = String(imageData).match(
-    /^data:image\/([a-zA-Z0-9]+);base64,(.+)$/,
+    /^data:image\/(jpeg|jpg|png|webp);base64,(.+)$/i,
   );
 
   if (!matches) {
     return null;
   }
 
-  // Delete old file if provided
+  // Delete old file if provided (with ownership verification)
   if (oldPath) {
-    deleteOldProfileAsset(oldPath);
+    deleteOldProfileAsset(oldPath, userId);
   }
 
-  const ext = matches[1] === "jpeg" ? "jpg" : matches[1];
   const base64Data = matches[2];
-  const buffer = Buffer.from(base64Data, "base64");
-  let fileName = `${prefix}_${userId}_${Date.now()}.${ext}`;
+  let buffer;
+  try {
+    buffer = Buffer.from(base64Data, "base64");
+    if (!buffer || buffer.length === 0 || buffer.length > 5 * 1024 * 1024) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
 
-  // Compress to keep files small: avatars are square thumbnails, banners are wide.
+  // Compress and transcode to WebP: avatars are square thumbnails, banners are wide.
   const maxWidth = prefix === "banner" ? 1280 : 256;
   const maxHeight = prefix === "banner" ? 480 : 256;
-  let compressedBuffer = buffer;
-  let mimetype = `image/${matches[1] === "jpeg" ? "jpeg" : matches[1]}`;
+  let compressedBuffer;
+  const fileName = `${prefix}_${userId}_${Date.now()}.webp`;
+  const mimetype = "image/webp";
 
   try {
     const sharp = (await import("sharp")).default;
@@ -220,13 +235,13 @@ const saveProfileAsset = async (imageData, userId, prefix, oldPath = null) => {
       .resize(maxWidth, maxHeight, { fit: "inside", withoutEnlargement: true })
       .webp({ quality: 80 })
       .toBuffer();
-    mimetype = "image/webp";
-    fileName = `${prefix}_${userId}_${Date.now()}.webp`;
   } catch (error) {
     console.error(
-      `❌ [assetSaveError] Failed to compress ${fileName}:`,
+      `❌ [assetSaveError] Failed to compress and transcode ${fileName}:`,
       error.message,
     );
+    // Never fall back to writing raw unvalidated buffers; return null on decode failure
+    return null;
   }
 
   // Build a synthetic file object for the storage provider
@@ -389,8 +404,8 @@ router.put(
       const oldBanner = currentUser?.banner || null;
 
       if (avatar === "") {
-        // Deleting avatar - remove old file
-        if (oldAvatar) deleteOldProfileAsset(oldAvatar);
+        // Deleting avatar - remove old file (scoped to requesting user)
+        if (oldAvatar) deleteOldProfileAsset(oldAvatar, req.user.id);
         sanitizedData.avatar = null;
       } else if (avatar && avatar.startsWith("data:image")) {
         // Uploading new avatar - delete old and save new
@@ -406,8 +421,8 @@ router.put(
       }
 
       if (banner === "") {
-        // Deleting banner - remove old file
-        if (oldBanner) deleteOldProfileAsset(oldBanner);
+        // Deleting banner - remove old file (scoped to requesting user)
+        if (oldBanner) deleteOldProfileAsset(oldBanner, req.user.id);
         sanitizedData.banner = null;
       } else if (banner && banner.startsWith("data:image")) {
         // Uploading new banner - delete old and save new

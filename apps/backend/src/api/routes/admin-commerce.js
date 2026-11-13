@@ -201,7 +201,8 @@ router.post(
 router.post(
   "/notifications/bulk",
   asyncHandler(async (req, res) => {
-    const { userIds, notification } = req.body;
+    const userIds = req.body?.user_ids ?? req.body?.userIds;
+    const notification = req.body?.notification;
     const { title, message, type } = notification || {};
     const bulkActionText =
       notification?.actionText ?? notification?.action_text;
@@ -260,17 +261,6 @@ router.delete(
         .json({ success: false, message: "Notification not found" });
     }
     res.json({ success: true, message: "Notification moved to trash" });
-  }),
-);
-
-// ===== LEADERBOARD MANAGEMENT =====
-router.get(
-  "/leaderboards",
-  asyncHandler(async (req, res) => {
-    const leaderboards = await dbHelpers.find("leaderboards", {
-      isActive: true,
-    });
-    res.json({ success: true, data: leaderboards });
   }),
 );
 

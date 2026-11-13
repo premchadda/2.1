@@ -534,6 +534,10 @@ export const sanitizeQuestionForAttempt = (question) => {
     answer,
     isCorrect,
     is_correct,
+    explanation,
+    explanationHi,
+    explanation_hi,
+    solution,
     ...safeQuestion
   } = question;
 

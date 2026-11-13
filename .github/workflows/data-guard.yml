@@ -51,7 +51,7 @@ jobs:
       - name: Fail on tracked secrets or secret values
         run: |
           # Never track .env files or the removed MiniMax key file.
-          TRACKED_ENV=$(git ls-files | grep -E '(^|/)\.env$|(^|/)M3 Key\.txt$' || true)
+          TRACKED_ENV=$(git ls-files | grep -E '(^|/)\.env(\.[^.]+)?$|(^|/)M3 Key\.txt$' | grep -vE '\.env\.example(\.|$)' || true)
           if [ -n "$TRACKED_ENV" ]; then
             echo "\u274c Secret files tracked by git:"
             echo "$TRACKED_ENV"

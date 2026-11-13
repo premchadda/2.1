@@ -33,13 +33,16 @@ import {
 } from "@trstprep/shared-config";
 import { formatPyqSourceLabel } from "../../../shared/lib/questionUtils.js";
 import { handleAvatarError } from "../../../shared/utils/avatarFallback.js";
+import SocraticHintModal from "./SocraticHintModal";
 
 export default function PracticeWorkspace({
   session,
   onComplete,
   onExit,
   onLaunchTopicSession,
+  onToggleCanvasMode,
 }) {
+  const [showSocraticModal, setShowSocraticModal] = useState(false);
   const [questionCache, setQuestionCache] = useState(() => {
     const map = {};
     if (Array.isArray(session?.questions)) {
@@ -908,6 +911,18 @@ export default function PracticeWorkspace({
 
           {/* Top Right: Fullscreen, Language Switch Option (Click to Change) & Question Palette (Mobile) */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {onToggleCanvasMode && (
+              <button
+                type="button"
+                onClick={onToggleCanvasMode}
+                title="Switch to Zen Canvas View"
+                aria-label="Switch to Zen Canvas View"
+                className="hidden md:inline-flex items-center gap-1.5 h-8 px-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs shrink-0"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                <span>Zen Canvas</span>
+              </button>
+            )}
             {/* Fullscreen Button */}
             <button
               type="button"
@@ -1171,6 +1186,13 @@ export default function PracticeWorkspace({
                   </div>
 
                   <div className="flex flex-wrap gap-2 mb-3">
+                    <button
+                      onClick={() => setShowSocraticModal(true)}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-xs font-semibold text-amber-200 border border-amber-400/40 transition flex items-center gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Socratic Clues (Tier 1-3)</span>
+                    </button>
                     <button
                       onClick={() => handleAskAiTutor("hint")}
                       className="px-3 py-1.5 rounded-lg bg-indigo-800/60 hover:bg-indigo-700 text-xs font-semibold text-indigo-100 border border-indigo-700/50 transition"
@@ -1726,6 +1748,15 @@ export default function PracticeWorkspace({
           isOpen={vaultOpen}
           onClose={() => setVaultOpen(false)}
         />
+
+        {showSocraticModal && (
+          <SocraticHintModal
+            isOpen={showSocraticModal}
+            onClose={() => setShowSocraticModal(false)}
+            question={question}
+            questionIndex={currentIdx}
+          />
+        )}
       </div>
     </div>
   );

@@ -1,9 +1,22 @@
 import express from "express";
 import { protect, admin } from "../../middleware/auth.middleware.js";
+import {
+  restrictAdminOrigin,
+  validateAdminApiKey,
+} from "../../middleware/origin.middleware.js";
+import { auditMiddleware } from "../../middleware/audit.middleware.js";
 import Stage from "../../data/models/Stage.js";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
+
+const adminMutation = [
+  restrictAdminOrigin,
+  validateAdminApiKey,
+  protect,
+  admin,
+  auditMiddleware({ includeBody: true }),
+];
 
 // FIX BUG-018: Use JSON arrays instead of PostgreSQL array format
 const parseExamIds = (value) => {
@@ -308,7 +321,7 @@ router.get("/:id/details", async (req, res) => {
 // @route   POST /api/stages/initialize
 // @desc    Initialize default stages for common exam patterns
 // @access  Admin
-router.post("/initialize", protect, admin, async (req, res) => {
+router.post("/initialize", ...adminMutation, async (req, res) => {
   try {
     // Check if stages already exist
     const existingStages = await Stage.findActive();
@@ -408,7 +421,7 @@ router.post("/initialize", protect, admin, async (req, res) => {
 // @route   POST /api/stages
 // @desc    Create a new stage
 // @access  Admin
-router.post("/", protect, admin, async (req, res) => {
+router.post("/", ...adminMutation, async (req, res) => {
   try {
     const { name, slug, description, order, icon, isActive } = req.body;
 
@@ -450,7 +463,7 @@ router.post("/", protect, admin, async (req, res) => {
 // @route   PUT /api/stages/:id
 // @desc    Update a stage
 // @access  Admin
-router.put("/:id", protect, admin, async (req, res) => {
+router.put("/:id", ...adminMutation, async (req, res) => {
   try {
     const { name, slug, description, order, icon, isActive } = req.body;
 
@@ -548,7 +561,7 @@ router.put("/:id", protect, admin, async (req, res) => {
 // @route   DELETE /api/stages/:id
 // @desc    Delete a stage
 // @access  Admin
-router.delete("/:id", protect, admin, async (req, res) => {
+router.delete("/:id", ...adminMutation, async (req, res) => {
   try {
     const stage = await Stage.findById(req.params.id);
     if (!stage) {
@@ -649,7 +662,7 @@ router.delete("/:id", protect, admin, async (req, res) => {
 // @route   PUT /api/stages/:id/reorder
 // @desc    Reorder stages
 // @access  Admin
-router.put("/:id/reorder", protect, admin, async (req, res) => {
+router.put("/:id/reorder", ...adminMutation, async (req, res) => {
   try {
     const { newOrder } = req.body;
 
@@ -680,7 +693,7 @@ router.put("/:id/reorder", protect, admin, async (req, res) => {
 // @route   POST /api/stages/sync-exam-ids
 // @desc    Sync exam stage_ids based on stages' exam_ids (bidirectional linking)
 // @access  Admin
-router.post("/sync-exam-ids", protect, admin, async (req, res) => {
+router.post("/sync-exam-ids", ...adminMutation, async (req, res) => {
   try {
     const stages = await dbHelpers.find("stages", { isActive: true });
     const exams = await dbHelpers.find("exams", { isActive: true });
@@ -744,7 +757,7 @@ router.post("/sync-exam-ids", protect, admin, async (req, res) => {
 //          exams.id PKs are NEVER rewritten. Admin-only migration helper kept
 //          dry-run safe for the PK step (examsUpdated always 0).
 // @access  Admin
-router.post("/update-exam-ids", protect, admin, async (req, res) => {
+router.post("/update-exam-ids", ...adminMutation, async (req, res) => {
   try {
     const stages = await dbHelpers.find("stages", { isActive: true });
 
@@ -853,7 +866,7 @@ router.post("/update-exam-ids", protect, admin, async (req, res) => {
 // @desc    Slug-based sync of exam stage_ids + stage examIds (NO primary-key mutation).
 //          Step 2 PK rewrite removed: exams.id is stable. Admin-only helper.
 // @access  Admin
-router.post("/sync-all", protect, admin, async (req, res) => {
+router.post("/sync-all", ...adminMutation, async (req, res) => {
   try {
     const stages = await dbHelpers.find("stages", { isActive: true });
     const exams = await dbHelpers.find("exams", { isActive: true });

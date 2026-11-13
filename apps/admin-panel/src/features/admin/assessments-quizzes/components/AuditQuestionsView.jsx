@@ -13,6 +13,7 @@ import Badge from "./Badge";
 import {
   AUDIT_FILTER_TABS,
   AUDIT_ISSUE_SEVERITY,
+  auditQuestionsList,
   filterAuditedQuestions,
 } from "./auditHelpers";
 
@@ -24,10 +25,20 @@ export default function AuditQuestionsView({ questions = [], onEditQuestion }) {
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Automatically compute audit issues if raw questions are passed
+  const auditedQuestions = useMemo(() => {
+    if (!Array.isArray(questions)) return [];
+    if (questions.length === 0) return [];
+    if (questions.some((q) => q && Array.isArray(q.auditIssues))) {
+      return questions;
+    }
+    return auditQuestionsList(questions);
+  }, [questions]);
+
   // Filtered questions based on active tab and search
   const filteredList = useMemo(() => {
-    return filterAuditedQuestions(questions, activeTab, searchQuery);
-  }, [questions, activeTab, searchQuery]);
+    return filterAuditedQuestions(auditedQuestions, activeTab, searchQuery);
+  }, [auditedQuestions, activeTab, searchQuery]);
 
   // Overall counts for summary breakdown
   const counts = useMemo(() => {
@@ -35,7 +46,7 @@ export default function AuditQuestionsView({ questions = [], onEditQuestion }) {
     let warningCount = 0;
     let infoCount = 0;
 
-    questions.forEach((q) => {
+    auditedQuestions.forEach((q) => {
       const issues = q.auditIssues || [];
       issues.forEach((i) => {
         if (i.severity === AUDIT_ISSUE_SEVERITY.DANGER) criticalCount++;
@@ -45,21 +56,21 @@ export default function AuditQuestionsView({ questions = [], onEditQuestion }) {
     });
 
     return {
-      total: questions.length,
+      total: auditedQuestions.length,
       critical: criticalCount,
       warning: warningCount,
       info: infoCount,
     };
-  }, [questions]);
+  }, [auditedQuestions]);
 
   // Tab-specific question counts
   const tabCounts = useMemo(() => {
     const map = {};
     AUDIT_FILTER_TABS.forEach((tab) => {
-      map[tab.id] = filterAuditedQuestions(questions, tab.id, "").length;
+      map[tab.id] = filterAuditedQuestions(auditedQuestions, tab.id, "").length;
     });
     return map;
-  }, [questions]);
+  }, [auditedQuestions]);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-colors">

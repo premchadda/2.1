@@ -345,7 +345,7 @@ export default function NotificationsManager() {
     setExpandedId(expandedId === id ? null : id);
   };
 
-  const toggleUserSelection = (userId) => {
+  const _toggleUserSelection = (userId) => {
     if (selectedUsers.includes(userId)) {
       setSelectedUsers(selectedUsers.filter((id) => id !== userId));
     } else {
@@ -353,7 +353,7 @@ export default function NotificationsManager() {
     }
   };
 
-  const selectAllUsers = () => {
+  const _selectAllUsers = () => {
     if (selectedUsers.length === users.length) {
       setSelectedUsers([]);
     } else {

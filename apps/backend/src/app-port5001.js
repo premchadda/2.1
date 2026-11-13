@@ -49,12 +49,17 @@ import {
   csrfCleanupInterval,
 } from "./middleware/csrf.middleware.js";
 import {
+  startAccountPurgeCron,
+  stopAccountPurgeCron,
+} from "./workers/accountPurgeWorker.js";
+import {
   validateOrigin,
   secretsEqual,
 } from "./middleware/origin.middleware.js";
 import { publicIdResponseMiddleware } from "./middleware/public-id-response.middleware.js";
 import cacheControlMiddleware from "./middleware/cacheControl.js";
 import { traceMiddleware } from "./middleware/trace.middleware.js";
+import { getClientIp } from "./shared/utils/clientIp.js";
 import adminRoutes from "./api/routes/admin.js";
 import { mountExtractedRoutes } from "./api/routes/public-routes-index.js";
 import logger from "./infrastructure/logger/logger.js";
@@ -75,6 +80,7 @@ import examCategoryRoutes from "./modules/exams/examCategory.routes.js";
 import examYearlyRoutes from "./modules/exams/examYearly.routes.js";
 import examSeasonsRoutes from "./modules/exams/exam-seasons.routes.js";
 import bookmarksRoutes from "./api/routes/bookmarks.js";
+import notesRoutes from "./api/routes/notes.js";
 import notificationsRoutes from "./api/routes/notifications.js";
 import achievementsRoutes from "./api/routes/achievements.js";
 import blogRoutes from "./api/routes/blog.js";
@@ -93,7 +99,6 @@ import authRoutes from "./modules/auth/auth.routes.js";
 import subscriptionService from "./services/SubscriptionService.js";
 import certificateService from "./services/certificateService.js";
 import subscriptionRoutes from "./api/routes/subscriptions.js";
-import subscriptionAdminRoutes from "./api/routes/subscriptions-admin.js";
 import sessionRoutes from "./modules/sessions/session.routes.js";
 import mathRoutes from "./modules/ai/math.routes.js";
 import intelligenceRoutes from "./api/routes/intelligence.js";
@@ -436,7 +441,7 @@ const generalLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip || req.headers["x-forwarded-for"] || "unknown",
+  keyGenerator: (req) => getClientIp(req),
   skip: (req) =>
     isUserAdminRequest(req) ||
     req.path === "/health" ||
@@ -486,8 +491,7 @@ const adminLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => isUserAdminRequest(req) || isDev,
-  keyGenerator: (req) =>
-    `admin-ip-${req.ip || req.headers["x-forwarded-for"] || "unknown"}`,
+  keyGenerator: (req) => `admin-ip-${getClientIp(req)}`,
 });
 
 const CATALOG_RATE_LIMIT_WINDOW_MS = parseInt(
@@ -511,7 +515,7 @@ const catalogLimiter = rateLimit({
   skip: (req) =>
     isUserAdminRequest(req) ||
     (!isProduction && req.headers["x-load-test"] === "true"),
-  keyGenerator: (req) => req.ip || req.headers["x-forwarded-for"] || "unknown",
+  keyGenerator: (req) => getClientIp(req),
 });
 
 // P0 FIX: Razorpay webhook needs raw body for HMAC verification.
@@ -698,7 +702,7 @@ app.use("/api/auth", authLimiter, authRoutes);
 
 const UPLOAD_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const UPLOAD_RATE_LIMIT_MAX = parseInt(
-  process.env.UPLOAD_RATE_LIMIT_MAX || "10",
+  process.env.UPLOAD_RATE_LIMIT_MAX || "100",
   10,
 );
 const uploadLimiter = rateLimit({
@@ -710,7 +714,6 @@ const uploadLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => isUserAdminRequest(req),
 });
 
 app.use("/api/admin/assets/upload", uploadLimiter);
@@ -722,19 +725,24 @@ app.use("/api/admin/assets/upload", uploadLimiter);
 // public avatar/banner route below is intentionally left unguarded.
 const IMAGE_EXT_RE = /\.(jpg|jpeg|png|gif|webp|avif|svg)$/i;
 
-// Image transforms must run BEFORE the static mount: express.static ends the
-// response on a hit, so an imageOptimization mounted after it would never
-// execute (it calls next() on miss so static still serves everything else).
-app.use("/uploads", imageOptimization);
-
+// Image auth must run BEFORE imageOptimization and static serving so that
+// unauthenticated requests cannot bypass requireImageAuth by appending ?w=... or ?format=...
 app.use(
   "/uploads",
   (req, res, next) => {
     // Avatars/banners are public profile assets — exempt from image auth
     if (/avatar_|banner_/i.test(req.path)) return next();
-    if (IMAGE_EXT_RE.test(req.path)) return requireImageAuth(req, res, next);
+    // Guard images, PDFs, test imports, and uploaded documents with requireImageAuth
+    if (
+      IMAGE_EXT_RE.test(req.path) ||
+      /\.(pdf|json|csv|xlsx|xls)$/i.test(req.path) ||
+      /\/test-imports\//i.test(req.path)
+    ) {
+      return requireImageAuth(req, res, next);
+    }
     next();
   },
+  imageOptimization,
   (req, res, next) => {
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
@@ -883,7 +891,12 @@ app.use(
 app.use(
   "/storage",
   (req, res, next) => {
-    if (IMAGE_EXT_RE.test(req.path)) return requireImageAuth(req, res, next);
+    if (
+      IMAGE_EXT_RE.test(req.path) ||
+      /\.(pdf|json|csv|xlsx|xls)$/i.test(req.path)
+    ) {
+      return requireImageAuth(req, res, next);
+    }
     next();
   },
   (req, res, next) => {
@@ -1096,45 +1109,43 @@ app.get("/api/metrics", protect, admin, (req, res) => metricsHandler(req, res));
 // and admin panel both use /api/* prefix.
 
 app.use(adminIpAllowlist);
-// NOTE (specific-before-general): /api/admin/subscriptions is mounted BEFORE
-// /api/admin on purpose. Express tries mounts in registration order, so if the
-// canonical admin router ever gains a catch-all/param match for this path, the
-// dedicated subscriptions-admin router registered here would silently stop
-// receiving any requests.
-app.use("/api/admin/subscriptions", validateCsrfToken, subscriptionAdminRoutes);
-app.use("/api/admin", adminLimiter, adminRoutes);
+// Note: subscriptionAdminRoutes and adminLimiter are mounted inside admin.js
+// so that subscriptions inherit the full admin security pipeline and adminLimiter
+// evaluates after authentication (avoiding admin lockout).
+app.use("/api/admin", adminRoutes);
 
 app.use(maintenanceMiddleware);
 
-app.use("/api/tests", testsRoutes);
-app.use("/api/questions", questionsRoutes);
+app.use("/api/tests", validateCsrfToken, testsRoutes);
+app.use("/api/questions", validateCsrfToken, questionsRoutes);
 app.use("/api/study", studyRoutes);
 app.use("/api/users", validateCsrfToken, usersRoutes);
 app.use("/api/users", validateCsrfToken, examEnrollmentRoutes);
 app.use("/api/users", validateCsrfToken, studyMaterialEnrollmentRoutes);
 app.use("/api/exams", examRoutes);
-app.use("/api/exam-yearly", examYearlyRoutes);
+app.use("/api/exam-yearly", validateCsrfToken, examYearlyRoutes);
 app.use("/api/exam-seasons", examSeasonsRoutes);
 app.use("/api/series", seriesRoutes);
 app.use("/api/exam-info", examInfoRoutes);
 app.use("/api/test-categories", validateCsrfToken, testCategoryRoutes);
 app.use("/api/exam-categories", examCategoryRoutes);
+app.use("/api/notes", protect, validateCsrfToken, notesRoutes);
 app.use("/api/bookmarks", validateCsrfToken, bookmarksRoutes);
 app.use("/api/notifications", validateCsrfToken, notificationsRoutes);
 app.use("/api/achievements", validateCsrfToken, achievementsRoutes);
-app.use("/api/blogs", blogRoutes);
-app.use("/api/blog", blogRoutes);
+app.use("/api/blogs", validateCsrfToken, blogRoutes);
+app.use("/api/blog", validateCsrfToken, blogRoutes);
 app.use("/api/referrals", validateCsrfToken, referralsRoutes);
 app.use("/api/doubts", validateCsrfToken, doubtsRoutes);
 app.use("/api/study-groups", validateCsrfToken, studyGroupsRoutes);
-app.use("/api/stages", stageRoutes);
+app.use("/api/stages", validateCsrfToken, stageRoutes);
 app.use("/api/payments", validateCsrfToken, paymentRoutes);
 app.use("/api/current-affairs", validateCsrfToken, currentAffairsRoutes);
-app.use("/api/attempt", protect, attemptRoutes);
+app.use("/api/attempt", protect, validateCsrfToken, attemptRoutes);
 app.use("/api/practice", validateCsrfToken, practiceRoutes);
 app.use("/api/notifications-pref", validateCsrfToken, notificationsPrefRoutes);
 app.use("/api/auth/phone", authLimiter, phoneAuthRoutes);
-app.use("/api/sessions", sessionRoutes);
+app.use("/api/sessions", validateCsrfToken, sessionRoutes);
 app.use("/api/subscriptions", validateCsrfToken, subscriptionRoutes);
 app.use("/api/intelligence", validateCsrfToken, intelligenceRoutes);
 app.use("/api/discussions", validateCsrfToken, discussionsRoutes);
@@ -1144,12 +1155,18 @@ app.use("/api/pyps", pypHierarchyRoutes);
 // Compatibility alias — same router, chain-complete. LeaderboardResultsUnified.jsx
 // (out of scope) still calls /leaderboards/admin/list + /stats; remove this mount
 // once that page migrates to /admin/leaderboards/*.
-app.use("/api/leaderboards/admin", adminLimiter, leaderboardAdminRoutes);
-app.use("/api/enrollments", validateCsrfToken, enrollmentsAdminRoutes);
+app.use(
+  "/api/leaderboards/admin",
+  protect,
+  admin,
+  adminLimiter,
+  leaderboardAdminRoutes,
+);
+app.use("/api/enrollments", enrollmentsAdminRoutes);
 app.use("/api/community", validateCsrfToken, communityRoutes);
 app.use("/api/analytics", validateCsrfToken, analyticsRoutes);
 app.use("/api/fortspy", fortskyRoutes);
-app.use("/api/import", adminLimiter, importRoutes);
+app.use("/api/import", protect, admin, adminLimiter, importRoutes);
 app.use("/api/embeddings", embeddingRoutes);
 app.use("/api/node-engine", validateCsrfToken, nodeEngineRoutes);
 
@@ -1162,20 +1179,20 @@ app.use("/api/ai/logs", aiGenerationLogRoutes);
 app.use("/api/adaptive-difficulty", adaptiveDifficultyRoutes);
 app.use("/api/topic-analytics", topicAnalyticsRoutes);
 app.use("/api/weak-areas", weakAreaDetectionRoutes);
-app.use("/api/live-mock", liveMockRoutes);
+app.use("/api/live-mock", validateCsrfToken, liveMockRoutes);
 // NOTE: /api/live-tests is intentionally NOT mounted here. The identical
 // router (live-tests-public.js) is mounted once, with all other extracted
 // public routes, by mountExtractedRoutes() below (see public-routes-index.js).
 // Registering it twice would register every route handler twice.
 app.use("/api/ranking", rankingRoutes);
-app.use("/api/smart-revision", smartRevisionRoutes);
-app.use("/api/revision", smartRevisionRoutes);
+app.use("/api/smart-revision", validateCsrfToken, smartRevisionRoutes);
+app.use("/api/revision", validateCsrfToken, smartRevisionRoutes);
 app.use("/api/search/questions", questionSearchRoutes);
 app.use("/api/search/vector", vectorSearchRoutes);
-app.use("/api/test-templates", testTemplateRoutes);
-app.use("/api/question-builder", questionBuilderRoutes);
-app.use("/api/test-builder", testBuilderRoutes);
-app.use("/api/sections", sectionRoutes);
+app.use("/api/test-templates", validateCsrfToken, testTemplateRoutes);
+app.use("/api/question-builder", validateCsrfToken, questionBuilderRoutes);
+app.use("/api/test-builder", validateCsrfToken, testBuilderRoutes);
+app.use("/api/sections", validateCsrfToken, sectionRoutes);
 app.use("/api/study-materials", studyRoutes);
 app.use("/api/assets", assetRoutes);
 
@@ -1491,8 +1508,9 @@ const startServer = async () => {
           runSubscriptionSweep,
           60 * 60 * 1000,
         );
+        startAccountPurgeCron();
         logger.info(
-          "Schedulers, subscription expiry worker, and background cleaners started successfully.",
+          "Schedulers, subscription expiry worker, DPDP account purge worker, and background cleaners started successfully.",
         );
       } catch (err) {
         logger.error(`Failed to start schedulers: ${err.message}`);
@@ -1550,6 +1568,11 @@ const gracefulShutdown = async (signal) => {
       if (subscriptionSweeperHandle) {
         clearInterval(subscriptionSweeperHandle);
         subscriptionSweeperHandle = null;
+      }
+      try {
+        stopAccountPurgeCron();
+      } catch {
+        /* account purge cron already stopped */
       }
       logger.info("Schedulers and background cleaners stopped.");
     } catch (err) {
@@ -1617,5 +1640,18 @@ process.on("unhandledRejection", (reason) => {
   fatalShutdown("Unhandled Rejection", reason);
 });
 
-startServer();
+const isMainModule = () => {
+  if (!process.argv[1]) return false;
+  const currentScript = path.resolve(process.argv[1]);
+  return (
+    currentScript === __filename ||
+    currentScript === path.resolve(__dirname, "server.js")
+  );
+};
+
+if (isMainModule()) {
+  startServer();
+}
+
+export { startServer, app };
 export default app;

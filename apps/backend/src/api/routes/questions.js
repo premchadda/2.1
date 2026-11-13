@@ -4,6 +4,7 @@ import {
   optionalAuth,
   admin,
 } from "../../middleware/auth.middleware.js";
+import { sanitizeUserContent } from "../../middleware/htmlSanitizer.js";
 import { resolveAssetAccessUrl } from "../../infrastructure/storage/storageProvider.js";
 import { nullIfEmpty } from "../../services/core/common.js";
 import { findEntityByIdentifier } from "../../shared/utils/identifier-utils.js";
@@ -215,68 +216,73 @@ router.get("/:questionId/comments", optionalAuth, async (req, res) => {
 // @route   POST /api/questions/:questionId/comments
 // @desc    Post a comment/discussion on a question
 // @access  Private
-router.post("/:questionId/comments", protect, async (req, res) => {
-  try {
-    const { questionId } = req.params;
-    const text = String(req.body?.text || req.body?.content || "").trim();
-    if (!text) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Comment text is required" });
-    }
+router.post(
+  "/:questionId/comments",
+  protect,
+  sanitizeUserContent(),
+  async (req, res) => {
+    try {
+      const { questionId } = req.params;
+      const text = String(req.body?.text || req.body?.content || "").trim();
+      if (!text) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Comment text is required" });
+      }
 
-    const question = await findEntityByIdentifier(
-      dbHelpers,
-      "questions",
-      questionId,
-    );
-    if (!question) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Question not found" });
-    }
+      const question = await findEntityByIdentifier(
+        dbHelpers,
+        "questions",
+        questionId,
+      );
+      if (!question) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Question not found" });
+      }
 
-    const internalId = question.id || question._id;
-    const result = await dbHelpers.pool.query(
-      `INSERT INTO discussions (
+      const internalId = question.id || question._id;
+      const result = await dbHelpers.pool.query(
+        `INSERT INTO discussions (
         reference_type, reference_id, user_id, user_name, user_avatar, content, upvotes, is_active, created_at, updated_at
       ) VALUES ($1, $2, $3, $4, $5, $6, 0, true, NOW(), NOW())
       RETURNING id, content, content as text, user_id, user_name, user_avatar, created_at, updated_at`,
-      [
-        "question",
-        internalId,
-        req.user.id,
-        req.user.name || "Student",
-        req.user.avatar || null,
-        text,
-      ],
-    );
+        [
+          "question",
+          internalId,
+          req.user.id,
+          req.user.name || "Student",
+          req.user.avatar || null,
+          text,
+        ],
+      );
 
-    const row = result.rows[0];
-    const newComment = {
-      id: row.id,
-      text: row.content || row.text,
-      content: row.content || row.text,
-      userId: row.user_id,
-      userName: row.user_name,
-      userAvatar: row.user_avatar,
-      upvotes: 0,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
+      const row = result.rows[0];
+      const newComment = {
+        id: row.id,
+        text: row.content || row.text,
+        content: row.content || row.text,
+        userId: row.user_id,
+        userName: row.user_name,
+        userAvatar: row.user_avatar,
+        upvotes: 0,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
 
-    res.status(201).json({
-      success: true,
-      message: "Comment posted",
-      data: newComment,
-      comment: newComment,
-    });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+      res.status(201).json({
+        success: true,
+        message: "Comment posted",
+        data: newComment,
+        comment: newComment,
+      });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 // @route   PUT /api/questions/:questionId/comments/:commentId
 // @desc    Edit a question comment

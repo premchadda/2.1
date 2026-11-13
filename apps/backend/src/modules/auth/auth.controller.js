@@ -28,6 +28,7 @@ import {
 import { invalidateResponseCache } from "../../middleware/responseCache.middleware.js";
 import { messageBroker } from "../../infrastructure/events/messageBroker.js";
 import { getIO } from "../../infrastructure/websocket/websocketManager.js";
+import { getClientIp } from "../../shared/utils/clientIp.js";
 import {
   captureSession,
   invalidateSession,
@@ -140,27 +141,7 @@ const resolveUserPermissions = async (user) => {
   return [];
 };
 
-const getClientIp = (req) => {
-  if (req?.ip) {
-    let ip = String(req.ip).trim();
-    if (ip.startsWith("::ffff:")) ip = ip.slice(7);
-    if (ip === "::1") return "127.0.0.1";
-    if (ip) return ip;
-  }
-  const forwardedFor = req.headers?.["x-forwarded-for"];
-  if (forwardedFor) {
-    const first = String(forwardedFor).split(",")[0].trim();
-    if (first.startsWith("::ffff:")) return first.slice(7);
-    return first;
-  }
-  const sock = req.socket?.remoteAddress || req.connection?.remoteAddress;
-  if (sock) {
-    if (sock.startsWith("::ffff:")) return sock.slice(7);
-    if (sock === "::1") return "127.0.0.1";
-    return sock;
-  }
-  return "unknown";
-};
+// getClientIp is imported from ../../shared/utils/clientIp.js
 
 // Append-only security audit for authentication events. Best-effort: never
 // disrupts the request flow (logAuditEvent swallows its own errors).
@@ -496,7 +477,19 @@ export const authController = {
   // POST /api/auth/register
   register: async (req, res, next) => {
     try {
-      const { name, email, password, mobile } = req.body;
+      const { name, email, password } = req.body;
+      const rawMobile = req.body.mobile ?? req.body.phone;
+      let mobile = rawMobile;
+      if (typeof mobile === "string") {
+        mobile = mobile.replace(/[\s-]/g, "");
+        if (mobile.startsWith("+91")) {
+          mobile = mobile.slice(3);
+        } else if (mobile.startsWith("91") && mobile.length === 12) {
+          mobile = mobile.slice(2);
+        }
+        mobile = mobile.trim();
+      }
+      req.body.mobile = mobile;
 
       if (!name || !email || !password) {
         return res.status(400).json({
@@ -577,11 +570,11 @@ export const authController = {
       }
 
       if (mobile) {
-        const mobileRegex = /^[0-9]{10}$/;
+        const mobileRegex = /^[6-9]\d{9}$/;
         if (!mobileRegex.test(mobile)) {
           return res.status(400).json({
             success: false,
-            message: "Invalid mobile format (must be 10 digits)",
+            message: "Invalid mobile format (must be 10 digits starting with 6-9)",
           });
         }
       }

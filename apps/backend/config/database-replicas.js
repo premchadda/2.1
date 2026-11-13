@@ -157,14 +157,26 @@ export const normalizeRequestIdentity = (identity) => {
 };
 
 const IDENTITY_GUC_SQL =
-  "SELECT set_config('app.current_user_id', $1, true), set_config('app.is_admin', $2, true)";
+  "SELECT set_config('app.current_user_id', $1, true), set_config('app.is_admin', $2, true), set_config('app.pgcrypto_key', $3, true)";
 
 // Apply the current request identity on an already-open transaction client.
 // SET LOCAL (third set_config arg = true) scopes the GUCs to the transaction.
 export const applyIdentityGucs = async (client) => {
   const identity = getRequestIdentity();
-  if (!identity) return false;
-  await client.query(IDENTITY_GUC_SQL, [identity.userId, identity.isAdmin]);
+  const pgcryptoKey = process.env.DB_ENCRYPTION_KEY || "";
+  if (!identity) {
+    if (pgcryptoKey) {
+      await client.query("SELECT set_config('app.pgcrypto_key', $1, true)", [
+        pgcryptoKey,
+      ]);
+    }
+    return false;
+  }
+  await client.query(IDENTITY_GUC_SQL, [
+    identity.userId,
+    identity.isAdmin,
+    pgcryptoKey,
+  ]);
   return true;
 };
 
@@ -204,9 +216,51 @@ export const patchPoolQuery = (pool) => {
   return pool;
 };
 
+const wrapClientForIdentity = (client) => {
+  if (client.__identityPatched) return client;
+  client.__identityPatched = true;
+  const rawQuery = client.query.bind(client);
+  client.query = async (...qArgs) => {
+    const firstArg =
+      typeof qArgs[0] === "string" ? qArgs[0].trim().toUpperCase() : "";
+    if (firstArg === "BEGIN" || firstArg.startsWith("BEGIN;")) {
+      const res = await rawQuery(...qArgs);
+      try {
+        await applyIdentityGucs(client);
+      } catch (err) {
+        console.warn("[DB] applyIdentityGucs on BEGIN failed:", err.message);
+      }
+      return res;
+    }
+    return rawQuery(...qArgs);
+  };
+  return client;
+};
+
+export const patchPoolConnect = (pool) => {
+  const rawConnect = pool.connect.bind(pool);
+  pool.connect = function (...args) {
+    if (typeof args[0] === "function") {
+      const cb = args[0];
+      return rawConnect((err, client, release) => {
+        if (err || !client) return cb(err, client, release);
+        wrapClientForIdentity(client);
+        return cb(null, client, release);
+      });
+    }
+    return rawConnect(...args).then((client) => {
+      wrapClientForIdentity(client);
+      return client;
+    });
+  };
+  return pool;
+};
+
 patchPoolQuery(writePool);
+patchPoolConnect(writePool);
 if (readPool !== writePool) {
   patchPoolQuery(readPool);
+  patchPoolConnect(readPool);
 }
 
 /**

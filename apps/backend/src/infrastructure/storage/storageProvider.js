@@ -338,8 +338,8 @@ const deleteLocal = async (storageKey) => {
   if (!storageKey) return true
   const resolvedUploads = path.resolve(UPLOADS_BASE)
   const fullPath = path.resolve(path.join(UPLOADS_BASE, storageKey))
-  // Prevent path traversal: resolved path must be within UPLOADS_BASE
-  if (!fullPath.startsWith(resolvedUploads + path.sep) && fullPath !== resolvedUploads) {
+  // Prevent path traversal: resolved path must be strictly within UPLOADS_BASE (not the directory itself)
+  if (!fullPath.startsWith(resolvedUploads + path.sep)) {
     console.error(`[Storage] Path traversal blocked: ${storageKey} resolves outside uploads dir`)
     return false
   }

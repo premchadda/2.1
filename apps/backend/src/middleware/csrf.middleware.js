@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import path from "path";
 import { secretsEqual } from "./origin.middleware.js";
 import { dbHelpers } from "../infrastructure/database/postgres-helpers.js";
 import { getRedisClient } from "../infrastructure/cache/redisClient.js";
@@ -384,6 +385,18 @@ export const setCsrfCookie = (res, token) => {
   }
 };
 
+export const extractCsrfToken = (req) => {
+  // Neutralize cookie-ingestion CSRF bypass:
+  // Under no circumstances accept tokens from req.cookies['XSRF-TOKEN'] or req.cookies['_csrf_token'].
+  // Only accept from custom headers (x-csrf-token, x-xsrf-token, csrf-token) or body._csrf.
+  return (
+    req.headers?.["x-csrf-token"] ||
+    req.headers?.["x-xsrf-token"] ||
+    req.headers?.["csrf-token"] ||
+    req.body?._csrf
+  );
+};
+
 export const validateCsrfToken = async (req, res, next) => {
   const authToken =
     req.headers.authorization?.replace("Bearer ", "") || req.cookies?.token;
@@ -404,14 +417,18 @@ export const validateCsrfToken = async (req, res, next) => {
     return next();
   }
 
-  // Skip CSRF for stateless auth routes, logout, sessions, and payment endpoints (handled with signature verification & session auth)
-  // NOTE: 2FA state-changing endpoints (enroll/verify/disable/regenerate) REQUIRE CSRF.
-  const csrfExemptPaths = [
+  // Skip CSRF for public stateless auth routes and webhook callbacks.
+  // Match strictly against normalized originalUrl (resolving relative dot segments '..' and duplicate slashes)
+  // so path traversal (/api/auth/login/../../api/tests) or relative prefix collisions (/api/auth/login-evil)
+  // can never bypass CSRF validation.
+  // NOTE: Administrative routes (/api/admin/*), 2FA state changes, and session/payment overrides REQUIRE CSRF.
+  const rawUrl = (req.originalUrl || "").split("?")[0];
+  const normalizedUrl = path.posix.normalize(rawUrl).replace(/\/+$/, "") || "/";
+
+  const CSRF_EXEMPT_ROUTES = [
     "/api/auth/login",
     "/api/auth/logout",
     "/auth/logout",
-    "/api/sessions",
-    "/sessions",
     "/api/auth/register",
     "/api/auth/forgot-password",
     "/api/auth/reset-password",
@@ -420,22 +437,21 @@ export const validateCsrfToken = async (req, res, next) => {
     "/api/auth/login/2fa",
     "/api/auth/2fa/status",
     "/api/auth/resend-verification",
-    "/api/payments",
-    "/payments",
+    "/api/payments/webhook",
+    "/api/webhooks/razorpay",
   ];
-  const fullUrl = req.originalUrl || req.path || "";
-  if (
-    csrfExemptPaths.some((p) => fullUrl.startsWith(p) || req.path.startsWith(p))
-  ) {
+
+  const isPublicAuthOrWebhook =
+    !normalizedUrl.startsWith("/api/admin") &&
+    CSRF_EXEMPT_ROUTES.some(
+      (p) => normalizedUrl === p || normalizedUrl.startsWith(`${p}/`),
+    );
+
+  if (isPublicAuthOrWebhook) {
     return next();
   }
 
-  const csrfToken =
-    req.headers["x-csrf-token"] ||
-    req.headers["csrf-token"] ||
-    req.headers["x-xsrf-token"] ||
-    req.body?._csrf ||
-    req.cookies?._csrf_token;
+  const csrfToken = extractCsrfToken(req);
 
   if (!authToken) {
     // No auth token, skip CSRF (unauthenticated request)

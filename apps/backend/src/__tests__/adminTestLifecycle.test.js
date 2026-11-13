@@ -19,6 +19,7 @@ jest.unstable_mockModule(
       updateById: (...args) => mockUpdateById(...args),
       toCamel: (row) => row,
     },
+    execSavepoint: jest.fn(),
   }),
 );
 

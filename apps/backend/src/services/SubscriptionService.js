@@ -1,19 +1,10 @@
-import crypto from "crypto";
 import { pool } from "../infrastructure/database/postgres-helpers.js";
 import { getReadPool } from "../../config/database-replicas.js";
-
-// TODO: move fisherYatesShuffle to a shared utils module (e.g.
-// src/shared/utils/array.js) — kept here minimally to avoid cross-module churn.
-// NOTE: fisherYatesShuffle is currently unused in this service; retained to
-// avoid breaking any external import until the move lands.
-export function fisherYatesShuffle(arr) {
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = crypto.randomInt(0, i + 1);
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
+import logger from "../infrastructure/logger/logger.js";
+// Fisher-Yates moved to shared/utils/array.js (dead-code activation pass).
+// Re-exported here to preserve any existing external imports.
+import { fisherYatesShuffle } from "../shared/utils/array.js";
+export { fisherYatesShuffle };
 
 // Read/write split: reads via readPool (replica when DATABASE_READ_URL is set,
 // else falls back to primary); writes/transactions stay on the write pool.
@@ -380,7 +371,7 @@ class SubscriptionService {
       String(numericTestId) !== String(testId).trim()
     ) {
       const testRes = await getRead().query(
-        `SELECT id FROM tests WHERE public_id = $1 OR public_id_uuid::text = $1 OR slug = $1 LIMIT 1`,
+        `SELECT id FROM tests WHERE (public_id = $1 OR public_id_uuid::text = $1 OR slug = $1) AND (is_deleted = false OR is_deleted IS NULL) LIMIT 1`,
         [testId],
       );
       if (testRes.rows.length === 0) return [];
@@ -495,9 +486,9 @@ class SubscriptionService {
               });
               notifiedUsers++;
             } catch (notifyErr) {
-              console.warn(
-                `[SubscriptionExpiry] Grace notice failed for user ${sub.user_id}:`,
-                notifyErr.message,
+              logger.warn(
+                { err: notifyErr, subscriptionId: sub.id },
+                "[SubscriptionExpiry] Grace notice failed",
               );
             }
           }
@@ -520,9 +511,9 @@ class SubscriptionService {
               });
               notifiedUsers++;
             } catch (notifyErr) {
-              console.warn(
-                `[SubscriptionExpiry] Expiry notice failed for user ${sub.user_id}:`,
-                notifyErr.message,
+              logger.warn(
+                { err: notifyErr, subscriptionId: sub.id },
+                "[SubscriptionExpiry] Expiry notice failed",
               );
             }
           }
@@ -533,8 +524,12 @@ class SubscriptionService {
         downgradedToFree.length + (legacyResult.rowCount || 0);
 
       if (inGracePeriod.length > 0 || totalDowngraded > 0) {
-        console.log(
-          `[SubscriptionExpiry] ${inGracePeriod.length} in grace period, ${totalDowngraded} downgraded to Free tier.`,
+        logger.info(
+          {
+            inGracePeriod: inGracePeriod.length,
+            downgraded: totalDowngraded,
+          },
+          "[SubscriptionExpiry] Renewal window processed",
         );
       }
 
@@ -551,7 +546,10 @@ class SubscriptionService {
         downgradedToFree,
       };
     } catch (err) {
-      console.error("[SubscriptionExpiry] Worker error:", err.message);
+      logger.error(
+        { err },
+        "[SubscriptionExpiry] Worker error",
+      );
       return {
         success: false,
         error: err.message,

@@ -21,4 +21,6 @@ overrides:
   happy-dom: ^20.10.6
   ws: ^8.20.2
   nodemailer: ^9.0.1
+  proxy-addr: ^2.0.8
+  follow-redirects: ^1.16.2
 

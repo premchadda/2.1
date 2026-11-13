@@ -1,10 +1,15 @@
 import express from "express";
-import multer from "multer";
+import fs from "fs";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 import { randomUUID } from "crypto";
 import { Readable } from "node:stream";
 import { protect, admin } from "../../middleware/auth.middleware.js";
+import {
+  restrictAdminOrigin,
+  validateAdminApiKey,
+} from "../../middleware/origin.middleware.js";
+import { auditMiddleware } from "../../middleware/audit.middleware.js";
 import { validateCsrfToken } from "../../middleware/csrf.middleware.js";
 import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import logger from "../../infrastructure/logger/logger.js";
@@ -14,26 +19,12 @@ import {
   getRedisClient,
   isRedisReady,
 } from "../../infrastructure/cache/redisClient.js";
+import { createUploadMiddleware } from "../../infrastructure/storage/upload.js";
 
 const router = express.Router();
 
-// Configure multer for video uploads (100MB limit for videos)
-const upload = multer({
-  limits: { fileSize: 100 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      "video/mp4",
-      "video/webm",
-      "video/avi",
-      "video/quicktime",
-    ];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Invalid file type. Only video files are allowed."), false);
-    }
-  },
-});
+// Configure disk-backed upload middleware for videos (100MB budget, streamed to disk)
+const upload = createUploadMiddleware("video");
 
 // Rate limiter for stream-token issuance / streaming (brute-force + token farming).
 const fortspyStreamLimiter = rateLimit({
@@ -245,19 +236,28 @@ router.get("/health", async (req, res) => {
  * @desc    Generate a new AES-256 encryption key
  * @access  Private (Admin)
  */
-router.post("/keygen", protect, admin, validateCsrfToken, async (req, res) => {
-  try {
-    const result = await fortskyService.generateKey();
-    res.json({ success: true, data: result });
-  } catch (error) {
-    console.error("FortSpy keygen error:", error);
-    res.status(500).json({
-      success: false,
-      message:
-        sanitizeErrorMessage(error) || "Failed to generate encryption key",
-    });
-  }
-});
+router.post(
+  "/keygen",
+  restrictAdminOrigin,
+  validateAdminApiKey,
+  protect,
+  admin,
+  validateCsrfToken,
+  auditMiddleware({ includeBody: true }),
+  async (req, res) => {
+    try {
+      const result = await fortskyService.generateKey();
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("FortSpy keygen error:", error);
+      res.status(500).json({
+        success: false,
+        message:
+          sanitizeErrorMessage(error) || "Failed to generate encryption key",
+      });
+    }
+  },
+);
 
 /**
  * @route   POST /api/fortspy/encrypt
@@ -266,10 +266,13 @@ router.post("/keygen", protect, admin, validateCsrfToken, async (req, res) => {
  */
 router.post(
   "/encrypt",
+  restrictAdminOrigin,
+  validateAdminApiKey,
   protect,
   admin,
   validateCsrfToken,
   upload.single("file"),
+  auditMiddleware({ includeBody: false }),
   async (req, res) => {
     try {
       if (!req.file) {
@@ -279,11 +282,16 @@ router.post(
         });
       }
 
+      const fileBuffer =
+        req.file.buffer || (await fs.promises.readFile(req.file.path));
       const result = await fortskyService.encryptVideo(
-        req.file.buffer,
+        fileBuffer,
         req.file.originalname,
         { key: req.body.key },
       );
+      if (req.file.path) {
+        await fs.promises.unlink(req.file.path).catch(() => {});
+      }
 
       res.json({ success: true, data: result });
     } catch (error) {
@@ -301,30 +309,39 @@ router.post(
  * @desc    Decrypt an encrypted video
  * @access  Private (Admin)
  */
-router.post("/decrypt", protect, admin, validateCsrfToken, async (req, res) => {
-  try {
-    const { id, key } = req.body;
+router.post(
+  "/decrypt",
+  restrictAdminOrigin,
+  validateAdminApiKey,
+  protect,
+  admin,
+  validateCsrfToken,
+  auditMiddleware({ includeBody: true }),
+  async (req, res) => {
+    try {
+      const { id, key } = req.body;
 
-    if (!id || !key) {
-      return res.status(400).json({
+      if (!id || !key) {
+        return res.status(400).json({
+          success: false,
+          message: "Video ID and decryption key are required",
+        });
+      }
+
+      const decryptedBuffer = await fortskyService.decryptVideo(id, key);
+
+      res.setHeader("Content-Type", "video/mp4");
+      res.setHeader("Content-Length", decryptedBuffer.length);
+      res.send(decryptedBuffer);
+    } catch (error) {
+      console.error("FortSpy decrypt error:", error);
+      res.status(500).json({
         success: false,
-        message: "Video ID and decryption key are required",
+        message: sanitizeErrorMessage(error) || "Failed to decrypt video",
       });
     }
-
-    const decryptedBuffer = await fortskyService.decryptVideo(id, key);
-
-    res.setHeader("Content-Type", "video/mp4");
-    res.setHeader("Content-Length", decryptedBuffer.length);
-    res.send(decryptedBuffer);
-  } catch (error) {
-    console.error("FortSpy decrypt error:", error);
-    res.status(500).json({
-      success: false,
-      message: sanitizeErrorMessage(error) || "Failed to decrypt video",
-    });
-  }
-});
+  },
+);
 
 /**
  * @route   GET /api/fortspy/stream/:id

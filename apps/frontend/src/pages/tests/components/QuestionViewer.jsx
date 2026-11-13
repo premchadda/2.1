@@ -1,3 +1,4 @@
+import { useState } from "react";
 import PropTypes from "prop-types";
 import {
   Clock,
@@ -12,7 +13,9 @@ import {
   X,
   Tag,
   BookOpen,
+  Sparkles,
 } from "lucide-react";
+import SocraticHintModal from "./SocraticHintModal";
 import MathRenderer from "../../../shared/components/MathRenderer";
 import DifficultyBadge from "../../../shared/components/common/DifficultyBadge";
 import sanitizeHtml from "../../../shared/lib/sanitizeHtml";
@@ -146,6 +149,7 @@ export default function QuestionViewer({
   showReviewExplanation,
   setShowReviewExplanation,
 }) {
+  const [showSocraticHint, setShowSocraticHint] = useState(false);
   const currentQId = currentQ?.id || currentQ?._id || currentQuestion;
   const isQuestionSaved = savedQuestions.has(String(currentQId));
   const isReattemptActive = Boolean(
@@ -358,6 +362,15 @@ export default function QuestionViewer({
 
         {/* Right: Socratic Hint, Save Question (and Discuss in Review mode) */}
         <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={() => setShowSocraticHint(true)}
+            aria-label="AI Hint"
+            title="AI Socratic Hint"
+            className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-xs font-bold hover:bg-amber-100 dark:hover:bg-amber-800/40 transition-colors shadow-2xs cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span className="hidden xs:inline">Hint</span>
+          </button>
           {reviewMode && (
             <button
               onClick={() => setShowDiscussions(true)}
@@ -1101,6 +1114,15 @@ export default function QuestionViewer({
             })()}
           </div>
         </div>
+      )}
+
+      {showSocraticHint && (
+        <SocraticHintModal
+          isOpen={showSocraticHint}
+          onClose={() => setShowSocraticHint(false)}
+          question={currentQ}
+          questionIndex={currentQuestion}
+        />
       )}
     </div>
   );

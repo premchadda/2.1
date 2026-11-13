@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // Skeleton base component
 export function Skeleton({
@@ -307,14 +307,17 @@ export function AnimatedCounter({
   className = "",
 }) {
   const [displayValue, setDisplayValue] = useState(0);
+  const displayValueRef = useRef(0);
+  displayValueRef.current = displayValue;
 
   useEffect(() => {
-    const startValue = displayValue;
+    const startValue = displayValueRef.current;
     const endValue =
       typeof value === "string"
         ? parseInt(value.replace(/[^0-9]/g, ""))
         : value;
     const startTime = Date.now();
+    let rafId;
 
     const animate = () => {
       const now = Date.now();
@@ -329,11 +332,12 @@ export function AnimatedCounter({
       setDisplayValue(currentValue);
 
       if (progress < 1) {
-        requestAnimationFrame(animate);
+        rafId = requestAnimationFrame(animate);
       }
     };
 
-    requestAnimationFrame(animate);
+    rafId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafId);
   }, [value, duration]);
 
   return (

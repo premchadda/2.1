@@ -13,7 +13,17 @@ import {
   FolderOpen,
   Tag,
   Layers,
+  List,
+  Network,
+  Copy,
+  Download,
 } from "lucide-react";
+import VirtualizedTree from "../../../shared/components/VirtualizedTree";
+import {
+  cloneHierarchyBranch,
+  bulkDeleteBranch,
+  createVersionSnapshot,
+} from "../../../shared/components/HierarchyOperations.js";
 import { apiClient } from "../../../shared/lib/dataService.js";
 import { toast } from "react-hot-toast";
 import { logger } from "@trstprep/shared-config";
@@ -29,7 +39,7 @@ const LEVEL_LABELS = {
   subtopic: "Subtopic",
 };
 
-const LEVEL_ICONS = {
+const _LEVEL_ICONS = {
   subject: "📖",
   topic: "📚",
   subtopic: "📝",
@@ -41,6 +51,7 @@ export default function SubjectHierarchyManager() {
   const [chapters, setChapters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [treeViewMode, setTreeViewMode] = useState("standard"); // "standard" | "virtualized"
   const [expandedNodes, setExpandedNodes] = useState({});
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -258,7 +269,7 @@ export default function SubjectHierarchyManager() {
     }
   };
 
-  const handleDelete = async (item, level) => {
+  const handleDelete = async (item, level, rawNode = null) => {
     const confirmed = await confirmOnce({
       title: `Delete ${level}`,
       message: `Are you sure you want to delete "${item.name}"? This will also delete any nested items.`,
@@ -268,10 +279,23 @@ export default function SubjectHierarchyManager() {
     if (!confirmed) return;
 
     try {
-      if (level === "subject") {
-        await apiClient.delete(`/admin/subjects/${item._id || item.id}`);
+      if (rawNode && rawNode.children && rawNode.children.length > 0) {
+        await bulkDeleteBranch(rawNode, async (childId) => {
+          const cleanId = String(childId).replace(
+            /^(subject|topic|subtopic)-/,
+            "",
+          );
+          const endpoint = String(childId).startsWith("subject-")
+            ? `/admin/subjects/${cleanId}`
+            : `/admin/topics/${cleanId}`;
+          await apiClient.delete(endpoint).catch(() => {});
+        });
       } else {
-        await apiClient.delete(`/admin/topics/${item._id || item.id}`);
+        if (level === "subject") {
+          await apiClient.delete(`/admin/subjects/${item._id || item.id}`);
+        } else {
+          await apiClient.delete(`/admin/topics/${item._id || item.id}`);
+        }
       }
       toast.success(`${level} deleted`);
       await fetchAllData();
@@ -590,6 +614,117 @@ export default function SubjectHierarchyManager() {
     );
   };
 
+  const displaySubjects = filteredTree ? filteredTree.subjects : subjects;
+
+  // Flattened hierarchical tree structure for VirtualizedTree
+  const virtualizedTreeData = useMemo(() => {
+    const list = displaySubjects || [];
+    return list.map((sub) => {
+      const subId = sub.id || sub._id;
+      const subTopics = topics.filter(
+        (t) =>
+          !t.parentTopic &&
+          (String(t.subjectId) === String(subId) ||
+            String(t.subject) === String(subId)),
+      );
+      return {
+        id: `subject-${subId}`,
+        name: sub.name,
+        icon: sub.icon || "📖",
+        type: "subject",
+        raw: sub,
+        children: subTopics.map((top) => {
+          const topId = top.id || top._id;
+          const subtopList = topics.filter(
+            (st) =>
+              String(st.parentTopic) === String(topId) ||
+              String(st.parentId) === String(topId),
+          );
+          return {
+            id: `topic-${topId}`,
+            name: top.name,
+            icon: top.icon || "📚",
+            type: "topic",
+            raw: top,
+            children: subtopList.map((st) => ({
+              id: `subtopic-${st.id || st._id}`,
+              name: st.name,
+              icon: st.icon || "📝",
+              type: "subtopic",
+              raw: st,
+              children: [],
+            })),
+          };
+        }),
+      };
+    });
+  }, [displaySubjects, topics]);
+
+  const handleCloneBranch = async (node) => {
+    const isSubject = node.type === "subject";
+    const parentId = isSubject
+      ? undefined
+      : node.raw.subjectId || node.raw.subject;
+    const cloned = cloneHierarchyBranch(node.raw, parentId);
+
+    const confirmed = await confirmOnce({
+      title: `Duplicate ${node.type}`,
+      message: `Create a copy of "${node.name}" and all its nested topics?`,
+      confirmText: "Duplicate",
+    });
+    if (!confirmed) return;
+
+    try {
+      if (isSubject) {
+        await apiClient.post("/admin/subjects", {
+          name: cloned.name,
+          description: cloned.description,
+          icon: cloned.icon,
+        });
+      } else {
+        await apiClient.post("/admin/topics", {
+          name: cloned.name,
+          subjectId: parentId,
+          subject: node.raw.subject || parentId,
+          description: cloned.description,
+          icon: cloned.icon,
+        });
+      }
+      toast.success(`${node.type} duplicated successfully`);
+      await fetchAllData();
+    } catch (error) {
+      logger.error("Failed to duplicate branch:", error);
+      toast.error(
+        error.response?.data?.message || `Failed to duplicate ${node.type}`,
+      );
+    }
+  };
+
+  const handleExportSnapshot = () => {
+    try {
+      const snapshot = createVersionSnapshot(
+        virtualizedTreeData,
+        `Curriculum Snapshot ${new Date().toLocaleDateString()}`,
+      );
+      const dataStr =
+        "data:text/json;charset=utf-8," +
+        encodeURIComponent(JSON.stringify(snapshot, null, 2));
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute(
+        "download",
+        `hierarchy-snapshot-${Date.now()}.json`,
+      );
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      toast.success("Hierarchy snapshot exported");
+    } catch (error) {
+      logger.error("Failed to export snapshot:", error);
+      toast.error("Failed to export hierarchy snapshot");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
@@ -598,7 +733,83 @@ export default function SubjectHierarchyManager() {
     );
   }
 
-  const displaySubjects = filteredTree ? filteredTree.subjects : subjects;
+  const renderVirtualizedNode = (
+    node,
+    { level: _level, isCollapsed, toggle, hasChildren },
+  ) => (
+    <div className="flex items-center gap-2 py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg group transition-colors">
+      {hasChildren ? (
+        <button
+          type="button"
+          onClick={toggle}
+          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500"
+        >
+          {isCollapsed ? (
+            <ChevronRight className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronDown className="w-3.5 h-3.5" />
+          )}
+        </button>
+      ) : (
+        <div className="w-5" />
+      )}
+      <span className="text-base select-none">{node.icon}</span>
+      <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate flex-1">
+        {node.name}
+      </span>
+      <span className="text-[10px] px-1.5 py-0.5 rounded uppercase font-bold text-gray-400 bg-gray-100 dark:bg-gray-700">
+        {node.type}
+      </span>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {node.type === "subject" && (
+          <button
+            type="button"
+            onClick={() => openCreateForm("topic", node.raw.id || node.raw._id)}
+            className="p-1 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-emerald-600 rounded"
+            title="Add Topic"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {node.type === "topic" && (
+          <button
+            type="button"
+            onClick={() =>
+              openCreateForm("subtopic", node.raw.id || node.raw._id)
+            }
+            className="p-1 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-emerald-600 rounded"
+            title="Add Subtopic"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => handleCloneBranch(node)}
+          className="p-1 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-500 rounded"
+          title="Duplicate Branch"
+        >
+          <Copy className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => openEditForm(node.raw, node.type)}
+          className="p-1 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-indigo-500 rounded"
+          title="Edit"
+        >
+          <Edit2 className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => handleDelete(node.raw, node.type, node)}
+          className="p-1 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500 rounded"
+          title="Delete"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="p-3 sm:p-4">
@@ -613,13 +824,23 @@ export default function SubjectHierarchyManager() {
             Manage subjects, topics, and subtopics in a tree structure
           </p>
         </div>
-        <button
-          onClick={() => openCreateForm("subject")}
-          className="mt-4 md:mt-0 flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-        >
-          <Plus className="w-4 h-4" />
-          Add Subject
-        </button>
+        <div className="mt-4 md:mt-0 flex items-center gap-2">
+          <button
+            onClick={handleExportSnapshot}
+            className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition cursor-pointer"
+            title="Export Hierarchy Snapshot"
+          >
+            <Download className="w-4 h-4" />
+            Export Backup
+          </button>
+          <button
+            onClick={() => openCreateForm("subject")}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Add Subject
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -648,9 +869,9 @@ export default function SubjectHierarchyManager() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="mb-4">
-        <div className="relative">
+      {/* Search & View Switcher */}
+      <div className="mb-4 flex flex-col sm:flex-row items-center gap-3">
+        <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
@@ -658,57 +879,95 @@ export default function SubjectHierarchyManager() {
             placeholder="Search subjects and topics..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 text-sm"
           />
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700">
+          <button
+            type="button"
+            onClick={() => setTreeViewMode("standard")}
+            className={`flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-md transition ${
+              treeViewMode === "standard"
+                ? "bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <List className="w-3.5 h-3.5" />
+            Standard Tree
+          </button>
+          <button
+            type="button"
+            onClick={() => setTreeViewMode("virtualized")}
+            className={`flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-md transition ${
+              treeViewMode === "virtualized"
+                ? "bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Network className="w-3.5 h-3.5" />
+            Virtualized Tree
+          </button>
         </div>
       </div>
 
-      {/* Tree */}
-      <div className="space-y-2">
-        {displaySubjects.length === 0 ? (
-          <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-            <FolderOpen className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <p className="text-gray-500 dark:text-gray-400">
-              No subjects found
-            </p>
-            <p className="text-sm text-gray-400 dark:text-gray-500">
-              Create your first subject to get started
-            </p>
-          </div>
-        ) : (
-          displaySubjects.map((subject) => renderSubjectCard(subject))
-        )}
+      {/* Tree View */}
+      {treeViewMode === "virtualized" ? (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 h-[600px] overflow-hidden">
+          <VirtualizedTree
+            data={virtualizedTreeData}
+            renderNode={renderVirtualizedNode}
+            nodeHeight={44}
+            indentSize={20}
+          />
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {displaySubjects.length === 0 ? (
+            <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+              <FolderOpen className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p className="text-gray-500 dark:text-gray-400">
+                No subjects found
+              </p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">
+                Create your first subject to get started
+              </p>
+            </div>
+          ) : (
+            displaySubjects.map((subject) => renderSubjectCard(subject))
+          )}
 
-        {filteredTree && filteredTree.topics.length > 0 && (
-          <div className="mt-4">
-            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">
-              Matching Topics
-            </h3>
-            {filteredTree.topics.map((topic) => (
-              <div
-                key={topic._id}
-                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 flex items-center gap-3 mb-1"
-              >
-                <span>{topic.icon || "📚"}</span>
-                <div className="flex-1">
-                  <span className="font-medium text-gray-800 dark:text-gray-200">
-                    {topic.name}
-                  </span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
-                    {getSubjectName(topic.subject)}
-                  </span>
-                </div>
-                <button
-                  onClick={() => openEditForm(topic, "topic")}
-                  className="p-1 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded text-indigo-500"
+          {filteredTree && filteredTree.topics.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">
+                Matching Topics
+              </h3>
+              {filteredTree.topics.map((topic) => (
+                <div
+                  key={topic._id}
+                  className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 flex items-center gap-3 mb-1"
                 >
-                  <Edit2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                  <span>{topic.icon || "📚"}</span>
+                  <div className="flex-1">
+                    <span className="font-medium text-gray-800 dark:text-gray-200">
+                      {topic.name}
+                    </span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
+                      {getSubjectName(topic.subject)}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => openEditForm(topic, "topic")}
+                    className="p-1 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded text-indigo-500"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Form Modal */}
       {showForm &&

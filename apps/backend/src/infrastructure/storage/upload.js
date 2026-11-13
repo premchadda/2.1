@@ -26,10 +26,17 @@ const ALLOWED_EXTENSIONS = {
 // File magic numbers for content validation
 const FILE_SIGNATURES = {
   'image/jpeg': [0xFF, 0xD8, 0xFF],
+  'image/jpg': [0xFF, 0xD8, 0xFF],
   'image/png': [0x89, 0x50, 0x4E, 0x47],
   'image/gif': [0x47, 0x49, 0x46, 0x38],
   'application/pdf': [0x25, 0x50, 0x44, 0x46], // %PDF
 }
+
+const isDocumentMime = (mime = '') =>
+  ['application/json', 'text/csv', 'text/plain'].includes(mime) ||
+  mime.includes('spreadsheet') ||
+  mime.includes('ms-excel') ||
+  mime.includes('officedocument');
 
 let resolvedDirs = null;
 
@@ -64,17 +71,35 @@ const generateSecureFilename = (originalExt) => {
 // Validate file content by checking magic numbers
 const validateFileContent = (filePath, mimetype) => {
   try {
-    const buffer = Buffer.alloc(8)
+    const buffer = Buffer.alloc(12)
     const fd = fs.openSync(filePath, 'r')
-    fs.readSync(fd, buffer, 0, 8, 0)
+    fs.readSync(fd, buffer, 0, 12, 0)
     fs.closeSync(fd)
-    
+
+    if (mimetype === 'image/webp') {
+      // WebP starts with RIFF (0x52, 0x49, 0x46, 0x46) and at offset 8 has WEBP (0x57, 0x45, 0x42, 0x50)
+      return (
+        buffer[0] === 0x52 &&
+        buffer[1] === 0x49 &&
+        buffer[2] === 0x46 &&
+        buffer[3] === 0x46 &&
+        buffer[8] === 0x57 &&
+        buffer[9] === 0x45 &&
+        buffer[10] === 0x42 &&
+        buffer[11] === 0x50
+      )
+    }
+
     const signature = FILE_SIGNATURES[mimetype]
     if (!signature) {
-      // For types without signature validation (videos), accept based on extension
+      // For images or PDFs without a known signature, fail closed
+      if (mimetype.startsWith('image/') || mimetype === 'application/pdf') {
+        return false
+      }
+      // For other types without signature validation (videos, docs), accept based on extension
       return true
     }
-    
+
     for (let i = 0; i < signature.length; i++) {
       if (buffer[i] !== signature[i]) {
         return false
@@ -112,7 +137,7 @@ const storage = multer.diskStorage({
         uploadPath = dirs.pdfsDir
       } else if (file.mimetype.startsWith('image/')) {
         uploadPath = dirs.imagesDir
-      } else if (['application/json', 'text/csv'].includes(file.mimetype) || file.mimetype.includes('spreadsheet')) {
+      } else if (isDocumentMime(file.mimetype)) {
         uploadPath = dirs.docsDir
       }
       
@@ -131,7 +156,7 @@ const storage = multer.diskStorage({
     if (file.mimetype.startsWith('image/')) fileType = 'image'
     else if (file.mimetype === 'application/pdf') fileType = 'pdf'
     else if (file.mimetype.startsWith('video/')) fileType = 'video'
-    else if (['application/json', 'text/csv'].includes(file.mimetype) || file.mimetype.includes('spreadsheet')) fileType = 'document'
+    else if (isDocumentMime(file.mimetype)) fileType = 'document'
     
     if (!ALLOWED_EXTENSIONS[fileType]?.includes(ext)) {
       return cb(new Error(`File extension ${ext} not allowed for ${fileType}`), false)

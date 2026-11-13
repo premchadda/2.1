@@ -5,7 +5,6 @@ import {
   withTransaction,
 } from "../../infrastructure/database/postgres-helpers.js";
 import { findEntityByIdentifier } from "../../shared/utils/identifier-utils.js";
-import { invalidateSession } from "../../services/SessionCaptureService.js";
 import {
   protect,
   admin,
@@ -13,6 +12,7 @@ import {
 } from "../../middleware/auth.middleware.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { sanitizeUser } from "../../shared/utils/user-utils.js";
+import { getClientIp } from "../../shared/utils/clientIp.js";
 
 const router = express.Router();
 
@@ -115,21 +115,40 @@ router.get("/users", async (req, res) => {
 
 router.put("/users/:id/pro-pass", admin, async (req, res) => {
   try {
-    const { isProUser, proPassExpiry, passType } = req.body;
+    const isProUser =
+      req.body.is_pro_user ??
+      req.body.isProUser ??
+      req.body.is_pro ??
+      req.body.isPro;
+    const passType = req.body.pass_type ?? req.body.passType;
+    const proPassExpiry = req.body.pro_pass_expiry ?? req.body.proPassExpiry;
+
     const user = await dbHelpers.findById("users", req.params.id);
     if (!user) {
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
     }
-    const expiry = isProUser
+    const isProBool =
+      isProUser !== undefined
+        ? Boolean(isProUser)
+        : Boolean(
+            user.is_pro_user ?? user.isProUser ?? user.is_pro ?? user.isPro,
+          );
+    const expiry = isProBool
       ? proPassExpiry ||
+        user.pro_pass_expiry ||
+        user.proPassExpiry ||
         new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
       : null;
     const updated = await dbHelpers.updateById("users", req.params.id, {
-      isProUser: !!isProUser,
+      isProUser: isProBool,
+      is_pro_user: isProBool,
       proPassExpiry: expiry,
-      pass_type: isProUser ? passType || "pro_yearly" : "free",
+      pro_pass_expiry: expiry,
+      pass_type: isProBool
+        ? passType || user.pass_type || user.passType || "pro_yearly"
+        : "free",
     });
     res.json({ success: true, data: sanitizeUser(updated) });
   } catch {
@@ -396,7 +415,7 @@ router.get("/enrollments/user/:userId", async (req, res) => {
 // Update user status (active/inactive)
 router.put("/users/:id/status", admin, async (req, res) => {
   try {
-    const { isActive } = req.body;
+    const isActive = req.body?.is_active ?? req.body?.isActive;
     if (typeof isActive !== "boolean") {
       return res
         .status(400)
@@ -465,9 +484,7 @@ router.put("/users/:id/role", admin, async (req, res) => {
           adminId: req.user.id,
           adminEmail: req.user.email,
           adminName: req.user.name,
-          ipAddress:
-            req.headers["x-forwarded-for"]?.split(",")[0] ||
-            req.socket?.remoteAddress,
+          ipAddress: getClientIp(req),
           userAgent: req.headers["user-agent"],
           details: {
             targetUserId: user.id,
@@ -499,9 +516,7 @@ router.put("/users/:id/role", admin, async (req, res) => {
       adminId: req.user.id,
       adminEmail: req.user.email,
       adminName: req.user.name,
-      ipAddress:
-        req.headers["x-forwarded-for"]?.split(",")[0] ||
-        req.socket?.remoteAddress,
+      ipAddress: getClientIp(req),
       userAgent: req.headers["user-agent"],
       details: {
         targetUserId: user.id,
@@ -570,98 +585,6 @@ router.delete("/users/:id", async (req, res) => {
     invalidateUserCache(Number(req.params.id));
     res.json({ success: true, message: "User moved to trash" });
   } catch {
-    res.status(500).json({ success: false, message: "Internal server error" });
-  }
-});
-
-// Get user's sessions (admin view)
-router.get("/users/:id/sessions", async (req, res) => {
-  try {
-    const userIdParam = req.params.id;
-
-    // Try to get internal ID from public_id
-    let userId;
-    const user = await findEntityByIdentifier(dbHelpers, "users", userIdParam);
-    if (user) {
-      userId = user.id || user._id;
-    } else {
-      // Fall back to numeric ID
-      userId = parseInt(userIdParam);
-    }
-
-    if (!userId || isNaN(userId)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid user ID" });
-    }
-
-    const sessions = await dbHelpers.find("user_sessions", { user_id: userId });
-    const formattedSessions = (sessions || []).map((s) => ({
-      id: s.id,
-      sessionId: s.session_id,
-      device: s.device_type,
-      ip: s.ip_address,
-      location:
-        s.city && s.country
-          ? `${s.city}, ${s.country}`
-          : s.country || s.city || "Unknown",
-      lastActive: s.last_active,
-      isCurrent: s.is_active,
-      browser: s.browser,
-      os: s.os,
-      createdAt: s.created_at,
-    }));
-
-    formattedSessions.sort(
-      (a, b) => new Date(b.lastActive) - new Date(a.lastActive),
-    );
-
-    res.json({ success: true, data: formattedSessions });
-  } catch (error) {
-    logger.error("Failed to fetch user sessions", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
-  }
-});
-
-// Revoke user session (admin)
-router.delete("/users/:userId/sessions/:sessionId", async (req, res) => {
-  try {
-    const { userId: userIdParam, sessionId } = req.params;
-
-    // Resolve userId to internal ID
-    let userId;
-    const user = await findEntityByIdentifier(dbHelpers, "users", userIdParam);
-    if (user) {
-      userId = user.id || user._id;
-    } else {
-      userId = parseInt(userIdParam);
-    }
-
-    const session = await dbHelpers.findById("user_sessions", sessionId);
-    if (!session) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Session not found" });
-    }
-
-    if (String(session.user_id) !== String(userId)) {
-      return res.status(403).json({
-        success: false,
-        message: "Session does not belong to this user",
-      });
-    }
-
-    // Use service to invalidate and emit WebSocket event
-    await invalidateSession(sessionId, {
-      id: req.user.id,
-      email: req.user.email,
-      name: req.user.name,
-      role: req.user.role,
-    });
-
-    res.json({ success: true, message: "Session revoked" });
-  } catch (error) {
-    logger.error("Failed to revoke user session", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 });

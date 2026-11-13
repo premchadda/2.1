@@ -101,7 +101,18 @@ describe("request identity context", () => {
 });
 
 describe("applyIdentityGucs", () => {
-  test("sets both GUCs as transaction-local and returns true", async () => {
+  const origKey = process.env.DB_ENCRYPTION_KEY;
+
+  afterEach(() => {
+    if (origKey !== undefined) {
+      process.env.DB_ENCRYPTION_KEY = origKey;
+    } else {
+      delete process.env.DB_ENCRYPTION_KEY;
+    }
+  });
+
+  test("sets GUCs as transaction-local and returns true", async () => {
+    delete process.env.DB_ENCRYPTION_KEY;
     const client = makeClient();
     let applied = null;
     await runWithRequestIdentity({ userId: 7, isAdmin: true }, async () => {
@@ -112,10 +123,11 @@ describe("applyIdentityGucs", () => {
     const [sql, params] = client.query.mock.calls[0];
     expect(sql).toContain("app.current_user_id");
     expect(sql).toContain("app.is_admin");
-    expect(params).toEqual(["7", "true"]);
+    expect(params).toEqual(["7", "true", ""]);
   });
 
-  test("no-op without an identity", async () => {
+  test("no-op without an identity when no encryption key", async () => {
+    delete process.env.DB_ENCRYPTION_KEY;
     const client = makeClient();
     await expect(applyIdentityGucs(client)).resolves.toBe(false);
     expect(client.query).not.toHaveBeenCalled();
@@ -123,7 +135,18 @@ describe("applyIdentityGucs", () => {
 });
 
 describe("patched pool.query", () => {
+  const origKey = process.env.DB_ENCRYPTION_KEY;
+
+  afterEach(() => {
+    if (origKey !== undefined) {
+      process.env.DB_ENCRYPTION_KEY = origKey;
+    } else {
+      delete process.env.DB_ENCRYPTION_KEY;
+    }
+  });
+
   test("without identity: delegates directly, no extra round trips", async () => {
+    delete process.env.DB_ENCRYPTION_KEY;
     const pool = makePool();
     const client = makeClient();
     pool.connect.mockResolvedValue(client);
@@ -134,6 +157,7 @@ describe("patched pool.query", () => {
   });
 
   test("with identity: BEGIN + SET LOCAL + query + COMMIT, then release", async () => {
+    delete process.env.DB_ENCRYPTION_KEY;
     const pool = makePool();
     const client = makeClient();
     pool.connect.mockResolvedValue(client);
@@ -145,7 +169,7 @@ describe("patched pool.query", () => {
     const statements = client.query.mock.calls.map((c) => c[0]);
     expect(statements[0]).toBe("BEGIN");
     expect(statements[1]).toContain("app.current_user_id");
-    expect(client.query.mock.calls[1][1]).toEqual(["7", "false"]);
+    expect(client.query.mock.calls[1][1]).toEqual(["7", "false", ""]);
     expect(statements[2]).toBe("SELECT * FROM attempts WHERE id = $1");
     expect(statements[statements.length - 1]).toBe("COMMIT");
     expect(client.release).toHaveBeenCalledTimes(1);

@@ -144,25 +144,48 @@ const ImportHistoryModal = ({ isOpen, onClose }) => {
                           <span className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white truncate">
                             {item.filename ||
                               item.description ||
+                              details?.fileName ||
+                              (item.action && item.action.replace(/_/g, " ")) ||
                               `Import #${item.id}`}
                           </span>
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusColor}`}
                           >
-                            {item.status || "unknown"}
+                            {item.status ||
+                              (details?.failed > 0 ? "partial" : "completed")}
                           </span>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-1 flex-wrap">
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            {formatDate(item.createdAt || item.created_at)}
+                            {formatDate(
+                              item.createdAt ||
+                                item.created_at ||
+                                item.timestamp,
+                            )}
                           </span>
-                          {item.rowCount != null && (
-                            <span>{item.rowCount} rows</span>
+                          {item.adminUser && (
+                            <span className="text-gray-400 dark:text-gray-500">
+                              by {item.adminUser}
+                            </span>
                           )}
-                          {item.importedCount != null && (
+                          {(item.rowCount != null ||
+                            details?.totalRecords != null) && (
+                            <span>
+                              {item.rowCount ?? details?.totalRecords} rows
+                            </span>
+                          )}
+                          {(item.importedCount != null ||
+                            details?.imported != null) && (
                             <span className="text-green-600 dark:text-green-400">
-                              ✓ {item.importedCount} imported
+                              ✓ {item.importedCount ?? details?.imported}{" "}
+                              imported
+                            </span>
+                          )}
+                          {(details?.failed > 0 || details?.skipped > 0) && (
+                            <span className="text-amber-600 dark:text-amber-400">
+                              ⚠ {details.skipped || 0} skipped,{" "}
+                              {details.failed || 0} failed
                             </span>
                           )}
                         </div>

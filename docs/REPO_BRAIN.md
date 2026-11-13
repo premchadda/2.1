@@ -2,10 +2,10 @@
 
 > **Document Type:** Live Architectural Bible & System Encyclopedia  
 > **Repository:** `trstprep-monorepo` v2.1.0 (Turborepo + pnpm workspaces)  
-> **Current HEAD:** <span data-brain="head">0d054c8</span>  
-> **Last Refreshed:** <span data-brain="refreshed">18 Oct 2026</span>  
-> **AST Knowledge Graph Coverage:** <span data-brain="graph_nodes">9644</span> Nodes · <span data-brain="graph_edges">20639</span> Edges · <span data-brain="graph_communities">588</span> Communities  
-> **Verification Status:** 126 Test Suites / 1,159 Tests Passing (100% GREEN) · 0 Lint Errors · <span data-brain="migration_files">143</span> Database Migrations
+> **Current HEAD:** <span data-brain="head">8140b24</span>  
+> **Last Refreshed:** <span data-brain="refreshed">2 Nov 2026</span>  
+> **AST Knowledge Graph Coverage:** <span data-brain="graph_nodes">10044</span> Nodes · <span data-brain="graph_edges">21370</span> Edges · <span data-brain="graph_communities">607</span> Communities  
+> **Verification Status:** 126 Test Suites / 1,159 Tests Passing (100% GREEN) · 0 Lint Errors · <span data-brain="migration_files">149</span> Database Migrations
 
 ---
 
@@ -15,9 +15,9 @@
 
 The platform operates as a modern monorepo structured into three distinct applications, two shared foundation packages, an asynchronous event/job tier, and a high-throughput dual-pool PostgreSQL database layer:
 
-1. **Learner SPA (`apps/frontend`):** Fast, accessible React 18 client serving <span data-brain="frontend_pages">112</span> pages, featuring the high-fidelity Test Engine, Practice Lab, Socratic AI hints, DRM-protected video player, spaced repetition flashcards, and student analytics dashboards.
+1. **Learner SPA (`apps/frontend`):** Fast, accessible React 18 client serving <span data-brain="frontend_pages">107</span> pages, featuring the high-fidelity Test Engine, Practice Lab, Socratic AI hints, DRM-protected video player, spaced repetition flashcards, and student analytics dashboards.
 2. **Admin Command Panel (`apps/admin-panel`):** Domain-segregated operations console featuring 60 admin manager components across 13 functional modules, supporting curriculum authoring, KaTeX question creation, bulk Excel/JSON ingestion, live test proctoring, Razorpay finance management, and user permissions.
-3. **API Engine (`apps/backend`):** Node.js 22 + Express 4 composition root bound to port 5001. Mounting <span data-brain="api_mounts">73</span> canonical API routes and <span data-brain="backend_route_files">85</span> route files (<span data-brain="backend_module_route_files">32</span> module routes) handling JWT/2FA auth, RLS-enforced PostgreSQL transactions, Redis BullMQ queues, and Socket.IO real-time broadcasts.
+3. **API Engine (`apps/backend`):** Node.js 22 + Express 4 composition root bound to port 5001. Mounting <span data-brain="api_mounts">70</span> canonical API routes and <span data-brain="backend_route_files">83</span> route files (<span data-brain="backend_module_route_files">32</span> module routes) handling JWT/2FA auth, RLS-enforced PostgreSQL transactions, Redis BullMQ queues, and Socket.IO real-time broadcasts.
 4. **Shared Foundations (`packages/*`):** `shared-config` (canonical API client, CSRF vault, logger, constants) and `shared-hooks` (useAuth, useProPass, theme context).
 
 This document serves as the **Living Book of the System**. It provides an exhaustive, component-by-component map of every page, subpage, layout section, button, user interaction, state machine, and data flow across the entire platform.
@@ -30,28 +30,28 @@ Every metric below is wired to an AST extraction marker (`<span data-brain="key"
 
 | Metric Category           | Observable Signal             | Live Count / Marker                                              | Architectural Verification Source                     |
 | :------------------------ | :---------------------------- | :--------------------------------------------------------------- | :---------------------------------------------------- |
-| **Git Commit Reference**  | Monorepo HEAD                 | <span data-brain="head">0d054c8</span>                           | `git rev-parse --short HEAD`                          |
-| **Last Synchronized**     | Build & Audit Date            | <span data-brain="refreshed">18 Oct 2026</span>                  | Automatic commit timestamp                            |
-| **Knowledge Graph Nodes** | Extracted Code Entities       | <span data-brain="graph_nodes">9644</span> nodes                 | `graphify-out/graph.json`                             |
-| **Knowledge Graph Edges** | Semantic & Code Relationships | <span data-brain="graph_edges">20639</span> edges                | `graphify-out/graph.json`                             |
-| **Knowledge Communities** | Distinct Cluster Hubs         | <span data-brain="graph_communities">588</span> communities      | `graphify-out/GRAPH_REPORT.md`                        |
-| **Backend Source Files**  | Application Logic & Routes    | <span data-brain="backend_src_files">551</span> source files     | `apps/backend/src` tree walk                          |
-| **API Route Files**       | Primary Route Handlers        | <span data-brain="backend_route_files">85</span> route files     | `apps/backend/src/api/routes`                         |
+| **Git Commit Reference**  | Monorepo HEAD                 | <span data-brain="head">8140b24</span>                           | `git rev-parse --short HEAD`                          |
+| **Last Synchronized**     | Build & Audit Date            | <span data-brain="refreshed">2 Nov 2026</span>                  | Automatic commit timestamp                            |
+| **Knowledge Graph Nodes** | Extracted Code Entities       | <span data-brain="graph_nodes">10044</span> nodes                 | `graphify-out/graph.json`                             |
+| **Knowledge Graph Edges** | Semantic & Code Relationships | <span data-brain="graph_edges">21370</span> edges                | `graphify-out/graph.json`                             |
+| **Knowledge Communities** | Distinct Cluster Hubs         | <span data-brain="graph_communities">607</span> communities      | `graphify-out/GRAPH_REPORT.md`                        |
+| **Backend Source Files**  | Application Logic & Routes    | <span data-brain="backend_src_files">564</span> source files     | `apps/backend/src` tree walk                          |
+| **API Route Files**       | Primary Route Handlers        | <span data-brain="backend_route_files">83</span> route files     | `apps/backend/src/api/routes`                         |
 | **Module Route Handlers** | Domain Micro-Routes           | <span data-brain="backend_module_route_files">32</span> files    | `apps/backend/src/modules/**/*.routes.js`             |
 | **Security & Middleware** | Composition Middlewares       | <span data-brain="backend_middleware">25</span> middleware files | `apps/backend/src/middleware`                         |
-| **Canonical API Mounts**  | `app.use('/api/...')` Mounts  | <span data-brain="api_mounts">73</span> mount points             | `apps/backend/src/app-port5001.js`                    |
-| **Database Migrations**   | Shipped Schema Evolutions     | <span data-brain="migration_files">143</span> migration files    | `apps/backend/src/infrastructure/database/migrations` |
-| **Frontend Source Files** | Learner SPA Codebase          | <span data-brain="frontend_src_files">321</span> source files    | `apps/frontend/src` tree walk                         |
-| **Frontend Page Views**   | Routed Page Components        | <span data-brain="frontend_pages">112</span> page files          | `apps/frontend/src/pages/**/*.jsx`                    |
-| **Admin Source Files**    | Operations Console Codebase   | <span data-brain="admin_src_files">188</span> source files       | `apps/admin-panel/src` tree walk                      |
-| **Maintenance Scripts**   | CLI, Audits, Sync Tools       | <span data-brain="scripts_files">216</span> scripts              | `scripts/` directory                                  |
-| **Core God-Node: App**    | Composition Root Centrality   | <span data-brain="node_app_port5001">267</span> edges            | `apps/backend/src/app-port5001.js`                    |
-| **Core God-Node: DB**     | `dbHelpers` Utility Edges     | <span data-brain="node_dbhelpers">132</span> edges               | `infrastructure/database/postgres-helpers.js`         |
-| **Core God-Node: Auth**   | `protect()` Authentication    | <span data-brain="node_protect">120</span> edges                 | `middleware/auth.middleware.js`                       |
-| **Core God-Node: Pool**   | Connection Pool Hub           | <span data-brain="node_pool">83</span> edges                     | `infrastructure/database/postgres-helpers.js`         |
-| **Core God-Node: Admin**  | `admin()` Guard Middleware    | <span data-brain="node_admin">80</span> edges                    | `middleware/auth.middleware.js`                       |
+| **Canonical API Mounts**  | `app.use('/api/...')` Mounts  | <span data-brain="api_mounts">70</span> mount points             | `apps/backend/src/app-port5001.js`                    |
+| **Database Migrations**   | Shipped Schema Evolutions     | <span data-brain="migration_files">149</span> migration files    | `apps/backend/src/infrastructure/database/migrations` |
+| **Frontend Source Files** | Learner SPA Codebase          | <span data-brain="frontend_src_files">310</span> source files    | `apps/frontend/src` tree walk                         |
+| **Frontend Page Views**   | Routed Page Components        | <span data-brain="frontend_pages">107</span> page files          | `apps/frontend/src/pages/**/*.jsx`                    |
+| **Admin Source Files**    | Operations Console Codebase   | <span data-brain="admin_src_files">189</span> source files       | `apps/admin-panel/src` tree walk                      |
+| **Maintenance Scripts**   | CLI, Audits, Sync Tools       | <span data-brain="scripts_files">236</span> scripts              | `scripts/` directory                                  |
+| **Core God-Node: App**    | Composition Root Centrality   | <span data-brain="node_app_port5001">271</span> edges            | `apps/backend/src/app-port5001.js`                    |
+| **Core God-Node: DB**     | `dbHelpers` Utility Edges     | <span data-brain="node_dbhelpers">133</span> edges               | `infrastructure/database/postgres-helpers.js`         |
+| **Core God-Node: Auth**   | `protect()` Authentication    | <span data-brain="node_protect">121</span> edges                 | `middleware/auth.middleware.js`                       |
+| **Core God-Node: Pool**   | Connection Pool Hub           | <span data-brain="node_pool">85</span> edges                     | `infrastructure/database/postgres-helpers.js`         |
+| **Core God-Node: Admin**  | `admin()` Guard Middleware    | <span data-brain="node_admin">81</span> edges                    | `middleware/auth.middleware.js`                       |
 | **Core God-Node: Client** | `DataService` Frontend API    | <span data-brain="node_dataservice">22</span> edges              | `frontend/src/shared/lib/dataService.js`              |
-| **Core God-Node: Redis**  | `getRedisClient()` Cache Hub  | <span data-brain="node_getredisclient">51</span> edges           | `cache/redisClient.js`                                |
+| **Core God-Node: Redis**  | `getRedisClient()` Cache Hub  | <span data-brain="node_getredisclient">53</span> edges           | `cache/redisClient.js`                                |
 
 ---
 
@@ -441,7 +441,7 @@ sequenceDiagram
 
 ## Database Architecture & 164 Tables Schema Dictionary
 
-The database is built on PostgreSQL 16 (Supabase managed) utilizing the `pgvector` extension for embedding storage. Database migrations are numbered sequentially from `000` to `153` (<span data-brain="migration_files">143</span> physical files on disk).
+The database is built on PostgreSQL 16 (Supabase managed) utilizing the `pgvector` extension for embedding storage. Database migrations are numbered sequentially from `000` to `153` (<span data-brain="migration_files">149</span> physical files on disk).
 
 ### Core Schema Entity-Relationship Map:
 

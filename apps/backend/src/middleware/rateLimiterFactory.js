@@ -1,5 +1,6 @@
 import rateLimit from "express-rate-limit";
 import { isUserAdminRequest } from "./auth.middleware.js";
+import { getClientIp } from "../shared/utils/clientIp.js";
 
 const RATE_LIMITS = Object.freeze({
   strict: { windowMs: 60 * 1000, max: 5, label: "strict" },
@@ -44,3 +45,21 @@ export const RATE_LIMIT_TIERS = Object.keys(RATE_LIMITS).reduce((acc, key) => {
   acc[key] = createRateLimiter(key);
   return acc;
 }, {});
+
+export const adminLimiter = rateLimit({
+  windowMs: parseInt(process.env.ADMIN_RATE_LIMIT_WINDOW_MS || "900000", 10),
+  max:
+    process.env.NODE_ENV === "development"
+      ? 50000
+      : parseInt(process.env.ADMIN_RATE_LIMIT_MAX || "500", 10),
+  message: {
+    success: false,
+    message: "Too many admin requests, please try again later.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) =>
+    isUserAdminRequest(req) || process.env.NODE_ENV === "development",
+  keyGenerator: (req) =>
+    `admin-ip-${getClientIp(req)}`,
+});

@@ -13,7 +13,7 @@
  * - Batch processing with configurable chunk sizes
  */
 
-import { pool } from "../../infrastructure/database/postgres-helpers.js";
+import { pool, execSavepoint } from "../../infrastructure/database/postgres-helpers.js";
 import { mapClassXToQuestion } from "./classxImporter.js";
 
 export const SOURCE_NAMES = {
@@ -64,8 +64,8 @@ export async function parseExcelData(buffer, _filename) {
   const sheet = workbook.Sheets[sheetName];
   const data = XLSX.utils.sheet_to_json(sheet);
 
-  return data.map((row, i) => ({
-    id: String(i + 1),
+  return data.map((row) => ({
+    id: row.id || row.ID || row.external_id || row.externalQuestionId || null,
     question: row.question || row.Question || row.question_text || "",
     option_1: row.option_1 || row.Option1 || row.option_a || row.A || "",
     option_2: row.option_2 || row.Option2 || row.option_b || row.B || "",
@@ -80,6 +80,33 @@ export async function parseExcelData(buffer, _filename) {
 }
 
 /**
+ * Splits a CSV line respecting quoted values and escaped quotes (RFC 4180).
+ */
+export function parseCSVLine(line = "") {
+  const result = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === "," && !inQuotes) {
+      result.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+/**
  * Parse CSV buffer into raw row objects (for bulk upload).
  * Returns array of objects keyed by header names.
  */
@@ -87,11 +114,9 @@ export function parseCSVBuffer(buffer) {
   const content = buffer.toString("utf-8");
   const lines = content.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
-  const headers = lines[0]
-    .split(",")
-    .map((h) => h.trim().replace(/^"|"$/g, ""));
+  const headers = parseCSVLine(lines[0]).map((h) => h.replace(/^"|"$/g, ""));
   return lines.slice(1).map((line) => {
-    const values = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
+    const values = parseCSVLine(line).map((v) => v.replace(/^"|"$/g, ""));
     const row = {};
     headers.forEach((h, i) => {
       row[h] = values[i] || "";
@@ -178,21 +203,25 @@ export async function parseSpreadsheetBuffer(buffer) {
  * Parse CSV string into question objects.
  */
 export function parseCSVData(csvString) {
-  const lines = csvString.split("\n").filter((line) => line.trim());
+  const lines = csvString.split(/\r?\n/).filter((line) => line.trim());
   if (lines.length < 2) return [];
 
-  const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+  const headers = parseCSVLine(lines[0]).map((h) =>
+    h.toLowerCase().replace(/^"|"$/g, ""),
+  );
   const questions = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(",").map((v) => v.trim());
+    const values = parseCSVLine(lines[i]).map((v) =>
+      v.replace(/^"|"$/g, ""),
+    );
     const row = {};
     headers.forEach((h, idx) => {
       row[h] = values[idx] || "";
     });
 
     questions.push({
-      id: String(i),
+      id: row.id || row.external_id || row.externalquestionid || null,
       question: row.question || row.question_text || "",
       option_1: row.option_1 || row.option_a || "",
       option_2: row.option_2 || row.option_b || "",
@@ -285,11 +314,14 @@ export async function batchImport(rows, config = {}, onProgress = null) {
 
       for (let j = 0; j < batch.length; j++) {
         const globalIndex = i + j;
+        const spName = `sp_enh_${Number(globalIndex)}`;
+        await execSavepoint(client, "SAVEPOINT", spName);
         try {
           const row = batch[j];
           const mapped = mapClassXToQuestion(row, config);
 
           if (!mapped) {
+            await execSavepoint(client, "RELEASE SAVEPOINT", spName);
             results.skipped++;
             continue;
           }
@@ -301,6 +333,7 @@ export async function batchImport(rows, config = {}, onProgress = null) {
               [mapped.externalQuestionId, config.source || "classx"],
             );
             if (existing.rows.length > 0) {
+              await execSavepoint(client, "RELEASE SAVEPOINT", spName);
               results.duplicates++;
               results.skipped++;
               continue;
@@ -353,6 +386,7 @@ export async function batchImport(rows, config = {}, onProgress = null) {
             );
           }
 
+          await execSavepoint(client, "RELEASE SAVEPOINT", spName);
           results.imported++;
           results.questions.push({
             id: questionId,
@@ -360,6 +394,11 @@ export async function batchImport(rows, config = {}, onProgress = null) {
             externalId: mapped.externalQuestionId,
           });
         } catch (err) {
+          try {
+            await execSavepoint(client, "ROLLBACK TO SAVEPOINT", spName);
+          } catch {
+            // ignore rollback error
+          }
           results.failed++;
           results.errors.push({
             index: globalIndex,

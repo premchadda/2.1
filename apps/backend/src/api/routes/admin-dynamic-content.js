@@ -48,9 +48,20 @@ const ALLOWED_FIELDS = {
     "orderIndex",
     "sortOrder",
   ],
-  units: ["name", "subjectId", "order", "orderIndex", "isActive"],
+  units: [
+    "name",
+    "slug",
+    "subject",
+    "subjectId",
+    "order",
+    "orderIndex",
+    "isActive",
+  ],
   chapters: [
     "title",
+    "slug",
+    "subject",
+    "subjectId",
     "description",
     "icon",
     "studyMaterialId",
@@ -64,6 +75,9 @@ const ALLOWED_FIELDS = {
   ],
   topics: [
     "name",
+    "slug",
+    "subject",
+    "subjectId",
     "description",
     "icon",
     "chapterId",
@@ -73,7 +87,15 @@ const ALLOWED_FIELDS = {
     "nameHi",
     "descriptionHi",
   ],
-  subtopics: ["name", "topicId", "order", "orderIndex", "isActive"],
+  subtopics: [
+    "name",
+    "slug",
+    "subject",
+    "topicId",
+    "order",
+    "orderIndex",
+    "isActive",
+  ],
 };
 
 // Alias map: frontend field name → DB column name
@@ -259,6 +281,15 @@ curriculumCrudRoutes.forEach(({ path, collection }) => {
     asyncHandler(async (req, res) => {
       const allowed = ALLOWED_FIELDS[collection];
       const sanitized = allowed ? sanitizeBody(req.body, allowed) : req.body;
+      if (!sanitized.slug && (sanitized.name || sanitized.title)) {
+        sanitized.slug = (sanitized.name || sanitized.title)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "");
+      }
+      if (collection === "topics" && !sanitized.subject) {
+        sanitized.subject = req.body.subject || "General";
+      }
       const item = await dbHelpers.insertOne(collection, sanitized);
       await clearCache("curriculum").catch(() => {});
       res.status(201).json({ success: true, data: item });

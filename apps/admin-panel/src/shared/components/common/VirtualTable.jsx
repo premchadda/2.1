@@ -12,15 +12,8 @@ import {
 } from "lucide-react";
 
 const TableRow = ({ index, style, data }) => {
-  const {
-    items,
-    columns,
-    onEdit,
-    onDelete,
-    onView,
-    onToggleActive,
-    visibleColumns,
-  } = data;
+  const { items, onEdit, onDelete, onView, onToggleActive, visibleColumns } =
+    data;
   const item = items[index];
 
   const renderCell = (item, column) => {

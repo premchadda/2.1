@@ -50,7 +50,6 @@ import {
   RefreshCw,
   Brain,
   Sparkles,
-  RotateCcw,
   User,
   Crown,
   Bookmark,

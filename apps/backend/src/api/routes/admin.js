@@ -59,6 +59,8 @@ import adminTestsRoutes from "./admin-tests.js";
 import adminUsersRoutes from "./admin-users.js";
 import leaderboardRoutes from "./leaderboards-admin.js";
 import adminLiveTestsRoutes from "./admin-live-tests.js";
+import subscriptionAdminRoutes from "./subscriptions-admin.js";
+import { adminLimiter } from "../../middleware/rateLimiterFactory.js";
 
 const router = express.Router();
 
@@ -68,6 +70,7 @@ router.use(restrictAdminOrigin);
 router.use(validateAdminApiKey);
 router.use(protect);
 router.use(admin);
+router.use(adminLimiter);
 router.use(validateCsrfToken);
 router.use(loadAdminPermissions);
 router.use(requireAdminPermission);
@@ -102,17 +105,19 @@ router.use(adminRolesRoutes);
 router.use(adminSessionsRoutes);
 router.use(adminSettingsRoutes);
 router.use(adminStagesRoutes);
+// Scoped analytics mounted before stats so feature gate is enforced
+router.use("/analytics/deep", adminDeepAnalyticsRoutes);
+router.use("/analytics", adminAnalyticsRoutes);
 router.use(adminStatsRoutes);
 router.use(adminTestSeriesRoutes);
 router.use(adminTestsRoutes);
 router.use(adminUsersRoutes);
+router.use("/subscriptions", subscriptionAdminRoutes);
 
 // ── Scoped Subpath Routes ──────────────────────────────────────────────────
 router.use("/audit-logs", adminAuditRoutes);
 router.use("/trash", adminRecycleBinRoutes);
 router.use("/sections", adminSectionsRoutes);
-router.use("/analytics/deep", adminDeepAnalyticsRoutes);
-router.use("/analytics", adminAnalyticsRoutes);
 router.use("/email-templates", adminEmailTemplatesRoutes);
 router.use("/coming-soon", adminComingSoonRoutes);
 router.use("/payments", adminPaymentsRoutes);

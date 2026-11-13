@@ -286,11 +286,15 @@ router.get(
         isActive: true,
       });
 
-      const previousYearPapers = tests.slice(0, 5).map((test, idx) => ({
+      const previousYearPapers = (tests || []).slice(0, 5).map((test) => ({
         id: test._id || test.id,
-        title: `${year} ${test.title || `Shift ${idx + 1}`}`,
-        date: test.date || `${year}-12-0${idx + 1}`,
-        questions: test.totalQuestions || 100,
+        title: test.title || `Test Paper`,
+        date:
+          test.date ||
+          (test.created_at
+            ? new Date(test.created_at).toISOString().split("T")[0]
+            : null),
+        questions: test.totalQuestions || test.total_questions || 0,
       }));
 
       res.json({
@@ -316,29 +320,7 @@ router.get(
           syllabusChanges:
             info?.syllabusChanges ||
             "Some topics added to General Awareness section",
-          previousYearPapers:
-            previousYearPapers.length > 0
-              ? previousYearPapers
-              : [
-                  {
-                    id: 1,
-                    title: `${year} Shift 1`,
-                    date: `${year}-12-01`,
-                    questions: 100,
-                  },
-                  {
-                    id: 2,
-                    title: `${year} Shift 2`,
-                    date: `${year}-12-02`,
-                    questions: 100,
-                  },
-                  {
-                    id: 3,
-                    title: `${year} Shift 3`,
-                    date: `${year}-12-03`,
-                    questions: 100,
-                  },
-                ],
+          previousYearPapers: previousYearPapers || [],
           importantTopics: info?.importantTopics || [
             "Quantitative Aptitude",
             "English Comprehension",

@@ -5,6 +5,7 @@ import { Calendar, User, Clock, ArrowLeft, Share2 } from "lucide-react";
 // NOTE: dataService default-exports the shared axios instance (apiClient).
 import apiClient from "../../shared/lib/dataService";
 import sanitizeHtml from "../../shared/lib/sanitizeHtml";
+import LazyImage from "../../shared/components/common/LazyImage";
 
 export default function BlogDetail() {
   const { id } = useParams();
@@ -99,9 +100,7 @@ export default function BlogDetail() {
           {/* Hero Image */}
           {blog.imageUrl && (
             <div className="h-64 md:h-96 bg-gray-200">
-              <img
-                loading="lazy"
-                decoding="async"
+              <LazyImage
                 src={blog.imageUrl}
                 alt={blog.title}
                 className="w-full h-full object-cover"

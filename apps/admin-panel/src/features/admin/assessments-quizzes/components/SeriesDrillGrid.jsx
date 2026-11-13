@@ -1,6 +1,11 @@
 import React, { memo } from "react";
 import PropTypes from "prop-types";
-import { Folder, List, FileText, ChevronRight } from "lucide-react";
+import {
+  Folder,
+  List,
+  FileText,
+  ChevronRight as _ChevronRight,
+} from "lucide-react";
 import EmptyState from "../../../../shared/components/ui/EmptyState";
 import { getSeriesId } from "./questionHelpers.js";
 

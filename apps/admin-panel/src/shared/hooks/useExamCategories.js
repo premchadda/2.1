@@ -286,7 +286,13 @@ export function useExamCategories() {
 
   const getCategoryLabel = useCallback(
     (categoryId) => {
-      const category = categories.find((cat) => cat.id === categoryId);
+      const category = categories.find(
+        (cat) =>
+          String(cat.id) === String(categoryId) ||
+          String(cat.categoryId) === String(categoryId) ||
+          String(cat.category_id) === String(categoryId) ||
+          String(cat.slug) === String(categoryId),
+      );
       return category ? category.label : categoryId;
     },
     [categories],

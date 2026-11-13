@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
@@ -121,60 +121,65 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
     admins: 0,
   });
 
-  const fetchUsers = async (pageToFetch = currentPage, signal) => {
-    try {
-      setLoading(true);
-      const params = { page: pageToFetch, limit: pageSize };
-      if (debouncedSearch) params.search = debouncedSearch;
-      if (filterStatus === "active") params.status = "active";
-      else if (filterStatus === "inactive") {
-        params.status = "inactive";
-        params.includeInactive = "true";
-      }
-      if (filterRole === "admin") params.role = "admin";
-      else if (filterRole === "user") params.role = "user";
-      else if (filterRole === "pro") params.pro = "true";
+  const fetchUsers = useCallback(
+    async (pageToFetch = currentPage, signal) => {
+      try {
+        setLoading(true);
+        const params = { page: pageToFetch, limit: pageSize };
+        if (debouncedSearch) params.search = debouncedSearch;
+        if (filterStatus === "active") params.status = "active";
+        else if (filterStatus === "inactive") {
+          params.status = "inactive";
+          params.includeInactive = "true";
+        }
+        if (filterRole === "admin") params.role = "admin";
+        else if (filterRole === "user") params.role = "user";
+        else if (filterRole === "pro") params.pro = "true";
 
-      const [usersRes, statsRes] = await Promise.allSettled([
-        api.get("/admin/users", { params, signal }),
-        api.get("/admin/stats", { signal }),
-      ]);
+        const [usersRes, statsRes] = await Promise.allSettled([
+          api.get("/admin/users", { params, signal }),
+          api.get("/admin/stats", { signal }),
+        ]);
 
-      if (signal?.aborted) return;
+        if (signal?.aborted) return;
 
-      if (usersRes.status === "fulfilled") {
-        const usersData = usersRes.value.data?.data;
-        setUsers(Array.isArray(usersData) ? usersData : usersData?.users || []);
-        const serverTotal = usersRes.value.data?.total;
-        if (typeof serverTotal === "number") setTotalUsers(serverTotal);
-      }
-      if (statsRes.status === "fulfilled") {
-        const statsData = statsRes.value.data?.data;
-        if (statsData) {
-          setUserStats({
-            users: statsData.users ?? 0,
-            activeUsers: statsData.activeUsers ?? 0,
-            proUsers: statsData.proUsers ?? 0,
-            admins: statsData.admins ?? 0,
-          });
+        if (usersRes.status === "fulfilled") {
+          const usersData = usersRes.value.data?.data;
+          setUsers(
+            Array.isArray(usersData) ? usersData : usersData?.users || [],
+          );
+          const serverTotal = usersRes.value.data?.total;
+          if (typeof serverTotal === "number") setTotalUsers(serverTotal);
+        }
+        if (statsRes.status === "fulfilled") {
+          const statsData = statsRes.value.data?.data;
+          if (statsData) {
+            setUserStats({
+              users: statsData.users ?? 0,
+              activeUsers: statsData.activeUsers ?? 0,
+              proUsers: statsData.proUsers ?? 0,
+              admins: statsData.admins ?? 0,
+            });
+          }
+        }
+      } catch (error) {
+        if (signal?.aborted) return;
+        logger.error("Failed to fetch users:", error);
+      } finally {
+        if (!signal?.aborted) {
+          setLoading(false);
+          setRefreshing(false);
         }
       }
-    } catch (error) {
-      if (signal?.aborted) return;
-      logger.error("Failed to fetch users:", error);
-    } finally {
-      if (!signal?.aborted) {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    }
-  };
+    },
+    [currentPage, pageSize, debouncedSearch, filterStatus, filterRole],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
     fetchUsers(currentPage, controller.signal);
     return () => controller.abort();
-  }, [currentPage, debouncedSearch, filterStatus, filterRole]);
+  }, [currentPage, fetchUsers]);
 
   const handleRefresh = () => {
     setRefreshing(true);

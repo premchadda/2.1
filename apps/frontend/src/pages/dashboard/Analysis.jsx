@@ -27,7 +27,6 @@ import {
   Timer,
   Zap,
   Lock as LockIcon,
-  Activity,
   Gauge,
 } from "lucide-react";
 import { checkFeatureAccess } from "../../shared/utils/pass-helpers";

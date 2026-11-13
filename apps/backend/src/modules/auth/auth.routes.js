@@ -94,6 +94,7 @@ router.post("/logout", optionalAuth, authController.logout);
 router.post("/refresh", authRateLimiter, authController.refreshToken);
 router.post(
   "/forgot-password",
+  lockoutMiddleware,
   botProtectionMiddleware,
   authRateLimiter,
   validateBody(forgotPasswordSchema),
@@ -101,6 +102,7 @@ router.post(
 );
 router.post(
   "/reset-password",
+  lockoutMiddleware,
   authRateLimiter,
   validateBody(resetPasswordSchema),
   authController.resetPassword,
@@ -112,11 +114,27 @@ router.post(
   validateBody(changePasswordSchema),
   authController.changePassword,
 );
-router.get("/verify-email/:token", authRateLimiter, authController.verifyEmail);
-router.get("/verify-email", authRateLimiter, authController.verifyEmail);
-router.post("/verify-email", authRateLimiter, authController.verifyEmail);
+router.get(
+  "/verify-email/:token",
+  lockoutMiddleware,
+  authRateLimiter,
+  authController.verifyEmail,
+);
+router.get(
+  "/verify-email",
+  lockoutMiddleware,
+  authRateLimiter,
+  authController.verifyEmail,
+);
+router.post(
+  "/verify-email",
+  lockoutMiddleware,
+  authRateLimiter,
+  authController.verifyEmail,
+);
 router.post(
   "/resend-verification",
+  lockoutMiddleware,
   authRateLimiter,
   authController.resendVerification,
 );

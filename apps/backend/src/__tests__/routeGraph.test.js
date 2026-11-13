@@ -33,6 +33,7 @@ jest.unstable_mockModule(
     dbHelpers: dbHelpersStub,
     withTransaction: jest.fn(),
     ensureTestSectionsSchema: jest.fn(),
+    execSavepoint: jest.fn(),
   }),
 );
 

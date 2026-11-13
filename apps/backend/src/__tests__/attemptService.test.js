@@ -287,6 +287,113 @@ describe("attemptService", () => {
         }),
       );
     });
+
+    it("correctly evaluates MSQ questions with array selections, partial credit, and penalties", async () => {
+      const testObj = {
+        id: 20,
+        title: "GATE/JEE Multi-Select Practice",
+        totalMarks: 6,
+        negativeMarking: 0.5,
+      };
+      mockTestRepo.findByIdentifier.mockResolvedValue(testObj);
+
+      const questions = [
+        {
+          id: 201,
+          marks: 2,
+          negativeMarks: 0.5,
+          question_type: "msq",
+          options: [
+            { text: "A", isCorrect: true },
+            { text: "B", isCorrect: false },
+            { text: "C", isCorrect: true },
+            { text: "D", isCorrect: false },
+          ],
+        },
+        {
+          id: 202,
+          marks: 2,
+          negativeMarks: 0.5,
+          question_type: "msq",
+          options: [
+            { text: "A", isCorrect: true },
+            { text: "B", isCorrect: true },
+            { text: "C", isCorrect: false },
+            { text: "D", isCorrect: false },
+          ],
+        },
+        {
+          id: 203,
+          marks: 2,
+          negativeMarks: 0.5,
+          question_type: "msq",
+          options: [
+            { text: "A", isCorrect: true },
+            { text: "B", isCorrect: true },
+            { text: "C", isCorrect: false },
+            { text: "D", isCorrect: false },
+          ],
+        },
+      ];
+      mockTestRepo.getQuestions.mockResolvedValue(questions);
+
+      const savedAttempt = {
+        id: 888,
+        userId: 1,
+        testId: 20,
+        status: "completed",
+      };
+      mockAttemptRepo.insert.mockResolvedValue(savedAttempt);
+
+      const submitData = {
+        answers: [
+          { questionId: 201, selectedOption: [0, 2] }, // Exact match -> +2.0 marks
+          { questionId: 202, selectedOption: [0] }, // Partial match (1 of 2) -> +1.0 marks
+          { questionId: 203, selectedOption: [0, 2] }, // Wrong option selected (2 is wrong) -> -0.5 marks
+        ],
+        timeSpent: 120,
+      };
+
+      const result = await attemptService.submit(1, 20, submitData);
+
+      expect(result.id).toBe(888);
+      expect(mockAttemptRepo.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 1,
+          score: 2.5, // 2.0 + 1.0 - 0.5 = 2.5
+          correct: 2, // 201 (full) + 202 (partial)
+          wrong: 1, // 203
+          unattempted: 0,
+        }),
+        mockPoolClient,
+      );
+
+      expect(mockAttemptRepo.saveAnswers).toHaveBeenCalledWith(
+        888,
+        expect.arrayContaining([
+          expect.objectContaining({
+            questionId: 201,
+            selectedOption: [0, 2],
+            isCorrect: true,
+            marks: 2,
+          }),
+          expect.objectContaining({
+            questionId: 202,
+            selectedOption: [0],
+            isCorrect: true,
+            isPartial: true,
+            marks: 1,
+          }),
+          expect.objectContaining({
+            questionId: 203,
+            selectedOption: [0, 2],
+            isWrong: true,
+            marks: -0.5,
+          }),
+        ]),
+        mockPoolClient,
+      );
+    });
   });
 
   describe("getResult()", () => {

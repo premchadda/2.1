@@ -9,22 +9,22 @@ import {
   FileText,
   Clock,
   Eye,
-  Edit2,
+  Edit2 as _Edit2,
   Edit3,
   Layers,
   BookOpen,
 } from "lucide-react";
-import { LoadingSpinner } from "./LoadingSpinner";
+import { LoadingSpinner as _LoadingSpinner } from "./LoadingSpinner";
 import EmptyState from "../../../../shared/components/ui/EmptyState";
 import TestQuestionsModal from "./TestQuestionsModal";
 import {
   getEntityId,
   getTestId,
   getTestIdFromQuestion,
-  getQuestionId,
+  getQuestionId as _getQuestionId,
   idsEqual,
 } from "./questionHelpers";
-import { DIFFICULTY_LEVELS } from "../../../../shared/config/difficultyConfig.js";
+import { DIFFICULTY_LEVELS as _DIFFICULTY_LEVELS } from "../../../../shared/config/difficultyConfig.js";
 
 /**
  * SeriesWorkspaceModal
@@ -41,12 +41,15 @@ export default function SeriesWorkspaceModal({
   selectedExamLabel = "",
   selectedStageLabel = "",
   activeCatLabel = "",
-  activeCategory = "",
+  _activeCategory = "",
   subCategoryOptionsLevel1 = [],
   subCategoryOptionsLevel2 = [],
   subCategoryOptionsLevel3 = [],
   subCategoryOptionsLevel4 = [],
   subCategoryLevel1 = "",
+  subCategoryLevel2 = "",
+  subCategoryLevel3 = "",
+  subCategoryLevel4 = "",
   setSubCategoryLevel1,
   setSubCategoryLevel2,
   setSubCategoryLevel3,
@@ -626,6 +629,9 @@ SeriesWorkspaceModal.propTypes = {
   subCategoryOptionsLevel3: PropTypes.array,
   subCategoryOptionsLevel4: PropTypes.array,
   subCategoryLevel1: PropTypes.string,
+  subCategoryLevel2: PropTypes.string,
+  subCategoryLevel3: PropTypes.string,
+  subCategoryLevel4: PropTypes.string,
   setSubCategoryLevel1: PropTypes.func,
   setSubCategoryLevel2: PropTypes.func,
   setSubCategoryLevel3: PropTypes.func,

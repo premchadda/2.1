@@ -1,6 +1,7 @@
 import { dbHelpers, pool } from '../../infrastructure/database/postgres-helpers.js'
 import analyticsService from './analyticsService.js'
 import { idsMatch, safeNumber } from './common.js'
+import { fisherYatesShuffle } from '../../shared/utils/array.js'
 
 const normalizeOption = (value) => {
   if (value === undefined || value === null || value === '') return null
@@ -145,7 +146,8 @@ const getOrCreateDailyQuiz = async (date = new Date()) => {
   }
 
   const allQuestions = await dbHelpers.find('questions', { isActive: true })
-  const shuffled = [...allQuestions].sort(() => Math.random() - 0.5)
+  // Cryptographically unbiased shuffle (previously a biased Math.random sort).
+  const shuffled = fisherYatesShuffle(allQuestions)
   const selected = shuffled.slice(0, 10)
 
   // Atomic insert — ON CONFLICT DO NOTHING prevents two concurrent requests

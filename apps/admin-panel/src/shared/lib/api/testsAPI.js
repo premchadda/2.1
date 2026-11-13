@@ -24,60 +24,6 @@ export const testsAPI = {
     need(testId, "Test ID is required");
     return apiClient.get(`/tests/${enc(testId)}/questions`);
   },
-  startAttempt: (testId) => {
-    need(testId, "Test ID is required");
-    return apiClient.post(`/tests/${enc(testId)}/start`);
-  },
-  submitAttempt: (testId, data) => {
-    need(testId, "Test ID is required");
-    if (!data || !Array.isArray(data.answers)) {
-      throw new ValidationError("Answers array is required");
-    }
-    return apiClient.put(`/tests/${enc(testId)}/submit`, data);
-  },
-  getResult: (testId, attemptId) => {
-    need(testId, "Test ID is required");
-    need(attemptId, "Attempt ID is required");
-    return apiClient.get(`/tests/${enc(testId)}/result/${enc(attemptId)}`);
-  },
-  // Attempt management - pause/resume/save-progress
-  attempt: {
-    start: (testId, seriesId) => {
-      need(testId, "Test ID is required");
-      return apiClient.post(`/tests/${enc(testId)}/start`, {
-        testSeriesId: seriesId,
-      });
-    },
-    pause: (attemptId, data) => {
-      need(attemptId, "Attempt ID is required");
-      return apiClient.post("/attempt/pause", { attemptId, ...data });
-    },
-    resume: (attemptId) => {
-      need(attemptId, "Attempt ID is required");
-      return apiClient.post("/attempt/resume", { attemptId });
-    },
-    saveProgress: (attemptId, data) => {
-      need(attemptId, "Attempt ID is required");
-      return apiClient.post("/attempt/save-progress", { attemptId, ...data });
-    },
-    getState: (attemptId) => {
-      need(attemptId, "Attempt ID is required");
-      return apiClient.get(`/attempt/${enc(attemptId)}/state`);
-    },
-    logEvent: (attemptId, eventType, data = {}) => {
-      need(attemptId, "Attempt ID is required");
-      need(eventType, "Event type is required");
-      return apiClient.post(`/attempt/${enc(attemptId)}/event`, {
-        ...data,
-        eventType,
-        attemptId,
-      });
-    },
-    getAnalytics: (attemptId) => {
-      need(attemptId, "Attempt ID is required");
-      return apiClient.get(`/attempt/${enc(attemptId)}/analytics`);
-    },
-  },
   create: (data) => {
     if (!data?.title || !String(data.title).trim()) {
       throw new ValidationError("title is required");

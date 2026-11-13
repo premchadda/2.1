@@ -1,7 +1,10 @@
 import express from "express";
 import fs from "fs";
 import { parseAssetId } from "../../shared/utils/parseAssetId.js";
-import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
+import {
+  dbHelpers,
+  pool,
+} from "../../infrastructure/database/postgres-helpers.js";
 import {
   deleteStoredAssetFile,
   resolveAssetAccessUrl,
@@ -86,63 +89,64 @@ export const buildAssetUrlMap = async (assetIds) => {
 
 const listAssets = async (req, res) => {
   try {
-    const { category, type, search, page = 1, limit = 100 } = req.query;
+    const { category, type, search } = req.query;
+    const pageNumber = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limitNumber = Math.min(
+      100,
+      Math.max(parseInt(req.query.limit, 10) || 100, 1),
+    );
+    const offset = (pageNumber - 1) * limitNumber;
 
-    const allAssets = await dbHelpers.find("assets", { isActive: true });
-    let filteredAssets = allAssets;
+    const whereClauses = ["is_active = true"];
+    const params = [];
+    let paramIdx = 1;
 
     if (category) {
-      filteredAssets = filteredAssets.filter(
-        (asset) =>
-          (asset.category || "").toLowerCase() ===
-          String(category).toLowerCase(),
-      );
+      whereClauses.push(`LOWER(category) = LOWER($${paramIdx++})`);
+      params.push(String(category));
     }
 
     if (type) {
-      const typeLower = String(type).toLowerCase();
-      filteredAssets = filteredAssets.filter((asset) => {
-        const assetType = (asset.type || "").toLowerCase();
-        const assetCategory = (asset.category || "").toLowerCase();
-        return (
-          assetType.startsWith(`${typeLower}/`) || assetCategory === typeLower
-        );
-      });
+      const typeStr = String(type).toLowerCase();
+      whereClauses.push(
+        `(LOWER(type) LIKE $${paramIdx} OR LOWER(category) = $${paramIdx})`,
+      );
+      params.push(`${typeStr}%`);
+      paramIdx++;
     }
 
     if (search) {
-      const query = String(search).toLowerCase();
-      filteredAssets = filteredAssets.filter(
-        (asset) =>
-          String(asset.name || "")
-            .toLowerCase()
-            .includes(query) ||
-          String(asset.url || "")
-            .toLowerCase()
-            .includes(query),
+      whereClauses.push(
+        `(LOWER(name) LIKE $${paramIdx} OR LOWER(url) LIKE $${paramIdx})`,
       );
+      params.push(`%${String(search).toLowerCase()}%`);
+      paramIdx++;
     }
 
-    filteredAssets.sort(
-      (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
+    const whereSql = whereClauses.join(" AND ");
+    const countResult = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM assets WHERE ${whereSql}`,
+      params,
+    );
+    const total = countResult.rows[0]?.total || 0;
+
+    const queryParams = [...params, limitNumber, offset];
+    const dataResult = await pool.query(
+      `SELECT * FROM assets WHERE ${whereSql} ORDER BY created_at DESC LIMIT $${paramIdx++} OFFSET $${paramIdx}`,
+      queryParams,
     );
 
-    const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
-    const limitNumber = Math.max(parseInt(limit, 10) || 100, 1);
-    const startIndex = (pageNumber - 1) * limitNumber;
-    const paginatedAssets = filteredAssets
-      .slice(startIndex, startIndex + limitNumber)
-      .map(normalizeAssetRecord);
+    const paginatedAssets = dataResult.rows.map(normalizeAssetRecord);
 
     res.json({
       success: true,
       data: paginatedAssets,
-      total: filteredAssets.length,
+      total,
       pagination: {
         page: pageNumber,
         limit: limitNumber,
-        total: filteredAssets.length,
-        totalPages: Math.ceil(filteredAssets.length / limitNumber),
+        total,
+        totalPages: Math.ceil(total / limitNumber) || 1,
       },
     });
   } catch (error) {
@@ -201,14 +205,11 @@ router.get("/assets/by-test/:testId", async (req, res) => {
         .status(400)
         .json({ success: false, message: "Invalid test id" });
     }
-    const allAssets = await dbHelpers.find("assets", { isActive: true });
-    const assets = allAssets
-      .filter((a) => {
-        const meta =
-          a.metadata && typeof a.metadata === "object" ? a.metadata : {};
-        return String(meta.testId ?? meta.test_id ?? "") === String(testId);
-      })
-      .map(normalizeAssetRecord);
+    const result = await pool.query(
+      `SELECT * FROM assets WHERE is_active = true AND (metadata->>'testId' = $1 OR metadata->>'test_id' = $1) ORDER BY created_at DESC`,
+      [String(testId)],
+    );
+    const assets = result.rows.map(normalizeAssetRecord);
     res.json({ success: true, data: assets, total: assets.length });
   } catch (error) {
     logger.error("Assets by test error:", error);
@@ -367,7 +368,7 @@ const handleAssetUpload = async (req, res) => {
     // mismatch, so the stored blob matches the declared type.
     if (req.file.path && !validateFileContent(req.file.path, mimeType)) {
       try {
-        fs.promises.unlink(req.file.path);
+        await fs.promises.unlink(req.file.path);
       } catch {
         /* best-effort cleanup */
       }
@@ -429,6 +430,13 @@ const handleAssetUpload = async (req, res) => {
       data: normalizeAssetRecord(assetRecord),
     });
   } catch (error) {
+    if (req.file?.path) {
+      try {
+        await fs.promises.unlink(req.file.path);
+      } catch {
+        /* best-effort cleanup */
+      }
+    }
     logger.error("Asset upload error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }

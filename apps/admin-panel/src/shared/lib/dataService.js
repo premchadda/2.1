@@ -427,6 +427,10 @@ export const refreshData = (...args) => dataService.refreshData(...args);
 export const getAchievements = () => adminAPI.getAchievements();
 export const checkAchievements = () => adminAPI.checkAchievements();
 
+// Import History function
+export const getImportHistory = (limit = 20) =>
+  adminAPI.getImportHistory(limit);
+
 // User Analytics
 export const getUserAnalytics = (...args) =>
   dataService.getUserAnalytics(...args);

@@ -507,13 +507,20 @@ router.get(
   aiRateLimiter,
   async (req, res) => {
     try {
+      const conversationId = parseInt(req.params.id, 10);
+      if (isNaN(conversationId) || conversationId <= 0) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid conversation ID" });
+      }
+
       const { pool } =
         await import("../../infrastructure/database/postgres-helpers.js");
       // Verify ownership (IDOR guard) — a user must not be able to read another
       // user's conversation history.
       const convResult = await pool.query(
         "SELECT id FROM ai_conversations WHERE id = $1 AND user_id = $2",
-        [req.params.id, req.user.id],
+        [conversationId, req.user.id],
       );
       if (convResult.rows.length === 0) {
         return res
@@ -522,7 +529,7 @@ router.get(
       }
       const result = await pool.query(
         "SELECT role, content, created_at FROM ai_messages WHERE conversation_id = $1 ORDER BY created_at ASC",
-        [req.params.id],
+        [conversationId],
       );
       res.json({ success: true, data: result.rows });
     } catch (error) {

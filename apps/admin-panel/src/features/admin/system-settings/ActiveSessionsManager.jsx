@@ -99,7 +99,7 @@ export default function ActiveSessionsManager() {
   const {
     data: sessions = [],
     isLoading: loading,
-    error: sessionsError,
+    error: _sessionsError,
     refetch: refetchSessions,
   } = useAdminSessions(debouncedSearch);
 
@@ -128,7 +128,7 @@ export default function ActiveSessionsManager() {
       queryClient.invalidateQueries({
         queryKey: ["admin", "sessions", "stats"],
       });
-      toast.info(`Session revoked for user ${data.userId}`);
+      toast(`Session revoked for user ${data.userId}`, { icon: "ℹ️" });
     });
 
     return () => {

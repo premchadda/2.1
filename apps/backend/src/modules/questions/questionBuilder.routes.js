@@ -1,5 +1,6 @@
 import express from "express";
 import { protect, admin } from "../../middleware/auth.middleware.js";
+import { aiRateLimiter } from "../../middleware/aiRateLimiter.js";
 import questionBuilderService from "./questionBuilder.service.js";
 import Question from "../../data/models/question/Question.js";
 import { DIFFICULTY_TAXONOMY } from "./difficultyConfig.js";
@@ -9,7 +10,7 @@ import { generateQuestions } from "./questionGenerator.service.js";
 const router = express.Router();
 
 // AI Question Generator endpoint (Wave 17)
-router.post("/ai-generate", protect, admin, async (req, res) => {
+router.post("/ai-generate", protect, admin, aiRateLimiter, async (req, res) => {
   try {
     const { subject, topic, difficulty, count } = req.body || {};
     const questions = await generateQuestions({

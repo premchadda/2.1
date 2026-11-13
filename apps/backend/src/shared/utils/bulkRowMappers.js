@@ -39,19 +39,27 @@ const normalizeLookupValue = (value) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "");
 
+const BULK_CACHE_TTL_MS = 60 * 1000;
 const bulkLookupCache = new Map();
 
+export const clearBulkLookupCache = () => {
+  bulkLookupCache.clear();
+};
+
 const getBulkLookupRows = async (table) => {
-  if (!bulkLookupCache.has(table)) {
-    bulkLookupCache.set(
-      table,
-      dbHelpers
-        .find(table, {})
-        .then((rows) => (Array.isArray(rows) ? rows : []))
-        .catch(() => []),
-    );
+  const cached = bulkLookupCache.get(table);
+  const now = Date.now();
+  if (cached && now - cached.timestamp < BULK_CACHE_TTL_MS) {
+    return cached.promise;
   }
-  return bulkLookupCache.get(table);
+
+  const promise = dbHelpers
+    .find(table, {})
+    .then((rows) => (Array.isArray(rows) ? rows : []))
+    .catch(() => []);
+
+  bulkLookupCache.set(table, { timestamp: now, promise });
+  return promise;
 };
 
 const resolveNamedEntityId = async (table, value, parentFilters = {}) => {
@@ -117,6 +125,9 @@ const resolveCorrectOption = (value, options = []) => {
   // Return null so the row is stored with an unknown answer and the
   // audit module can flag it.
   if (value === undefined || value === null || value === "") return null;
+  // If explicitly 0, it is 0-indexed Option A (cannot be 1-indexed)
+  if (value === 0 || value === "0") return 0;
+
   const str = String(value).trim().toUpperCase();
   const letterMap = {
     A: 0,
@@ -260,6 +271,7 @@ export const mapBulkRowToQuestionPayload = async (row, config = {}) => {
 
   const type = row.type || "mcq";
   const rawCorrect =
+    row.correctLetter ??
     row.correctOption ??
     row.correct_option ??
     row.correctAnswer ??

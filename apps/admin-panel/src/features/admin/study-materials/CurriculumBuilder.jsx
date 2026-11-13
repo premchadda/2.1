@@ -81,7 +81,7 @@ const entityMatchesParentId = (entity, parentId) => {
     normalizeId(entity.topic_id) === strParentId
   );
 };
-const toSet = (items, mapper) => new Set(items.map(mapper).filter(Boolean));
+const _toSet = (items, mapper) => new Set(items.map(mapper).filter(Boolean));
 
 const getPartSubjectId = (part) => part?.subjectId ?? part?.subject_id;
 const getUnitPartId = (unit) => unit?.partId ?? unit?.part_id;
@@ -226,7 +226,7 @@ function CurriculumBuilder() {
   const [slugError, setSlugError] = useState("");
 
   // Reorder state (CB2 fix)
-  const [reorderLoading, setReorderLoading] = useState(new Set());
+  const [_reorderLoading, setReorderLoading] = useState(new Set());
 
   // Global filter - curriculum builder revolves around a specific subject, '' means All Subjects
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
@@ -324,60 +324,64 @@ function CurriculumBuilder() {
   // stays stable instead of unmounting/remounting the full content tree.
   // Per-endpoint failures throw (not silent []) so partial outages surface
   // via loadError + error panel with Retry.
-  const loadData = async (silent = false) => {
-    if (!silent) {
-      setLoading(true);
-      setLoadError(null);
-    }
-    try {
-      const fetchApi = async (url) => {
-        const res = await apiClient.get(url);
-        const rows = res?.data?.data;
-        if (!Array.isArray(rows)) {
-          throw new Error(`Unexpected response shape from ${url}`);
-        }
-        return rows;
-      };
-
-      const endpoints = [
-        ["/admin/subjects", "subjects"],
-        ["/admin/subject-parts", "parts"],
-        ["/admin/units", "units"],
-        ["/admin/chapters", "chapters"],
-        ["/admin/topics", "topics"],
-        ["/admin/subtopics", "subtopics"],
-      ];
-
-      const settled = await Promise.allSettled(
-        endpoints.map(([url]) => fetchApi(url)),
-      );
-      const next = {};
-      const failed = [];
-      settled.forEach((r, i) => {
-        const [, key] = endpoints[i];
-        if (r.status === "fulfilled") next[key] = r.value;
-        else {
-          next[key] = [];
-          failed.push(endpoints[i][0]);
-        }
-      });
-      setData(next);
-      if (failed.length > 0) {
-        const msg = `Failed to load: ${failed.join(", ")}`;
-        if (!silent) setLoadError(msg);
-        else showToast(msg, "error");
+  const loadData = useCallback(
+    async (silent = false) => {
+      if (!silent) {
+        setLoading(true);
+        setLoadError(null);
       }
-    } catch (error) {
-      logger.error(error);
-      if (!silent) setLoadError(error?.message || "Failed to load curriculum");
-      else showToast("Failed to refresh curriculum data.", "error");
-    }
-    if (!silent) setLoading(false);
-  };
+      try {
+        const fetchApi = async (url) => {
+          const res = await apiClient.get(url);
+          const rows = res?.data?.data;
+          if (!Array.isArray(rows)) {
+            throw new Error(`Unexpected response shape from ${url}`);
+          }
+          return rows;
+        };
+
+        const endpoints = [
+          ["/admin/subjects", "subjects"],
+          ["/admin/subject-parts", "parts"],
+          ["/admin/units", "units"],
+          ["/admin/chapters", "chapters"],
+          ["/admin/topics", "topics"],
+          ["/admin/subtopics", "subtopics"],
+        ];
+
+        const settled = await Promise.allSettled(
+          endpoints.map(([url]) => fetchApi(url)),
+        );
+        const next = {};
+        const failed = [];
+        settled.forEach((r, i) => {
+          const [, key] = endpoints[i];
+          if (r.status === "fulfilled") next[key] = r.value;
+          else {
+            next[key] = [];
+            failed.push(endpoints[i][0]);
+          }
+        });
+        setData(next);
+        if (failed.length > 0) {
+          const msg = `Failed to load: ${failed.join(", ")}`;
+          if (!silent) setLoadError(msg);
+          else showToast(msg, "error");
+        }
+      } catch (error) {
+        logger.error(error);
+        if (!silent)
+          setLoadError(error?.message || "Failed to load curriculum");
+        else showToast("Failed to refresh curriculum data.", "error");
+      }
+      if (!silent) setLoading(false);
+    },
+    [showToast],
+  );
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   // Derived filtered lists based on the globally selected subject.
   // Filtering follows hierarchy links: subject -> parts -> units -> chapters -> topics -> subtopics.
@@ -493,7 +497,7 @@ function CurriculumBuilder() {
   const hierarchyTree = useMemo(() => {
     if (!selectedSubjectId) return { parts: [], directChapters: [] };
 
-    const sortedParts = sortByOrderAndId(filteredParts);
+    const _sortedParts = sortByOrderAndId(filteredParts);
     const sortedUnits = sortByOrderAndId(filteredUnits);
     const sortedChapters = sortByOrderAndId(filteredChapters);
     const sortedTopics = sortByOrderAndId(filteredTopics);
@@ -564,6 +568,7 @@ function CurriculumBuilder() {
     return { units, directChapters };
   }, [
     selectedSubjectId,
+    filteredParts,
     filteredUnits,
     filteredChapters,
     filteredTopics,
@@ -602,7 +607,7 @@ function CurriculumBuilder() {
     return { subject };
   };
 
-  const openChapterView = async (chapter) => {
+  const _openChapterView = async (chapter) => {
     const chapterId = getEntityId(chapter);
     const chapterTopics = filteredTopics
       .filter((topic) => isSameId(getTopicChapterId(topic), chapterId))
@@ -713,7 +718,7 @@ function CurriculumBuilder() {
     if (!["videos", "pdfs", "tests", "notes"].includes(tabId)) return;
 
     // notes is actually derived from pdfs, but handled separately here
-    const isNote = tabId === "notes";
+    const _isNote = tabId === "notes";
     const resourceKeyMapping = {
       videos: "videos",
       pdfs: "pdfs",
@@ -965,16 +970,10 @@ function CurriculumBuilder() {
       if (isUnit) {
         // Chapter is linked to a unit — unit determines the subject
         payload.unitId = formData.parentId;
-        const parentPart = data.parts.find((p) =>
-          entityMatchesParentId(p, getUnitPartId(isUnit)),
-        );
         payload.studyMaterialId =
-          getPartSubjectId(parentPart) || selectedSubjectId || null;
+          getUnitSubjectId(isUnit) || selectedSubjectId || null;
         if (!payload.studyMaterialId) {
-          showToast(
-            "The unit's parent part is not linked to a subject.",
-            "error",
-          );
+          showToast("The unit is not linked to a subject.", "error");
           return;
         }
       } else {
@@ -1190,7 +1189,7 @@ function CurriculumBuilder() {
   );
 
   // CB2: Reorder among siblings by swapping orderIndex
-  const handleReorder = async (item, direction) => {
+  const _handleReorder = async (item, direction) => {
     const tabId = activeTab;
     if (tabId === "subjects" || tabId === "hierarchy") return;
 
@@ -1372,7 +1371,7 @@ function CurriculumBuilder() {
         ? `__orphan__${parentName}`
         : `${parentName}-${parentId}`;
       if (!groups[groupKey]) {
-        const orphanOrder = isOrphan ? 9999 : undefined;
+        const _orphanOrder = isOrphan ? 9999 : undefined;
         const resolved = isOrphan
           ? {
               parentOrder: 9999,

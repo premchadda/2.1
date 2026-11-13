@@ -4,15 +4,39 @@ import {
   pool,
 } from "../../infrastructure/database/postgres-helpers.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
-import { createRateLimiter } from "../../middleware/rateLimiterFactory.js";
+import {
+  restrictAdminOrigin,
+  validateAdminApiKey,
+} from "../../middleware/origin.middleware.js";
+import {
+  loadAdminPermissions,
+  requireAdminPermission,
+} from "../../middleware/admin-permission.middleware.js";
+import { auditMiddleware } from "../../middleware/audit.middleware.js";
+import { validateCsrfToken } from "../../middleware/csrf.middleware.js";
+import {
+  createRateLimiter,
+  adminLimiter,
+} from "../../middleware/rateLimiterFactory.js";
 import EnrollmentService from "../../services/EnrollmentService.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
 const adminEnrollLimiter = createRateLimiter("moderate");
 
+// Apply full canonical admin security chain
+router.use(restrictAdminOrigin);
+router.use(validateAdminApiKey);
 router.use(protect);
 router.use(admin);
+router.use(adminLimiter);
+router.use(validateCsrfToken);
+router.use(loadAdminPermissions);
+router.use(requireAdminPermission);
+router.use((req, res, next) => {
+  if (req.method === "GET") return next();
+  return auditMiddleware({ includeBody: true })(req, res, next);
+});
 
 router.get("/admin/list", async (req, res) => {
   try {

@@ -197,8 +197,10 @@ export default function AdminLayout() {
           ? user.permissions
           : [];
       if (permissions.includes("*")) return true;
-      const segment = item.path.split("/").filter(Boolean)[1] || "content";
+      const segments = item.path.split("/").filter(Boolean);
+      const segment = segments.length <= 1 ? "dashboard" : segments[1];
       const resource = getResourceFromSegment(segment);
+      if (resource === "dashboard") return true;
       return (
         hasPermission(permissions, `${resource}:view`, false) ||
         hasPermission(permissions, `${resource}:read`, false) ||

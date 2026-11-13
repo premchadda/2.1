@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import {
@@ -19,7 +19,8 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { adminAPI } from "../../../../shared/lib/dataService";
-import sanitizeHtml from "../../../../shared/lib/sanitizeHtml";
+import _sanitizeHtml from "../../../../shared/lib/sanitizeHtml";
+import MathRenderer from "../../../../shared/components/MathRenderer";
 
 // Custom Checkbox Component supporting Checked, Partial, and Unchecked states
 const CustomCheckbox = ({ state, onChange }) => {
@@ -63,7 +64,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
   const [expandedNodes, setExpandedNodes] = useState(new Set());
 
   // Preview state
-  const [previewIndex, setPreviewIndex] = useState(null);
+  const [_previewIndex, setPreviewIndex] = useState(null);
   const [previewTest, setPreviewTest] = useState(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [activePreviewSectionIndex, setActivePreviewSectionIndex] = useState(0);
@@ -72,11 +73,20 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
   // Import results state
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  const [uploadSessionId, setUploadSessionId] = useState(null);
+  const abortControllerRef = useRef(null);
   const [importProgress, setImportProgress] = useState({
     current: 0,
     total: 0,
     currentTitle: "",
   });
+
+  const handleAbort = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    toast("Import aborted by user", { icon: "ℹ️" });
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -144,9 +154,14 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
       fd.append("file", file);
       const res = await adminAPI.uploadFullTestJson(fd);
 
-      const { tests: loadedTests, schemaValidation: val } = res.data.data;
+      const {
+        tests: loadedTests,
+        schemaValidation: val,
+        uploadSessionId: sessId,
+      } = res.data.data;
       setTests(loadedTests);
       setSchemaValidation(val);
+      if (sessId) setUploadSessionId(sessId);
 
       // Auto-select all by default
       setSelectedIndices(loadedTests.map((t) => t.index));
@@ -171,10 +186,16 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
   const autoExpandAll = (testList) => {
     const keys = new Set();
     testList.forEach((t) => {
-      const examCat = t.examCategoryId || "Uncategorized";
-      const exam = t.examId || "No Exam";
-      const series = t.testSeriesId || "No Series";
-      const stage = t.stageId || "No Stage";
+      const examCat = String(
+        t.examCategoryTitle || t.examCategoryId || "Uncategorized",
+      );
+      const exam = String(t.examTitle || t.examSlug || t.examId || "No Exam");
+      const series = String(
+        t.seriesTitle || t.seriesSlug || t.testSeriesId || "No Series",
+      );
+      const stage = String(
+        t.stageName || t.stageSlug || t.stageId || "No Stage",
+      );
 
       const pathParts = [];
       pathParts.push(`cat:${examCat}`);
@@ -187,15 +208,18 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
       // Add all levels of subcategories
       let currentKey = `cat:${examCat}/exam:${exam}/series:${series}/stage:${stage}`;
       if (t.categoryId) {
-        currentKey = `${currentKey}/subcategory:${t.categoryId}`;
+        const cat = String(
+          t.category || t.categoryTitle || t.categoryName || t.categoryId,
+        );
+        currentKey = `${currentKey}/subcategory:${cat}`;
         pathParts.push(currentKey);
       }
       if (t.subcategory) {
-        currentKey = `${currentKey}/subcategory:${t.subcategory}`;
+        currentKey = `${currentKey}/subcategory:${String(t.subcategory)}`;
         pathParts.push(currentKey);
       }
       if (t.pyqYear) {
-        currentKey = `${currentKey}/subcategory:${t.pyqYear}`;
+        currentKey = `${currentKey}/subcategory:${String(t.pyqYear)}`;
         pathParts.push(currentKey);
       }
 
@@ -211,7 +235,10 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
     setStep(3);
     setActivePreviewTab("details");
     try {
-      const res = await adminAPI.previewSingleTest(index);
+      const res = await adminAPI.previewSingleTest(
+        index,
+        uploadSessionId ? { uploadSessionId } : {},
+      );
       setPreviewTest(res.data.data);
       setActivePreviewSectionIndex(0);
     } catch (error) {
@@ -264,14 +291,24 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
       return chunkQueue[queueHead++];
     };
 
+    abortControllerRef.current = new AbortController();
+
     const executeWithRetry = async (payload, maxRetries = 2) => {
       let lastError = null;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        if (abortControllerRef.current?.signal?.aborted) {
+          throw new Error("Import aborted by user");
+        }
         try {
-          const res = await adminAPI.importSelectedTests(payload);
+          const res = await adminAPI.importSelectedTests(payload, {
+            signal: abortControllerRef.current?.signal,
+          });
           return res.data?.data || {};
         } catch (err) {
           lastError = err;
+          if (abortControllerRef.current?.signal?.aborted) {
+            throw new Error("Import aborted by user");
+          }
           if (attempt < maxRetries) {
             await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
           }
@@ -280,9 +317,8 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
       throw lastError;
     };
 
-    const abortImport = false;
     const worker = async (workerId) => {
-      while (!abortImport) {
+      while (!abortControllerRef.current?.signal?.aborted) {
         const chunkIndices = getNextChunk();
         if (!chunkIndices) break;
         const firstIdx = chunkIndices[0];
@@ -295,6 +331,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
           indices: chunkIndices,
           strict,
           storageMode,
+          uploadSessionId,
         };
 
         try {
@@ -382,17 +419,41 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
       const pathParts = [];
 
       if (t.examCategoryId)
-        pathParts.push({ type: "examGroup", name: t.examCategoryId });
-      if (t.examId) pathParts.push({ type: "exam", name: t.examId });
+        pathParts.push({
+          type: "examGroup",
+          name: String(t.examCategoryTitle || t.examCategoryId),
+        });
+      if (t.examId)
+        pathParts.push({
+          type: "exam",
+          name: String(t.examTitle || t.examSlug || t.examId),
+        });
       if (t.testSeriesId)
-        pathParts.push({ type: "series", name: t.testSeriesId });
-      if (t.stageId) pathParts.push({ type: "stage", name: t.stageId });
+        pathParts.push({
+          type: "series",
+          name: String(t.seriesTitle || t.seriesSlug || t.testSeriesId),
+        });
+      if (t.stageId)
+        pathParts.push({
+          type: "stage",
+          name: String(t.stageName || t.stageSlug || t.stageId),
+        });
 
       // Add subcategories dynamically
       if (t.categoryId)
-        pathParts.push({ type: "subcategory", name: t.categoryId, level: 0 });
+        pathParts.push({
+          type: "subcategory",
+          name: String(
+            t.category || t.categoryTitle || t.categoryName || t.categoryId,
+          ),
+          level: 0,
+        });
       if (t.subcategory)
-        pathParts.push({ type: "subcategory", name: t.subcategory, level: 1 });
+        pathParts.push({
+          type: "subcategory",
+          name: String(t.subcategory),
+          level: 1,
+        });
       if (t.pyqYear)
         pathParts.push({
           type: "subcategory",
@@ -434,7 +495,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
   };
 
   // Recursively collect all tests inside a subtree node
-  const getAllTestsInSubtree = (node) => {
+  const _getAllTestsInSubtree = (node) => {
     if (node.type === "test") return [node.test];
     if (node.type === "folder") {
       return node.tests;
@@ -476,10 +537,10 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
   };
 
   const filteredTests = tests.filter((t) => {
-    const q = (searchQuery || "").toLowerCase();
-    const title = (t.title ?? "").toLowerCase();
-    const categoryId = (t.categoryId ?? "").toLowerCase();
-    const subcategory = (t.subcategory ?? "").toLowerCase();
+    const q = String(searchQuery || "").toLowerCase();
+    const title = String(t.title ?? "").toLowerCase();
+    const categoryId = String(t.categoryId ?? "").toLowerCase();
+    const subcategory = String(t.subcategory ?? "").toLowerCase();
     const pyqYear = t.pyqYear ? String(t.pyqYear) : "";
     return (
       title.includes(q) ||
@@ -492,12 +553,16 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
   const hierarchyTree = buildHierarchy(filteredTests);
 
   const handleClose = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
     setFile(null);
     setTests([]);
     setSchemaValidation(null);
     setSelectedIndices([]);
     setImportResult(null);
     setPreviewTest(null);
+    setUploadSessionId(null);
     onClose();
   };
 
@@ -620,7 +685,9 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
           >
             {typeLabel}
           </span>
-          <span className="capitalize">{node.name.replace(/[-_]/g, " ")}</span>
+          <span className="capitalize">
+            {String(node.name ?? "").replace(/[-_]/g, " ")}
+          </span>
           <span className="text-[11px] text-gray-400 font-normal">
             ({node.tests.length} tests)
           </span>
@@ -925,9 +992,9 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
           </div>
           <button
             type="button"
-            onClick={handleClose}
-            disabled={importing}
+            onClick={importing ? handleAbort : handleClose}
             className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center shrink-0"
+            title={importing ? "Abort import and close" : "Close"}
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
@@ -976,7 +1043,20 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Select JSON File
                 </label>
-                <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-8 text-center hover:border-indigo-500 dark:hover:border-indigo-400 transition-all cursor-pointer bg-gray-50/50 dark:bg-gray-800/20">
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDragEnter={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const dropped = e.dataTransfer.files?.[0];
+                    if (dropped && validateFile(dropped)) {
+                      setFile(dropped);
+                      setTests([]);
+                      setSchemaValidation(null);
+                    }
+                  }}
+                  className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-8 text-center hover:border-indigo-500 dark:hover:border-indigo-400 transition-all cursor-pointer bg-gray-50/50 dark:bg-gray-800/20"
+                >
                   <input
                     type="file"
                     accept=".json"
@@ -1328,13 +1408,36 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                           q.solution_bilingual?.hn ||
                           "";
 
-                        // correctAnswer is 1-indexed in JSON. Convert to 0-indexed for UI.
-                        const correctIdx =
-                          typeof q.correctAnswer === "number"
-                            ? q.correctAnswer - 1
-                            : typeof q.correct_option_id === "number"
-                              ? q.correct_option_id
-                              : -1;
+                        // correctAnswer is 1-indexed in JSON (or letter/key variant). Convert to 0-indexed for UI.
+                        let correctIdx = -1;
+                        if (typeof q.correctAnswer === "number") {
+                          correctIdx = q.correctAnswer - 1;
+                        } else if (typeof q.correct_option_id === "number") {
+                          correctIdx = q.correct_option_id;
+                        } else if (
+                          q.correctAnswer ||
+                          q.answer ||
+                          q.correctOption
+                        ) {
+                          const rawVal =
+                            q.correctAnswer ?? q.answer ?? q.correctOption;
+                          const letterMap = {
+                            A: 0,
+                            B: 1,
+                            C: 2,
+                            D: 3,
+                            E: 4,
+                            F: 5,
+                          };
+                          const upper = String(rawVal).trim().toUpperCase();
+                          if (letterMap[upper] !== undefined) {
+                            correctIdx = letterMap[upper];
+                          } else {
+                            const parsed = parseInt(upper, 10);
+                            if (!isNaN(parsed))
+                              correctIdx = parsed >= 1 ? parsed - 1 : parsed;
+                          }
+                        }
 
                         return (
                           <div
@@ -1354,23 +1457,17 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                               </div>
                             </div>
 
-                            {/* Question Text */}
+                            {/* Question Text with KaTeX Math Support */}
                             <div className="space-y-2">
                               {qTextEn && (
-                                <div
-                                  dangerouslySetInnerHTML={{
-                                    __html: sanitizeHtml(qTextEn),
-                                  }}
-                                  className="text-sm text-gray-800 dark:text-gray-200 font-medium leading-relaxed"
-                                />
+                                <div className="text-sm text-gray-800 dark:text-gray-200 font-medium leading-relaxed">
+                                  <MathRenderer content={qTextEn} />
+                                </div>
                               )}
                               {qTextHi && (
-                                <div
-                                  dangerouslySetInnerHTML={{
-                                    __html: sanitizeHtml(qTextHi),
-                                  }}
-                                  className="text-sm text-gray-600 dark:text-gray-300 font-medium leading-relaxed border-t border-dashed border-gray-200 dark:border-gray-800 pt-2"
-                                />
+                                <div className="text-sm text-gray-600 dark:text-gray-300 font-medium leading-relaxed border-t border-dashed border-gray-200 dark:border-gray-800 pt-2">
+                                  <MathRenderer content={qTextHi} />
+                                </div>
                               )}
                             </div>
 
@@ -1378,6 +1475,10 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                               {qOptionsEn.map((opt, optIdx) => {
                                 const isCorrect = optIdx === correctIdx;
+                                const optLetter =
+                                  optIdx < 26
+                                    ? String.fromCharCode(65 + optIdx)
+                                    : String(optIdx + 1);
                                 return (
                                   <div
                                     key={optIdx}
@@ -1387,25 +1488,22 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                                         : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300"
                                     }`}
                                   >
-                                    <div>
+                                    <div className="flex-1 min-w-0">
                                       <span className="font-bold mr-2">
-                                        {String.fromCharCode(65 + optIdx)}.
+                                        {optLetter}.
                                       </span>
-                                      <div
-                                        dangerouslySetInnerHTML={{
-                                          __html: sanitizeHtml(opt),
-                                        }}
-                                        className="inline-block"
-                                      />
+                                      <span className="inline-block">
+                                        <MathRenderer
+                                          content={opt}
+                                          inline={true}
+                                        />
+                                      </span>
 
                                       {qOptionsHi[optIdx] && (
                                         <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-1 border-t border-dashed border-gray-100 dark:border-gray-800/60 pt-1">
-                                          <div
-                                            dangerouslySetInnerHTML={{
-                                              __html: sanitizeHtml(
-                                                qOptionsHi[optIdx],
-                                              ),
-                                            }}
+                                          <MathRenderer
+                                            content={qOptionsHi[optIdx]}
+                                            inline={true}
                                           />
                                         </div>
                                       )}
@@ -1425,20 +1523,14 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                                   Explanation:
                                 </span>
                                 {qExpEn && (
-                                  <div
-                                    dangerouslySetInnerHTML={{
-                                      __html: sanitizeHtml(qExpEn),
-                                    }}
-                                    className="text-gray-600 dark:text-gray-400"
-                                  />
+                                  <div className="text-gray-600 dark:text-gray-400">
+                                    <MathRenderer content={qExpEn} />
+                                  </div>
                                 )}
                                 {qExpHi && (
-                                  <div
-                                    dangerouslySetInnerHTML={{
-                                      __html: sanitizeHtml(qExpHi),
-                                    }}
-                                    className="text-gray-500 mt-2 border-t border-dashed border-gray-200 dark:border-gray-800 pt-2"
-                                  />
+                                  <div className="text-gray-500 mt-2 border-t border-dashed border-gray-200 dark:border-gray-800 pt-2">
+                                    <MathRenderer content={qExpHi} />
+                                  </div>
                                 )}
                               </div>
                             )}
@@ -1490,6 +1582,13 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                     Please do not close this window or navigate away while the
                     import is in progress.
                   </p>
+                  <button
+                    type="button"
+                    onClick={handleAbort}
+                    className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs sm:text-sm font-semibold transition-all shadow-sm"
+                  >
+                    Abort Import
+                  </button>
                 </div>
               ) : importResult ? (
                 <div className="space-y-6">

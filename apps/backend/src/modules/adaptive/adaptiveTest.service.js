@@ -130,8 +130,37 @@ const adaptiveTestService = {
         return null;
       }
 
+      const q = questions.rows[0];
+      const {
+        correct_answer,
+        correct_option,
+        correctAnswer,
+        correctOption,
+        correct,
+        answer,
+        isCorrect,
+        is_correct,
+        explanation,
+        explanation_hi,
+        explanationHi,
+        solution,
+        ...safeQuestion
+      } = q;
+
+      let safeOptions = safeQuestion.options;
+      if (Array.isArray(safeOptions)) {
+        safeOptions = safeOptions.map((opt) => {
+          if (opt && typeof opt === "object" && !Array.isArray(opt)) {
+            const { isCorrect, is_correct, correct, ...safeOpt } = opt;
+            return safeOpt;
+          }
+          return opt;
+        });
+      }
+
       return {
-        ...questions.rows[0],
+        ...safeQuestion,
+        options: safeOptions,
         currentDifficulty: targetDifficulty,
         questionsAnswered: metadata.questionsAnswered || 0,
         totalQuestions: metadata.totalQuestions || 30,

@@ -23,7 +23,9 @@ import ProfilePersonalTab from "./profile/ProfilePersonalTab";
 import ProfileExamsTab from "./profile/ProfileExamsTab";
 import ProfileFeaturesTab from "./profile/ProfileFeaturesTab";
 import ProfileProTab from "./profile/ProfileProTab";
+import ProfileSecurityTab from "./profile/ProfileSecurityTab";
 import useProfileForm from "./profile/useProfileForm";
+import { getUserStreak } from "../../shared/lib/dataService";
 
 const SettingsContentLazy = lazy(() => import("./SettingsContent"));
 
@@ -315,12 +317,14 @@ function Profile({ initialTab = "personal" }) {
           examsResponse,
           enrolledSeriesResponse,
           attemptsResponse,
+          streakResponse,
         ] = await Promise.all([
           userAPI.getProfile().catch(() => ({ data: { data: null } })),
           getUserAnalytics().catch(() => ({})),
           getExams().catch(() => []),
           userAPI.getEnrolledSeries().catch(() => ({ data: { data: [] } })),
           userAPI.getAttempts().catch(() => ({ data: { data: [] } })),
+          getUserStreak().catch(() => null),
         ]);
         const freshProfile = profileResponse?.data?.data;
         if (freshProfile) {
@@ -340,12 +344,17 @@ function Profile({ initialTab = "personal" }) {
         const data = analyticsResponse || {};
         const attemptRowsData = attemptsResponse?.data?.data || [];
         setAttemptRows(attemptRowsData);
+        const liveStreak =
+          streakResponse?.data?.data?.current ??
+          data.streak ??
+          user?.streak ??
+          0;
         setUserStats({
           testsAttempted: data.totalTests || user?.testsTaken || 0,
           avgAccuracy: data.avgAccuracy || user?.accuracy || 0,
           rank: data.rank || user?.bestRank || 0,
           timeSpent: data.totalHours || user?.hoursSpent || 0,
-          streak: data.streak || user?.streak || 0,
+          streak: liveStreak,
           improvement: data.improvement || user?.improvement || "",
         });
         const enrolledSeries = enrolledSeriesResponse?.data?.data || [];
@@ -764,7 +773,14 @@ function Profile({ initialTab = "personal" }) {
             <ProfileProTab proPass={proPass} user={user} />
           )}
 
-          {activeTab === "settings" && (
+          {activeTab === "settings" && settingsTab === "security" ? (
+            <ProfileSecurityTab
+              user={user}
+              refreshUser={refreshUser}
+              logout={logout}
+              navigate={navigate}
+            />
+          ) : activeTab === "settings" ? (
             <div style={{ animation: "fadeIn 0.35s ease both" }}>
               <Suspense
                 fallback={
@@ -786,7 +802,7 @@ function Profile({ initialTab = "personal" }) {
                 />
               </Suspense>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 

@@ -1,13 +1,18 @@
 import express from "express";
 import { TestCategory } from "../../data/models/index.js";
-import { responseCache } from "../../middleware/responseCache.middleware.js";
+import {
+  responseCache,
+  invalidateResponseCache,
+} from "../../middleware/responseCache.middleware.js";
+import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
+import { logAuditEvent } from "../../middleware/audit.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
 
 // Get all active test categories (public endpoint)
-// PERF: cache the category list for 60s; it is read on nearly every page load
+// PERF: cache the category list for 600s; it is read on nearly every page load
 // and rarely changes, so this removes a recurring multi-second DB hit.
 router.get(
   "/",
@@ -153,12 +158,59 @@ router.put("/orphaned/reassign", protect, admin, async (req, res) => {
         .json({ success: false, message: "testSeriesId is required" });
     }
 
+    const numSeriesId = Number(testSeriesId);
+    const seriesCheck = await pool.query(
+      `SELECT id FROM test_series WHERE (id = $1 OR _id = $1) AND is_deleted = false`,
+      [numSeriesId || testSeriesId],
+    );
+    if (seriesCheck.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "The specified test series does not exist",
+      });
+    }
+
     const updated = [];
     for (const categoryId of categoryIds) {
       const result = await TestCategory.updateById(categoryId, {
         testSeriesId,
       });
-      if (result) updated.push(result);
+      if (result) {
+        updated.push(result);
+        const numCatId = Number(result._id || result.id || categoryId);
+        if (!isNaN(numCatId) && !isNaN(numSeriesId)) {
+          try {
+            await pool.query(
+              `INSERT INTO test_category_series (test_category_id, test_series_id, created_at)
+               VALUES ($1, $2, NOW())
+               ON CONFLICT (test_category_id, test_series_id) DO NOTHING`,
+              [numCatId, numSeriesId],
+            );
+          } catch {
+            // soft catch to avoid breaking legacy reassign if junction table has drift
+          }
+        }
+      }
+    }
+
+    try {
+      await invalidateResponseCache("admin-test-categories");
+      await invalidateResponseCache("test-categories");
+      await invalidateResponseCache("test-categories-tree");
+    } catch {
+      // cache invalidation fallback
+    }
+
+    try {
+      await logAuditEvent({
+        userId: req.user?.id,
+        action: "REASSIGN_ORPHANED_CATEGORIES",
+        resourceType: "test_category",
+        resourceId: String(testSeriesId),
+        details: { categoryIds, testSeriesId, count: updated.length },
+      });
+    } catch {
+      // Non-fatal audit log failure
     }
 
     res.json({

@@ -1,37 +1,20 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { logger } from "@trstprep/shared-config";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import {
-  Play,
   Clock,
-  Users,
   Calendar,
   Zap,
   Loader2,
   Radio,
-  Bell,
   Trophy,
-  Crown,
   Search,
-  SlidersHorizontal,
-  CheckCircle2,
-  AlertCircle,
-  HelpCircle,
-  BarChart2,
   Target,
-  Sparkles,
   ArrowRight,
-  ShieldCheck,
-  Flame,
-  Check,
   RefreshCw,
   X,
-  Layers,
-  ChevronRight,
-  Brain,
   Timer,
-  BookOpen,
 } from "lucide-react";
 import { api, getExams } from "../../shared/lib/dataService.js";
 import { getSocket } from "../../shared/lib/websocket.js";

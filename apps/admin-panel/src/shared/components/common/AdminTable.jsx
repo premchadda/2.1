@@ -45,8 +45,11 @@ export const AdminTable = ({
   }, []);
 
   // Normalize possibly-null props: data null→[], searchQuery null→"".
-  const safeData = Array.isArray(data) ? data : [];
-  const safeColumns = Array.isArray(columns) ? columns : [];
+  const safeData = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+  const safeColumns = useMemo(
+    () => (Array.isArray(columns) ? columns : []),
+    [columns],
+  );
 
   const viewMode = controlledViewMode || internalViewMode;
   const setViewMode = onViewModeChange || setInternalViewMode;

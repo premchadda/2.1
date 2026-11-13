@@ -61,7 +61,7 @@ function getStageExamIdList(stage) {
   return rawList.filter((id) => id !== null && id !== undefined && id !== "");
 }
 
-function numMatch(val, num) {
+function _numMatch(val, num) {
   const parsed = Number(val);
   return Number.isNaN(parsed) ? null : parsed === num ? num : null;
 }
@@ -170,7 +170,7 @@ function normalizeExamKey(v) {
     .replace(/[^a-z0-9]+/g, "");
 }
 
-function examMatches(seriesExamId, targetExamValue, examsList = []) {
+function _examMatches(seriesExamId, targetExamValue, examsList = []) {
   const s = normalizeExamKey(seriesExamId);
   const t = normalizeExamKey(targetExamValue);
   if (!s || !t) return false;
@@ -375,7 +375,13 @@ export default function TestSeriesManager() {
       });
     }
     return filtered;
-  }, [series, activeTab, activeExamFilter, categories, examsForActiveCategory]);
+  }, [
+    series,
+    activeTab,
+    activeExamFilter,
+    examKeyToCanon,
+    seriesCanonCategory,
+  ]);
 
   // Auto-select first exam if only one exam has series
   useEffect(() => {
@@ -385,7 +391,7 @@ export default function TestSeriesManager() {
   }, [activeTab, examsForActiveCategory, activeExamFilter]);
 
   // Group series by exam.
-  const seriesByExam = useMemo(() => {
+  const _seriesByExam = useMemo(() => {
     const grouped = {};
     filteredSeries.forEach((s) => {
       const examKey = s.examId || "uncategorized";
@@ -431,7 +437,9 @@ export default function TestSeriesManager() {
     }
   };
 
-  const fetchSeries = async () => {
+  const isInitialLoadRef = useRef(true);
+
+  const fetchSeries = useCallback(async () => {
     try {
       setSeriesError(null);
       const response = await adminAPI.getTestSeries();
@@ -458,17 +466,18 @@ export default function TestSeriesManager() {
         error.message ||
         "Failed to fetch series - check backend connection";
       setSeriesError(msg);
-      if (!loading) toast.error(msg);
+      if (!isInitialLoadRef.current) toast.error(msg);
     } finally {
       setLoading(false);
+      isInitialLoadRef.current = false;
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchSeries();
     fetchStages();
     fetchOrphanedTests();
-  }, []);
+  }, [fetchSeries]);
 
   // Close inline stage dropdown when clicking outside
   useEffect(() => {
@@ -518,6 +527,27 @@ export default function TestSeriesManager() {
     return examValue;
   };
 
+  const resetForm = useCallback(() => {
+    setFormData({
+      title: "",
+      slug: "",
+      category: activeTab || "",
+      examId: "",
+      stages: [],
+      description: "",
+      isPro: false,
+      price: 0,
+      // totalTests removed — backend calculates
+      difficulty: "medium",
+      tags: "",
+      isActive: true,
+      isPinned: false,
+    });
+    setEditingId(null);
+    setShowForm(false);
+    setSlugManuallyEdited(false);
+  }, [activeTab]);
+
   // Modal keyboard listener & body scroll lock
   useEffect(() => {
     if (!showForm && !showOrphanModal) return;
@@ -534,7 +564,7 @@ export default function TestSeriesManager() {
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = prevOverflow;
     };
-  }, [showForm, showOrphanModal]);
+  }, [showForm, showOrphanModal, resetForm]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -732,27 +762,6 @@ export default function TestSeriesManager() {
       toast.error("Failed to reorder series");
       fetchSeries();
     }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      title: "",
-      slug: "",
-      category: activeTab || "",
-      examId: "",
-      stages: [],
-      description: "",
-      isPro: false,
-      price: 0,
-      // totalTests removed — backend calculates
-      difficulty: "medium",
-      tags: "",
-      isActive: true,
-      isPinned: false,
-    });
-    setEditingId(null);
-    setShowForm(false);
-    setSlugManuallyEdited(false);
   };
 
   // Inline stage editing functions

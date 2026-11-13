@@ -23,6 +23,7 @@ import {
 import { apiClient as api } from "../../../shared/lib/dataService";
 import { toast } from "react-hot-toast";
 import EmptyState from "../../../shared/components/ui/EmptyState";
+import { VideoPlayer, PDFViewer } from "../../../shared/components/common";
 
 const COLORS = [
   "#6366f1",
@@ -47,6 +48,8 @@ export default function SubjectRelationsManager() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
+  const [previewVideo, setPreviewVideo] = useState(null);
+  const [previewPdf, setPreviewPdf] = useState(null);
 
   // Link detail panel
   const [selected, setSelected] = useState(null);
@@ -700,7 +703,7 @@ function SubjectLinkPanel({
       (t) => String(t.chapterId || t.chapter_id || "") === String(chId),
     );
 
-  const panelContent = (
+  const _panelContent = (
     <div
       className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[9999] flex items-start justify-end animate-fade-in"
       onClick={onClose}
@@ -801,7 +804,15 @@ function SubjectLinkPanel({
                 {videos.map((v) => (
                   <div
                     key={v.id || v._id}
-                    className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/30 rounded-lg text-xs"
+                    onClick={() =>
+                      (v.videoUrl || v.url) &&
+                      setPreviewVideo({
+                        title: v.title,
+                        url: v.videoUrl || v.url,
+                      })
+                    }
+                    className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/30 rounded-lg text-xs cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors"
+                    title="Click to preview video"
                   >
                     <Play className="w-3.5 h-3.5 text-red-500 shrink-0" />
                     <span className="truncate flex-1 font-medium text-gray-700 dark:text-gray-300">
@@ -833,10 +844,20 @@ function SubjectLinkPanel({
                 {pdfs.map((p) => (
                   <li
                     key={p._id || p.id}
-                    className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+                    onClick={() =>
+                      (p.pdfUrl || p.fileUrl || p.url) &&
+                      setPreviewPdf({
+                        title: p.title || p.name,
+                        url: p.pdfUrl || p.fileUrl || p.url,
+                      })
+                    }
+                    className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 p-1.5 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-950/30 cursor-pointer transition-colors"
+                    title="Click to preview PDF"
                   >
                     <FileText className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
-                    {p.title || p.name || "Untitled PDF"}
+                    <span className="truncate flex-1">
+                      {p.title || p.name || "Untitled PDF"}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -914,6 +935,17 @@ function SubjectLinkPanel({
           </div>
         </div>
       </div>
+
+      <VideoPlayer
+        isOpen={Boolean(previewVideo)}
+        onClose={() => setPreviewVideo(null)}
+        videoData={previewVideo}
+      />
+      <PDFViewer
+        isOpen={Boolean(previewPdf)}
+        onClose={() => setPreviewPdf(null)}
+        pdfData={previewPdf}
+      />
     </div>
   );
 }

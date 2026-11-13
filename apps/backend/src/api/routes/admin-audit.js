@@ -2,6 +2,7 @@ import express from "express";
 import { protect, admin } from "../../middleware/auth.middleware.js";
 import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
+import { redactSensitiveValues } from "../../middleware/audit.middleware.js";
 
 const router = express.Router();
 
@@ -132,10 +133,17 @@ router.get("/", responseCache("admin-audit-logs", 15), async (req, res) => {
         offset,
       ]);
 
-      // PII: mask user_email on list endpoint (detail-by-id keeps full email)
+      // PII: mask user_email on list endpoint and deep-redact secrets in data
       const maskedRows = rows.map((row) => ({
         ...row,
         user_email: row.user_email ? maskEmail() : row.user_email,
+        old_data: row.old_data
+          ? redactSensitiveValues(row.old_data)
+          : row.old_data,
+        new_data: row.new_data
+          ? redactSensitiveValues(row.new_data)
+          : row.new_data,
+        details: row.details ? redactSensitiveValues(row.details) : row.details,
       }));
 
       res.json({
@@ -323,7 +331,20 @@ router.get("/:id", async (req, res) => {
         .json({ success: false, error: "Audit log entry not found" });
     }
 
-    res.json({ success: true, data: rows[0] });
+    const row = rows[0];
+    const safeRow = {
+      ...row,
+      user_phone: row.user_phone ? "***" : null,
+      old_data: row.old_data
+        ? redactSensitiveValues(row.old_data)
+        : row.old_data,
+      new_data: row.new_data
+        ? redactSensitiveValues(row.new_data)
+        : row.new_data,
+      details: row.details ? redactSensitiveValues(row.details) : row.details,
+    };
+
+    res.json({ success: true, data: safeRow });
   } catch (error) {
     console.error("Get audit log detail error:", error);
     res.status(500).json({

@@ -134,7 +134,7 @@ async function runAudit() {
   for (const chk of columnChecks) {
     try {
       const res = await pool.query(
-        `SELECT data_type FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
+        `SELECT data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2`,
         [chk.table, chk.column],
       );
       if (res.rows.length === 0) {
@@ -151,7 +151,7 @@ async function runAudit() {
         } else if (chk.table === "users" && chk.column === "phone") {
           // Check legacy mobile fallback
           const alt = await pool.query(
-            `SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='mobile'`,
+            `SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name='users' AND column_name='mobile'`,
           );
           if (alt.rows.length)
             console.log(
@@ -340,7 +340,8 @@ async function runAudit() {
     const rls = await pool.query(`
       SELECT polname, polcmd, pg_get_expr(polqual, polrelid) AS qual, pg_get_expr(polwithcheck, polrelid) AS with_check
       FROM pg_policy
-      WHERE polqual::text LIKE '%current_user_id_setting() IS NULL%' OR polwithcheck::text LIKE '%current_user_id_setting() IS NULL%'
+      WHERE pg_get_expr(polqual, polrelid) LIKE '%current_user_id_setting() IS NULL%'
+         OR pg_get_expr(polwithcheck, polrelid) LIKE '%current_user_id_setting() IS NULL%'
       LIMIT 10
     `);
     if (rls.rows.length > 0) {

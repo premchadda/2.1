@@ -95,7 +95,7 @@ export default function LeaderboardResultsUnified() {
   const [stats, setStats] = useState(null);
   const [loadingConfigs, setLoadingConfigs] = useState(true);
   const [filterType, setFilterType] = useState("all");
-  const [filterActive, setFilterActive] = useState("all");
+  const [filterActive, _setFilterActive] = useState("all");
   const [configSearch, setConfigSearch] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [actioning, setActioning] = useState(null);
@@ -785,7 +785,7 @@ export default function LeaderboardResultsUnified() {
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800 font-medium">
                     {filteredRealtimeRankings.map((entry, index) => {
-                      const isPodium = index < 3;
+                      const _isPodium = index < 3;
                       return (
                         <tr
                           key={entry.userId || index}

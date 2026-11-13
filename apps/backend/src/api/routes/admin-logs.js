@@ -8,6 +8,7 @@ import {
   getErrorSummary,
   resolveCluster,
 } from "../../services/core/errorFingerprintService.js";
+import { purgeDeadLetterJobs } from "../../services/core/maintenance.js";
 
 const router = express.Router();
 
@@ -34,7 +35,7 @@ router.get("/", (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to retrieve server logs",
-      error: error.message,
+      error: sanitizeErrorMessage(error),
     });
   }
 });
@@ -122,7 +123,7 @@ router.delete("/", (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to clear log buffer",
-      error: error.message,
+      error: sanitizeErrorMessage(error),
     });
   }
 });
@@ -153,7 +154,7 @@ router.post("/test", (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to push test log",
-      error: error.message,
+      error: sanitizeErrorMessage(error),
     });
   }
 });
@@ -194,7 +195,7 @@ router.get("/export", (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to export logs",
-      error: error.message,
+      error: sanitizeErrorMessage(error),
     });
   }
 });
@@ -263,6 +264,26 @@ router.post("/fingerprint/:fingerprint/resolve", (req, res) => {
   } catch (error) {
     res
       .status(400)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+/**
+ * POST /api/admin/logs/maintenance/purge-dead-letters
+ * Purge dead-letter jobs older than retentionDays
+ */
+router.post("/maintenance/purge-dead-letters", async (req, res) => {
+  try {
+    const days = parseInt(req.body?.retentionDays, 10) || 30;
+    const removed = await purgeDeadLetterJobs(days);
+    res.json({
+      success: true,
+      count: removed,
+      message: `Purged ${removed} dead-letter jobs older than ${days} days`,
+    });
+  } catch (error) {
+    res
+      .status(500)
       .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });

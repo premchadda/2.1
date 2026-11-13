@@ -304,12 +304,9 @@ export const CompactSectionPicker = ({
 
   const toggleSection = (id) => {
     const strId = String(id);
-    let newSelected = [];
-    if (selectedIds.includes(strId)) {
-      newSelected = selectedIds.filter((i) => i !== strId);
-    } else {
-      newSelected = [...selectedIds, strId];
-    }
+    const newSelected = selectedIds.includes(strId)
+      ? selectedIds.filter((i) => i !== strId)
+      : [...selectedIds, strId];
     onChange(newSelected.join(", "));
   };
 

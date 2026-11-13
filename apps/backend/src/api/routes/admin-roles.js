@@ -202,9 +202,9 @@ router.post("/roles", protect, admin, async (req, res) => {
     }
   }
 
-  const client = await pool.connect();
-
+  let client;
   try {
+    client = await pool.connect();
     await client.query("BEGIN");
 
     // Check if role name already exists
@@ -255,7 +255,13 @@ router.post("/roles", protect, admin, async (req, res) => {
       message: "Role created successfully",
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    if (client) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // ignore rollback failure on disconnected client
+      }
+    }
     logger.error("Create role error:", error);
 
     if (error.code === "23505") {
@@ -271,7 +277,7 @@ router.post("/roles", protect, admin, async (req, res) => {
       error: "Internal server error",
     });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
@@ -284,9 +290,9 @@ router.put("/roles/:id", protect, admin, async (req, res) => {
   const { id } = req.params;
   const { name, description, permissions } = req.body;
 
-  const client = await pool.connect();
-
+  let client;
   try {
+    client = await pool.connect();
     await client.query("BEGIN");
 
     // Check if role exists
@@ -405,7 +411,13 @@ router.put("/roles/:id", protect, admin, async (req, res) => {
       data: updatedRows[0] || null,
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    if (client) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // ignore rollback error
+      }
+    }
     logger.error("Update role error:", error);
 
     if (error.code === "23505") {
@@ -420,7 +432,7 @@ router.put("/roles/:id", protect, admin, async (req, res) => {
       error: "Internal server error",
     });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
@@ -433,9 +445,9 @@ router.put("/roles/:id", protect, admin, async (req, res) => {
 router.delete("/roles/:id", protect, admin, async (req, res) => {
   const { id } = req.params;
 
-  const client = await pool.connect();
-
+  let client;
   try {
+    client = await pool.connect();
     await client.query("BEGIN");
 
     // Check if role exists
@@ -481,14 +493,20 @@ router.delete("/roles/:id", protect, admin, async (req, res) => {
       message: "Role deleted successfully",
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    if (client) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // ignore rollback error
+      }
+    }
     logger.error("Delete role error:", error);
     res.status(500).json({
       success: false,
       error: "Internal server error",
     });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 

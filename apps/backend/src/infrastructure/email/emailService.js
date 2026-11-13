@@ -4,6 +4,7 @@ import path from "path";
 import verificationTemplate from "./templates/verification.js";
 import passwordResetTemplate from "./templates/password-reset.js";
 import welcomeTemplate from "./templates/welcome.js";
+import logger from "../logger/logger.js";
 
 // ---------------------------------------------------------------------------
 // M9: The email queue previously lived only in memory, so any pending mail was
@@ -39,7 +40,7 @@ const ensureSpool = () => {
   try {
     if (!fs.existsSync(SPOOL_DIR)) fs.mkdirSync(SPOOL_DIR, { recursive: true });
   } catch (e) {
-    console.error("[Email] Could not create spool dir:", e.message);
+    logger.error({ err: e }, "[Email] Could not create spool dir");
   }
 };
 
@@ -50,7 +51,7 @@ let _spoolChain = Promise.resolve();
 
 const runSpoolOp = (op) => {
   _spoolChain = _spoolChain.then(op).catch((e) => {
-    console.error("[Email] Spool error:", e.message);
+    logger.error({ err: e }, "[Email] Spool error");
   });
   return _spoolChain;
 };
@@ -98,12 +99,13 @@ const replaySpool = () => {
       }
     }
     if (emailQueue.length) {
-      console.log(
-        `[Email] Replaying ${emailQueue.length} persisted mail job(s) from spool`,
+      logger.info(
+        { count: emailQueue.length },
+        "[Email] Replaying persisted mail jobs from spool",
       );
     }
   } catch (e) {
-    console.error("[Email] Failed to replay spool:", e.message);
+    logger.error({ err: e }, "[Email] Failed to replay spool");
   }
 };
 
@@ -161,17 +163,22 @@ async function processEmailQueue() {
       const t = await getTransporter();
       if (t) {
         await t.sendMail(emailJob);
-        console.log(
-          `[Email] Sent to ${emailJob.to} (subject: ${emailJob.subject})`,
+        logger.info(
+          { email: emailJob.to, subject: emailJob.subject },
+          "[Email] Sent",
         );
       } else {
-        console.log(
-          `[Email] (Dev) To: ${emailJob.to} | Subject: ${emailJob.subject}`,
+        logger.debug(
+          { email: emailJob.to, subject: emailJob.subject },
+          "[Email] Dev - message logged (SMTP not configured)",
         );
       }
       if (emailJob._id) removeFromSpool(emailJob._id);
     } catch (error) {
-      console.error(`[Email] Send failed to ${emailJob.to}: ${error.message}`);
+      logger.error(
+        { err: error, retries: (emailJob._retries || 0) + 1 },
+        "[Email] Send failed",
+      );
       if ((emailJob._retries || 0) < MAX_RETRIES) {
         emailJob._retries = (emailJob._retries || 0) + 1;
         // Re-persist the retried job so it survives a crash between attempts.
@@ -180,12 +187,14 @@ async function processEmailQueue() {
           `job_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         appendToSpool(emailJob);
         emailQueue.push(emailJob);
-        console.log(
-          `[Email] Re-queued (attempt ${emailJob._retries}/${MAX_RETRIES})`,
+        logger.info(
+          { attempt: emailJob._retries, maxRetries: MAX_RETRIES },
+          "[Email] Re-queued after failure",
         );
       } else {
-        console.error(
-          `[Email] Dropped after ${MAX_RETRIES} retries: ${emailJob.to}`,
+        logger.error(
+          { email: emailJob.to, maxRetries: MAX_RETRIES },
+          "[Email] Dropped after max retries",
         );
         if (emailJob._id) removeFromSpool(emailJob._id);
       }
@@ -240,8 +249,9 @@ async function isEmailAllowedFor(type) {
  */
 export const sendVerificationEmail = async (to, name, token) => {
   if (!(await isEmailAllowedFor("verification"))) {
-    console.log(
-      `[Email] Skipped verification email to ${to} (emailOnRegistration disabled)`,
+    logger.info(
+      { email: to },
+      "[Email] Skipped verification email (emailOnRegistration disabled)",
     );
     return {
       success: false,
@@ -267,7 +277,7 @@ export const sendVerificationEmail = async (to, name, token) => {
   try {
     return enqueue(mailOptions);
   } catch (error) {
-    console.error("[Email] Failed to queue verification email:", error.message);
+    logger.error({ err: error }, "[Email] Failed to queue verification email");
     return { success: false, error: error.message };
   }
 };
@@ -294,9 +304,9 @@ export const sendPasswordResetEmail = async (to, name, token) => {
   try {
     return enqueue(mailOptions);
   } catch (error) {
-    console.error(
-      "[Email] Failed to queue password reset email:",
-      error.message,
+    logger.error(
+      { err: error },
+      "[Email] Failed to queue password reset email",
     );
     return { success: false, error: error.message };
   }
@@ -307,8 +317,9 @@ export const sendPasswordResetEmail = async (to, name, token) => {
  */
 export const sendWelcomeEmail = async (to, name) => {
   if (!(await isEmailAllowedFor("welcome"))) {
-    console.log(
-      `[Email] Skipped welcome email to ${to} (emailOnRegistration disabled)`,
+    logger.info(
+      { email: to },
+      "[Email] Skipped welcome email (emailOnRegistration disabled)",
     );
     return {
       success: false,
@@ -334,7 +345,7 @@ export const sendWelcomeEmail = async (to, name) => {
   try {
     return enqueue(mailOptions);
   } catch (error) {
-    console.error("[Email] Failed to queue welcome email:", error.message);
+    logger.error({ err: error }, "[Email] Failed to queue welcome email");
     return { success: false, error: error.message };
   }
 };
@@ -346,7 +357,7 @@ export const queueEmail = async (mailOptions) => {
   try {
     return enqueue(mailOptions);
   } catch (error) {
-    console.error("[Email] Failed to queue email:", error.message);
+    logger.error({ err: error }, "[Email] Failed to queue email");
     return { success: false, error: error.message };
   }
 };
@@ -362,8 +373,9 @@ export const drainEmailQueue = async () => {
     guard++;
   }
   if (emailQueue.length) {
-    console.warn(
-      `[Email] Shutdown with ${emailQueue.length} unsent mail job(s) still in spool (will replay on next boot)`,
+    logger.warn(
+      { pending: emailQueue.length },
+      "[Email] Shutdown with unsent mail jobs still in spool (will replay on next boot)",
     );
   }
 };
@@ -383,7 +395,7 @@ export const sendDirect = async (email, subject, htmlContent) => {
   };
   const t = getTransporter();
   if (!t) {
-    console.log(`[Email] DEV mode - Direct email to ${email}: ${subject}`);
+    logger.info({ email, subject }, "[Email] DEV mode - direct email logged");
     return { success: true, messageId: "dev-mock-id" };
   }
   return t.sendMail(mailOptions);

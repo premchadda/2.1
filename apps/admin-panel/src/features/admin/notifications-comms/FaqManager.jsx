@@ -103,7 +103,7 @@ export default function FaqManager() {
     }
   };
 
-  const toggleActive = async (faq) => {
+  const _toggleActive = async (faq) => {
     try {
       const faqId = faq.id || faq._id;
       const response = await adminAPI.updateFaq(faqId, {

@@ -10,6 +10,8 @@ export const RESOURCE_ALIASES = {
 };
 
 export const SEGMENT_TO_RESOURCE = {
+  dashboard: "dashboard",
+  "": "dashboard",
   users: "users",
   enrollments: "users",
   sessions: "users",
@@ -85,18 +87,16 @@ export function getResourceFromSegment(segment = "content") {
 }
 
 export function getResourceFromPath(pathname = "/") {
-  // PREFIX ASSERT: admin routes are always /admin/<segment>/... so the
-  // resource segment is index [1] after filtering empty parts. Non-admin
-  // paths (e.g. /login) fall back to "content" and are handled by auth
-  // guards, not resource checks.
-  const segment = String(pathname).split("/").filter(Boolean)[1] || "content";
-  return getResourceFromSegment(segment);
+  const segments = String(pathname).split("/").filter(Boolean);
+  if (segments.length <= 1) return "dashboard";
+  return getResourceFromSegment(segments[1]);
 }
 
 export function hasPermission(userPerms = [], requiredPerm, isSuper = false) {
   if (isSuper) return true;
-  if (userPerms.includes("*") || userPerms.includes(requiredPerm)) return true;
   const [resource, action] = String(requiredPerm).split(":");
+  if (resource === "dashboard") return true;
+  if (userPerms.includes("*") || userPerms.includes(requiredPerm)) return true;
   if (!resource || !action) return false;
   // "manage" is UI-gating-only wildcard for a resource (view+create+edit+
   // delete). Backend has no "manage" action — it enforces canonical

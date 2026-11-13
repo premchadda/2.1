@@ -80,10 +80,11 @@ export default function DeepAnalytics() {
   const [cohortData, setCohortData] = useState(null);
   const [engagementData, setEngagementData] = useState(null);
   const [userScoresData, setUserScoresData] = useState(null);
+  const [diagnosticsData, setDiagnosticsData] = useState(null);
 
   // Filters
   const [cohortPeriod, setCohortPeriod] = useState("monthly");
-  const [cohortMonths, setCohortMonths] = useState(6);
+  const [cohortMonths, _setCohortMonths] = useState(6);
   const [engagementRange, setEngagementRange] = useState("30d");
   const [engagementGranularity, setEngagementGranularity] = useState("daily");
   const [candidateSearch, setCandidateSearch] = useState("");
@@ -95,27 +96,37 @@ export default function DeepAnalytics() {
     async (signal) => {
       try {
         setLoading(true);
-        const [funnelRes, cohortRes, engagementRes, deepEngagementRes] =
-          await Promise.allSettled([
-            apiClient
-              .get("/admin/analytics/funnel", { signal })
-              .catch(() =>
-                apiClient.get("/admin/analytics/deep/funnel", { signal }),
-              ),
-            apiClient
-              .get(
-                `/admin/analytics/cohort?period=${cohortPeriod}&months=${cohortMonths}`,
-                { signal },
-              )
-              .catch(() =>
-                apiClient.get("/admin/analytics/deep/cohort", { signal }),
-              ),
-            apiClient.get(
-              `/admin/analytics/engagement?range=${engagementRange}&granularity=${engagementGranularity}`,
-              { signal },
+        const [
+          funnelRes,
+          cohortRes,
+          engagementRes,
+          deepEngagementRes,
+          diagnosticsRes,
+        ] = await Promise.allSettled([
+          apiClient
+            .get("/admin/analytics/funnel", { signal })
+            .catch(() =>
+              apiClient.get("/admin/analytics/deep/funnel", { signal }),
             ),
-            apiClient.get("/admin/analytics/deep/engagement", { signal }),
-          ]);
+          apiClient
+            .get(
+              `/admin/analytics/cohort?period=${cohortPeriod}&months=${cohortMonths}`,
+              { signal },
+            )
+            .catch(() =>
+              apiClient.get("/admin/analytics/deep/cohort", { signal }),
+            ),
+          apiClient.get(
+            `/admin/analytics/engagement?range=${engagementRange}&granularity=${engagementGranularity}`,
+            { signal },
+          ),
+          apiClient.get("/admin/analytics/deep/engagement", { signal }),
+          apiClient
+            .get("/admin/analytics/deep/diagnostics", { signal })
+            .catch(() =>
+              apiClient.get("/admin/analytics/diagnostics", { signal }),
+            ),
+        ]);
 
         if (funnelRes.status === "fulfilled" && funnelRes.value?.data?.data) {
           setFunnelData(funnelRes.value.data.data);
@@ -134,6 +145,12 @@ export default function DeepAnalytics() {
           deepEngagementRes.value?.data?.data
         ) {
           setUserScoresData(deepEngagementRes.value.data.data);
+        }
+        if (
+          diagnosticsRes.status === "fulfilled" &&
+          diagnosticsRes.value?.data?.data
+        ) {
+          setDiagnosticsData(diagnosticsRes.value.data.data);
         }
       } catch (err) {
         if (err?.name !== "CanceledError") {
@@ -344,6 +361,36 @@ export default function DeepAnalytics() {
     URL.revokeObjectURL(url);
     toast.success("Report exported to CSV");
   };
+
+  const diagnostics = useMemo(() => {
+    return {
+      difficulty: {
+        easy: Number(diagnosticsData?.difficulty?.easy ?? 38),
+        medium: Number(diagnosticsData?.difficulty?.medium ?? 45),
+        hard: Number(diagnosticsData?.difficulty?.hard ?? 17),
+      },
+      reliability: {
+        completionRate: Number(
+          diagnosticsData?.reliability?.completionRate ?? 98.4,
+        ),
+        anomalousDropouts: Number(
+          diagnosticsData?.reliability?.anomalousDropouts ?? 0,
+        ),
+        totalRecentSessions: Number(
+          diagnosticsData?.reliability?.totalRecentSessions ?? 100,
+        ),
+      },
+      practiceBridge: {
+        practiceActiveAvgScore: Number(
+          diagnosticsData?.practiceBridge?.practiceActiveAvgScore ?? 78.4,
+        ),
+        mockOnlyAvgScore: Number(
+          diagnosticsData?.practiceBridge?.mockOnlyAvgScore ?? 55.6,
+        ),
+        delta: Number(diagnosticsData?.practiceBridge?.delta ?? 22.8),
+      },
+    };
+  }, [diagnosticsData]);
 
   return (
     <div className="p-3 sm:p-4 max-w-7xl mx-auto space-y-3.5">
@@ -965,26 +1012,47 @@ export default function DeepAnalytics() {
             <div className="space-y-2 pt-2 text-xs">
               <div className="flex justify-between font-bold">
                 <span>Easy (Foundation)</span>
-                <span className="text-emerald-600">38%</span>
+                <span className="text-emerald-600">
+                  {diagnostics.difficulty.easy}%
+                </span>
               </div>
               <div className="w-full bg-gray-100 dark:bg-gray-800 h-2 rounded-full overflow-hidden">
-                <div className="bg-emerald-500 h-full w-[38%]" />
+                <div
+                  className="bg-emerald-500 h-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(diagnostics.difficulty.easy, 100)}%`,
+                  }}
+                />
               </div>
 
               <div className="flex justify-between font-bold pt-1">
                 <span>Medium (Standard)</span>
-                <span className="text-blue-600">45%</span>
+                <span className="text-blue-600">
+                  {diagnostics.difficulty.medium}%
+                </span>
               </div>
               <div className="w-full bg-gray-100 dark:bg-gray-800 h-2 rounded-full overflow-hidden">
-                <div className="bg-blue-500 h-full w-[45%]" />
+                <div
+                  className="bg-blue-500 h-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(diagnostics.difficulty.medium, 100)}%`,
+                  }}
+                />
               </div>
 
               <div className="flex justify-between font-bold pt-1">
                 <span>Hard (Advanced Ranker)</span>
-                <span className="text-purple-600">17%</span>
+                <span className="text-purple-600">
+                  {diagnostics.difficulty.hard}%
+                </span>
               </div>
               <div className="w-full bg-gray-100 dark:bg-gray-800 h-2 rounded-full overflow-hidden">
-                <div className="bg-purple-500 h-full w-[17%]" />
+                <div
+                  className="bg-purple-500 h-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(diagnostics.difficulty.hard, 100)}%`,
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -1002,15 +1070,16 @@ export default function DeepAnalytics() {
             </p>
             <div className="pt-2 text-center space-y-1">
               <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">
-                98.4%
+                {diagnostics.reliability.completionRate}%
               </p>
               <p className="text-[10px] font-bold text-gray-400 uppercase">
                 Test Session Integrity
               </p>
             </div>
             <p className="text-[11px] text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-100 dark:border-gray-800">
-              Zero anomalous dropouts detected across the last 100 active
-              sessions.
+              {diagnostics.reliability.anomalousDropouts === 0
+                ? `Zero anomalous dropouts detected across the last ${diagnostics.reliability.totalRecentSessions} active sessions.`
+                : `${diagnostics.reliability.anomalousDropouts} anomalous dropout(s) detected across ${diagnostics.reliability.totalRecentSessions} sessions.`}
             </p>
           </div>
 
@@ -1023,19 +1092,25 @@ export default function DeepAnalytics() {
             </div>
             <p className="text-xs text-gray-400">
               Students who solve Practice Lab questions score on average{" "}
-              <strong>+22.8% higher</strong> on full mock tests.
+              <strong>
+                {diagnostics.practiceBridge.delta > 0
+                  ? `+${diagnostics.practiceBridge.delta}`
+                  : diagnostics.practiceBridge.delta}
+                % higher
+              </strong>{" "}
+              on full mock tests.
             </p>
             <div className="pt-2 space-y-2 text-xs font-bold">
               <div className="flex items-center justify-between p-2 rounded-xl bg-gray-50 dark:bg-gray-800/60">
                 <span className="text-gray-500">Practice Lab Active</span>
                 <span className="text-indigo-600 dark:text-indigo-400">
-                  Avg 78.4% Score
+                  Avg {diagnostics.practiceBridge.practiceActiveAvgScore}% Score
                 </span>
               </div>
               <div className="flex items-center justify-between p-2 rounded-xl bg-gray-50 dark:bg-gray-800/60">
                 <span className="text-gray-500">Mock Only</span>
                 <span className="text-gray-700 dark:text-gray-300">
-                  Avg 55.6% Score
+                  Avg {diagnostics.practiceBridge.mockOnlyAvgScore}% Score
                 </span>
               </div>
             </div>

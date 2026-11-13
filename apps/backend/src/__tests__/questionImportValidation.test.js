@@ -13,6 +13,7 @@ jest.unstable_mockModule(
   () => ({
     pool: mockPool,
     dbHelpers: {},
+    execSavepoint: jest.fn(),
   }),
 );
 

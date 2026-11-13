@@ -4,6 +4,8 @@ import {
   getCategoryPath,
   getCategoryPathLabel,
   resolveTestCategoryTabId,
+  getCategoryKind,
+  getCategoryPrefixTag,
 } from "../categoryHelpers.js";
 
 describe("categoryHelpers", () => {
@@ -113,6 +115,39 @@ describe("categoryHelpers", () => {
       expect(resolveTestCategoryTabId({ type: "Pro" }, flatCats)).toBeNull();
       expect(resolveTestCategoryTabId(undefined, flatCats)).toBeNull();
       expect(resolveTestCategoryTabId({ categoryId: "" }, flatCats)).toBeNull();
+    });
+  });
+
+  describe("getCategoryKind & getCategoryPrefixTag", () => {
+    it("identifies root category as top with [T] prefix", () => {
+      const topCat = { id: "1", name: "Mock Tests", parentId: null, level: 0 };
+      expect(getCategoryKind(topCat)).toBe("top");
+      expect(getCategoryPrefixTag(topCat)).toBe("[T]");
+      expect(getCategoryPrefixTag(topCat, 0)).toBe("[T]");
+    });
+
+    it("identifies child category as sub with [S] prefix", () => {
+      const subCat = {
+        id: "2",
+        name: "Sectional",
+        parentId: "1",
+        level: 1,
+      };
+      expect(getCategoryKind(subCat)).toBe("sub");
+      expect(getCategoryPrefixTag(subCat)).toBe("[S]");
+      expect(getCategoryPrefixTag(subCat, 1)).toBe("[S]");
+    });
+
+    it("formats nested subcategories with depth-specific tag", () => {
+      const deepSub = {
+        id: "3",
+        name: "English",
+        parentId: "2",
+        level: 2,
+      };
+      expect(getCategoryKind(deepSub)).toBe("sub");
+      expect(getCategoryPrefixTag(deepSub, 2)).toBe("[S2]");
+      expect(getCategoryPrefixTag(deepSub, 3)).toBe("[S3]");
     });
   });
 });

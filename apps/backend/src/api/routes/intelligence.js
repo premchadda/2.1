@@ -21,7 +21,10 @@ import {
   simulateMilestoneTimeMachine,
 } from "../../services/core/studyRoadmapService.js";
 import { generateSocraticHint } from "../../services/core/socraticHintService.js";
-import { calculateExamReadiness } from "../../services/core/examReadinessService.js";
+import {
+  calculateExamReadiness,
+  HISTORICAL_EXAM_CUTOFFS,
+} from "../../services/core/examReadinessService.js";
 
 const router = express.Router();
 const quizSubmissionLimiter = createRateLimiter("moderate");
@@ -458,6 +461,23 @@ router.post("/questions/:id/socratic-hint", async (req, res) => {
       .status(500)
       .json({ success: false, message: sanitizeErrorMessage(error) });
   }
+});
+
+// Readiness exam-benchmark catalog (Wave 18). Derived from the same
+// HISTORICAL_EXAM_CUTOFFS that calculateExamReadiness uses so the frontend
+// readiness picker always reflects the live, supported benchmarks instead of
+// a hardcoded duplicate.
+router.get("/exam-readiness/priors", async (req, res) => {
+  const priors = Object.entries(HISTORICAL_EXAM_CUTOFFS)
+    .filter(([slug]) => slug !== "default")
+    .map(([slug, spec]) => ({
+      slug,
+      label: spec.examTitle,
+      tier1TotalMarks: spec.tier1TotalMarks,
+      safeScore: spec.safeScore,
+      categories: Object.keys(spec.cutoffs).map((c) => c.toUpperCase()),
+    }));
+  res.json({ success: true, data: priors });
 });
 
 // Candidate Exam Readiness & Cutoff Percentile Predictor (Wave 18)

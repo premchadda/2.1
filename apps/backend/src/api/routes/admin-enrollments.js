@@ -3,6 +3,7 @@ import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
 import logger from "../../infrastructure/logger/logger.js";
 import { sanitizeUser } from "../../shared/utils/user-utils.js";
+import EnrollmentService from "../../services/EnrollmentService.js";
 
 const router = express.Router();
 
@@ -13,6 +14,25 @@ router.use(admin);
 const maskEmail = () => "***@***";
 
 // Centralized sanitization helper to avoid PII leakage (SEC-12)
+
+// @route   GET /api/admin/enrollments/stats
+// @desc    Get aggregated enrollment statistics across series, exams, and study materials
+// @access  Private/Admin
+router.get("/enrollments/stats", async (req, res) => {
+  try {
+    const stats = await EnrollmentService.getEnrollmentStats(
+      dbHelpers,
+      req.query,
+    );
+    res.json({ success: true, data: stats });
+  } catch (error) {
+    logger.error("Failed to fetch enrollment stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch enrollment statistics",
+    });
+  }
+});
 
 // List users with pagination
 // List enrollments — one row per user with aggregated enrollment details

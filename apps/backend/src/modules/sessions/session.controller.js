@@ -19,29 +19,9 @@ import {
 } from "../../services/SessionCaptureService.js";
 import { logAuditEvent } from "../../middleware/audit.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import { getClientIp } from "../../shared/utils/clientIp.js";
 
-const getClientIp = (req) => {
-  // Prefer trust-proxy aware req.ip; fallback only for dev without proxy
-  if (req?.ip) {
-    let ip = String(req.ip).trim();
-    if (ip.startsWith("::ffff:")) ip = ip.slice(7);
-    if (ip === "::1") return "127.0.0.1";
-    if (ip) return ip;
-  }
-  const f = req?.headers?.["x-forwarded-for"];
-  if (f) {
-    const first = String(f).split(",")[0].trim();
-    if (first.startsWith("::ffff:")) return first.slice(7);
-    return first;
-  }
-  const sock = req?.socket?.remoteAddress || req?.connection?.remoteAddress;
-  if (sock) {
-    if (sock.startsWith("::ffff:")) return sock.slice(7);
-    if (sock === "::1") return "127.0.0.1";
-    return sock;
-  }
-  return "unknown";
-};
+// getClientIp is imported from ../../shared/utils/clientIp.js
 
 // ─── User-Agent Parser ────────────────────────────────────────────────────────
 // Delegates to canonical implementation in SessionCaptureService to avoid drift.

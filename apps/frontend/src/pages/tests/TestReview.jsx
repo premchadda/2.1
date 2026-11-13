@@ -24,10 +24,6 @@ import {
 import sanitizeHtml from "../../shared/lib/sanitizeHtml";
 import MathRenderer from "../../shared/components/MathRenderer";
 import { apiClient } from "../../shared/lib/dataService";
-import {
-  getEstimatedReadingSeconds,
-  formatReadingTime,
-} from "@trstprep/shared-config";
 
 export default function TestReview() {
   const navigate = useNavigate();

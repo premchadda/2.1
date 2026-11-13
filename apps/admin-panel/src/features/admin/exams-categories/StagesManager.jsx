@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { logger } from "@trstprep/shared-config";
 import { createPortal } from "react-dom";
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -26,12 +26,40 @@ import { useExamCategories } from "../../../shared/hooks/useExamCategories";
 import { toast } from "react-hot-toast";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 
+// Normalize IDs for comparison (handles integers, strings, and mixed types)
+const normalizeId = (id) => {
+  if (id === null || id === undefined || id === "") return null;
+  const str = String(id).trim();
+  const num = Number(str);
+  return { str, num: Number.isNaN(num) ? null : num };
+};
+
+const parseIdsArray = coerceArray;
+
+const idsMatch = (stageExamIds, targetExamId) => {
+  if (!targetExamId) return false;
+  const arr = parseIdsArray(stageExamIds);
+  if (!arr || arr.length === 0) return false;
+
+  const target = normalizeId(targetExamId);
+  return arr.some((stageId) => {
+    const normalized = normalizeId(stageId);
+    if (!normalized) return false;
+    return (
+      normalized.str === target.str ||
+      (normalized.num !== null &&
+        target.num !== null &&
+        normalized.num === target.num)
+    );
+  });
+};
+
 export default function StagesManager() {
   const navigate = useNavigate();
   const {
     categories,
     examInfo,
-    exams: hookExams,
+    exams: _hookExams,
     loading: categoriesLoading,
   } = useExamCategories();
   const [stages, setStages] = useState([]);
@@ -40,7 +68,7 @@ export default function StagesManager() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formStep, setFormStep] = useState(1);
-  const [hoveredStage, setHoveredStage] = useState(null);
+  const [_hoveredStage, setHoveredStage] = useState(null);
   const [detailStageId, setDetailStageId] = useState(null);
   const [stageDetails, setStageDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -143,34 +171,6 @@ export default function StagesManager() {
     return map;
   }, [allStages]);
 
-  // Normalize IDs for comparison (handles integers, strings, and mixed types)
-  const normalizeId = (id) => {
-    if (id === null || id === undefined || id === "") return null;
-    const str = String(id).trim();
-    const num = Number(str);
-    return { str, num: Number.isNaN(num) ? null : num };
-  };
-
-  const parseIdsArray = coerceArray;
-
-  const idsMatch = (stageExamIds, targetExamId) => {
-    if (!targetExamId) return false;
-    const arr = parseIdsArray(stageExamIds);
-    if (!arr || arr.length === 0) return false;
-
-    const target = normalizeId(targetExamId);
-    return arr.some((stageId) => {
-      const normalized = normalizeId(stageId);
-      if (!normalized) return false;
-      return (
-        normalized.str === target.str ||
-        (normalized.num !== null &&
-          target.num !== null &&
-          normalized.num === target.num)
-      );
-    });
-  };
-
   // Derived: stages linked to the active exam
   const stagesForExam = useMemo(() => {
     if (!activeExamId) return [];
@@ -188,9 +188,25 @@ export default function StagesManager() {
     return allStages.filter((s) => parseIdsArray(s.examIds).length === 0);
   }, [allStages]);
 
+  const fetchStages = useCallback(async () => {
+    try {
+      setLoading(true);
+      // FIX B2: Use adminAPI instead of direct fetch to ensure proper auth middleware
+      const response = await adminAPI.getStages();
+      if (response.data.success) {
+        setStages(response.data.data);
+        setAllStages(response.data.data);
+      }
+    } catch (error) {
+      logger.error("Failed to fetch stages:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStages();
-  }, []);
+  }, [fetchStages]);
 
   // Auto-select first category and first exam when data loads
   useEffect(() => {
@@ -198,7 +214,7 @@ export default function StagesManager() {
       const firstCatId = categories[0].categoryId || categories[0].id;
       setActiveCategoryId(firstCatId);
     }
-  }, [categories]);
+  }, [categories, activeCategoryId]);
 
   useEffect(() => {
     if (examsInCategory.length > 0 && !activeExamId) {
@@ -214,23 +230,7 @@ export default function StagesManager() {
     } else if (examsInCategory.length === 0) {
       setActiveExamId(null);
     }
-  }, [activeCategoryId, examsInCategory]);
-
-  const fetchStages = async () => {
-    try {
-      setLoading(true);
-      // FIX B2: Use adminAPI instead of direct fetch to ensure proper auth middleware
-      const response = await adminAPI.getStages();
-      if (response.data.success) {
-        setStages(response.data.data);
-        setAllStages(response.data.data);
-      }
-    } catch (error) {
-      logger.error("Failed to fetch stages:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [activeCategoryId, examsInCategory, activeExamId]);
 
   const fetchStageDetails = async (stageId, e) => {
     if (e) e.stopPropagation();
@@ -314,7 +314,7 @@ export default function StagesManager() {
     }
   };
 
-  const saveStage = async () => {
+  const _saveStage = async () => {
     try {
       const exists = stages.some(
         (s) =>
@@ -402,7 +402,7 @@ export default function StagesManager() {
     }
   };
 
-  const handleAssignTestsToStage = (stageId) => {
+  const _handleAssignTestsToStage = (stageId) => {
     navigate(`/admin/tests?stageId=${stageId}&assignMode=true`);
   };
 
@@ -555,11 +555,13 @@ export default function StagesManager() {
   }, []);
 
   // Load test series when series tab is activated
+  const seriesLoadedRef = useRef(false);
   useEffect(() => {
-    if (viewMode === "series" && testSeries.length === 0 && !seriesLoading) {
+    if (viewMode === "series" && !seriesLoadedRef.current) {
+      seriesLoadedRef.current = true;
       fetchTestSeries();
     }
-  }, [viewMode]);
+  }, [viewMode, fetchTestSeries]);
 
   // Bulk operations (S-04 fix)
   const toggleStageSelection = useCallback((stageId) => {
@@ -764,7 +766,7 @@ export default function StagesManager() {
     }
   };
 
-  const getFilteredExams = () => {
+  const _getFilteredExams = () => {
     let exams = examInfo || [];
     if (activeCategoryId) {
       exams = exams.filter(

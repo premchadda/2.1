@@ -2,10 +2,20 @@ import express from "express";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import Stage from "../../data/models/Stage.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
-import { responseCache } from "../../middleware/responseCache.middleware.js";
+import {
+  responseCache,
+  invalidateResponseCache,
+} from "../../middleware/responseCache.middleware.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 
 const router = express.Router();
+
+const invalidateStageCaches = async () => {
+  await Promise.allSettled([
+    invalidateResponseCache("admin-stages-list"),
+    invalidateResponseCache("admin-stages-counts"),
+  ]);
+};
 
 router.use(protect);
 router.use(admin);
@@ -124,16 +134,9 @@ router.get(
 router.post(
   "/stages",
   asyncHandler(async (req, res) => {
-    const {
-      name,
-      slug,
-      description,
-      icon,
-      order,
-      examIds,
-      categoryIds,
-      isActive,
-    } = req.body;
+    const { name, slug, description, icon, order, isActive } = req.body;
+    const examIds = req.body.examIds ?? req.body.exam_ids;
+    const categoryIds = req.body.categoryIds ?? req.body.category_ids;
 
     if (!name || !slug) {
       return res
@@ -154,6 +157,7 @@ router.post(
       updatedAt: new Date().toISOString(),
     });
 
+    await invalidateStageCaches();
     res.status(201).json({ success: true, data: newStage });
   }),
 );
@@ -172,6 +176,7 @@ router.put(
         .json({ success: false, message: "Stage not found" });
     }
 
+    await invalidateStageCaches();
     res.json({ success: true, data: updated });
   }),
 );
@@ -207,6 +212,7 @@ router.delete(
         .status(404)
         .json({ success: false, message: "Stage not found" });
     }
+    await invalidateStageCaches();
     res.json({ success: true, message: "Stage moved to trash" });
   }),
 );
@@ -215,7 +221,8 @@ router.put(
   "/stages/:id/categories",
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { categoryIds, operation = "replace" } = req.body;
+    const categoryIds = req.body.category_ids ?? req.body.categoryIds;
+    const { operation = "replace" } = req.body;
 
     const stage = await dbHelpers.findById("stages", id);
     if (!stage) {
@@ -251,6 +258,7 @@ router.put(
       updatedAt: new Date().toISOString(),
     });
 
+    await invalidateStageCaches();
     res.json({
       success: true,
       message: `Stage categories ${operation}ed`,

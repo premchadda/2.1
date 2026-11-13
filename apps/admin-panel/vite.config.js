@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 function suppressProxyErrors() {
   return {
     name: "suppress-proxy-errors",
-    configureServer(server) {
+    configureServer(_server) {
       const originalLog = console.error;
       console.error = (...args) => {
         const msg = args.join(" ");

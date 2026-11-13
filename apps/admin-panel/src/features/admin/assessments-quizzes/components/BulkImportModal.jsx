@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X, Upload } from "lucide-react";
+import { X, Upload, History } from "lucide-react";
 import { toast } from "react-hot-toast";
+import ImportHistoryModal from "./ImportHistoryModal";
 
 // Bulk Import Modal
 export const BulkImportModal = ({
@@ -14,6 +15,8 @@ export const BulkImportModal = ({
 }) => {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [skipDetails, setSkipDetails] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
   const modalRef = useRef(null);
 
   useEffect(() => {
@@ -32,11 +35,14 @@ export const BulkImportModal = ({
   }, [isOpen, onClose]);
 
   useEffect(() => {
-    if (!isOpen) setFile(null);
+    if (!isOpen) {
+      setFile(null);
+      setSkipDetails(null);
+    }
   }, [isOpen]);
 
   const allowedExts = [".csv", ".xlsx", ".xls", ".json"];
-  const allowedMimes = [
+  const _allowedMimes = [
     "text/csv",
     "application/vnd.ms-excel",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -79,10 +85,19 @@ export const BulkImportModal = ({
     }
 
     setUploading(true);
+    setSkipDetails(null);
     try {
       await onImport(file);
       setFile(null);
     } catch (err) {
+      const details =
+        err.skipDetails ||
+        err.response?.data?.skipDetails ||
+        err.response?.data?.errors ||
+        err.response?.data?.data?.errors;
+      if (Array.isArray(details) && details.length > 0) {
+        setSkipDetails(details);
+      }
       toast.error(err.message || "Import failed");
     } finally {
       setUploading(false);
@@ -124,7 +139,17 @@ export const BulkImportModal = ({
           className="flex-1 flex flex-col min-h-0 overflow-hidden"
         >
           <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
-            <div>
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDragEnter={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const f = e.dataTransfer?.files?.[0] || null;
+                if (f && validateFile(f)) {
+                  setFile(f);
+                }
+              }}
+            >
               <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Upload File (CSV/Excel/JSON)
               </label>
@@ -159,6 +184,39 @@ export const BulkImportModal = ({
                   {expectedColumns}
                 </code>
               </div>
+              {skipDetails && skipDetails.length > 0 && (
+                <div className="mt-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-semibold text-red-800 dark:text-red-200">
+                      Row-Level Validation Errors ({skipDetails.length})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSkipDetails(null)}
+                      className="text-[11px] text-red-600 dark:text-red-400 hover:underline"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                  <div className="max-h-36 overflow-y-auto space-y-1 text-[11px] text-red-700 dark:text-red-300 font-mono">
+                    {skipDetails.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-white/60 dark:bg-black/20 p-1.5 rounded border border-red-100 dark:border-red-900/40"
+                      >
+                        <span className="font-bold">
+                          Row {item.row || item.line || idx + 1}:
+                        </span>{" "}
+                        {item.reason ||
+                          item.message ||
+                          (typeof item === "string"
+                            ? item
+                            : JSON.stringify(item))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {context?.testTitle && (
                 <div className="mt-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 p-3 rounded-xl">
                   <p className="text-xs font-semibold text-indigo-800 dark:text-indigo-200">
@@ -177,26 +235,41 @@ export const BulkImportModal = ({
             </div>
           </div>
 
-          <div className="px-4 py-3 sm:px-6 bg-gray-50/90 dark:bg-gray-800/90 border-t border-gray-200 dark:border-gray-700 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 shrink-0">
+          <div className="px-4 py-3 sm:px-6 bg-gray-50/90 dark:bg-gray-800/90 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 shrink-0">
             <button
               type="button"
-              onClick={onClose}
-              disabled={uploading}
-              className="w-full sm:w-auto px-4 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 text-xs sm:text-sm font-semibold text-center text-gray-700 dark:text-gray-300"
+              onClick={() => setShowHistory(true)}
+              className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium cursor-pointer"
             >
-              Cancel
+              <History className="w-3.5 h-3.5" />
+              View Import History
             </button>
-            <button
-              type="submit"
-              disabled={uploading || !file}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 sm:py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-xs sm:text-sm font-semibold shadow-sm"
-            >
-              <Upload className="w-4 h-4" />
-              {uploading ? "Importing..." : "Import"}
-            </button>
+            <div className="flex items-center justify-end gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={uploading}
+                className="w-full sm:w-auto px-4 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 text-xs sm:text-sm font-semibold text-center text-gray-700 dark:text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={uploading || !file}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 sm:py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-xs sm:text-sm font-semibold shadow-sm"
+              >
+                <Upload className="w-4 h-4" />
+                {uploading ? "Importing..." : "Import"}
+              </button>
+            </div>
           </div>
         </form>
       </div>
+
+      <ImportHistoryModal
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+      />
     </div>
   );
 

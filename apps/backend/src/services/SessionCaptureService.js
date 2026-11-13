@@ -3,32 +3,9 @@ import { pool } from "../infrastructure/database/postgres-helpers.js";
 import { getIO } from "../infrastructure/websocket/websocketManager.js";
 import { getRedisClient } from "../infrastructure/cache/redisClient.js";
 import logger from "../infrastructure/logger/logger.js";
+import { getClientIp } from "../shared/utils/clientIp.js";
 
-const getClientIp = (req) => {
-  // Prefer Express trust-proxy aware req.ip (app.set('trust proxy',1))
-  // to avoid XFF spoofing. Fallback to XFF only when req.ip unavailable
-  // or in development without proxy.
-  if (req?.ip) {
-    let ip = String(req.ip).trim();
-    if (ip.startsWith("::ffff:")) ip = ip.slice(7);
-    // req.ip may be ::1 for localhost
-    if (ip && ip !== "::1") return ip;
-    if (ip === "::1") return "127.0.0.1";
-  }
-  const forwardedFor = req?.headers?.["x-forwarded-for"];
-  if (forwardedFor) {
-    const first = String(forwardedFor).split(",")[0].trim();
-    if (first.startsWith("::ffff:")) return first.slice(7);
-    return first;
-  }
-  const sock = req?.socket?.remoteAddress || req?.connection?.remoteAddress;
-  if (sock) {
-    if (sock.startsWith("::ffff:")) return sock.slice(7);
-    if (sock === "::1") return "127.0.0.1";
-    return sock;
-  }
-  return "unknown";
-};
+// getClientIp is imported from ../shared/utils/clientIp.js
 
 export const parseUserAgent = (userAgent) => {
   if (!userAgent) {
@@ -292,7 +269,7 @@ export const captureSession = async (req, userId, sessionType = "web") => {
       try {
         const io = getIO();
         const userResult = await pool.query(
-          "SELECT name, email, role FROM users WHERE id = $1",
+          "SELECT name, email, role FROM users WHERE id = $1 AND (is_deleted = false OR is_deleted IS NULL)",
           [userId],
         );
         const user = userResult.rows[0] || {};

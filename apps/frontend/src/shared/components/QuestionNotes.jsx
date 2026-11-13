@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X, StickyNote, Save, Trash2, Clock, Edit2 } from "lucide-react";
+import { X, StickyNote, Save, Trash2, Clock, Edit2, Loader2 } from "lucide-react";
 import { twMerge } from "tailwind-merge";
+import { apiClient } from "../lib/dataService";
 
 const STORAGE_KEY_PREFIX = "trstprep_question_notes_";
 
@@ -54,18 +55,53 @@ function QuestionNotes({
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState("");
+  const [syncing, setSyncing] = useState(false);
   const textareaRef = useRef(null);
   const editRef = useRef(null);
 
   const storageKey = `${contextId}_${questionId}`;
 
   useEffect(() => {
-    if (isOpen) {
-      setNotes(loadNotes(storageKey));
-      setDraft("");
-      setEditingId(null);
+    if (!isOpen) return;
+    // 1. Instant local load
+    const cached = loadNotes(storageKey);
+    setNotes(cached);
+    setDraft("");
+    setEditingId(null);
+
+    // 2. Live remote load from /api/notes
+    if (questionId) {
+      const controller = new AbortController();
+      setSyncing(true);
+      apiClient
+        .get("/api/notes", {
+          params: { questionId: String(questionId), contextId: String(contextId) },
+          signal: controller.signal,
+        })
+        .then((res) => {
+          if (res.data?.success && Array.isArray(res.data.data)) {
+            const remoteNotes = res.data.data.map((n) => ({
+              id: n.id,
+              text: n.noteText || n.text,
+              createdAt: n.createdAt,
+              updatedAt: n.updatedAt,
+            }));
+            if (remoteNotes.length > 0) {
+              setNotes(remoteNotes);
+              saveNotes(storageKey, remoteNotes);
+            }
+          }
+        })
+        .catch(() => {
+          // Unauthenticated or network error — fallback quietly to cached notes
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSyncing(false);
+        });
+
+      return () => controller.abort();
     }
-  }, [isOpen, storageKey]);
+  }, [isOpen, storageKey, questionId, contextId]);
 
   useEffect(() => {
     if (isOpen && textareaRef.current) {
@@ -93,23 +129,48 @@ function QuestionNotes({
     };
   }, [isOpen, onClose]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     const trimmed = draft.trim();
     if (!trimmed) return;
-    const newNote = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    const tempId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const optimisticNote = {
+      id: tempId,
       text: trimmed,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-    const updated = [newNote, ...notes];
+    const updated = [optimisticNote, ...notes];
     setNotes(updated);
     saveNotes(storageKey, updated);
     setDraft("");
-  }, [draft, notes, storageKey]);
+
+    // Sync to backend live endpoint
+    try {
+      const res = await apiClient.post("/api/notes", {
+        questionId: String(questionId),
+        contextId: String(contextId),
+        noteText: trimmed,
+      });
+      if (res.data?.data?.id) {
+        const serverNote = {
+          id: res.data.data.id,
+          text: res.data.data.noteText || trimmed,
+          createdAt: res.data.data.createdAt,
+          updatedAt: res.data.data.updatedAt,
+        };
+        setNotes((prev) => {
+          const synced = prev.map((n) => (n.id === tempId ? serverNote : n));
+          saveNotes(storageKey, synced);
+          return synced;
+        });
+      }
+    } catch {
+      // Retained in localStorage if server is offline
+    }
+  }, [draft, notes, storageKey, questionId, contextId]);
 
   const handleDelete = useCallback(
-    (id) => {
+    async (id) => {
       const updated = notes.filter((n) => n.id !== id);
       setNotes(updated);
       saveNotes(storageKey, updated);
@@ -117,12 +178,19 @@ function QuestionNotes({
         setEditingId(null);
         setEditDraft("");
       }
+
+      // Sync deletion to backend
+      try {
+        await apiClient.delete(`/api/notes/${id}`);
+      } catch {
+        // Handled silently
+      }
     },
     [notes, storageKey, editingId],
   );
 
   const handleEditSave = useCallback(
-    (id) => {
+    async (id) => {
       const trimmed = editDraft.trim();
       if (!trimmed) return;
       const updated = notes.map((n) =>
@@ -132,6 +200,13 @@ function QuestionNotes({
       saveNotes(storageKey, updated);
       setEditingId(null);
       setEditDraft("");
+
+      // Sync update to backend
+      try {
+        await apiClient.put(`/api/notes/${id}`, { noteText: trimmed });
+      } catch {
+        // Handled silently
+      }
     },
     [editDraft, notes, storageKey],
   );
@@ -201,9 +276,18 @@ function QuestionNotes({
               <StickyNote className="w-4 h-4 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-gray-900 dark:text-white">
-                Question Notes
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-sm text-gray-900 dark:text-white">
+                  Question Notes
+                </h3>
+                {syncing ? (
+                  <Loader2 className="w-3 h-3 text-amber-500 animate-spin" title="Syncing..." />
+                ) : (
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-0.5">
+                    ● Cloud Synced
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {title
                   ? `${title}`
@@ -229,23 +313,22 @@ function QuestionNotes({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Add a note, formula, or shortcut for this question... (Ctrl+Enter to save)"
+              placeholder="Add a personal note or shortcut trick for this question..."
               rows={3}
-              className="w-full text-sm p-3 bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-800/50 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 dark:focus:border-amber-400 outline-none resize-none placeholder:text-gray-400 text-gray-900 dark:text-gray-100 transition-all"
+              className="w-full text-sm bg-white dark:bg-gray-900 border border-amber-200 dark:border-amber-800/60 rounded-xl p-3 pr-10 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none transition-all"
             />
           </div>
           <div className="flex items-center justify-between mt-2">
-            <span className="text-xs text-gray-400 dark:text-gray-500">
-              Saved automatically to this device
+            <span className="text-[10px] text-gray-400 dark:text-gray-500">
+              Ctrl+Enter to save
             </span>
             <button
-              type="button"
               onClick={handleSave}
               disabled={!draft.trim()}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium text-xs shadow-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:cursor-not-allowed"
             >
               <Save className="w-3.5 h-3.5" />
-              Save Note
+              <span>Save Note</span>
             </button>
           </div>
         </div>
@@ -253,45 +336,44 @@ function QuestionNotes({
         {/* Notes List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {notes.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center py-8 text-gray-400 dark:text-gray-500">
-              <StickyNote className="w-10 h-10 mb-2 stroke-1 text-amber-300 dark:text-amber-600" />
+            <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400 dark:text-gray-500">
+              <StickyNote className="w-10 h-10 mb-2 stroke-1 opacity-50" />
               <p className="text-sm font-medium">No notes yet</p>
-              <p className="text-xs text-gray-400 mt-1 max-w-xs">
-                Write down key concepts, formulas, or why you got this question
-                wrong for quick revision.
+              <p className="text-xs mt-1">
+                Jot down key formulas, trap options, or your own solution
+                methods.
               </p>
             </div>
           ) : (
             notes.map((note) => (
               <div
                 key={note.id}
-                className="group relative p-3.5 bg-amber-50/60 dark:bg-gray-800/80 border border-amber-200/70 dark:border-gray-700 rounded-xl transition-all hover:border-amber-300 dark:hover:border-amber-500/40"
+                className="group relative bg-amber-50/30 dark:bg-gray-750 border border-amber-100 dark:border-gray-700/80 rounded-xl p-3.5 transition-all hover:shadow-xs"
               >
                 {editingId === note.id ? (
                   <div className="space-y-2">
                     <textarea
-                      aria-label="Draft"
+                      aria-label="Edit note"
                       ref={editRef}
                       value={editDraft}
                       onChange={(e) => setEditDraft(e.target.value)}
                       onKeyDown={(e) => handleEditKeyDown(e, note.id)}
                       rows={3}
-                      className="w-full text-xs p-2 bg-white dark:bg-gray-900 border border-amber-300 dark:border-amber-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 text-gray-900 dark:text-gray-100"
-                      autoFocus
+                      className="w-full text-sm bg-white dark:bg-gray-900 border border-amber-300 dark:border-amber-600 rounded-lg p-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
                     />
-                    <div className="flex justify-end gap-1.5">
+                    <div className="flex items-center justify-end gap-1.5">
                       <button
                         onClick={() => {
                           setEditingId(null);
                           setEditDraft("");
                         }}
-                        className="px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                        className="px-2.5 py-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={() => handleEditSave(note.id)}
-                        className="px-2.5 py-1 text-xs bg-amber-500 text-white rounded font-medium hover:bg-amber-600"
+                        className="px-2.5 py-1 bg-amber-500 text-white text-xs font-semibold rounded-md shadow-xs hover:bg-amber-600"
                       >
                         Save
                       </button>
@@ -299,30 +381,30 @@ function QuestionNotes({
                   </div>
                 ) : (
                   <>
-                    <p className="text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+                    <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
                       {note.text}
                     </p>
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-amber-100 dark:border-gray-700/60">
-                      <span className="flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500">
+                    <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-amber-100/60 dark:border-gray-700/50">
+                      <div className="flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500">
                         <Clock className="w-3 h-3" />
-                        {formatTimestamp(note.updatedAt || note.createdAt)}
-                        {note.updatedAt > note.createdAt && " (edited)"}
-                      </span>
+                        <span>
+                          {formatTimestamp(note.updatedAt || note.createdAt)}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => startEditing(note)}
-                          className="px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-gray-700 rounded flex items-center gap-0.5"
-                          title="Edit note"
+                          className="p-1 text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 rounded transition-colors"
+                          title="Edit"
                         >
-                          <Edit2 className="w-3 h-3" />
-                          Edit
+                          <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleDelete(note.id)}
-                          className="p-1 text-gray-400 hover:text-red-500 rounded transition-colors"
-                          title="Delete note"
+                          className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded transition-colors"
+                          title="Delete"
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>

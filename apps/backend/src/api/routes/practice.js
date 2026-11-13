@@ -460,7 +460,7 @@ async function getSafeQuestion(questionId) {
 
 function toSafeQuestion(rawRow) {
   const row = dbHelpers.toCamel(rawRow);
-  // Strip answer fields
+  // Strip answer and explanation fields to prevent answer leaks during active sessions
   const {
     correctAnswer,
     correct_option,
@@ -469,6 +469,10 @@ function toSafeQuestion(rawRow) {
     answer,
     isCorrect,
     is_correct,
+    explanation,
+    explanationHi,
+    explanation_hi,
+    solution,
     ...safe
   } = row;
   if (rawRow.test_title && !safe.testTitle) {
@@ -476,6 +480,25 @@ function toSafeQuestion(rawRow) {
   }
   if (safe.testTitle && !safe.test_title) {
     safe.test_title = safe.testTitle;
+  }
+  // Sanitize option objects so that embedded correctness flags are stripped
+  if (Array.isArray(safe.options)) {
+    safe.options = safe.options.map((opt) => {
+      if (opt && typeof opt === "object" && !Array.isArray(opt)) {
+        const { isCorrect, is_correct, correct, ...safeOpt } = opt;
+        return safeOpt;
+      }
+      return opt;
+    });
+  }
+  if (Array.isArray(safe.optionsHi)) {
+    safe.optionsHi = safe.optionsHi.map((opt) => {
+      if (opt && typeof opt === "object" && !Array.isArray(opt)) {
+        const { isCorrect, is_correct, correct, ...safeOpt } = opt;
+        return safeOpt;
+      }
+      return opt;
+    });
   }
   return safe;
 }
@@ -489,9 +512,9 @@ async function getSafeQuestions(questionIds = []) {
 
   const r = await pool.query(
     `
-    SELECT q.id, q.test_id, q.question_text, q.options, q.explanation, q.subject, q.topic,
+    SELECT q.id, q.test_id, q.question_text, q.options, q.subject, q.topic,
            q.difficulty, q.language, q.topic_id, q.subject_id,
-           q.question_text_hi, q.options_hi, q.explanation_hi,
+           q.question_text_hi, q.options_hi,
            q.source_config, q.tags, q.source,
            t.title AS test_title
     FROM questions q
@@ -542,14 +565,19 @@ async function computeTopicMastery(userId, topicId, queryRunner = pool) {
   );
   if (!r.rows.length) return { mastery: 0, attempts: 0 };
   let weighted = 0,
+    totalWeight = 0,
     total = 0;
   for (const row of r.rows) {
     const diff = (row.difficulty || "medium").toLowerCase();
     const weight = diff === "hard" ? 1.5 : diff === "medium" ? 1.2 : 1.0;
     total++;
+    totalWeight += weight;
     if (row.is_correct) weighted += weight;
   }
-  const mastery = Math.min(100, Math.round((weighted / total) * 100));
+  const mastery =
+    totalWeight > 0
+      ? Math.min(100, Math.round((weighted / totalWeight) * 100))
+      : 0;
   return { mastery, attempts: total, mastered: total >= 20 && mastery >= 80 };
 }
 
@@ -1891,13 +1919,14 @@ router.post("/sessions/:id/questions/:idx/check", protect, async (req, res) => {
 
     // Numeric guard (mirror test submit): non-numeric timeTakenSec is a 400;
     // valid values are clamped to [0s, 1h] per question.
-    let safeTimeTakenSec = null;
+    let safeTimeTakenSec = 0;
+    const rawTimeTaken = req.body.timeTakenSec ?? req.body.time_taken_sec ?? 0;
     if (
-      req.body.timeTakenSec !== undefined &&
-      req.body.timeTakenSec !== null &&
-      req.body.timeTakenSec !== ""
+      rawTimeTaken !== undefined &&
+      rawTimeTaken !== null &&
+      rawTimeTaken !== ""
     ) {
-      const parsedTaken = Number(req.body.timeTakenSec);
+      const parsedTaken = Number(rawTimeTaken);
       if (!Number.isFinite(parsedTaken)) {
         return res
           .status(400)
@@ -1984,7 +2013,8 @@ router.post("/sessions/:id/questions/:idx/check", protect, async (req, res) => {
         ON CONFLICT (user_id, question_id, session_id) DO UPDATE
           SET selected_option = EXCLUDED.selected_option,
               is_correct = EXCLUDED.is_correct,
-              is_skipped = false
+              is_skipped = false,
+              time_taken_sec = COALESCE(EXCLUDED.time_taken_sec, practice_answers.time_taken_sec)
       `,
         [
           userId,
@@ -3093,6 +3123,15 @@ router.get("/fundamentals/categories", protect, async (req, res) => {
   }
 });
 
+function shuffleDrillOptions(arr) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
 /**
  * GET /api/practice/fundamentals/drill
  * Query: { category, count }
@@ -3113,12 +3152,12 @@ router.get("/fundamentals/drill", protect, async (req, res) => {
           id: `tb_${i}`,
           prompt: `${a} × ${b} = ?`,
           answer: String(a * b),
-          options: [
+          options: shuffleDrillOptions([
             String(a * b),
             String(a * b + b),
             String(a * b - a),
             String((a + 1) * b),
-          ],
+          ]),
         });
       } else if (category === "squares") {
         const n = Math.floor(Math.random() * 40) + 11;
@@ -3126,12 +3165,12 @@ router.get("/fundamentals/drill", protect, async (req, res) => {
           id: `sq_${i}`,
           prompt: `${n}² = ?`,
           answer: String(n * n),
-          options: [
+          options: shuffleDrillOptions([
             String(n * n),
             String((n + 1) * (n + 1)),
             String(n * n - 10),
             String((n - 1) * (n - 1)),
-          ],
+          ]),
         });
       } else if (category === "cubes") {
         const n = Math.floor(Math.random() * 20) + 5;
@@ -3139,11 +3178,11 @@ router.get("/fundamentals/drill", protect, async (req, res) => {
           id: `cb_${i}`,
           prompt: `${n}³ = ?`,
           answer: String(n * n * n),
-          options: [
+          options: shuffleDrillOptions([
             String(n * n * n),
             String((n + 1) * (n + 1) * (n + 1)),
             String(n * n * n - 20),
-          ],
+          ]),
         });
       } else if (category === "roots") {
         const n = Math.floor(Math.random() * 30) + 5;
@@ -3152,7 +3191,12 @@ router.get("/fundamentals/drill", protect, async (req, res) => {
           id: `rt_${i}`,
           prompt: `√${sq} = ?`,
           answer: String(n),
-          options: [String(n), String(n + 2), String(n - 1), String(n + 5)],
+          options: shuffleDrillOptions([
+            String(n),
+            String(n + 2),
+            String(n - 1),
+            String(n + 5),
+          ]),
         });
       } else if (category === "fractions") {
         const pairs = [
@@ -3171,7 +3215,7 @@ router.get("/fundamentals/drill", protect, async (req, res) => {
           id: `fr_${i}`,
           prompt: `Convert ${choice.f} to Percentage`,
           answer: choice.p,
-          options: [choice.p, "40%", "15%", "30%"],
+          options: shuffleDrillOptions([choice.p, "40%", "15%", "30%"]),
         });
       } else {
         const a = Math.floor(Math.random() * 15) + 3;
@@ -3180,7 +3224,11 @@ router.get("/fundamentals/drill", protect, async (req, res) => {
           id: `gen_${i}`,
           prompt: `${a} + ${b} × 5 = ?`,
           answer: String(a + b * 5),
-          options: [String(a + b * 5), String((a + b) * 5), String(a * 5 + b)],
+          options: shuffleDrillOptions([
+            String(a + b * 5),
+            String((a + b) * 5),
+            String(a * 5 + b),
+          ]),
         });
       }
     }
@@ -3202,13 +3250,27 @@ router.post(
   practiceSubmissionLimiter,
   async (req, res) => {
     try {
-      const { category, score, totalQuestions, durationMs } = req.body;
+      const category = req.body.category;
+      const rawScore = req.body.score ?? req.body.correct;
+      const rawTotal = req.body.totalQuestions ?? req.body.total;
+      const rawDuration =
+        req.body.durationMs ??
+        (req.body.duration_sec !== undefined
+          ? Number(req.body.duration_sec) * 1000
+          : undefined);
+
+      if (!category || typeof category !== "string") {
+        return res
+          .status(400)
+          .json({ success: false, error: "Valid category is required" });
+      }
+
       // Numeric guards (mirror test submit): non-numeric drill metrics are a
       // 400; valid values are clamped so a stale client can't poison mastery.
       for (const [label, val] of [
-        ["score", score],
-        ["totalQuestions", totalQuestions],
-        ["durationMs", durationMs],
+        ["score", rawScore],
+        ["totalQuestions", rawTotal],
+        ["durationMs", rawDuration],
       ]) {
         if (val !== undefined && val !== null && val !== "") {
           const n = Number(val);
@@ -3219,20 +3281,26 @@ router.post(
           }
         }
       }
-      const safeScore = Math.min(Math.max(Number(score) || 0, 0), 10000);
-      const safeTotal = Math.min(
-        Math.max(Number(totalQuestions) || 0, 0),
-        10000,
-      );
+      const safeTotal = Math.min(Math.max(Number(rawTotal) || 0, 0), 500);
+      let safeScore = Math.min(Math.max(Number(rawScore) || 0, 0), safeTotal);
       const safeDurationMs = Math.min(
-        Math.max(Number(durationMs) || 0, 0),
+        Math.max(Number(rawDuration) || 0, 0),
         24 * 3600 * 1000,
       );
+
+      // Sanity check: human reaction time floor guard (150ms per question)
+      const minHumanTime = safeScore * 150;
+      if (safeScore > 0 && safeDurationMs < minHumanTime) {
+        safeScore = 0;
+      }
+
       const accuracy = safeTotal > 0 ? (safeScore / safeTotal) * 100 : 0;
       const avgSpeedMs =
         safeTotal > 0 ? Math.round(safeDurationMs / safeTotal) : 0;
 
       const level = accuracy >= 80 ? 5 : accuracy >= 60 ? 3 : 1;
+
+      const roundedAccuracy = Math.round(accuracy * 100) / 100;
 
       await pool.query(
         `
@@ -3248,11 +3316,46 @@ router.post(
         [req.user.id, category, level, Math.round(accuracy), avgSpeedMs],
       );
 
+      // Persist individual drill session into fundamental_drill_sessions
+      let session = null;
+      try {
+        const sessionResult = await pool.query(
+          `
+          INSERT INTO fundamental_drill_sessions (
+            user_id, category, score, total_questions, duration_ms, accuracy
+          )
+          VALUES ($1, $2, $3, $4, $5, $6)
+          RETURNING id, category, score, total_questions AS "totalQuestions", duration_ms AS "durationMs", accuracy, created_at AS "createdAt"
+        `,
+          [
+            req.user.id,
+            category,
+            safeScore,
+            safeTotal,
+            safeDurationMs,
+            roundedAccuracy,
+          ],
+        );
+        session = sessionResult.rows[0];
+      } catch (sessionErr) {
+        console.warn(
+          "Failed to insert into fundamental_drill_sessions:",
+          sessionErr?.message,
+        );
+      }
+
       res.json({
         success: true,
         message: "Fundamental drill recorded",
         level,
-        accuracy,
+        accuracy: roundedAccuracy,
+        sessionId: session?.id,
+        session: session
+          ? {
+              ...session,
+              accuracy: Number(session.accuracy),
+            }
+          : null,
       });
     } catch (err) {
       console.error("POST /fundamentals/submit error:", err);
@@ -3262,6 +3365,68 @@ router.post(
     }
   },
 );
+
+/**
+ * GET /api/practice/fundamentals/history
+ * Returns the latest 50 drill sessions for the logged-in user.
+ * Optional query parameters:
+ *   - category: filter by fundamental category (e.g., 'tables', 'squares', 'cubes', 'roots', 'fractions')
+ *   - limit: maximum items to return (default 50, max 100)
+ */
+router.get("/fundamentals/history", protect, async (req, res) => {
+  try {
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 50, 1),
+      100,
+    );
+    const category =
+      typeof req.query.category === "string" && req.query.category.trim()
+        ? req.query.category.trim()
+        : null;
+
+    const params = [req.user.id];
+    let whereClause = "user_id = $1";
+
+    if (category) {
+      params.push(category);
+      whereClause += ` AND category = $${params.length}`;
+    }
+
+    params.push(limit);
+    const query = `
+      SELECT
+        id,
+        category,
+        score,
+        total_questions AS "totalQuestions",
+        duration_ms AS "durationMs",
+        accuracy,
+        created_at AS "createdAt"
+      FROM fundamental_drill_sessions
+      WHERE ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT $${params.length}
+    `;
+
+    const result = await pool.query(query, params);
+    const data = result.rows.map((row) => ({
+      ...row,
+      accuracy: row.accuracy != null ? Number(row.accuracy) : null,
+    }));
+
+    res.json({
+      success: true,
+      data,
+      count: data.length,
+    });
+  } catch (err) {
+    console.error("GET /fundamentals/history error:", err);
+    res.status(500).json({
+      success: false,
+      error: sanitizeErrorMessage(err),
+    });
+  }
+});
 
 /**
  * GET /api/practice/questions/:id/explanations

@@ -12,7 +12,7 @@ router.use(protect);
 router.use(admin);
 
 // Get all subscription plans (admin)
-router.get("/admin/plans", async (req, res) => {
+router.get(["/admin/plans", "/plans"], async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, plan_id, name, price, original_price, period, features, button_text, button_class, popular, savings, is_active, sort_order, created_at, updated_at, is_deleted, deleted_at, deleted_by FROM subscription_plans ORDER BY sort_order`,
@@ -25,22 +25,20 @@ router.get("/admin/plans", async (req, res) => {
 });
 
 // Create/Update subscription plan (admin)
-router.post("/admin/plans", async (req, res) => {
+router.post(["/admin/plans", "/plans"], async (req, res) => {
   try {
-    const {
-      planId,
-      name,
-      price,
-      originalPrice,
-      period,
-      features,
-      buttonText,
-      buttonClass,
-      popular,
-      savings,
-      isActive,
-      sortOrder,
-    } = req.body;
+    const planId = req.body.planId ?? req.body.plan_id;
+    const name = req.body.name;
+    const price = req.body.price;
+    const originalPrice = req.body.originalPrice ?? req.body.original_price;
+    const period = req.body.period;
+    const features = req.body.features;
+    const buttonText = req.body.buttonText ?? req.body.button_text;
+    const buttonClass = req.body.buttonClass ?? req.body.button_class;
+    const popular = req.body.popular;
+    const savings = req.body.savings;
+    const isActive = req.body.isActive ?? req.body.is_active;
+    const sortOrder = req.body.sortOrder ?? req.body.sort_order;
 
     const result = await pool.query(
       `
@@ -85,7 +83,7 @@ router.post("/admin/plans", async (req, res) => {
 });
 
 // Delete subscription plan (admin)
-router.delete("/admin/plans/:planId", async (req, res) => {
+router.delete(["/admin/plans/:planId", "/plans/:planId"], async (req, res) => {
   try {
     const { planId } = req.params;
 
@@ -102,7 +100,7 @@ router.delete("/admin/plans/:planId", async (req, res) => {
 });
 
 // Get all subscription features (admin)
-router.get("/admin/features", async (req, res) => {
+router.get(["/admin/features", "/features"], async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, plan_type, feature_key, feature_name, is_enabled, limit_value, created_at, updated_at FROM subscription_features ORDER BY plan_type, feature_key`,
@@ -125,10 +123,11 @@ router.get("/admin/features", async (req, res) => {
 });
 
 // Update feature (admin)
-router.put("/admin/features/:id", async (req, res) => {
+router.put(["/admin/features/:id", "/features/:id"], async (req, res) => {
   try {
     const { id } = req.params;
-    const { isEnabled, limitValue } = req.body;
+    const isEnabled = req.body.isEnabled ?? req.body.is_enabled;
+    const limitValue = req.body.limitValue ?? req.body.limit_value;
 
     await pool.query(
       `UPDATE subscription_features SET is_enabled = $1, limit_value = $2 WHERE id = $3`,
@@ -143,7 +142,7 @@ router.put("/admin/features/:id", async (req, res) => {
 });
 
 // Get subscriber analytics (admin)
-router.get("/admin/analytics", async (req, res) => {
+router.get(["/admin/analytics", "/analytics"], async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
@@ -211,7 +210,7 @@ router.get("/admin/analytics", async (req, res) => {
 });
 
 // Get all active subscriptions (admin)
-router.get("/admin/subscriptions", async (req, res) => {
+router.get(["/admin/subscriptions", "/", "/list"], async (req, res) => {
   try {
     const { page = 1, limit = 20, status = "active" } = req.query;
     const offset = (page - 1) * limit;
@@ -256,10 +255,13 @@ router.get("/admin/subscriptions", async (req, res) => {
 });
 
 // Manually add subscription for user (admin)
-router.post("/admin/subscriptions", async (req, res) => {
+router.post(["/admin/subscriptions", "/"], async (req, res) => {
   try {
-    const { userId, planType, startDate, expiryDate, paymentDetails } =
-      req.body;
+    const userId = req.body.userId ?? req.body.user_id;
+    const planType = req.body.planType ?? req.body.plan_type;
+    const startDate = req.body.startDate ?? req.body.start_date;
+    const expiryDate = req.body.expiryDate ?? req.body.expiry_date;
+    const paymentDetails = req.body.paymentDetails ?? req.body.payment_details;
 
     const result = await pool.query(
       `INSERT INTO subscriptions (user_id, plan_type, start_date, expiry_date, status, payment_method, transaction_id, amount_paid)
@@ -290,39 +292,42 @@ router.post("/admin/subscriptions", async (req, res) => {
 });
 
 // Cancel user subscription (admin)
-router.delete("/admin/subscriptions/:subscriptionId", async (req, res) => {
-  try {
-    const { subscriptionId } = req.params;
+router.delete(
+  ["/admin/subscriptions/:subscriptionId", "/:subscriptionId"],
+  async (req, res) => {
+    try {
+      const { subscriptionId } = req.params;
 
-    // Get subscription to update user
-    const sub = await pool.query(
-      `SELECT user_id FROM subscriptions WHERE id = $1`,
-      [subscriptionId],
-    );
+      // Get subscription to update user
+      const sub = await pool.query(
+        `SELECT user_id FROM subscriptions WHERE id = $1`,
+        [subscriptionId],
+      );
 
-    await pool.query(
-      `UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
-      [subscriptionId],
-    );
-
-    // Check if user has other active subscriptions
-    const activeSubs = await pool.query(
-      `SELECT COUNT(*) as count FROM subscriptions WHERE user_id = $1 AND status = 'active' AND expiry_date > NOW()`,
-      [sub.rows[0]?.user_id],
-    );
-
-    if (parseInt(activeSubs.rows[0].count) === 0) {
       await pool.query(
-        `UPDATE users SET is_pro_user = false, pro_expiry = NULL, pass_type = NULL WHERE id = $1`,
+        `UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
+        [subscriptionId],
+      );
+
+      // Check if user has other active subscriptions
+      const activeSubs = await pool.query(
+        `SELECT COUNT(*) as count FROM subscriptions WHERE user_id = $1 AND status = 'active' AND expiry_date > NOW()`,
         [sub.rows[0]?.user_id],
       );
-    }
 
-    res.json({ success: true });
-  } catch (error) {
-    console.error("Error cancelling subscription:", error);
-    res.status(500).json({ error: "Failed to cancel subscription" });
-  }
-});
+      if (parseInt(activeSubs.rows[0].count) === 0) {
+        await pool.query(
+          `UPDATE users SET is_pro_user = false, pro_expiry = NULL, pass_type = NULL WHERE id = $1`,
+          [sub.rows[0]?.user_id],
+        );
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error cancelling subscription:", error);
+      res.status(500).json({ error: "Failed to cancel subscription" });
+    }
+  },
+);
 
 export default router;

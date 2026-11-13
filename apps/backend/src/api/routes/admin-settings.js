@@ -120,8 +120,11 @@ router.put(
     ];
     const allowedSettings = {};
     for (const key of ALLOWED_SETTINGS_KEYS) {
-      if (req.body[key] !== undefined) {
-        let value = req.body[key];
+      const snakeKey = key.replace(/([A-Z])/g, "_$1").toLowerCase();
+      const rawVal =
+        req.body[key] !== undefined ? req.body[key] : req.body[snakeKey];
+      if (rawVal !== undefined) {
+        let value = rawVal;
         // Coerce string booleans so "false" never becomes truthy
         if (
           key === "maintenanceMode" ||
@@ -159,15 +162,13 @@ router.put(
 router.post(
   "/settings/test-email",
   asyncHandler(async (req, res) => {
-    const {
-      testTo,
-      smtpHost: bodyHost,
-      smtpPort: bodyPort,
-      smtpUsername: bodyUser,
-      smtpPassword: bodyPass,
-      fromEmail: bodyFrom,
-      fromName: bodyFromName,
-    } = req.body;
+    const bodyHost = req.body.smtpHost ?? req.body.smtp_host;
+    const bodyPort = req.body.smtpPort ?? req.body.smtp_port;
+    const bodyUser = req.body.smtpUsername ?? req.body.smtp_username;
+    const bodyPass = req.body.smtpPassword ?? req.body.smtp_password;
+    const bodyFrom = req.body.fromEmail ?? req.body.from_email;
+    const bodyFromName = req.body.fromName ?? req.body.from_name;
+    const testTo = req.body.testTo ?? req.body.test_to;
 
     const { getFullSettings } =
       await import("../../services/SettingsService.js");

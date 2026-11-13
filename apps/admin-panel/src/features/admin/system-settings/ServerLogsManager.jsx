@@ -53,7 +53,7 @@ export default function ServerLogsManager() {
   const [timeFormat, setTimeFormat] = useState("local"); // 'local' | 'iso' | 'relative'
   const [expandedLogIds, setExpandedLogIds] = useState(new Set());
   const [serverStats, setServerStats] = useState(null);
-  const [isClearingServer, setIsClearingServer] = useState(false);
+  const [_isClearingServer, setIsClearingServer] = useState(false);
   const [copied, setCopied] = useState(false);
   const [customTestMsg, setCustomTestMsg] = useState("");
   const [testLogLevel, setTestLogLevel] = useState("info");
@@ -330,7 +330,7 @@ export default function ServerLogsManager() {
   };
 
   // Clear backend server log buffer
-  const handleClearServer = async () => {
+  const _handleClearServer = async () => {
     const ok = await confirmOnce({
       title: "Clear server logs?",
       message: "Clear the backend server log buffer? This affects all admins.",

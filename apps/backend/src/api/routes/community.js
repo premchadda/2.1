@@ -511,13 +511,13 @@ router.post(
       });
 
       // Increment comment count on post
+      const countRes = await dbHelpers.pool.query(
+        "SELECT COUNT(*) FROM community_comments WHERE post_id = $1 AND is_active = true",
+        [req.params.postId],
+      );
+      const commentCount = parseInt(countRes.rows[0]?.count || 0, 10);
       await dbHelpers.updateById("communityPosts", req.params.postId, {
-        comments: dbHelpers.pool
-          .query(
-            "SELECT COUNT(*) FROM community_comments WHERE post_id = $1 AND is_active = true",
-            [req.params.postId],
-          )
-          .then((r) => parseInt(r.rows[0].count)),
+        comments: commentCount,
       });
 
       res.status(201).json({ success: true, data: comment });
