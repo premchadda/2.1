@@ -5,7 +5,10 @@
 
 import { describe, test, expect } from "../../harness/testContext.js";
 import { apiClient } from "../../harness/apiClient.js";
-import { generateSlug, validateBlogPost } from "../../../apps/admin-panel/src/features/admin/study-materials/BlogManager.jsx";
+import {
+  generateSlug,
+  validateBlogPost,
+} from "../../../apps/admin-panel/src/features/admin/study-materials/BlogManager.jsx";
 
 describe("Tier 2 - Feature F25: BlogManager Slugs & Validation Boundaries", () => {
   test("T2.F25.01: Auto-generating URL slug from article title handles special characters", () => {
@@ -15,7 +18,10 @@ describe("Tier 2 - Feature F25: BlogManager Slugs & Validation Boundaries", () =
   });
 
   test("T2.F25.02: Duplicate slug detection logic", () => {
-    const existingSlugs = new Set(["ssc-cgl-strategy-2026", "top-10-math-formulas"]);
+    const existingSlugs = new Set([
+      "ssc-cgl-strategy-2026",
+      "top-10-math-formulas",
+    ]);
     const newSlug = "ssc-cgl-strategy-2026";
 
     const isConflict = existingSlugs.has(newSlug);
@@ -23,7 +29,11 @@ describe("Tier 2 - Feature F25: BlogManager Slugs & Validation Boundaries", () =
   });
 
   test("T2.F25.03: Publishing requires non-empty content body", () => {
-    const invalidDraft = { title: "Draft", status: "published", content: "   " };
+    const invalidDraft = {
+      title: "Draft",
+      status: "published",
+      content: "   ",
+    };
     const err = validateBlogPost(invalidDraft);
     expect(err).toBe("Blog content is required before publishing");
   });

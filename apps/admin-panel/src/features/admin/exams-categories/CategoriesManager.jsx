@@ -1001,16 +1001,26 @@ export default function CategoriesManager() {
       slug: item.slug || "",
       icon: item.icon || "",
       description: item.description || "",
-      examCategoryId: item.examCategoryId || "",
-      stageIds: Array.isArray(item.stageIds) ? item.stageIds : [],
-      displayOrder: item.displayOrder || 0,
-      isActive: item.isActive !== false,
+      examCategoryId: item.examCategoryId || item.exam_category_id || "",
+      stageIds: Array.isArray(item.stageIds)
+        ? item.stageIds
+        : Array.isArray(item.stage_ids)
+          ? item.stage_ids
+          : [],
+      displayOrder: item.displayOrder ?? item.display_order ?? 0,
+      isActive:
+        item.isActive !== undefined
+          ? item.isActive
+          : item.is_active !== undefined
+            ? item.is_active
+            : true,
       testSeriesId,
     });
     setEditingId(item._id || item.id);
     const parent =
-      categories.find((c) => isSameEntityId(c._id ?? c.id, item.parentId)) ||
-      null;
+      categories.find((c) =>
+        isSameEntityId(c._id ?? c.id, item.parentId ?? item.parent_id),
+      ) || null;
     setParentCategory(parent);
     setSlugError("");
     setShowForm(true);

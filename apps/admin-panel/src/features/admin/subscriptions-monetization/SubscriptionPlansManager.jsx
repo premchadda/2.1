@@ -123,17 +123,22 @@ export default function SubscriptionPlansManager() {
   const handleEdit = (plan) => {
     setEditingPlan(plan);
     setFormData({
-      id: plan.id,
-      name: plan.name,
-      price: plan.price,
-      originalPrice: plan.originalPrice || null,
-      period: plan.period,
-      features: plan.features || [],
-      buttonText: plan.buttonText || "Get Started",
+      id: plan.id || plan.planId || plan.plan_id || "",
+      name: plan.name || plan.title || "",
+      price: plan.price ?? 0,
+      originalPrice: plan.originalPrice ?? plan.original_price ?? null,
+      period: plan.period || plan.duration || "/month",
+      features: Array.isArray(plan.features)
+        ? plan.features
+        : typeof plan.features === "string"
+          ? JSON.parse(plan.features || "[]")
+          : [],
+      buttonText: plan.buttonText || plan.button_text || "Get Started",
       buttonClass:
         plan.buttonClass ||
+        plan.button_class ||
         "bg-gradient-to-r from-brand-start to-brand-end text-white",
-      popular: plan.popular || false,
+      popular: plan.popular ?? plan.is_popular ?? plan.isPopular ?? false,
       savings: plan.savings || "",
     });
     setShowForm(true);

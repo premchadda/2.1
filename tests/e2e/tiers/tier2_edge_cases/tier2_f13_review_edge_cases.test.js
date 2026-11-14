@@ -10,7 +10,10 @@ import { DomEnvironment, screen, fireEvent } from "../../harness/domTester.js";
 import TestReview from "../../../apps/frontend/src/pages/tests/TestReview.jsx";
 
 describe("Tier 2 - Feature F13: TestReview Boundaries & Resilience", () => {
-  const reviewPath = path.resolve(process.cwd(), "apps/frontend/src/pages/tests/TestReview.jsx");
+  const reviewPath = path.resolve(
+    process.cwd(),
+    "apps/frontend/src/pages/tests/TestReview.jsx",
+  );
 
   test("T2.F13.01: TestReview handles missing location.state gracefully with API fetch", () => {
     const content = fs.readFileSync(reviewPath, "utf-8");
@@ -27,8 +30,22 @@ describe("Tier 2 - Feature F13: TestReview Boundaries & Resilience", () => {
       id: "test-skipped",
       title: "Skipped Mock Test",
       questions: [
-        { id: "q1", text: "Q1", options: ["A", "B"], selectedOption: null, isSkipped: true, isCorrect: false },
-        { id: "q2", text: "Q2", options: ["A", "B"], selectedOption: null, isSkipped: true, isCorrect: false },
+        {
+          id: "q1",
+          text: "Q1",
+          options: ["A", "B"],
+          selectedOption: null,
+          isSkipped: true,
+          isCorrect: false,
+        },
+        {
+          id: "q2",
+          text: "Q2",
+          options: ["A", "B"],
+          selectedOption: null,
+          isSkipped: true,
+          isCorrect: false,
+        },
       ],
     };
 
@@ -40,10 +57,15 @@ describe("Tier 2 - Feature F13: TestReview Boundaries & Resilience", () => {
       {},
       {
         router: {
-          initialEntries: [{ pathname: "/tests/test-skipped/review", state: { testData: mockSkippedTest } }],
+          initialEntries: [
+            {
+              pathname: "/tests/test-skipped/review",
+              state: { testData: mockSkippedTest },
+            },
+          ],
           routePath: "/tests/:testId/review",
         },
-      }
+      },
     );
 
     expect(screen.getByText("Score: 0 / 0")).toBeDefined();
@@ -55,7 +77,14 @@ describe("Tier 2 - Feature F13: TestReview Boundaries & Resilience", () => {
       id: "test-print",
       title: "Printable Mock Test",
       questions: [
-        { id: "qp1", text: "Math Question 1", options: ["1", "2"], correctOption: 0, selectedOption: 0, isCorrect: true },
+        {
+          id: "qp1",
+          text: "Math Question 1",
+          options: ["1", "2"],
+          correctOption: 0,
+          selectedOption: 0,
+          isCorrect: true,
+        },
       ],
     };
 
@@ -67,10 +96,15 @@ describe("Tier 2 - Feature F13: TestReview Boundaries & Resilience", () => {
       {},
       {
         router: {
-          initialEntries: [{ pathname: "/tests/test-print/review", state: { testData: mockTest } }],
+          initialEntries: [
+            {
+              pathname: "/tests/test-print/review",
+              state: { testData: mockTest },
+            },
+          ],
           routePath: "/tests/:testId/review",
         },
-      }
+      },
     );
 
     const printBtn = screen.getByRole("button", { name: /print/i });
@@ -86,7 +120,14 @@ describe("Tier 2 - Feature F13: TestReview Boundaries & Resilience", () => {
       id: "test-interactive",
       title: "Interactive Mock Test",
       questions: [
-        { id: "qi1", text: "What is 10 x 10?", options: ["50", "100", "150"], correctOption: 1, selectedOption: 0, isCorrect: false },
+        {
+          id: "qi1",
+          text: "What is 10 x 10?",
+          options: ["50", "100", "150"],
+          correctOption: 1,
+          selectedOption: 0,
+          isCorrect: false,
+        },
       ],
     };
 
@@ -98,10 +139,15 @@ describe("Tier 2 - Feature F13: TestReview Boundaries & Resilience", () => {
       {},
       {
         router: {
-          initialEntries: [{ pathname: "/tests/test-interactive/review", state: { testData: mockTest } }],
+          initialEntries: [
+            {
+              pathname: "/tests/test-interactive/review",
+              state: { testData: mockTest },
+            },
+          ],
           routePath: "/tests/:testId/review",
         },
-      }
+      },
     );
 
     const reSolveBtn = screen.getByRole("button", { name: /re-solve/i });

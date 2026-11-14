@@ -12,6 +12,7 @@ import {
   decryptUserPii,
   isProUser as isProUserHelper,
 } from "../shared/utils/user-utils.js";
+import { clearAuthCookies } from "../modules/auth/auth.service.js";
 
 export const ROLES = {
   USER: "user",
@@ -996,6 +997,15 @@ export const optionalAuth = async (req, res, next) => {
         // / req.anonymousReason instead of a bare next().
         req.authError = "session_revoked";
         req.anonymousReason = "session_revoked";
+        // SEC-05 FIX: Clear stale auth cookies on the response so the browser drops
+        // the revoked token and does not repeatedly submit it on subsequent requests.
+        if (typeof res?.clearCookie === "function") {
+          try {
+            clearAuthCookies(res);
+          } catch (_) {
+            // Best effort cookie cleanup
+          }
+        }
         return next();
       }
 

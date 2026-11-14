@@ -61,7 +61,8 @@ export const initWebSocket = ({
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
-    reconnectionAttempts: Infinity,
+    // SEC-API-02: Cap reconnection attempts to prevent infinite reconnect DoS loops
+    reconnectionAttempts: 10,
     withCredentials: true,
     auth: {},
   };

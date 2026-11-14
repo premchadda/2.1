@@ -10,20 +10,25 @@ describe("Tier 2 - Feature F8: Deep Analytics Diagnostics Boundaries", () => {
   test("T2.F8.01: Zero sessions baseline returns valid numeric defaults without NaN", () => {
     const totalSessions = 0;
     const completedSessions = 0;
-    const completionRate = totalSessions === 0 ? 0.0 : (completedSessions / totalSessions) * 100;
+    const completionRate =
+      totalSessions === 0 ? 0.0 : (completedSessions / totalSessions) * 100;
 
     expect(Number.isNaN(completionRate)).toBe(false);
     expect(completionRate).toBe(0.0);
   });
 
   test("T2.F8.02: SQL injection query parameters are handled safely", async () => {
-    const sqliRes = await apiClient.asAdmin().get("/api/admin/analytics/deep/diagnostics?timeframe=1%27%20OR%201=1--");
+    const sqliRes = await apiClient
+      .asAdmin()
+      .get("/api/admin/analytics/deep/diagnostics?timeframe=1%27%20OR%201=1--");
     expect(sqliRes.status).not.toBe(500);
     expect([200, 400]).toContain(sqliRes.status);
   });
 
   test("T2.F8.03: Unauthenticated request to diagnostics is rejected", async () => {
-    const unauthRes = await apiClient.asAnonymous().get("/api/admin/analytics/deep/diagnostics");
+    const unauthRes = await apiClient
+      .asAnonymous()
+      .get("/api/admin/analytics/deep/diagnostics");
     expect(unauthRes.status).toBe(401);
   });
 

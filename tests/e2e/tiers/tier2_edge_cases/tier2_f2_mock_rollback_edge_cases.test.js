@@ -8,7 +8,10 @@ import { pathToFileURL } from "node:url";
 import { describe, test, expect } from "../../harness/testContext.js";
 
 describe("Tier 2 - Feature F2: Mock Rollback & Savepoint Edge Cases", () => {
-  const helperPath = path.resolve(process.cwd(), "apps/backend/src/infrastructure/database/postgres-helpers.js");
+  const helperPath = path.resolve(
+    process.cwd(),
+    "apps/backend/src/infrastructure/database/postgres-helpers.js",
+  );
 
   test("T2.F2.01: Savepoint name injection attempts are rejected by validation regex", async () => {
     const helperModule = await import(pathToFileURL(helperPath).href);
@@ -39,7 +42,11 @@ describe("Tier 2 - Feature F2: Mock Rollback & Savepoint Edge Cases", () => {
 
     let threw = false;
     try {
-      await helperModule.execSavepoint(mockClient, "DROP SAVEPOINT", "sp_valid_name");
+      await helperModule.execSavepoint(
+        mockClient,
+        "DROP SAVEPOINT",
+        "sp_valid_name",
+      );
     } catch (err) {
       threw = true;
       expect(err.message).toContain("Invalid savepoint action");
@@ -101,8 +108,16 @@ describe("Tier 2 - Feature F2: Mock Rollback & Savepoint Edge Cases", () => {
 
     // Simulate batch question import savepoint cycle
     await helperModule.execSavepoint(client, "SAVEPOINT", "batch_row_1");
-    await helperModule.execSavepoint(client, "ROLLBACK TO SAVEPOINT", "batch_row_1");
-    await helperModule.execSavepoint(client, "RELEASE SAVEPOINT", "batch_row_1");
+    await helperModule.execSavepoint(
+      client,
+      "ROLLBACK TO SAVEPOINT",
+      "batch_row_1",
+    );
+    await helperModule.execSavepoint(
+      client,
+      "RELEASE SAVEPOINT",
+      "batch_row_1",
+    );
 
     expect(log).toEqual([
       "SAVEPOINT batch_row_1",

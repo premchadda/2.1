@@ -127,6 +127,15 @@ function formatExplanationTables(htmlString) {
   }
 }
 
+const MAX_FORMULA_LENGTH = 2000;
+const KATEX_OPTIONS = {
+  maxSize: 25,
+  maxExpand: 100,
+  strict: false,
+  trust: false,
+  output: "html",
+};
+
 export default function MathRenderer({
   text,
   content,
@@ -164,8 +173,10 @@ export default function MathRenderer({
             (match, blockEq1, blockEq2, parenEq, inlineEq) => {
               const eq = blockEq1 || blockEq2 || parenEq || inlineEq;
               if (!eq) return match;
+              if (eq.length > MAX_FORMULA_LENGTH) return match;
               try {
                 return katex.renderToString(eq.trim(), {
+                  ...KATEX_OPTIONS,
                   displayMode:
                     display ||
                     !!blockEq1 ||
@@ -173,7 +184,6 @@ export default function MathRenderer({
                     match.startsWith("$$") ||
                     match.startsWith("\\["),
                   throwOnError: false,
-                  output: "html",
                 });
               } catch {
                 return match;
@@ -181,18 +191,19 @@ export default function MathRenderer({
             },
           );
         } else if (
-          str.includes("\\frac") ||
-          str.includes("\\sqrt") ||
-          str.includes("\\sum") ||
-          str.includes("\\int") ||
-          str.includes("\\times") ||
-          str.includes("\\pm")
+          str.length <= MAX_FORMULA_LENGTH &&
+          (str.includes("\\frac") ||
+            str.includes("\\sqrt") ||
+            str.includes("\\sum") ||
+            str.includes("\\int") ||
+            str.includes("\\times") ||
+            str.includes("\\pm"))
         ) {
           try {
             processed = katex.renderToString(str.trim(), {
+              ...KATEX_OPTIONS,
               displayMode: display,
               throwOnError: false,
-              output: "html",
             });
           } catch {
             processed = str;

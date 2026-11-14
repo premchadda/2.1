@@ -126,21 +126,26 @@ export default function ExamInfoManager() {
 
   const handleEdit = (item) => {
     setFormData({
-      examId: item.examId || "",
+      examId: item.examId || item.exam_id || item.slug || "",
       title: item.title || "",
-      fullName: item.fullName || "",
+      fullName: item.fullName || item.full_name || item.title || "",
       description: item.description || "",
-      categoryId: item.categoryId || "",
+      categoryId: item.categoryId || item.category_id || "",
       notification: item.notification || "",
-      seriesId: item.seriesId || null,
+      seriesId: item.seriesId ?? item.series_id ?? null,
       eligibility: item.eligibility || "",
-      ageLimit: item.ageLimit || "",
+      ageLimit: item.ageLimit || item.age_limit || "",
       syllabus: item.syllabus || "",
-      displayOrder: item.displayOrder || 0,
+      displayOrder: item.displayOrder ?? item.display_order ?? 0,
       year: item.year || new Date().getFullYear(),
-      isActive: item.isActive !== false,
+      isActive:
+        item.isActive !== undefined
+          ? item.isActive
+          : item.is_active !== undefined
+            ? item.is_active
+            : true,
     });
-    setEditingId(item._id);
+    setEditingId(item._id || item.id);
     setCurrentStep("basic");
     setShowForm(true);
   };

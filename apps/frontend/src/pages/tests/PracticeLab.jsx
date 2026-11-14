@@ -754,8 +754,9 @@ export default function PracticeLab() {
       )}
 
       {/* Screen 4: 3-Layer Practice Workspace or Zen Canvas */}
-      {screen === "session" && activeSession && (
-        canvasMode ? (
+      {screen === "session" &&
+        activeSession &&
+        (canvasMode ? (
           <div className="relative">
             <div className="fixed top-3 right-4 z-50">
               <button
@@ -768,13 +769,19 @@ export default function PracticeLab() {
             <PracticeSessionCanvas
               session={activeSession}
               onExit={() => {
-                if (typeof document !== "undefined" && document.fullscreenElement) {
+                if (
+                  typeof document !== "undefined" &&
+                  document.fullscreenElement
+                ) {
                   document.exitFullscreen().catch(() => {});
                 }
                 navigateScreen(sessionReturnScreen || "dashboard");
               }}
               onComplete={(summary) => {
-                if (typeof document !== "undefined" && document.fullscreenElement) {
+                if (
+                  typeof document !== "undefined" &&
+                  document.fullscreenElement
+                ) {
                   document.exitFullscreen().catch(() => {});
                 }
                 if (!summary) return;
@@ -788,7 +795,10 @@ export default function PracticeLab() {
             session={activeSession}
             onToggleCanvasMode={() => setCanvasMode(true)}
             onExit={() => {
-              if (typeof document !== "undefined" && document.fullscreenElement) {
+              if (
+                typeof document !== "undefined" &&
+                document.fullscreenElement
+              ) {
                 document.exitFullscreen().catch(() => {});
               }
               navigateScreen(sessionReturnScreen || "dashboard");
@@ -802,7 +812,10 @@ export default function PracticeLab() {
               })
             }
             onComplete={(summary) => {
-              if (typeof document !== "undefined" && document.fullscreenElement) {
+              if (
+                typeof document !== "undefined" &&
+                document.fullscreenElement
+              ) {
                 document.exitFullscreen().catch(() => {});
               }
               if (!summary) return;
@@ -810,8 +823,7 @@ export default function PracticeLab() {
               navigateScreen("complete");
             }}
           />
-        )
-      )}
+        ))}
 
       {/* Screen 5: End of Session Mastery Screen */}
       {screen === "complete" && completeSummary && (

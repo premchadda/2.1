@@ -129,7 +129,13 @@ export default function SubjectHierarchyManager() {
       slug: item.slug || "",
       description: item.description || "",
       icon: item.icon || "",
-      order: item.order || item.displayOrder || 0,
+      order:
+        item.order ??
+        item.order_index ??
+        item.orderIndex ??
+        item.displayOrder ??
+        item.display_order ??
+        0,
     });
     setShowForm(true);
   };

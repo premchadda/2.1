@@ -9,10 +9,16 @@ import { describe, test, expect } from "../../harness/testContext.js";
 
 describe("Tier 2 - Feature F1: Monorepo Import Integrity Boundaries", () => {
   test("T2.F1.01: Subpath and barrel export references point to consistent modules", () => {
-    const pkgPath = path.resolve(process.cwd(), "packages/shared-hooks/package.json");
+    const pkgPath = path.resolve(
+      process.cwd(),
+      "packages/shared-hooks/package.json",
+    );
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
 
-    const barrel = path.resolve(process.cwd(), "packages/shared-hooks/index.js");
+    const barrel = path.resolve(
+      process.cwd(),
+      "packages/shared-hooks/index.js",
+    );
     expect(fs.existsSync(barrel)).toBe(true);
 
     const barrelContent = fs.readFileSync(barrel, "utf-8");
@@ -25,7 +31,10 @@ describe("Tier 2 - Feature F1: Monorepo Import Integrity Boundaries", () => {
   });
 
   test("T2.F1.02: Strict ESM extension compliance in backend route imports", () => {
-    const adminPath = path.resolve(process.cwd(), "apps/backend/src/api/routes/admin.js");
+    const adminPath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/admin.js",
+    );
     const content = fs.readFileSync(adminPath, "utf-8");
 
     // All relative imports in backend ESM must include explicit .js extension
@@ -39,9 +48,14 @@ describe("Tier 2 - Feature F1: Monorepo Import Integrity Boundaries", () => {
   test("T2.F1.03: Cross-platform file casing consistency across packages", () => {
     const sharedHooksDir = path.resolve(process.cwd(), "packages/shared-hooks");
 
-    const pkg = JSON.parse(fs.readFileSync(path.resolve(sharedHooksDir, "package.json"), "utf-8"));
+    const pkg = JSON.parse(
+      fs.readFileSync(path.resolve(sharedHooksDir, "package.json"), "utf-8"),
+    );
     for (const exportFile of Object.values(pkg.exports)) {
-      const relPath = typeof exportFile === "string" ? exportFile : exportFile.default || exportFile.import || "";
+      const relPath =
+        typeof exportFile === "string"
+          ? exportFile
+          : exportFile.default || exportFile.import || "";
       if (relPath && !relPath.includes("*")) {
         const fullPath = path.resolve(sharedHooksDir, relPath);
         expect(fs.existsSync(fullPath)).toBe(true);
@@ -50,7 +64,10 @@ describe("Tier 2 - Feature F1: Monorepo Import Integrity Boundaries", () => {
   });
 
   test("T2.F1.04: React singleton isolation in packages/shared-hooks (peerDependencies)", () => {
-    const pkgPath = path.resolve(process.cwd(), "packages/shared-hooks/package.json");
+    const pkgPath = path.resolve(
+      process.cwd(),
+      "packages/shared-hooks/package.json",
+    );
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
 
     // React must be in peerDependencies, not bundled in regular dependencies

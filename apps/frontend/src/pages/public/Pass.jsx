@@ -214,6 +214,8 @@ function Pass() {
       }
       const script = document.createElement("script");
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      // SEC-API-07: enforce crossorigin anonymous attribute for script resource
+      script.crossOrigin = "anonymous";
       script.onload = () => resolve(true);
       script.onerror = () => resolve(false);
       document.body.appendChild(script);
@@ -244,10 +246,9 @@ function Pass() {
     try {
       setVerifying(true);
       setPurchaseLoading(currentPlan.id);
-      // 1. Create order
+      // 1. Create order (SEC-API-06: authoritative price is strictly resolved on backend from subscription_plans)
       const orderRes = await apiClient.post("/api/payments/create-order", {
         planId: currentPlan.id,
-        amount: currentPlan.price,
         couponCode: appliedCoupon?.code,
       });
 

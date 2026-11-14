@@ -480,21 +480,40 @@ export default function AdminSettings() {
           ? {
               ...settings.security,
               passwordMinLength:
-                Number(settings.security.passwordMinLength) || 8,
-              maxLoginAttempts: Number(settings.security.maxLoginAttempts) || 5,
-              sessionTimeout: Number(settings.security.sessionTimeout) ?? 3600,
+                settings.security.passwordMinLength != null &&
+                settings.security.passwordMinLength !== ""
+                  ? Number(settings.security.passwordMinLength)
+                  : 8,
+              maxLoginAttempts:
+                settings.security.maxLoginAttempts != null &&
+                settings.security.maxLoginAttempts !== ""
+                  ? Number(settings.security.maxLoginAttempts)
+                  : 5,
+              sessionTimeout:
+                settings.security.sessionTimeout != null &&
+                settings.security.sessionTimeout !== ""
+                  ? Number(settings.security.sessionTimeout)
+                  : 3600,
             }
           : undefined,
         email: settings.email
           ? {
               ...settings.email,
-              smtpPort: Number(settings.email.smtpPort) || 587,
+              smtpPort:
+                settings.email.smtpPort != null &&
+                settings.email.smtpPort !== ""
+                  ? Number(settings.email.smtpPort)
+                  : 587,
             }
           : undefined,
         payment: settings.payment
           ? {
               ...settings.payment,
-              taxRate: Number(settings.payment.taxRate) ?? 0,
+              taxRate:
+                settings.payment.taxRate != null &&
+                settings.payment.taxRate !== ""
+                  ? Number(settings.payment.taxRate)
+                  : 0,
             }
           : undefined,
       };

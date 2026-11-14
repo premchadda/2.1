@@ -20,9 +20,15 @@ let consumerCount = 0;
 const pendingListeners = [];
 
 // Default resolver value is frozen at module load; callers that need a
-// different host (tests, multi-backend, local overrides) pass `url` to opt
+// different host (tests, multi-backend, local overrides) pass `optionsOrUrl` to opt
 // out of the frozen SOCKET_URL without mutating module state.
-export const useWebSocket = (enabled = true, url = null) => {
+export const useWebSocket = (enabled = true, optionsOrUrl = null) => {
+  const options =
+    typeof optionsOrUrl === "string"
+      ? { url: optionsOrUrl }
+      : optionsOrUrl || {};
+  const { url = null, token = null } = options;
+
   const [isConnected, setIsConnected] = useState(() =>
     Boolean(getSocket()?.connected),
   );
@@ -38,7 +44,7 @@ export const useWebSocket = (enabled = true, url = null) => {
     const socketUrl = url || SOCKET_URL;
     let socket = getSocket();
     if (!socket) {
-      socket = initWebSocket({ url: socketUrl });
+      socket = initWebSocket({ url: socketUrl, token });
       // Flush any listeners queued by on() calls that ran before this init.
       // If init failed (null socket), drop the queue — those subscriptions
       // can never activate, and keeping them would replay stale callbacks
@@ -74,13 +80,18 @@ export const useWebSocket = (enabled = true, url = null) => {
       errorCount++;
       if (errorCount <= 3 && import.meta.env.DEV) {
         logger.warn(
-          `[WebSocket] Connection failed (${errorCount}/5):`,
+          `[WebSocket] Connection failed (${errorCount}/10):`,
           error.message,
         );
-      } else if (errorCount === 5 && import.meta.env.DEV) {
-        logger.warn(
-          "[WebSocket] Stopping reconnection attempts — server unreachable",
-        );
+      } else if (errorCount >= 10) {
+        if (import.meta.env.DEV) {
+          logger.warn(
+            "[WebSocket] Stopping reconnection attempts — server unreachable. Disconnecting.",
+          );
+        }
+        try {
+          socket.disconnect();
+        } catch {}
       }
     };
     socket.on("connect_error", handleConnectError);
@@ -96,7 +107,7 @@ export const useWebSocket = (enabled = true, url = null) => {
       }
       setIsConnected(false);
     };
-  }, [enabled, url]);
+  }, [enabled, url, token]);
 
   const emit = useCallback((event, data) => {
     getSocket()?.emit(event, data);

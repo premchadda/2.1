@@ -40,13 +40,48 @@ router.post(
   }),
 );
 
+const syncQuizQuestions = async (quizId, questionIds) => {
+  if (!quizId || !Array.isArray(questionIds)) return;
+  try {
+    const cleanIds = questionIds
+      .map((id) => (typeof id === "number" ? id : parseInt(id, 10)))
+      .filter((id) => !isNaN(id) && id > 0);
+    if (cleanIds.length > 0) {
+      await dbHelpers.pool.query(
+        "UPDATE questions SET quiz_id = $1 WHERE id = ANY($2)",
+        [quizId, cleanIds],
+      );
+      await dbHelpers.pool.query(
+        "UPDATE questions SET quiz_id = NULL WHERE quiz_id = $1 AND NOT (id = ANY($2))",
+        [quizId, cleanIds],
+      );
+    } else {
+      await dbHelpers.pool.query(
+        "UPDATE questions SET quiz_id = NULL WHERE quiz_id = $1",
+        [quizId],
+      );
+    }
+  } catch (err) {
+    logger.warn(
+      `[Quizzes] Failed to sync quiz questions for quiz ${quizId}: ${err.message}`,
+    );
+  }
+};
+
 const handleUpdateQuiz = asyncHandler(async (req, res) => {
+  const normalized = normalizeQuizPayload(req.body);
   const updated = await dbHelpers.updateById("quizzes", req.params.id, {
-    ...normalizeQuizPayload(req.body),
+    ...normalized,
     updatedAt: new Date().toISOString(),
   });
   if (!updated) {
     return res.status(404).json({ success: false, message: "Quiz not found" });
+  }
+  if (Array.isArray(normalized.question_ids)) {
+    await syncQuizQuestions(
+      updated.id || req.params.id,
+      normalized.question_ids,
+    );
   }
   res.json({ success: true, data: updated });
 });
@@ -497,6 +532,9 @@ router.post(
       ...payload,
       createdAt: new Date().toISOString(),
     });
+    if (newQuiz?.id && Array.isArray(payload.question_ids)) {
+      await syncQuizQuestions(newQuiz.id, payload.question_ids);
+    }
     res.status(201).json({ success: true, data: newQuiz });
   }),
 );
@@ -816,6 +854,7 @@ router.delete(
         .status(404)
         .json({ success: false, message: "Quiz not found" });
     }
+    await syncQuizQuestions(req.params.id, []);
     res.json({ success: true, message: "Quiz moved to trash" });
   }),
 );

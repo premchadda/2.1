@@ -2,7 +2,10 @@ import crypto from "crypto";
 import path from "path";
 import { secretsEqual } from "./origin.middleware.js";
 import { dbHelpers } from "../infrastructure/database/postgres-helpers.js";
-import { getRedisClient } from "../infrastructure/cache/redisClient.js";
+import {
+  getRedisClient,
+  isRedisReady,
+} from "../infrastructure/cache/redisClient.js";
 
 // ============================================================
 // FIX 2.8: CSRF Token Store — Redis Primary, No Silent Fallback
@@ -321,11 +324,12 @@ csrfCleanupInterval.unref();
 // Accept previous tokens for a 5-minute rolling grace period to support concurrent requests & bulk jobs
 export const CSRF_GRACE_PERIOD_MS = 5 * 60 * 1000; // 5 minutes
 
-// Look up if a CSRF token is valid among recently rotated tokens across all storage layers (memory -> DB -> Redis)
+// Look up if a CSRF token is valid among recently rotated tokens across all storage layers (memory -> Redis -> DB)
+// SEC-07 FIX: Redis set lookup is prioritized over DB so multi-instance deployments validate grace-period tokens seamlessly
 async function isRecentCsrfToken(authTokenHash, csrfToken) {
   if (!csrfToken) return false;
 
-  // 1. Memory check (fast path)
+  // 1. Memory check (fast path - 0ms instance cache)
   const list = csrfTokensMemory.get(`prev:${authTokenHash}`);
   if (Array.isArray(list)) {
     const now = Date.now();
@@ -340,7 +344,23 @@ async function isRecentCsrfToken(authTokenHash, csrfToken) {
     return true;
   }
 
-  // 2. Database check (HMAC peppered)
+  // 2. Redis check (distributed multi-instance grace-period set)
+  if (typeof isRedisReady === "function" ? isRedisReady() : true) {
+    const redis = getRedisClient();
+    if (redis) {
+      try {
+        const isMember = await redis.sismember(
+          `csrf:prev:${authTokenHash}`,
+          csrfToken,
+        );
+        if (Number(isMember) === 1) return true;
+      } catch (err) {
+        console.debug("[csrf] best-effort redis check failed", err?.message);
+      }
+    }
+  }
+
+  // 3. Database check (HMAC peppered persistent fallback)
   const prevHashKey = hashAuthToken(`prev:${authTokenHash}`);
   try {
     const record = await dbHelpers.findOne("csrf_tokens", {
@@ -351,20 +371,6 @@ async function isRecentCsrfToken(authTokenHash, csrfToken) {
     if (record) return true;
   } catch (err) {
     console.debug("[csrf] best-effort token check failed", err?.message);
-  }
-
-  // 3. Redis check
-  const redis = getRedisClient();
-  if (redis) {
-    try {
-      const isMember = await redis.sismember(
-        `csrf:prev:${authTokenHash}`,
-        csrfToken,
-      );
-      if (isMember) return true;
-    } catch (err) {
-      console.debug("[csrf] best-effort redis check failed", err?.message);
-    }
   }
 
   return false;

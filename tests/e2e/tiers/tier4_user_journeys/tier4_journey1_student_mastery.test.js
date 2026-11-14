@@ -34,7 +34,9 @@ describe("Tier 4 - Journey 1: Priya's Student Practice, Test, Review & Mastery J
     const parts = token.split(".");
     expect(parts.length).toBe(3);
 
-    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf-8"));
+    const payload = JSON.parse(
+      Buffer.from(parts[1], "base64url").toString("utf-8"),
+    );
     expect(payload.role).toBe("student");
     expect(payload.userId).toBeDefined();
   });
@@ -42,7 +44,8 @@ describe("Tier 4 - Journey 1: Priya's Student Practice, Test, Review & Mastery J
   test("Step 2: Dashboard intelligence overview displays streak, XP, and readiness", () => {
     // XP progression calculation
     const xpForLevel4 = 2000;
-    const progressToNextLevel = ((priyaState.xp - 1000) / (xpForLevel4 - 1000)) * 100;
+    const progressToNextLevel =
+      ((priyaState.xp - 1000) / (xpForLevel4 - 1000)) * 100;
     expect(progressToNextLevel).toBe(45); // 450/1000 = 45%
 
     // Exam readiness gauge model
@@ -58,8 +61,20 @@ describe("Tier 4 - Journey 1: Priya's Student Practice, Test, Review & Mastery J
 
   test("Step 3: PYP catalog discovery returns dynamic shifts without mock shifts", () => {
     const sscCglTests = [
-      { id: 201, year: 2024, title: "SSC CGL 2024 Tier 1 Shift 1", totalQuestions: 100, isActive: true },
-      { id: 202, year: 2024, title: "SSC CGL 2024 Tier 1 Shift 2", totalQuestions: 100, isActive: true },
+      {
+        id: 201,
+        year: 2024,
+        title: "SSC CGL 2024 Tier 1 Shift 1",
+        totalQuestions: 100,
+        isActive: true,
+      },
+      {
+        id: 202,
+        year: 2024,
+        title: "SSC CGL 2024 Tier 1 Shift 2",
+        totalQuestions: 100,
+        isActive: true,
+      },
     ];
 
     const genuineShifts = sscCglTests
@@ -98,7 +113,10 @@ describe("Tier 4 - Journey 1: Priya's Student Practice, Test, Review & Mastery J
   });
 
   test("Step 5: TestReview presents results, question notes, and audio explainer", () => {
-    const testReviewPath = path.resolve(process.cwd(), "apps/frontend/src/pages/tests/TestReview.jsx");
+    const testReviewPath = path.resolve(
+      process.cwd(),
+      "apps/frontend/src/pages/tests/TestReview.jsx",
+    );
     const reviewContent = fs.readFileSync(testReviewPath, "utf-8");
 
     // Review page features
@@ -137,7 +155,9 @@ describe("Tier 4 - Journey 1: Priya's Student Practice, Test, Review & Mastery J
     expect(socraticHints[1].tier).toBe(2);
 
     // Priya solves question 15 correctly after Tier 2 hint
-    priyaState.mistakesQueue = priyaState.mistakesQueue.filter((q) => q.questionId !== 15);
+    priyaState.mistakesQueue = priyaState.mistakesQueue.filter(
+      (q) => q.questionId !== 15,
+    );
     expect(priyaState.mistakesQueue.length).toBe(1);
     expect(priyaState.mistakesQueue[0].questionId).toBe(22);
   });

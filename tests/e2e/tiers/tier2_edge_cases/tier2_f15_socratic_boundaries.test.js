@@ -12,7 +12,7 @@ import SocraticHintModal from "../../../apps/frontend/src/pages/tests/components
 describe("Tier 2 - Feature F15: Socratic Hint Modal Boundaries", () => {
   const modalPath = path.resolve(
     process.cwd(),
-    "apps/frontend/src/pages/tests/components/SocraticHintModal.jsx"
+    "apps/frontend/src/pages/tests/components/SocraticHintModal.jsx",
   );
 
   test("T2.F15.01: Escape key accessibility handler dismisses dialog in DOM", async () => {

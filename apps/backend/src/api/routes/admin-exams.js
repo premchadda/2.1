@@ -251,6 +251,7 @@ router.post(
 
     const examData = {
       title: (body.title || body.fullName || "Untitled Exam").trim(),
+      full_name: (body.fullName || body.full_name || body.title || "").trim(),
       slug: (
         body.slug ||
         body.examId ||
@@ -259,10 +260,22 @@ router.post(
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/(^-|-$)/g, "")
       ).trim(),
+      exam_id: (body.examId || body.exam_id || body.slug || "").trim(),
       description: body.description || null,
+      notification: body.notification || null,
+      series_id: body.seriesId
+        ? parseInt(body.seriesId, 10)
+        : body.series_id
+          ? parseInt(body.series_id, 10)
+          : null,
+      eligibility: body.eligibility || null,
+      age_limit: body.ageLimit ?? body.age_limit ?? null,
+      syllabus: body.syllabus || null,
+      display_order: Number(body.displayOrder ?? body.display_order) || 0,
+      year: parseInt(body.year, 10) || new Date().getFullYear(),
       icon: body.icon || null,
       category_id: categoryId,
-      is_active: body.isActive !== false,
+      is_active: body.isActive !== false && body.is_active !== false,
       created_at: new Date().toISOString(),
     };
 
@@ -287,17 +300,45 @@ router.put(
     }
 
     const examData = {};
-    if (body.title !== undefined || body.fullName !== undefined) {
-      examData.title = (body.title || body.fullName || "").trim();
+    if (body.title !== undefined) {
+      examData.title = String(body.title).trim();
     }
-    if (body.slug !== undefined || body.examId !== undefined) {
-      examData.slug = (body.slug || body.examId || "").trim();
+    if (body.fullName !== undefined || body.full_name !== undefined) {
+      examData.full_name = String(body.fullName ?? body.full_name).trim();
+    }
+    if (
+      body.slug !== undefined ||
+      body.examId !== undefined ||
+      body.exam_id !== undefined
+    ) {
+      const s = String(body.slug || body.examId || body.exam_id).trim();
+      examData.slug = s;
+      examData.exam_id = s;
     }
     if (body.description !== undefined) examData.description = body.description;
+    if (body.notification !== undefined)
+      examData.notification = body.notification;
+    if (body.seriesId !== undefined || body.series_id !== undefined) {
+      const rawSer = body.seriesId ?? body.series_id;
+      examData.series_id = rawSer ? parseInt(rawSer, 10) : null;
+    }
+    if (body.eligibility !== undefined) examData.eligibility = body.eligibility;
+    if (body.ageLimit !== undefined || body.age_limit !== undefined) {
+      examData.age_limit = body.ageLimit ?? body.age_limit;
+    }
+    if (body.syllabus !== undefined) examData.syllabus = body.syllabus;
+    if (body.displayOrder !== undefined || body.display_order !== undefined) {
+      examData.display_order =
+        Number(body.displayOrder ?? body.display_order) || 0;
+    }
+    if (body.year !== undefined) {
+      examData.year = parseInt(body.year, 10) || null;
+    }
     if (body.icon !== undefined) examData.icon = body.icon;
     if (categoryId !== undefined) examData.category_id = categoryId;
-    if (body.isActive !== undefined)
-      examData.is_active = Boolean(body.isActive);
+    if (body.isActive !== undefined || body.is_active !== undefined) {
+      examData.is_active = Boolean(body.isActive ?? body.is_active);
+    }
     examData.updated_at = new Date().toISOString();
 
     const updated = await dbHelpers.updateById(

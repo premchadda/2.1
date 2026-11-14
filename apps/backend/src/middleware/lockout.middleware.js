@@ -3,7 +3,10 @@ import { logAuditEvent } from "./audit.middleware.js";
 import logger from "../infrastructure/logger/logger.js";
 import { getRuntimeSecuritySettings } from "../services/SettingsService.js";
 import { isUserAdminRequest } from "./auth.middleware.js";
-import { getClientIp } from "../shared/utils/clientIp.js";
+import {
+  getClientIp,
+  normalizeIpForThrottling,
+} from "../shared/utils/clientIp.js";
 
 export const LOCKOUT_CONFIG = {
   MAX_ATTEMPTS: 5,
@@ -22,6 +25,7 @@ export const LOCKOUT_CONFIG = {
 
 export const checkAccountLockout = async (email, ipAddress) => {
   const normalizedEmail = String(email ?? "").toLowerCase();
+  const normalizedIp = normalizeIpForThrottling(ipAddress);
   const securitySettings = await getRuntimeSecuritySettings();
   const maxAttempts = Math.max(
     1,
@@ -31,14 +35,24 @@ export const checkAccountLockout = async (email, ipAddress) => {
     Date.now() - LOCKOUT_CONFIG.WINDOW_MINUTES * 60 * 1000,
   );
 
-  const attempts = await dbHelpers.pool.query(
-    `SELECT COUNT(*) as attempt_count
-     FROM login_attempts
-      WHERE (email = $1 OR ip_address = $2)
-        AND attempted_at > $3
-        AND successful = false`,
-    [normalizedEmail, ipAddress, lockoutWindow],
-  );
+  // VULN-EDGE-01: Decouple account lockout from IP address to prevent shared-IP DoS collisions (NAT/campus).
+  // Brute-force per IP is handled separately by IP rate limiting.
+  const query = normalizedEmail
+    ? `SELECT COUNT(*) as attempt_count
+       FROM login_attempts
+       WHERE email = $1
+         AND attempted_at > $2
+         AND successful = false`
+    : `SELECT COUNT(*) as attempt_count
+       FROM login_attempts
+       WHERE ip_address = $1
+         AND attempted_at > $2
+         AND successful = false`;
+  const params = normalizedEmail
+    ? [normalizedEmail, lockoutWindow]
+    : [normalizedIp, lockoutWindow];
+
+  const attempts = await dbHelpers.pool.query(query, params);
 
   const attemptCount = parseInt(attempts.rows[0]?.attempt_count || 0);
 

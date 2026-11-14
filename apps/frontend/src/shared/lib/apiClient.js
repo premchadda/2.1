@@ -185,8 +185,13 @@ apiClient.get = (url, config = {}) => {
 };
 
 export const fetchFromAPI = async (endpoint, options = {}) => {
-  // Validate endpoint to prevent SSRF-like internal caller misuse
-  if (typeof endpoint !== "string" || !endpoint.startsWith("/")) {
+  // Validate endpoint to prevent SSRF-like internal caller misuse and protocol-relative bypasses
+  if (
+    typeof endpoint !== "string" ||
+    !endpoint.startsWith("/") ||
+    endpoint.startsWith("//") ||
+    endpoint.startsWith("/\\")
+  ) {
     throw new ValidationError(`Invalid API endpoint: ${endpoint}`, {
       endpoint,
     });

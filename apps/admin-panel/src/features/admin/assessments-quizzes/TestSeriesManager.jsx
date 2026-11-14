@@ -630,13 +630,18 @@ export default function TestSeriesManager() {
       examId: item.examId || item.exam_id || "",
       stages: Array.isArray(item.stages) ? item.stages : [],
       description: item.description || "",
-      isPro: item.isPro || false,
+      isPro: item.isPro ?? item.is_pro ?? false,
       price: item.price || 0,
       // FIX BUG-003: Don't set totalTests from API (backend calculates it)
       difficulty: item.difficulty || "medium",
       tags: Array.isArray(item.tags) ? item.tags.join(", ") : item.tags || "",
-      isActive: item.isActive !== undefined ? item.isActive : true,
-      isPinned: item.isPinned || false,
+      isActive:
+        item.isActive !== undefined
+          ? item.isActive
+          : item.is_active !== undefined
+            ? item.is_active
+            : true,
+      isPinned: item.isPinned ?? item.is_pinned ?? false,
     });
     setEditingId(seriesId(item));
     setSlugManuallyEdited(true);

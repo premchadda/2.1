@@ -6,10 +6,13 @@
 import crypto from "node:crypto";
 
 export const TEST_JWT_SECRET =
-  process.env.JWT_SECRET || "test-jwt-secret-for-e2e-testing-32chars-min-Trstprep!";
+  process.env.JWT_SECRET ||
+  "test-jwt-secret-for-e2e-testing-32chars-min-Trstprep!";
 
 function base64UrlEncode(input) {
-  const buf = Buffer.isBuffer(input) ? input : Buffer.from(typeof input === "string" ? input : JSON.stringify(input));
+  const buf = Buffer.isBuffer(input)
+    ? input
+    : Buffer.from(typeof input === "string" ? input : JSON.stringify(input));
   return buf
     .toString("base64")
     .replace(/=/g, "")
@@ -67,7 +70,12 @@ export const TEST_ADMIN_USER = {
   isAdmin: true,
   is_admin: true,
   name: "Vikram Malhotra",
-  permissions: ["questions:read", "questions:create", "questions:edit", "analytics:read"],
+  permissions: [
+    "questions:read",
+    "questions:create",
+    "questions:edit",
+    "analytics:read",
+  ],
 };
 
 export const TEST_SUPER_ADMIN_USER = {

@@ -23,7 +23,9 @@ export async function ensureLiveTestServer() {
   // 1. If an external server is already configured and reachable, use it
   const configuredUrl = process.env.API_BASE_URL || "http://127.0.0.1:5001";
   try {
-    const probe = await fetch(`${configuredUrl}/api/health`, { signal: AbortSignal.timeout(1000) });
+    const probe = await fetch(`${configuredUrl}/api/health`, {
+      signal: AbortSignal.timeout(1000),
+    });
     if (probe.status < 500) {
       serverBaseUrl = configuredUrl;
       return serverBaseUrl;
@@ -33,7 +35,8 @@ export async function ensureLiveTestServer() {
   }
 
   // 2. Start in-process Express server on ephemeral port (port 0)
-  const { default: app } = await import("../../../apps/backend/src/app-port5001.js");
+  const { default: app } =
+    await import("../../../apps/backend/src/app-port5001.js");
   serverInstance = http.createServer(app);
   await new Promise((resolve, reject) => {
     serverInstance.listen(0, "127.0.0.1", () => resolve());

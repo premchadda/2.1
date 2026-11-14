@@ -28,7 +28,9 @@ describe("Tier 2 - Feature F20: User Intelligence & Gamification Boundaries", ()
       { questionId: 101, attemptDate: "2026-11-11" }, // Duplicate question ID
     ];
 
-    const uniqueMistakes = Array.from(new Set(wrongAnswers.map((a) => a.questionId)));
+    const uniqueMistakes = Array.from(
+      new Set(wrongAnswers.map((a) => a.questionId)),
+    );
     expect(uniqueMistakes.length).toBe(2);
     expect(uniqueMistakes).toEqual([101, 102]);
   });
@@ -37,7 +39,8 @@ describe("Tier 2 - Feature F20: User Intelligence & Gamification Boundaries", ()
     const totalTestsCompleted = 0;
     const avgScore = 0;
     // Default baseline readiness score is 50.0 (or 0) without division-by-zero
-    const readinessScore = totalTestsCompleted === 0 ? 50.0 : Math.min(100, Math.max(0, avgScore));
+    const readinessScore =
+      totalTestsCompleted === 0 ? 50.0 : Math.min(100, Math.max(0, avgScore));
 
     expect(Number.isNaN(readinessScore)).toBe(false);
     expect(readinessScore).toBe(50.0);

@@ -10,7 +10,10 @@ import { apiClient } from "../../harness/apiClient.js";
 
 describe("Tier 1 - Feature F25: Admin BlogManager Route & Activation", () => {
   test("T1.F25.01: Backend blog route file existence and CRUD endpoints", () => {
-    const routePath = path.resolve(process.cwd(), "apps/backend/src/api/routes/blog.js");
+    const routePath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/blog.js",
+    );
     expect(fs.existsSync(routePath)).toBe(true);
 
     const content = fs.readFileSync(routePath, "utf-8");
@@ -30,13 +33,19 @@ describe("Tier 1 - Feature F25: Admin BlogManager Route & Activation", () => {
   });
 
   test("T1.F25.03: Backend blog route supports draft and published post statuses", () => {
-    const routePath = path.resolve(process.cwd(), "apps/backend/src/api/routes/blog.js");
+    const routePath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/blog.js",
+    );
     const content = fs.readFileSync(routePath, "utf-8");
     expect(content).toContain("status");
   });
 
   test("T1.F25.04: Backend blog route handles slugs and category categorization", () => {
-    const routePath = path.resolve(process.cwd(), "apps/backend/src/api/routes/blog.js");
+    const routePath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/blog.js",
+    );
     const content = fs.readFileSync(routePath, "utf-8");
     expect(content).toContain("slug");
     expect(content).toContain("category");

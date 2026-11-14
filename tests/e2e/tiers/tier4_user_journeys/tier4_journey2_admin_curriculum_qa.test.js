@@ -23,13 +23,20 @@ describe("Tier 4 - Journey 2: Vikram's Admin Curriculum Ingestion, Audit QA & He
     expect(adminClient.token).not.toBeNull();
 
     const token = adminClient.token;
-    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf-8"));
+    const payload = JSON.parse(
+      Buffer.from(token.split(".")[1], "base64url").toString("utf-8"),
+    );
     expect(payload.role).toBe("admin");
 
     // Standard admin cannot perform wildcard privilege escalation without super-admin
-    const rolesPath = path.resolve(process.cwd(), "apps/backend/src/api/routes/admin-roles.js");
+    const rolesPath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/admin-roles.js",
+    );
     const rolesContent = fs.readFileSync(rolesPath, "utf-8");
-    expect(rolesContent).toContain("Wildcard grant requires wildcard permission");
+    expect(rolesContent).toContain(
+      "Wildcard grant requires wildcard permission",
+    );
   });
 
   test("Step 2: Vikram prepares bulk question batch with KaTeX mathematics formulas", () => {
@@ -56,10 +63,14 @@ describe("Tier 4 - Journey 2: Vikram's Admin Curriculum Ingestion, Audit QA & He
   });
 
   test("Step 3: Pipeline security sanitizes request query secrets in audit logs", () => {
-    const rawIngestionUrl = "/api/admin/questions/import?apiKey=secret_admin_master_key&source=curriculum_partner";
+    const rawIngestionUrl =
+      "/api/admin/questions/import?apiKey=secret_admin_master_key&source=curriculum_partner";
 
     function sanitizeAudit(url) {
-      return url.replace(/([?&](?:apiKey|secret|token)=)[^&]+/gi, "$1[REDACTED]");
+      return url.replace(
+        /([?&](?:apiKey|secret|token)=)[^&]+/gi,
+        "$1[REDACTED]",
+      );
     }
 
     const cleanAuditUrl = sanitizeAudit(rawIngestionUrl);
@@ -90,7 +101,7 @@ describe("Tier 4 - Journey 2: Vikram's Admin Curriculum Ingestion, Audit QA & He
   test("Step 5: Curriculum QA audit inspects LaTeX rendering and difficulty balance", () => {
     const auditViewPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/features/admin/assessments-quizzes/components/AuditQuestionsView.jsx"
+      "apps/admin-panel/src/features/admin/assessments-quizzes/components/AuditQuestionsView.jsx",
     );
     expect(fs.existsSync(auditViewPath)).toBe(true);
 
@@ -100,7 +111,7 @@ describe("Tier 4 - Journey 2: Vikram's Admin Curriculum Ingestion, Audit QA & He
     // Verify difficulty management support in QuestionsManager
     const qManagerPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/features/admin/assessments-quizzes/QuestionsManager.jsx"
+      "apps/admin-panel/src/features/admin/assessments-quizzes/QuestionsManager.jsx",
     );
     expect(fs.existsSync(qManagerPath)).toBe(true);
     const qManagerContent = fs.readFileSync(qManagerPath, "utf-8");
@@ -116,7 +127,7 @@ describe("Tier 4 - Journey 2: Vikram's Admin Curriculum Ingestion, Audit QA & He
   test("Step 6: Diagnostic health and analytics monitoring displays live telemetry", () => {
     const deepAnalyticsPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/features/admin/analytics-insights/DeepAnalytics.jsx"
+      "apps/admin-panel/src/features/admin/analytics-insights/DeepAnalytics.jsx",
     );
     const content = fs.readFileSync(deepAnalyticsPath, "utf-8");
     expect(content).toContain("diagnostics");

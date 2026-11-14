@@ -53,11 +53,19 @@ export default function FaqManager() {
     e.preventDefault();
 
     try {
+      const orderVal = Number(formData.order) || 0;
+      const payload = {
+        ...formData,
+        order: orderVal,
+        sortOrder: orderVal,
+        sort_order: orderVal,
+        is_active: !!formData.isActive,
+      };
       let response;
       if (editingId) {
-        response = await adminAPI.updateFaq(editingId, formData);
+        response = await adminAPI.updateFaq(editingId, payload);
       } else {
-        response = await adminAPI.createFaq(formData);
+        response = await adminAPI.createFaq(payload);
       }
 
       if (response.data?.success) {
@@ -73,11 +81,16 @@ export default function FaqManager() {
 
   const handleEdit = (faq) => {
     setFormData({
-      question: faq.question,
-      answer: faq.answer,
+      question: faq.question || "",
+      answer: faq.answer || "",
       category: faq.category || "general",
-      isActive: faq.isActive !== false,
-      order: faq.order || 0,
+      isActive:
+        faq.isActive !== undefined
+          ? faq.isActive
+          : faq.is_active !== undefined
+            ? faq.is_active
+            : true,
+      order: faq.sortOrder ?? faq.sort_order ?? faq.order ?? 0,
     });
     setEditingId(faq.id || faq._id);
     setShowForm(true);

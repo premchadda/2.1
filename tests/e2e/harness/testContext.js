@@ -14,7 +14,12 @@ class AssertionError extends Error {
 
 function deepEqual(a, b, visited = new Map()) {
   if (Object.is(a, b)) return true;
-  if (typeof a !== "object" || a === null || typeof b !== "object" || b === null) {
+  if (
+    typeof a !== "object" ||
+    a === null ||
+    typeof b !== "object" ||
+    b === null
+  ) {
     return false;
   }
 
@@ -26,7 +31,9 @@ function deepEqual(a, b, visited = new Map()) {
 
   // Date equality
   if (a instanceof Date || b instanceof Date) {
-    return a instanceof Date && b instanceof Date && a.getTime() === b.getTime();
+    return (
+      a instanceof Date && b instanceof Date && a.getTime() === b.getTime()
+    );
   }
 
   // RegExp equality
@@ -68,7 +75,10 @@ function deepEqual(a, b, visited = new Map()) {
         }
       } else {
         for (const [bKey, bVal] of b) {
-          if (deepEqual(aKey, bKey, visited) && deepEqual(aVal, bVal, visited)) {
+          if (
+            deepEqual(aKey, bKey, visited) &&
+            deepEqual(aVal, bVal, visited)
+          ) {
             matched = true;
             break;
           }
@@ -92,7 +102,11 @@ function deepEqual(a, b, visited = new Map()) {
 
   // TypedArray / ArrayBuffer views
   if (ArrayBuffer.isView(a) || ArrayBuffer.isView(b)) {
-    if (!ArrayBuffer.isView(a) || !ArrayBuffer.isView(b) || a.byteLength !== b.byteLength) {
+    if (
+      !ArrayBuffer.isView(a) ||
+      !ArrayBuffer.isView(b) ||
+      a.byteLength !== b.byteLength
+    ) {
       return false;
     }
     const uA = new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
@@ -147,7 +161,7 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected ${stringify(actual)} ${isNot ? "NOT to be" : "to be"} ${stringify(expected)}`,
           actual,
-          expected
+          expected,
         );
       }
     },
@@ -157,7 +171,7 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected ${stringify(actual)} ${isNot ? "NOT to equal" : "to equal"} ${stringify(expected)}`,
           actual,
-          expected
+          expected,
         );
       }
     },
@@ -167,7 +181,7 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected value ${isNot ? "to be undefined" : "to be defined"}, got ${stringify(actual)}`,
           actual,
-          undefined
+          undefined,
         );
       }
     },
@@ -177,7 +191,7 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected value ${isNot ? "to be defined" : "to be undefined"}, got ${stringify(actual)}`,
           actual,
-          undefined
+          undefined,
         );
       }
     },
@@ -187,7 +201,7 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected value ${isNot ? "NOT to be null" : "to be null"}, got ${stringify(actual)}`,
           actual,
-          null
+          null,
         );
       }
     },
@@ -197,7 +211,7 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected ${stringify(actual)} ${isNot ? "to be falsy" : "to be truthy"}`,
           actual,
-          true
+          true,
         );
       }
     },
@@ -207,7 +221,7 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected ${stringify(actual)} ${isNot ? "to be truthy" : "to be falsy"}`,
           actual,
-          false
+          false,
         );
       }
     },
@@ -217,7 +231,7 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected ${actual} ${isNot ? "NOT to be greater than" : "to be greater than"} ${expected}`,
           actual,
-          expected
+          expected,
         );
       }
     },
@@ -227,7 +241,7 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected ${actual} ${isNot ? "to be less than" : "to be greater than or equal to"} ${expected}`,
           actual,
-          expected
+          expected,
         );
       }
     },
@@ -237,7 +251,7 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected ${actual} ${isNot ? "NOT to be less than" : "to be less than"} ${expected}`,
           actual,
-          expected
+          expected,
         );
       }
     },
@@ -247,7 +261,7 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected ${actual} ${isNot ? "to be greater than" : "to be less than or equal to"} ${expected}`,
           actual,
-          expected
+          expected,
         );
       }
     },
@@ -257,7 +271,7 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected ${actual} ${isNot ? "NOT to be close to" : "to be close to"} ${expected} (${numDigits} digits)`,
           actual,
-          expected
+          expected,
         );
       }
     },
@@ -276,23 +290,28 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected ${stringify(actual)} ${isNot ? "NOT to contain" : "to contain"} ${stringify(item)}`,
           actual,
-          item
+          item,
         );
       }
     },
     toHaveLength(expectedLen) {
-      const len = actual?.length ?? (actual instanceof Set || actual instanceof Map ? actual.size : undefined);
+      const len =
+        actual?.length ??
+        (actual instanceof Set || actual instanceof Map
+          ? actual.size
+          : undefined);
       const pass = len === expectedLen;
       if (isNot ? pass : !pass) {
         throw new AssertionError(
           `Expected length ${isNot ? "NOT to be" : "to be"} ${expectedLen}, got ${len}`,
           len,
-          expectedLen
+          expectedLen,
         );
       }
     },
     toHaveProperty(prop, value) {
-      const hasProp = actual != null && Object.prototype.hasOwnProperty.call(actual, prop);
+      const hasProp =
+        actual != null && Object.prototype.hasOwnProperty.call(actual, prop);
       let pass = hasProp;
       if (hasProp && value !== undefined) {
         pass = deepEqual(actual[prop], value);
@@ -301,7 +320,7 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected object ${isNot ? "NOT to have property" : "to have property"} "${prop}"${value !== undefined ? ` with value ${stringify(value)}` : ""}`,
           actual?.[prop],
-          value
+          value,
         );
       }
     },
@@ -312,7 +331,7 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected ${stringify(actual)} ${isNot ? "NOT to match" : "to match"} ${regex}`,
           actual,
-          pattern
+          pattern,
         );
       }
     },
@@ -321,7 +340,9 @@ export function expect(actual) {
       let errorThrown = null;
       try {
         if (typeof actual !== "function") {
-          throw new Error("expect(fn).toThrow requires actual to be a function");
+          throw new Error(
+            "expect(fn).toThrow requires actual to be a function",
+          );
         }
         actual();
       } catch (err) {
@@ -342,7 +363,7 @@ export function expect(actual) {
         throw new AssertionError(
           `Expected function ${isNot ? "NOT to throw" : "to throw"}${expectedError ? ` matching ${expectedError}` : ""}`,
           errorThrown,
-          expectedError
+          expectedError,
         );
       }
     },
@@ -481,7 +502,10 @@ export async function runSuites(options = {}) {
           try {
             await hook();
           } catch (aeErr) {
-            console.error(`Error in afterEach hook for test "${t.name}":`, aeErr);
+            console.error(
+              `Error in afterEach hook for test "${t.name}":`,
+              aeErr,
+            );
             if (!testError) {
               testError = aeErr;
             }

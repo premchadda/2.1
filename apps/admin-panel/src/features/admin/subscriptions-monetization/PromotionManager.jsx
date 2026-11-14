@@ -561,16 +561,27 @@ function PromotionFormModal({ promotion, onClose, onSave }) {
     description: promotion?.description || "",
     type: promotion?.type || "discount",
     code: promotion?.code || "",
-    discountPercent: promotion?.discountPercent || 10,
-    trialDays: promotion?.trialDays || 7,
+    discountPercent:
+      promotion?.discountPercent ?? promotion?.discount_percent ?? 10,
+    trialDays: promotion?.trialDays ?? promotion?.trial_days ?? 7,
     credits: promotion?.credits || 10,
-    validFrom: promotion?.validFrom || new Date().toISOString().split("T")[0],
-    validUntil: promotion?.validUntil || "",
-    usageLimit: promotion?.usageLimit || 100,
-    minPurchase: promotion?.minPurchase || 0,
-    maxDiscount: promotion?.maxDiscount || 0,
-    newUserOnly: promotion?.newUserOnly ?? false,
-    onePerUser: promotion?.onePerUser ?? true,
+    validFrom:
+      promotion?.validFrom || promotion?.valid_from || promotion?.start_date
+        ? String(
+            promotion.validFrom || promotion.valid_from || promotion.start_date,
+          ).split("T")[0]
+        : new Date().toISOString().split("T")[0],
+    validUntil:
+      promotion?.validUntil || promotion?.valid_until || promotion?.end_date
+        ? String(
+            promotion.validUntil || promotion.valid_until || promotion.end_date,
+          ).split("T")[0]
+        : "",
+    usageLimit: promotion?.usageLimit ?? promotion?.usage_limit ?? 100,
+    minPurchase: promotion?.minPurchase ?? promotion?.min_purchase ?? 0,
+    maxDiscount: promotion?.maxDiscount ?? promotion?.max_discount ?? 0,
+    newUserOnly: promotion?.newUserOnly ?? promotion?.new_user_only ?? false,
+    onePerUser: promotion?.onePerUser ?? promotion?.one_per_user ?? true,
   });
   const [loading, setLoading] = useState(false);
 

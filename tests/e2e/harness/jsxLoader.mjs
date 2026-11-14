@@ -59,8 +59,17 @@ export async function resolve(specifier, context, nextResolve) {
     return await nextResolve(specifier, context);
   } catch (err) {
     if (err.code === "ERR_MODULE_NOT_FOUND" && context.parentURL?.startsWith("file:")) {
-      const parentDir = path.dirname(fileURLToPath(context.parentURL));
-      const targetPath = path.resolve(parentDir, specifier);
+      let targetPath;
+      if (specifier.startsWith("file:")) {
+        try {
+          targetPath = fileURLToPath(specifier);
+        } catch {
+          targetPath = specifier;
+        }
+      } else {
+        const parentDir = path.dirname(fileURLToPath(context.parentURL));
+        targetPath = path.resolve(parentDir, specifier);
+      }
       const candidates = [
         targetPath + ".js",
         targetPath + ".jsx",

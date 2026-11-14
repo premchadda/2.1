@@ -50,6 +50,7 @@ describe("Mobile Auth Persistence & Token Fallback", () => {
       // Explicit origin: an empty baseURL is the documented same-origin fallback
       // and logs a one-off warning, which is noise in a unit test.
       baseURL: "http://api.test",
+      allowStorageToken: true,
       authEndpoints: [
         "/api/auth/login",
         "/api/auth/register",
@@ -77,6 +78,7 @@ describe("Mobile Auth Persistence & Token Fallback", () => {
       // Explicit origin: an empty baseURL is the documented same-origin fallback
       // and logs a one-off warning, which is noise in a unit test.
       baseURL: "http://api.test",
+      allowStorageToken: true,
       authEndpoints: [
         "/api/auth/login",
         "/api/auth/register",
@@ -107,6 +109,7 @@ describe("Mobile Auth Persistence & Token Fallback", () => {
       // Explicit origin: an empty baseURL is the documented same-origin fallback
       // and logs a one-off warning, which is noise in a unit test.
       baseURL: "http://api.test",
+      allowStorageToken: true,
       authEndpoints: [
         "/api/auth/login",
         "/api/auth/register",

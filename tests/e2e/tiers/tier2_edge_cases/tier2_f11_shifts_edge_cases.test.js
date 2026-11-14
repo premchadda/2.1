@@ -22,7 +22,10 @@ describe("Tier 2 - Feature F11: Dynamic Exam Shifts Fallback Removal & Boundarie
   test("T2.F11.02: Non-integer year parameter is parsed or rejected cleanly", () => {
     const maliciousYears = ["invalid_str", "2024' OR '1'='1", "NaN", "-1"];
     for (const yr of maliciousYears) {
-      const isStrictYear = /^\d{4}$/.test(yr) && parseInt(yr, 10) >= 1900 && parseInt(yr, 10) <= 2100;
+      const isStrictYear =
+        /^\d{4}$/.test(yr) &&
+        parseInt(yr, 10) >= 1900 &&
+        parseInt(yr, 10) <= 2100;
       expect(isStrictYear).toBe(false);
     }
   });
@@ -58,7 +61,9 @@ describe("Tier 2 - Feature F11: Dynamic Exam Shifts Fallback Removal & Boundarie
       previousYearPapers: [],
     };
 
-    const hasPapers = Array.isArray(examData.previousYearPapers) && examData.previousYearPapers.length > 0;
+    const hasPapers =
+      Array.isArray(examData.previousYearPapers) &&
+      examData.previousYearPapers.length > 0;
     expect(hasPapers).toBe(false);
   });
 });

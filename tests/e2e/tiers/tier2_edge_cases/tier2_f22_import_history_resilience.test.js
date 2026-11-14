@@ -28,7 +28,8 @@ describe("Tier 2 - Feature F22: Import History Modal Resilience", () => {
 
   test("T2.F22.03: Corrupted details JSON string falls back gracefully", () => {
     function parseDetails(rawDetails) {
-      if (typeof rawDetails === "object" && rawDetails !== null) return rawDetails;
+      if (typeof rawDetails === "object" && rawDetails !== null)
+        return rawDetails;
       try {
         return JSON.parse(rawDetails);
       } catch {
@@ -36,7 +37,7 @@ describe("Tier 2 - Feature F22: Import History Modal Resilience", () => {
       }
     }
 
-    const corrupted = "{\"unclosed_json_string";
+    const corrupted = '{"unclosed_json_string';
     const parsed = parseDetails(corrupted);
     expect(parsed.unparseable).toBe(true);
   });

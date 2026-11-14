@@ -10,14 +10,22 @@ import { describe, test, expect } from "../../harness/testContext.js";
 describe("Tier 1 - Feature F26: Admin DeepAnalytics Diagnostics Dynamic Sync", () => {
   const DIAGNOSTICS_DATA = {
     difficulty: { easy: 38.2, medium: 44.5, hard: 17.3 },
-    reliability: { completionRate: 97.8, anomalousDropouts: 2, totalRecentSessions: 100 },
-    practiceBridge: { practiceActiveAvgScore: 76.5, mockOnlyAvgScore: 54.2, delta: 22.3 },
+    reliability: {
+      completionRate: 97.8,
+      anomalousDropouts: 2,
+      totalRecentSessions: 100,
+    },
+    practiceBridge: {
+      practiceActiveAvgScore: 76.5,
+      mockOnlyAvgScore: 54.2,
+      delta: 22.3,
+    },
   };
 
   test("T1.F26.01: DeepAnalytics.jsx component file existence and tab layout", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/features/admin/analytics-insights/DeepAnalytics.jsx"
+      "apps/admin-panel/src/features/admin/analytics-insights/DeepAnalytics.jsx",
     );
     expect(fs.existsSync(compPath)).toBe(true);
 
@@ -28,7 +36,7 @@ describe("Tier 1 - Feature F26: Admin DeepAnalytics Diagnostics Dynamic Sync", (
   test("T1.F26.02: DeepAnalytics Tab 5 implements Diagnostic Health interface", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/features/admin/analytics-insights/DeepAnalytics.jsx"
+      "apps/admin-panel/src/features/admin/analytics-insights/DeepAnalytics.jsx",
     );
     const content = fs.readFileSync(compPath, "utf-8");
     expect(content).toContain("diagnostics");
@@ -49,7 +57,8 @@ describe("Tier 1 - Feature F26: Admin DeepAnalytics Diagnostics Dynamic Sync", (
 
   test("T1.F26.05: Practice-to-test score delta calculation logic", () => {
     const bridge = DIAGNOSTICS_DATA.practiceBridge;
-    const computedDelta = bridge.practiceActiveAvgScore - bridge.mockOnlyAvgScore;
+    const computedDelta =
+      bridge.practiceActiveAvgScore - bridge.mockOnlyAvgScore;
     expect(bridge.delta).toBeCloseTo(computedDelta, 1);
   });
 });

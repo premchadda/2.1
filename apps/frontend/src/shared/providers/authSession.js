@@ -109,12 +109,23 @@ export const saveUserCache = (frontendUser, rememberMe = false) => {
       localStorage.removeItem(USER_CACHE_KEY);
       return;
     }
-    const serialized = JSON.stringify(frontendUser);
     if (rememberMe) {
-      localStorage.setItem(USER_CACHE_KEY, serialized);
+      // SEC-CLIENT-03: Strip sensitive PII before writing to persistent localStorage
+      // under Remember-Me (compliance with DPDP Act 2023 & OWASP ASVS V8.3 on shared devices).
+      const {
+        phone,
+        mobile,
+        dob,
+        dateOfBirth,
+        date_of_birth,
+        location,
+        education,
+        ...safeUser
+      } = frontendUser;
+      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(safeUser));
       sessionStorage.removeItem(USER_CACHE_KEY);
     } else {
-      sessionStorage.setItem(USER_CACHE_KEY, serialized);
+      sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(frontendUser));
       localStorage.removeItem(USER_CACHE_KEY);
     }
   } catch {

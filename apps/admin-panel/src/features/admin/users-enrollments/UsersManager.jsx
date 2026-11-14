@@ -305,7 +305,9 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
 
   const revokeSession = async (sessionId) => {
     try {
-      await api.delete(`/admin/sessions/${sessionId}`);
+      await api.delete(
+        `/admin/sessions/${encodeURIComponent(String(sessionId))}`,
+      );
       setUserSessions((prev) => prev.filter((s) => s.id !== sessionId));
       toast.success("Session revoked");
     } catch (error) {
@@ -316,9 +318,12 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
 
   const updateSessionLimit = async (userId, limit) => {
     try {
-      await api.put(`/admin/users/${userId}/session-limit`, {
-        sessionLimit: limit,
-      });
+      await api.put(
+        `/admin/users/${encodeURIComponent(String(userId))}/session-limit`,
+        {
+          sessionLimit: limit,
+        },
+      );
       setViewingUser((prev) => ({ ...prev, sessionLimit: limit }));
       setUsers((prev) =>
         prev.map((u) =>

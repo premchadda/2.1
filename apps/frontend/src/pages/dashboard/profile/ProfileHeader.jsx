@@ -47,9 +47,10 @@ function ProfileHeader({
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-violet-600 to-pink-500">
             {user.banner && (
               <>
-                <div
-                  className="absolute inset-0 bg-cover bg-center"
-                  style={{ backgroundImage: `url(${user.banner})` }}
+                <img
+                  src={user.banner}
+                  alt="Cover"
+                  className="absolute inset-0 w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/40 backdrop-blur-[2px]" />
               </>
@@ -71,9 +72,10 @@ function ProfileHeader({
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-violet-600 to-pink-500">
               {user.banner && (
                 <>
-                  <div
-                    className="absolute inset-0 bg-cover bg-center"
-                    style={{ backgroundImage: `url(${user.banner})` }}
+                  <img
+                    src={user.banner}
+                    alt="Cover"
+                    className="absolute inset-0 w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/40 backdrop-blur-[2px]" />
                 </>

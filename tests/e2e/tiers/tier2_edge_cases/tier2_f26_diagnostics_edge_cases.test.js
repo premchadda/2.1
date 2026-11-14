@@ -21,7 +21,10 @@ describe("Tier 2 - Feature F26: DeepAnalytics Diagnostics Calculations & Boundar
     const rawSessions = [];
     const totalSessions = rawSessions.length;
     const dropouts = rawSessions.filter((s) => s.droppedOut).length;
-    const completionRate = totalSessions > 0 ? ((totalSessions - dropouts) / totalSessions) * 100 : 100.0;
+    const completionRate =
+      totalSessions > 0
+        ? ((totalSessions - dropouts) / totalSessions) * 100
+        : 100.0;
 
     expect(Number.isNaN(completionRate)).toBe(false);
     expect(completionRate).toBe(100.0);
@@ -32,7 +35,8 @@ describe("Tier 2 - Feature F26: DeepAnalytics Diagnostics Calculations & Boundar
     const mockOnlyAvgScore = 70.0;
     const delta = practiceActiveAvgScore - mockOnlyAvgScore;
 
-    const displayDelta = delta >= 0 ? `+${delta.toFixed(1)}%` : `${delta.toFixed(1)}%`;
+    const displayDelta =
+      delta >= 0 ? `+${delta.toFixed(1)}%` : `${delta.toFixed(1)}%`;
     expect(displayDelta).toBe("-5.0%");
   });
 
@@ -49,7 +53,11 @@ describe("Tier 2 - Feature F26: DeepAnalytics Diagnostics Calculations & Boundar
 
   test("T2.F26.05: RBAC analytics permission check evaluates user permission set", () => {
     function hasAnalyticsReadPermission(userPerms) {
-      return userPerms.includes("*") || userPerms.includes("analytics:read") || userPerms.includes("analytics:*");
+      return (
+        userPerms.includes("*") ||
+        userPerms.includes("analytics:read") ||
+        userPerms.includes("analytics:*")
+      );
     }
 
     expect(hasAnalyticsReadPermission(["*"])).toBe(true);

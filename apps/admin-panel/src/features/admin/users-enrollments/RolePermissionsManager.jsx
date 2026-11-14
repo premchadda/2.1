@@ -63,16 +63,13 @@ export default function RolePermissionsManager({
   });
   const [activeTab, setActiveTab] = useState("roles");
 
-  const userPerms = user?.permissions || [];
-  const isSuperPerms = userPerms.includes("*");
-  const isAdminRole = user?.role === "admin" || user?.isAdmin === true;
-  // Role management is gated on users:* (canonical) — backend has no
-  // roles:write permission.
-  const canManage =
-    isSuperPerms ||
-    userPerms.includes("users:edit") ||
-    userPerms.includes("users:*") ||
-    userPerms.includes("*");
+  const isAdminRole =
+    user?.role === "admin" ||
+    user?.role === "superadmin" ||
+    user?.isAdmin === true;
+  // Privilege Escalation Hardening (F28): Only users with role === 'superadmin' can edit, create, or delete role definitions.
+  const isSuperAdmin = user?.role === "superadmin";
+  const canManage = isSuperAdmin;
 
   const fetchData = useCallback(async (signal) => {
     try {
@@ -199,7 +196,9 @@ export default function RolePermissionsManager({
         return;
       }
       if (!canManage) {
-        toast.error("Only admins with users:edit can manage roles");
+        toast.error(
+          "Privilege restricted: Only superadmins can save role definitions",
+        );
         return;
       }
       const payload = {
@@ -215,7 +214,7 @@ export default function RolePermissionsManager({
         toast.success("Role created");
       } else {
         const res = await adminAPI.apiClient.put(
-          `/admin/roles/${editingId}`,
+          `/admin/roles/${encodeURIComponent(String(editingId))}`,
           payload,
         );
         const updatedRole = res.data?.data ||
@@ -348,7 +347,9 @@ export default function RolePermissionsManager({
 
   const handleDelete = async (id) => {
     if (!canManage) {
-      toast.error("Only admins with users:edit can manage roles");
+      toast.error(
+        "Privilege restricted: Only superadmins can delete role definitions",
+      );
       return;
     }
     const confirmed = await confirmOnce({
@@ -359,7 +360,9 @@ export default function RolePermissionsManager({
     });
     if (!confirmed) return;
     try {
-      await adminAPI.apiClient.delete(`/admin/roles/${id}`);
+      await adminAPI.apiClient.delete(
+        `/admin/roles/${encodeURIComponent(String(id))}`,
+      );
       setRoles((prev) => prev.filter((r) => (r.id || r._id) !== id));
       toast.success("Role deleted");
     } catch (error) {
@@ -439,6 +442,16 @@ export default function RolePermissionsManager({
           )}
         </div>
       </div>
+
+      {!isSuperAdmin && (
+        <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
+          <Shield className="w-4 h-4 text-blue-600 shrink-0" />
+          <span>
+            View-only mode: Only Superadmins can create, modify, or delete role
+            definitions and permissions.
+          </span>
+        </div>
+      )}
 
       {/* Sub-Tabs (Roles List vs Matrix) */}
       <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit">

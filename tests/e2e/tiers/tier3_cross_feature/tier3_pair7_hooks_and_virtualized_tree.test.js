@@ -10,13 +10,16 @@ import { describe, test, expect } from "../../harness/testContext.js";
 describe("Tier 3 - Pairwise 7: Shared Hooks (F12) ↔ Hierarchy & Settings (F24)", () => {
   const treeCompPath = path.resolve(
     process.cwd(),
-    "apps/admin-panel/src/shared/components/VirtualizedTree.jsx"
+    "apps/admin-panel/src/shared/components/VirtualizedTree.jsx",
   );
   const settingsCompPath = path.resolve(
     process.cwd(),
-    "apps/admin-panel/src/features/admin/system-settings/AdminSettings.jsx"
+    "apps/admin-panel/src/features/admin/system-settings/AdminSettings.jsx",
   );
-  const hooksIndexPath = path.resolve(process.cwd(), "packages/shared-hooks/index.js");
+  const hooksIndexPath = path.resolve(
+    process.cwd(),
+    "packages/shared-hooks/index.js",
+  );
 
   test("T3.P7.01: VirtualizedTree, AdminSettings, and shared-hooks files exist", () => {
     expect(fs.existsSync(treeCompPath)).toBe(true);
@@ -26,7 +29,11 @@ describe("Tier 3 - Pairwise 7: Shared Hooks (F12) ↔ Hierarchy & Settings (F24)
 
   test("T3.P7.02: useUndoRedo state machine tracks tree reordering history", () => {
     let past = [];
-    let present = ["Chapter 1: Arithmetic", "Chapter 2: Algebra", "Chapter 3: Geometry"];
+    let present = [
+      "Chapter 1: Arithmetic",
+      "Chapter 2: Algebra",
+      "Chapter 3: Geometry",
+    ];
     let future = [];
 
     function execute(newState) {
@@ -48,7 +55,11 @@ describe("Tier 3 - Pairwise 7: Shared Hooks (F12) ↔ Hierarchy & Settings (F24)
     }
 
     // Step 1: Reorder Algebra before Arithmetic
-    execute(["Chapter 2: Algebra", "Chapter 1: Arithmetic", "Chapter 3: Geometry"]);
+    execute([
+      "Chapter 2: Algebra",
+      "Chapter 1: Arithmetic",
+      "Chapter 3: Geometry",
+    ]);
     expect(present[0]).toBe("Chapter 2: Algebra");
     expect(past.length).toBe(1);
 
@@ -65,7 +76,11 @@ describe("Tier 3 - Pairwise 7: Shared Hooks (F12) ↔ Hierarchy & Settings (F24)
 
   test("T3.P7.03: VirtualizedTree node flattening computes visible node offsets", () => {
     const rawNodes = [
-      { id: "s1", name: "Subject: Quant", children: [{ id: "c1", name: "Chapter 1" }] },
+      {
+        id: "s1",
+        name: "Subject: Quant",
+        children: [{ id: "c1", name: "Chapter 1" }],
+      },
       { id: "s2", name: "Subject: English", children: [] },
     ];
 
@@ -91,7 +106,11 @@ describe("Tier 3 - Pairwise 7: Shared Hooks (F12) ↔ Hierarchy & Settings (F24)
   });
 
   test("T3.P7.04: useFormManager tracks dirty fields and handles reset in settings", () => {
-    const initialConfig = { platformName: "Trstprep", allowRegistration: true, maxAttempts: 3 };
+    const initialConfig = {
+      platformName: "Trstprep",
+      allowRegistration: true,
+      maxAttempts: 3,
+    };
     let currentConfig = { ...initialConfig };
     let dirtyFields = new Set();
 

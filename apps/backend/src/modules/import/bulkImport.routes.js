@@ -349,7 +349,9 @@ router.post(
       const fs = await import("fs/promises");
       const safeToken = (val, fallback) => {
         if (!val) return fallback;
-        const cleaned = String(val).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+        const cleaned = String(val)
+          .replace(/[^a-zA-Z0-9_-]/g, "")
+          .slice(0, 64);
         return cleaned || fallback;
       };
 
@@ -370,7 +372,10 @@ router.post(
         safeToken(extractYear(json), "_no-year"),
       );
 
-      if (!uploadsDir.startsWith(baseImportedDir + path.default.sep) && uploadsDir !== baseImportedDir) {
+      if (
+        !uploadsDir.startsWith(baseImportedDir + path.default.sep) &&
+        uploadsDir !== baseImportedDir
+      ) {
         throw new Error("Path traversal blocked in test import archive path");
       }
       try {
@@ -439,15 +444,21 @@ router.post(
         });
       }
 
-      const rawSessionId = req.body?.uploadSessionId || req.query?.uploadSessionId;
+      const rawSessionId =
+        req.body?.uploadSessionId || req.query?.uploadSessionId;
       const uploadSessionId = rawSessionId
-        ? String(rawSessionId).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64)
+        ? String(rawSessionId)
+            .replace(/[^a-zA-Z0-9_-]/g, "")
+            .slice(0, 64)
         : `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
       // Save the file to an isolated temp location on disk keyed by user + sessionId
       const tempDir = path.join(process.cwd(), "uploads", "test-imports");
       await fs.mkdir(tempDir, { recursive: true });
-      const sessionPath = path.join(tempDir, `temp-${req.user.id}_${uploadSessionId}.json`);
+      const sessionPath = path.join(
+        tempDir,
+        `temp-${req.user.id}_${uploadSessionId}.json`,
+      );
       const legacyPath = path.join(tempDir, `temp-${req.user.id}.json`);
       await fs.writeFile(sessionPath, req.file.buffer);
       await fs.writeFile(legacyPath, req.file.buffer);
@@ -477,11 +488,15 @@ router.post(
           examCategoryId: t.examCategoryId || t.exam_category_id || "",
           examId: t.examSlug || (t.examId ? String(t.examId) : "") || "",
           examTitle: t.examTitle || t.examName || "",
-          testSeriesId: t.seriesSlug || (t.testSeriesId ? String(t.testSeriesId) : "") || "",
+          testSeriesId:
+            t.seriesSlug ||
+            (t.testSeriesId ? String(t.testSeriesId) : "") ||
+            "",
           seriesTitle: t.seriesTitle || t.seriesName || "",
           stageId: t.stageSlug || (t.stageId ? String(t.stageId) : "") || "",
           stageName: t.stageName || t.stageTitle || "",
-          categoryId: t.categorySlug || (t.categoryId ? String(t.categoryId) : "") || "",
+          categoryId:
+            t.categorySlug || (t.categoryId ? String(t.categoryId) : "") || "",
           category: t.category || t.categoryName || "",
           subcategory: t.subcategory || t.subCategory || t.sub_category || "",
         };
@@ -517,10 +532,20 @@ router.get(
   async (req, res) => {
     try {
       const index = parseInt(req.params.index, 10);
-      const rawSessionId = req.query?.uploadSessionId || req.headers["x-upload-session-id"];
-      const uploadSessionId = rawSessionId ? String(rawSessionId).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64) : null;
+      const rawSessionId =
+        req.query?.uploadSessionId || req.headers["x-upload-session-id"];
+      const uploadSessionId = rawSessionId
+        ? String(rawSessionId)
+            .replace(/[^a-zA-Z0-9_-]/g, "")
+            .slice(0, 64)
+        : null;
       const sessionPath = uploadSessionId
-        ? path.join(process.cwd(), "uploads", "test-imports", `temp-${req.user.id}_${uploadSessionId}.json`)
+        ? path.join(
+            process.cwd(),
+            "uploads",
+            "test-imports",
+            `temp-${req.user.id}_${uploadSessionId}.json`,
+          )
         : null;
       const legacyPath = path.join(
         process.cwd(),
@@ -602,10 +627,22 @@ router.post("/full-test/import-selected", protect, admin, async (req, res) => {
     const storageMode =
       req.body.storageMode === "json-file" ? "json-file" : "database";
 
-    const rawSessionId = req.body?.uploadSessionId || req.query?.uploadSessionId || req.headers["x-upload-session-id"];
-    const uploadSessionId = rawSessionId ? String(rawSessionId).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64) : null;
+    const rawSessionId =
+      req.body?.uploadSessionId ||
+      req.query?.uploadSessionId ||
+      req.headers["x-upload-session-id"];
+    const uploadSessionId = rawSessionId
+      ? String(rawSessionId)
+          .replace(/[^a-zA-Z0-9_-]/g, "")
+          .slice(0, 64)
+      : null;
     const sessionPath = uploadSessionId
-      ? path.join(process.cwd(), "uploads", "test-imports", `temp-${req.user.id}_${uploadSessionId}.json`)
+      ? path.join(
+          process.cwd(),
+          "uploads",
+          "test-imports",
+          `temp-${req.user.id}_${uploadSessionId}.json`,
+        )
       : null;
     const legacyPath = path.join(
       process.cwd(),
@@ -628,7 +665,9 @@ router.post("/full-test/import-selected", protect, admin, async (req, res) => {
         await fs.access(legacyPath);
         tempPath = legacyPath;
       } catch {
-        console.error("[Bulk Import] Temp file not found at session/legacy paths");
+        console.error(
+          "[Bulk Import] Temp file not found at session/legacy paths",
+        );
         return res.status(404).json({
           success: false,
           message: "No uploaded file found. Please upload the file again.",

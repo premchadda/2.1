@@ -11,7 +11,7 @@ describe("Tier 1 - Feature F24: Admin VirtualizedTree & Settings Activation", ()
   test("T1.F24.01: VirtualizedTree.jsx component exists for deep syllabus tree virtualization", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/shared/components/VirtualizedTree.jsx"
+      "apps/admin-panel/src/shared/components/VirtualizedTree.jsx",
     );
     expect(fs.existsSync(compPath)).toBe(true);
 
@@ -22,7 +22,7 @@ describe("Tier 1 - Feature F24: Admin VirtualizedTree & Settings Activation", ()
   test("T1.F24.02: VirtualizedTree supports node expansion and depth indentation", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/shared/components/VirtualizedTree.jsx"
+      "apps/admin-panel/src/shared/components/VirtualizedTree.jsx",
     );
     const content = fs.readFileSync(compPath, "utf-8");
     expect(content).toContain("onNodeExpand");
@@ -31,7 +31,7 @@ describe("Tier 1 - Feature F24: Admin VirtualizedTree & Settings Activation", ()
   test("T1.F24.03: settingsSchema.js exports strict Zod schema for configuration validation", () => {
     const schemaPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/shared/lib/settingsSchema.js"
+      "apps/admin-panel/src/shared/lib/settingsSchema.js",
     );
     expect(fs.existsSync(schemaPath)).toBe(true);
 
@@ -42,7 +42,7 @@ describe("Tier 1 - Feature F24: Admin VirtualizedTree & Settings Activation", ()
   test("T1.F24.04: settingsSchema verifies site metadata, email, and tax rates", () => {
     const schemaPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/shared/lib/settingsSchema.js"
+      "apps/admin-panel/src/shared/lib/settingsSchema.js",
     );
     const content = fs.readFileSync(schemaPath, "utf-8");
     expect(content).toContain("siteName");
@@ -52,7 +52,7 @@ describe("Tier 1 - Feature F24: Admin VirtualizedTree & Settings Activation", ()
   test("T1.F24.05: AdminSettings page exists for platform configuration management", () => {
     const pagePath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/features/admin/system-settings/AdminSettings.jsx"
+      "apps/admin-panel/src/features/admin/system-settings/AdminSettings.jsx",
     );
     expect(fs.existsSync(pagePath)).toBe(true);
 

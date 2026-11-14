@@ -357,6 +357,31 @@ if (
 }
 app.use(helmet(helmetOptions));
 
+// SEC-EDGE-04: Strip Render origin identification headers to prevent backend topology leakage
+app.use((_req, res, next) => {
+  res.removeHeader("X-Render-Origin-Server");
+  res.removeHeader("Rndr-Id");
+  const origWriteHead = res.writeHead;
+  res.writeHead = function (statusCode, ...rest) {
+    res.removeHeader("X-Render-Origin-Server");
+    res.removeHeader("Rndr-Id");
+    const headers =
+      rest.length > 0 && typeof rest[rest.length - 1] === "object"
+        ? rest[rest.length - 1]
+        : null;
+    if (headers && !Array.isArray(headers)) {
+      for (const key of Object.keys(headers)) {
+        const lower = key.toLowerCase();
+        if (lower === "x-render-origin-server" || lower === "rndr-id") {
+          delete headers[key];
+        }
+      }
+    }
+    return origWriteHead.call(this, statusCode, ...rest);
+  };
+  next();
+});
+
 const getLocalNetworkIPs = () => {
   const ips = [];
   for (const name in os.networkInterfaces()) {

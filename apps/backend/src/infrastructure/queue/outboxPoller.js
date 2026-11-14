@@ -187,7 +187,9 @@ export const startAttemptCleaner = (intervalMs = 60000) => {
     try {
       client = await pool.connect();
 
-      // Auto-abandon inactive attempts where status is IN_PROGRESS and no activity has been recorded for 30 minutes
+      // Auto-abandon inactive attempts:
+      // 1. IN_PROGRESS with no activity/heartbeat for 30 minutes
+      // 2. PAUSED with no activity/resume for 24 hours (prevents freezing timers indefinitely - VULN-CLIENT-05)
       // Uses subquery with FOR UPDATE SKIP LOCKED to prevent race conditions in multi-instance deployments.
       // Capped at 500 rows per sweep so a post-outage backlog can't hold a long write txn.
       const result = await client.query(`
@@ -196,8 +198,13 @@ export const startAttemptCleaner = (intervalMs = 60000) => {
         WHERE id IN (
           SELECT id
           FROM attempts
-          WHERE (status = 'in_progress' OR status = 'IN_PROGRESS')
-          AND COALESCE(last_heartbeat_at, last_activity_at, updated_at, created_at) < NOW() - INTERVAL '30 minutes'
+          WHERE (
+            ((LOWER(status) = 'in_progress')
+             AND COALESCE(last_heartbeat_at, last_activity_at, updated_at, created_at) < NOW() - INTERVAL '30 minutes')
+            OR
+            ((LOWER(status) = 'paused')
+             AND COALESCE(last_heartbeat_at, last_activity_at, updated_at, created_at) < NOW() - INTERVAL '24 hours')
+          )
           ORDER BY COALESCE(last_heartbeat_at, last_activity_at, updated_at, created_at) ASC
           LIMIT 500
           FOR UPDATE SKIP LOCKED

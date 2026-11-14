@@ -515,6 +515,7 @@ export {
 // ===== API CLIENT + SHARED ERROR TYPES =====
 export {
   createApiClient,
+  isValidApiEndpoint,
   isCancel,
   DataError,
   NetworkError,

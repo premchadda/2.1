@@ -28,12 +28,16 @@ describe("Tier 2 - Feature F19: Question Notes Sync & Offline Boundaries", () =>
     });
 
     const textarea = globalThis.document.querySelector("textarea");
-    fireEvent.input(textarea, { target: { value: "Draft note preserved locally in storage" } });
+    fireEvent.input(textarea, {
+      target: { value: "Draft note preserved locally in storage" },
+    });
 
     const saveBtn = screen.getByRole("button", { name: /save note/i });
     fireEvent.click(saveBtn);
 
-    const stored = globalThis.localStorage.getItem("trstprep_question_notes_drill_101_q_42");
+    const stored = globalThis.localStorage.getItem(
+      "trstprep_question_notes_drill_101_q_42",
+    );
     expect(stored).not.toBeNull();
     expect(stored).toContain("Draft note preserved locally in storage");
 
@@ -50,14 +54,25 @@ describe("Tier 2 - Feature F19: Question Notes Sync & Offline Boundaries", () =>
 
   test("T2.F19.04: Context isolation separates practice lab notes from test review notes", () => {
     const questionId = 101;
-    const practiceNote = { questionId, contextId: "practice_lab", text: "Practice context note" };
-    const reviewNote = { questionId, contextId: "test_review", text: "Test review note" };
+    const practiceNote = {
+      questionId,
+      contextId: "practice_lab",
+      text: "Practice context note",
+    };
+    const reviewNote = {
+      questionId,
+      contextId: "test_review",
+      text: "Test review note",
+    };
 
     expect(practiceNote.contextId).not.toBe(reviewNote.contextId);
   });
 
   test("T2.F19.05: Optimistic note deletion handles server failure rollback", () => {
-    let notes = [{ id: 1, text: "Note 1" }, { id: 2, text: "Note 2" }];
+    let notes = [
+      { id: 1, text: "Note 1" },
+      { id: 2, text: "Note 2" },
+    ];
     const original = [...notes];
 
     // Optimistic delete

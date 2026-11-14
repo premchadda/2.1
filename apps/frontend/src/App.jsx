@@ -146,7 +146,15 @@ function LegacyExamRedirect() {
 // breadcrumb trail labels, not executed navigation.
 function AdminPanelRedirect() {
   const [searchParams] = useSearchParams();
-  const next = searchParams.get("next") || undefined;
+  const rawNext = searchParams.get("next") || undefined;
+  // SEC-CLIENT-04: Validate next query param to prevent open redirect bounces
+  const next =
+    rawNext &&
+    rawNext.startsWith("/") &&
+    !rawNext.startsWith("//") &&
+    !rawNext.startsWith("/\\")
+      ? rawNext
+      : undefined;
   const adminBase =
     import.meta.env.VITE_ADMIN_URL ||
     (import.meta.env.PROD ? window.location.origin : "http://localhost:3002");

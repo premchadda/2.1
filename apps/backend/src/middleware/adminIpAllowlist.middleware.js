@@ -68,6 +68,8 @@ const resolveClientIp = (req) => {
   return null;
 };
 
+let warnedUnset = false;
+
 export const adminIpAllowlist = (req, res, next) => {
   // Only guard admin endpoints.
   if (!isAdminEndpoint(req)) {
@@ -78,6 +80,12 @@ export const adminIpAllowlist = (req, res, next) => {
     process.env.ALLOWED_ADMIN_IPS || process.env.ADMIN_IP_ALLOWLIST;
   if (!rawList || rawList.trim() === "") {
     // No allowlist configured → passthrough (no-op).
+    if (!warnedUnset && process.env.NODE_ENV === "production") {
+      warnedUnset = true;
+      console.warn(
+        "[Admin IP Allowlist] WARN: ALLOWED_ADMIN_IPS is unset in production (SEC-02). Network-layer IP restriction is inactive; admin routes rely on JWT/API key/CORS.",
+      );
+    }
     return next();
   }
 

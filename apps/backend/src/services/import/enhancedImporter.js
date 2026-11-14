@@ -13,7 +13,10 @@
  * - Batch processing with configurable chunk sizes
  */
 
-import { pool, execSavepoint } from "../../infrastructure/database/postgres-helpers.js";
+import {
+  pool,
+  execSavepoint,
+} from "../../infrastructure/database/postgres-helpers.js";
 import { mapClassXToQuestion } from "./classxImporter.js";
 
 export const SOURCE_NAMES = {
@@ -212,9 +215,7 @@ export function parseCSVData(csvString) {
   const questions = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const values = parseCSVLine(lines[i]).map((v) =>
-      v.replace(/^"|"$/g, ""),
-    );
+    const values = parseCSVLine(lines[i]).map((v) => v.replace(/^"|"$/g, ""));
     const row = {};
     headers.forEach((h, idx) => {
       row[h] = values[idx] || "";

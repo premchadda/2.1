@@ -13,13 +13,24 @@ describe("Tier 1 - Feature F8: Deep Analytics Diagnostics API", () => {
     endpoint: "GET /admin/analytics/deep/diagnostics",
     expectedData: {
       difficulty: { easy: 38.2, medium: 44.5, hard: 17.3 },
-      reliability: { completionRate: 97.8, anomalousDropouts: 2, totalRecentSessions: 100 },
-      practiceBridge: { practiceActiveAvgScore: 76.5, mockOnlyAvgScore: 54.2, delta: 22.3 },
+      reliability: {
+        completionRate: 97.8,
+        anomalousDropouts: 2,
+        totalRecentSessions: 100,
+      },
+      practiceBridge: {
+        practiceActiveAvgScore: 76.5,
+        mockOnlyAvgScore: 54.2,
+        delta: 22.3,
+      },
     },
   };
 
   test("T1.F8.01: Admin deep analytics router exists and mounts security pipeline", () => {
-    const analyticsPath = path.resolve(process.cwd(), "apps/backend/src/api/routes/admin-deep-analytics.js");
+    const analyticsPath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/admin-deep-analytics.js",
+    );
     expect(fs.existsSync(analyticsPath)).toBe(true);
 
     const content = fs.readFileSync(analyticsPath, "utf-8");
@@ -52,12 +63,15 @@ describe("Tier 1 - Feature F8: Deep Analytics Diagnostics API", () => {
     expect(bridge).toHaveProperty("mockOnlyAvgScore");
     expect(bridge).toHaveProperty("delta");
 
-    const expectedDelta = bridge.practiceActiveAvgScore - bridge.mockOnlyAvgScore;
+    const expectedDelta =
+      bridge.practiceActiveAvgScore - bridge.mockOnlyAvgScore;
     expect(bridge.delta).toBeCloseTo(expectedDelta, 1);
   });
 
   test("T1.F8.05: Non-admin request to /admin/analytics/deep/diagnostics is rejected (403)", async () => {
-    const res = await apiClient.asStudent().get("/api/admin/analytics/deep/diagnostics");
+    const res = await apiClient
+      .asStudent()
+      .get("/api/admin/analytics/deep/diagnostics");
     expect(res.status).toBe(403);
   });
 });

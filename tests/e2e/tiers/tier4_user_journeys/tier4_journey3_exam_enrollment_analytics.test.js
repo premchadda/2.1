@@ -21,9 +21,24 @@ describe("Tier 4 - Journey 3: Amit's Exam Enrollment, Comparison & Analytics Syn
 
   test("Step 1: Amit visits exam overview and compares multi-year notifications", () => {
     const multiYearData = [
-      { year: 2024, vacancies: 17727, notificationDate: "2024-06-24", examDate: "2024-09-09" },
-      { year: 2025, vacancies: 15500, notificationDate: "2025-06-15", examDate: "2025-09-12" },
-      { year: 2026, vacancies: 18000, notificationDate: "2026-06-20", examDate: "2026-09-15" },
+      {
+        year: 2024,
+        vacancies: 17727,
+        notificationDate: "2024-06-24",
+        examDate: "2024-09-09",
+      },
+      {
+        year: 2025,
+        vacancies: 15500,
+        notificationDate: "2025-06-15",
+        examDate: "2025-09-12",
+      },
+      {
+        year: 2026,
+        vacancies: 18000,
+        notificationDate: "2026-06-20",
+        examDate: "2026-09-15",
+      },
     ];
 
     expect(multiYearData.length).toBe(3);
@@ -63,7 +78,9 @@ describe("Tier 4 - Journey 3: Amit's Exam Enrollment, Comparison & Analytics Syn
       { id: 5, topic: "Time & Work", userAns: 2, correctAns: 3 }, // 1 wrong
     ];
 
-    const correctCount = drillQuestions.filter((q) => q.userAns === q.correctAns).length;
+    const correctCount = drillQuestions.filter(
+      (q) => q.userAns === q.correctAns,
+    ).length;
     const accuracy = (correctCount / drillQuestions.length) * 100;
     const duration = 78; // 78 seconds (under 90s)
 
@@ -101,8 +118,11 @@ describe("Tier 4 - Journey 3: Amit's Exam Enrollment, Comparison & Analytics Syn
       registeredCandidates: 210,
     };
 
-    const drillConversionRate = (conversionFunnel.drillSolvers / conversionFunnel.examVisitors) * 100;
-    const candidateConversionRate = (conversionFunnel.registeredCandidates / conversionFunnel.drillSolvers) * 100;
+    const drillConversionRate =
+      (conversionFunnel.drillSolvers / conversionFunnel.examVisitors) * 100;
+    const candidateConversionRate =
+      (conversionFunnel.registeredCandidates / conversionFunnel.drillSolvers) *
+      100;
 
     expect(drillConversionRate).toBeCloseTo(38.4, 0.5);
     expect(candidateConversionRate).toBeCloseTo(43.75, 0.5);

@@ -30,6 +30,50 @@ const apiUrl = `${API_BASE_URL}/api`;
 let memoryToken = null;
 let memoryRefreshToken = null;
 
+const REFRESH_LOCK_NAME = "trstprep_admin_auth_refresh";
+const REFRESH_TIMESTAMP_KEY = "trstprep_admin_last_refresh_timestamp";
+
+const getLastRefreshTimestamp = () => {
+  try {
+    const ts =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem(REFRESH_TIMESTAMP_KEY)
+        : null;
+    return ts ? parseInt(ts, 10) : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const setLastRefreshTimestamp = (ts = Date.now()) => {
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(REFRESH_TIMESTAMP_KEY, String(ts));
+    }
+  } catch {
+    // ignore storage access errors
+  }
+};
+
+/**
+ * Validates that an API endpoint is a safe relative path and does NOT contain
+ * protocol-relative sequences (// or /\) or backslashes that could trigger SSRF / open redirect.
+ */
+export function isValidApiEndpoint(endpoint) {
+  if (typeof endpoint !== "string") return false;
+  const trimmed = endpoint.trim();
+  if (!trimmed.startsWith("/")) return false;
+  if (
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("/\\") ||
+    trimmed.startsWith("\\\\") ||
+    trimmed.startsWith("\\/")
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export const getMemoryToken = () => memoryToken;
 export const setMemoryToken = (token) => {
   memoryToken = token || null;
@@ -108,9 +152,23 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
-    // Safeguard: normalize leading "/api/" or "api/" to prevent double-prefix hazard
-    // when endpoints or utilities are shared or copied between frontend and admin-panel
+    // Validate request URL against protocol-relative / backslash SSRF vectors
     if (config.url && typeof config.url === "string") {
+      const trimmed = config.url.trim();
+      if (
+        trimmed.startsWith("//") ||
+        trimmed.startsWith("/\\") ||
+        trimmed.startsWith("\\\\") ||
+        trimmed.startsWith("\\/")
+      ) {
+        return Promise.reject(
+          new ValidationError(`Invalid request URL: ${config.url}`, {
+            url: config.url,
+          }),
+        );
+      }
+      // Safeguard: normalize leading "/api/" or "api/" to prevent double-prefix hazard
+      // when endpoints or utilities are shared or copied between frontend and admin-panel
       config.url = config.url.replace(/^\/?api\//, "/");
     }
     if (typeof FormData !== "undefined" && config.data instanceof FormData) {
@@ -221,57 +279,100 @@ apiClient.interceptors.response.use(
       }
       if (!originalRequest?._authRefreshAttempted) {
         originalRequest._authRefreshAttempted = true;
+        const requestTimestamp = Date.now();
         if (!isRefreshing) {
           isRefreshing = true;
-          try {
-            let fallbackRefreshToken;
+
+          const executeRefresh = async () => {
+            // Check if sibling tab already refreshed while waiting
+            const lastRefresh = getLastRefreshTimestamp();
+            if (lastRefresh && lastRefresh >= requestTimestamp) {
+              isRefreshing = false;
+              processQueue(null);
+              if (originalRequest.headers) {
+                const refreshedToken = readStoredToken();
+                if (refreshedToken) {
+                  originalRequest.headers["Authorization"] =
+                    `Bearer ${refreshedToken}`;
+                } else {
+                  delete originalRequest.headers["Authorization"];
+                  delete originalRequest.headers["authorization"];
+                }
+              }
+              return apiClient(originalRequest);
+            }
+
             try {
-              fallbackRefreshToken = readStoredRefreshToken() || undefined;
-            } catch {
-              // ignore storage access errors
+              let fallbackRefreshToken;
+              try {
+                fallbackRefreshToken = readStoredRefreshToken() || undefined;
+              } catch {
+                // ignore storage access errors
+              }
+              const body = fallbackRefreshToken
+                ? { refreshToken: fallbackRefreshToken }
+                : {};
+              const refreshResponse = await apiClient.post(
+                "/auth/refresh",
+                body,
+                { _authRefreshAttempted: true },
+              );
+              setLastRefreshTimestamp(Date.now());
+              const newToken =
+                refreshResponse?.data?.data?.token ||
+                refreshResponse?.data?.token;
+              const newRefreshToken =
+                refreshResponse?.data?.data?.refreshToken ||
+                refreshResponse?.data?.refreshToken;
+              persistRotatedTokens(newToken, newRefreshToken);
+              if (newToken) {
+                originalRequest.headers = originalRequest.headers || {};
+                originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
+              } else if (originalRequest.headers) {
+                delete originalRequest.headers["Authorization"];
+                delete originalRequest.headers["authorization"];
+              }
+              isRefreshing = false;
+              processQueue(null);
+              return apiClient(originalRequest);
+            } catch (refreshError) {
+              isRefreshing = false;
+              processQueue(refreshError);
+              const refreshStatus = refreshError?.response?.status;
+              if (refreshStatus === 401 || refreshStatus === 419)
+                typeof window !== "undefined"
+                  ? window.dispatchEvent(new Event("unauthorized"))
+                  : undefined;
+              return Promise.reject(refreshError);
             }
-            const body = fallbackRefreshToken
-              ? { refreshToken: fallbackRefreshToken }
-              : {};
-            const refreshResponse = await apiClient.post(
-              "/auth/refresh",
-              body,
-              { _authRefreshAttempted: true },
+          };
+
+          // Web Locks API coordination (SEC-API-01)
+          if (
+            typeof navigator !== "undefined" &&
+            navigator?.locks &&
+            typeof navigator.locks.request === "function"
+          ) {
+            return navigator.locks.request(
+              REFRESH_LOCK_NAME,
+              { mode: "exclusive" },
+              () => executeRefresh(),
             );
-            const newToken =
-              refreshResponse?.data?.data?.token ||
-              refreshResponse?.data?.token;
-            const newRefreshToken =
-              refreshResponse?.data?.data?.refreshToken ||
-              refreshResponse?.data?.refreshToken;
-            persistRotatedTokens(newToken, newRefreshToken);
-            if (newToken) {
-              originalRequest.headers = originalRequest.headers || {};
-              originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
-            } else if (originalRequest.headers) {
-              delete originalRequest.headers["Authorization"];
-              delete originalRequest.headers["authorization"];
-            }
-            isRefreshing = false;
-            processQueue(null);
-            return apiClient(originalRequest);
-          } catch (refreshError) {
-            isRefreshing = false;
-            processQueue(refreshError);
-            const refreshStatus = refreshError?.response?.status;
-            if (refreshStatus === 401 || refreshStatus === 419)
-              typeof window !== "undefined"
-                ? window.dispatchEvent(new Event("unauthorized"))
-                : undefined;
-            return Promise.reject(refreshError);
           }
+
+          return executeRefresh();
         }
         return new Promise((resolve, reject) =>
           failedQueue.push({ resolve, reject }),
         ).then(() => {
           if (originalRequest.headers) {
-            delete originalRequest.headers["Authorization"];
-            delete originalRequest.headers["authorization"];
+            const token = readStoredToken();
+            if (token) {
+              originalRequest.headers["Authorization"] = `Bearer ${token}`;
+            } else {
+              delete originalRequest.headers["Authorization"];
+              delete originalRequest.headers["authorization"];
+            }
           }
           return apiClient(originalRequest);
         });
@@ -320,6 +421,11 @@ apiClient.interceptors.response.use(
 );
 
 export const fetchFromAPI = async (endpoint, options = {}) => {
+  if (!isValidApiEndpoint(endpoint)) {
+    throw new ValidationError(`Invalid API endpoint: ${endpoint}`, {
+      endpoint,
+    });
+  }
   try {
     const config = {
       url: endpoint,
@@ -342,12 +448,25 @@ export const fetchFromAPI = async (endpoint, options = {}) => {
     return response.data;
   } catch (error) {
     if (import.meta.env.DEV) logger.error(`API Error (${endpoint}):`, error);
-    if (error.response?.data)
-      throw new DataError(
-        error.response.data.message || "Request failed",
-        error.response.status,
-        error.response.data,
-      );
+    if (
+      error instanceof DataError ||
+      error instanceof NetworkError ||
+      error?.name === "ValidationError" ||
+      error?.name === "AuthenticationError" ||
+      error?.name === "NotFoundError"
+    ) {
+      throw error;
+    }
+    if (error.response?.data) {
+      const status = error.response.status;
+      const message = error.response.data.message || "Request failed";
+      if (status === 400)
+        throw new ValidationError(message, error.response.data);
+      if (status === 401 || status === 403)
+        throw new AuthenticationError(message, error.response.data);
+      if (status === 404) throw new NotFoundError(message, error.response.data);
+      throw new DataError(message, `HTTP_${status}`, error.response.data);
+    }
     throw error;
   }
 };

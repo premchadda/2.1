@@ -1,10 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { logger } from "@trstprep/shared-config";
-import {
-  X,
-  ExternalLink,
-  Shield,
-} from "lucide-react";
+import { X, ExternalLink, Shield } from "lucide-react";
 import api from "../../lib/api";
 import { useAuth } from "../../providers/AuthContext";
 import videoTelemetry from "../../lib/telemetry/videoTelemetry";
@@ -257,17 +253,30 @@ export default function VideoPlayer({
                   {embedInfo.type} Stream
                 </span>
               </div>
-              {!videoData?.isPaid && !isEncrypted && (
-                <a
-                  href={videoData.url || videoData.videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
-                  title="Open in new tab"
-                >
-                  <ExternalLink className="w-4 h-4" aria-hidden="true" />
-                </a>
-              )}
+              {!videoData?.isPaid &&
+                !isEncrypted &&
+                (() => {
+                  const rawUrl = String(
+                    videoData?.url || videoData?.videoUrl || "",
+                  ).trim();
+                  const isSafeUrl = /^https?:\/\//i.test(rawUrl);
+                  return (
+                    <a
+                      href={isSafeUrl ? rawUrl : "#"}
+                      target={isSafeUrl ? "_blank" : undefined}
+                      rel={isSafeUrl ? "noopener noreferrer" : undefined}
+                      className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+                      title={
+                        isSafeUrl ? "Open in new tab" : "Invalid video URL"
+                      }
+                      onClick={
+                        isSafeUrl ? undefined : (e) => e.preventDefault()
+                      }
+                    >
+                      <ExternalLink className="w-4 h-4" aria-hidden="true" />
+                    </a>
+                  );
+                })()}
               <button
                 type="button"
                 onClick={onClose}

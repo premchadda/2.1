@@ -7,7 +7,7 @@
     "dev": "node ../../scripts/wait-for-backend.mjs && vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint . --max-warnings=125",
+    "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

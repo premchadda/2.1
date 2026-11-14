@@ -145,7 +145,10 @@ const KNOWN_COLLECTIONS = new Set([
   "subtopics",
 ]);
 
-function sanitizeBody(body, allowedFields) {
+function sanitizeBody(body, allowedFields, collection) {
+  const usesOrderIndex = ["units", "chapters", "topics", "subtopics"].includes(
+    collection,
+  );
   const sanitized = {};
   for (const field of allowedFields) {
     if (body[field] !== undefined) {
@@ -168,7 +171,12 @@ function sanitizeBody(body, allowedFields) {
         }
       }
       // Map aliased fields to their DB column name
-      const dbField = FIELD_ALIASES[field] || field;
+      let dbField = field;
+      if (field === "order" || field === "orderIndex") {
+        dbField = usesOrderIndex ? "order_index" : "order";
+      } else if (FIELD_ALIASES[field]) {
+        dbField = FIELD_ALIASES[field];
+      }
       sanitized[dbField] = val;
     }
   }
@@ -280,7 +288,9 @@ curriculumCrudRoutes.forEach(({ path, collection }) => {
     `/${path}`,
     asyncHandler(async (req, res) => {
       const allowed = ALLOWED_FIELDS[collection];
-      const sanitized = allowed ? sanitizeBody(req.body, allowed) : req.body;
+      const sanitized = allowed
+        ? sanitizeBody(req.body, allowed, collection)
+        : req.body;
       if (!sanitized.slug && (sanitized.name || sanitized.title)) {
         sanitized.slug = (sanitized.name || sanitized.title)
           .toLowerCase()
@@ -300,7 +310,9 @@ curriculumCrudRoutes.forEach(({ path, collection }) => {
     `/${path}/:id`,
     asyncHandler(async (req, res) => {
       const allowed = ALLOWED_FIELDS[collection];
-      const sanitized = allowed ? sanitizeBody(req.body, allowed) : req.body;
+      const sanitized = allowed
+        ? sanitizeBody(req.body, allowed, collection)
+        : req.body;
       const item = await dbHelpers.updateById(
         collection,
         req.params.id,

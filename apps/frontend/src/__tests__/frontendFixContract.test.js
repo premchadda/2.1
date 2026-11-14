@@ -42,10 +42,15 @@ describe("Frontend Fix Contracts (Tasks 1-4)", () => {
       let cleanedMobile = mobile ? mobile.replace(/[\s-]/g, "") : "";
       if (cleanedMobile.startsWith("+91")) {
         cleanedMobile = cleanedMobile.slice(3);
-      } else if (cleanedMobile.startsWith("91") && cleanedMobile.length === 12) {
+      } else if (
+        cleanedMobile.startsWith("91") &&
+        cleanedMobile.length === 12
+      ) {
         cleanedMobile = cleanedMobile.slice(2);
       }
-      const isValid = !mobile || (Boolean(cleanedMobile) && /^[0-9]{10}$/.test(cleanedMobile));
+      const isValid =
+        !mobile ||
+        (Boolean(cleanedMobile) && /^[0-9]{10}$/.test(cleanedMobile));
       return { cleanedMobile, isValid };
     };
 
@@ -93,16 +98,58 @@ describe("Frontend Fix Contracts (Tasks 1-4)", () => {
     };
 
     it("blocks polling during ongoing / in-progress active exams", () => {
-      expect(shouldPollLiveRank({ attemptStatus: "in_progress", isSubmitted: false, test: { id: 1 } })).toBe(false);
-      expect(shouldPollLiveRank({ attemptStatus: "not_started", isSubmitted: false, test: { id: 1 } })).toBe(false);
-      expect(shouldPollLiveRank({ attemptStatus: null, isSubmitted: false, test: { id: 1 } })).toBe(false);
+      expect(
+        shouldPollLiveRank({
+          attemptStatus: "in_progress",
+          isSubmitted: false,
+          test: { id: 1 },
+        }),
+      ).toBe(false);
+      expect(
+        shouldPollLiveRank({
+          attemptStatus: "not_started",
+          isSubmitted: false,
+          test: { id: 1 },
+        }),
+      ).toBe(false);
+      expect(
+        shouldPollLiveRank({
+          attemptStatus: null,
+          isSubmitted: false,
+          test: { id: 1 },
+        }),
+      ).toBe(false);
     });
 
     it("permits polling once attempt status is completed or submitted", () => {
-      expect(shouldPollLiveRank({ attemptStatus: "completed", isSubmitted: false, test: { id: 1 } })).toBe(true);
-      expect(shouldPollLiveRank({ attemptStatus: "submitted", isSubmitted: true, test: { id: 1 } })).toBe(true);
-      expect(shouldPollLiveRank({ attemptStatus: null, isSubmitted: true, test: { id: 1 } })).toBe(true);
-      expect(shouldPollLiveRank({ attemptStatus: null, isSubmitted: false, test: { attempt: { status: "completed" } } })).toBe(true);
+      expect(
+        shouldPollLiveRank({
+          attemptStatus: "completed",
+          isSubmitted: false,
+          test: { id: 1 },
+        }),
+      ).toBe(true);
+      expect(
+        shouldPollLiveRank({
+          attemptStatus: "submitted",
+          isSubmitted: true,
+          test: { id: 1 },
+        }),
+      ).toBe(true);
+      expect(
+        shouldPollLiveRank({
+          attemptStatus: null,
+          isSubmitted: true,
+          test: { id: 1 },
+        }),
+      ).toBe(true);
+      expect(
+        shouldPollLiveRank({
+          attemptStatus: null,
+          isSubmitted: false,
+          test: { attempt: { status: "completed" } },
+        }),
+      ).toBe(true);
     });
   });
 
@@ -203,7 +250,8 @@ describe("Frontend Fix Contracts (Tasks 1-4)", () => {
       it("resolves rank fallback to null instead of 1 for unranked users", () => {
         const analytics = {};
         const bestRank = null;
-        const rank = Number(analytics?.rank) > 0 ? analytics.rank : (bestRank || null);
+        const rank =
+          Number(analytics?.rank) > 0 ? analytics.rank : bestRank || null;
         expect(rank).toBeNull();
 
         const rankDisplay = rank && rank > 0 ? `${rank}` : "—";
@@ -211,12 +259,28 @@ describe("Frontend Fix Contracts (Tasks 1-4)", () => {
       });
 
       it("computes attempt pattern without arbitrary 0.7 multiplier", () => {
-        const s = { name: "Math", attempted: 10, accuracy: 80, correct: 8, wrong: 2, totalQuestions: 12, skipped: 2 };
+        const s = {
+          name: "Math",
+          attempted: 10,
+          accuracy: 80,
+          correct: 8,
+          wrong: 2,
+          totalQuestions: 12,
+          skipped: 2,
+        };
         const attempted = s.attempted || 0;
-        const correct = s.correct != null ? Number(s.correct) : Math.round((attempted * (s.accuracy || 0)) / 100);
-        const wrong = s.wrong != null ? Number(s.wrong) : Math.max(0, attempted - correct);
-        const skipped = s.skipped != null ? Number(s.skipped) : Math.max(0, (s.totalQuestions || attempted) - correct - wrong);
-        const total = s.totalQuestions || correct + wrong + skipped || attempted;
+        const correct =
+          s.correct != null
+            ? Number(s.correct)
+            : Math.round((attempted * (s.accuracy || 0)) / 100);
+        const wrong =
+          s.wrong != null ? Number(s.wrong) : Math.max(0, attempted - correct);
+        const skipped =
+          s.skipped != null
+            ? Number(s.skipped)
+            : Math.max(0, (s.totalQuestions || attempted) - correct - wrong);
+        const total =
+          s.totalQuestions || correct + wrong + skipped || attempted;
 
         expect(correct).toBe(8);
         expect(wrong).toBe(2);
@@ -228,7 +292,9 @@ describe("Frontend Fix Contracts (Tasks 1-4)", () => {
         const recentTestsNoData = [{ score: 80 }];
         const getImprovement = (tests) => {
           if (!tests || tests.length < 2) return "—";
-          const diff = Number(tests[tests.length - 1].score) - Number(tests[tests.length - 2].score);
+          const diff =
+            Number(tests[tests.length - 1].score) -
+            Number(tests[tests.length - 2].score);
           return diff > 0 ? `+${diff}%` : diff < 0 ? `${diff}%` : "0%";
         };
         expect(getImprovement(recentTestsNoData)).toBe("—");
@@ -238,12 +304,18 @@ describe("Frontend Fix Contracts (Tasks 1-4)", () => {
       it("formats test score as pts and does not equate score with accuracy", () => {
         const testWithScore = { score: 150, accuracy: 75 };
         const scoreLabel = `${testWithScore.score} pts`;
-        const accLabel = testWithScore.accuracy != null ? `${testWithScore.accuracy}% acc` : "—";
+        const accLabel =
+          testWithScore.accuracy != null
+            ? `${testWithScore.accuracy}% acc`
+            : "—";
         expect(scoreLabel).toBe("150 pts");
         expect(accLabel).toBe("75% acc");
 
         const testWithoutAcc = { score: 100, accuracy: null };
-        const accLabelNull = testWithoutAcc.accuracy != null ? `${testWithoutAcc.accuracy}% acc` : "—";
+        const accLabelNull =
+          testWithoutAcc.accuracy != null
+            ? `${testWithoutAcc.accuracy}% acc`
+            : "—";
         expect(accLabelNull).toBe("—");
       });
     });
@@ -251,7 +323,10 @@ describe("Frontend Fix Contracts (Tasks 1-4)", () => {
     describe("Task 4: Topper comparison guard contract", () => {
       const getTopperComparison = ({ avgScore, topperScore }) => {
         const userScore = Math.round(avgScore || 0);
-        const topper = topperScore != null && Number(topperScore) > 0 ? Math.round(Number(topperScore)) : null;
+        const topper =
+          topperScore != null && Number(topperScore) > 0
+            ? Math.round(Number(topperScore))
+            : null;
         if (!topper || userScore <= 0) return null;
         return {
           topperScore: topper,
@@ -262,12 +337,18 @@ describe("Frontend Fix Contracts (Tasks 1-4)", () => {
       };
 
       it("returns null when topperScore is missing, without defaulting to 100 or 200", () => {
-        expect(getTopperComparison({ avgScore: 75, topperScore: null })).toBeNull();
-        expect(getTopperComparison({ avgScore: 120, topperScore: undefined })).toBeNull();
+        expect(
+          getTopperComparison({ avgScore: 75, topperScore: null }),
+        ).toBeNull();
+        expect(
+          getTopperComparison({ avgScore: 120, topperScore: undefined }),
+        ).toBeNull();
       });
 
       it("returns null when userScore is 0", () => {
-        expect(getTopperComparison({ avgScore: 0, topperScore: 180 })).toBeNull();
+        expect(
+          getTopperComparison({ avgScore: 0, topperScore: 180 }),
+        ).toBeNull();
       });
 
       it("returns real comparison when both real topperScore and userScore > 0 are present", () => {
@@ -285,7 +366,10 @@ describe("Frontend Fix Contracts (Tasks 1-4)", () => {
       it("shows dash for unranked users instead of #1 and Top 25%", () => {
         const perfData = null;
         const userRanking = null;
-        const rankDisplay = perfData?.rank || userRanking?.rank ? `#${perfData?.rank || userRanking?.rank}` : "—";
+        const rankDisplay =
+          perfData?.rank || userRanking?.rank
+            ? `#${perfData?.rank || userRanking?.rank}`
+            : "—";
         expect(rankDisplay).toBe("—");
 
         const comparisonStats = null;
@@ -341,16 +425,46 @@ describe("Frontend Fix Contracts (Tasks 1-4)", () => {
     describe("Task 10: AttemptedTests marks calculation contract", () => {
       it("resolves totalMarks accurately with fallback chain", () => {
         const testWithTotalMarks = { totalMarks: 150 };
-        expect(Number(testWithTotalMarks.totalMarks || testWithTotalMarks.maxScore || (testWithTotalMarks.totalQuestions ? testWithTotalMarks.totalQuestions * 2 : 100))).toBe(150);
+        expect(
+          Number(
+            testWithTotalMarks.totalMarks ||
+              testWithTotalMarks.maxScore ||
+              (testWithTotalMarks.totalQuestions
+                ? testWithTotalMarks.totalQuestions * 2
+                : 100),
+          ),
+        ).toBe(150);
 
         const testWithMaxScore = { maxScore: 80 };
-        expect(Number(testWithMaxScore.totalMarks || testWithMaxScore.maxScore || (testWithMaxScore.totalQuestions ? testWithMaxScore.totalQuestions * 2 : 100))).toBe(80);
+        expect(
+          Number(
+            testWithMaxScore.totalMarks ||
+              testWithMaxScore.maxScore ||
+              (testWithMaxScore.totalQuestions
+                ? testWithMaxScore.totalQuestions * 2
+                : 100),
+          ),
+        ).toBe(80);
 
         const testWithQuestions = { totalQuestions: 30 };
-        expect(Number(testWithQuestions.totalMarks || testWithQuestions.maxScore || (testWithQuestions.totalQuestions ? testWithQuestions.totalQuestions * 2 : 100))).toBe(60);
+        expect(
+          Number(
+            testWithQuestions.totalMarks ||
+              testWithQuestions.maxScore ||
+              (testWithQuestions.totalQuestions
+                ? testWithQuestions.totalQuestions * 2
+                : 100),
+          ),
+        ).toBe(60);
 
         const testEmpty = {};
-        expect(Number(testEmpty.totalMarks || testEmpty.maxScore || (testEmpty.totalQuestions ? testEmpty.totalQuestions * 2 : 100))).toBe(100);
+        expect(
+          Number(
+            testEmpty.totalMarks ||
+              testEmpty.maxScore ||
+              (testEmpty.totalQuestions ? testEmpty.totalQuestions * 2 : 100),
+          ),
+        ).toBe(100);
       });
     });
   });

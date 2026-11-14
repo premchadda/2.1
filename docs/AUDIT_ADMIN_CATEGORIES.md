@@ -26,32 +26,32 @@
 
 ### Current state — ALL ISSUES RESOLVED ✅
 
-| # | Severity | Area | Finding | Resolution Status |
-|---|----------|------|---------|-------------------|
-| 1 | 🔴 P0 | Frontend | `ExamCategoriesManager` **cannot save an edit** — `categoryFormData.id` was numeric PK, throwing `TypeError` | ✅ **Fixed**: PK `id` and business key `categoryId` / `category_id` are cleanly separated; values coerced with safe string utilities |
-| 2 | 🔴 P0 | Frontend | Edit path overwrote business key (`"ssc"` → `"2"`) | ✅ **Fixed**: PUT payload preserves `category_id: "ssc"` and only uses numeric PK for URL parameter and `payload.id` |
-| 3 | 🟠 P1 | Backend | `GET /admin/test-categories?includeInactive=true` was no-op | ✅ **Fixed**: `query.includeInactive = true` is now set on the query object passed to `dbHelpers.find()`, preventing `is_active = true` auto-scoping |
-| 4 | 🟡 P2 | Backend | Recursion without `visited` Set in PUT/DELETE `collectDescendantIds` | ✅ **Fixed**: Added `visited = new Set()` in both PUT & DELETE routes in `admin-categories.js` to guard against legacy circular data |
-| 5 | 🟡 P2 | Frontend | Reorder swap ineffective on identical displayOrder | ✅ **Fixed**: Normalizes order to sibling array indices when values match; executes updates concurrently via `Promise.all` |
-| 6 | 🟡 P2 | Backend | `PUT /orphaned/reassign` bypassed junction table | ✅ **Fixed**: Inserts into `test_category_series` and invalidates caches |
-| 7 | 🟡 P2 | Backend | Systemic `normalizeFields` camelCase dropping | ✅ **Fixed**: `normalize-fields.js` now populates both canonical snake_case and camelCase aliases, preserving values across all 38 admin routes |
-| 8 | 🟡 P3 | Backend/Frontend | `_orphaned_exam_category_id` was written without setting `is_active = false` | ✅ **Fixed**: Cascade update now sets `is_active = false`, genuinely hiding orphaned series as the dialog warns |
-| 9 | 🟢 P3 | Frontend | JSON import lacked depth guard & UX partial count | ✅ **Fixed**: Capped at `MAX_DEPTH = 10` with informative toast reporting created count on mid-tree error |
+| #   | Severity | Area             | Finding                                                                                                      | Resolution Status                                                                                                                                    |
+| --- | -------- | ---------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 🔴 P0    | Frontend         | `ExamCategoriesManager` **cannot save an edit** — `categoryFormData.id` was numeric PK, throwing `TypeError` | ✅ **Fixed**: PK `id` and business key `categoryId` / `category_id` are cleanly separated; values coerced with safe string utilities                 |
+| 2   | 🔴 P0    | Frontend         | Edit path overwrote business key (`"ssc"` → `"2"`)                                                           | ✅ **Fixed**: PUT payload preserves `category_id: "ssc"` and only uses numeric PK for URL parameter and `payload.id`                                 |
+| 3   | 🟠 P1    | Backend          | `GET /admin/test-categories?includeInactive=true` was no-op                                                  | ✅ **Fixed**: `query.includeInactive = true` is now set on the query object passed to `dbHelpers.find()`, preventing `is_active = true` auto-scoping |
+| 4   | 🟡 P2    | Backend          | Recursion without `visited` Set in PUT/DELETE `collectDescendantIds`                                         | ✅ **Fixed**: Added `visited = new Set()` in both PUT & DELETE routes in `admin-categories.js` to guard against legacy circular data                 |
+| 5   | 🟡 P2    | Frontend         | Reorder swap ineffective on identical displayOrder                                                           | ✅ **Fixed**: Normalizes order to sibling array indices when values match; executes updates concurrently via `Promise.all`                           |
+| 6   | 🟡 P2    | Backend          | `PUT /orphaned/reassign` bypassed junction table                                                             | ✅ **Fixed**: Inserts into `test_category_series` and invalidates caches                                                                             |
+| 7   | 🟡 P2    | Backend          | Systemic `normalizeFields` camelCase dropping                                                                | ✅ **Fixed**: `normalize-fields.js` now populates both canonical snake_case and camelCase aliases, preserving values across all 38 admin routes      |
+| 8   | 🟡 P3    | Backend/Frontend | `_orphaned_exam_category_id` was written without setting `is_active = false`                                 | ✅ **Fixed**: Cascade update now sets `is_active = false`, genuinely hiding orphaned series as the dialog warns                                      |
+| 9   | 🟢 P3    | Frontend         | JSON import lacked depth guard & UX partial count                                                            | ✅ **Fixed**: Capped at `MAX_DEPTH = 10` with informative toast reporting created count on mid-tree error                                            |
 
 ### Fixed by the 22:23 rewrite (verified by test)
 
-| Was | Fix |
-|-----|-----|
-| 🔴 P0 `POST /admin/test-categories` dropped `parentId`/`level`/`examCategoryId`/`stageIds`/`displayOrder`/`isActive` | ✅ Now reads both camelCase and snake_case; `level` derived from the stored parent |
-| 🔴 P0 `POST /admin/exam-categories` wrote no `category_id` (`NOT NULL` in the live schema) | ✅ Now derives `category_id`, auto-generates the slug, and returns 409 `DUPLICATE_SLUG` on collision |
-| 🟠 P1 `GET /admin/test-categories` cached 60 s with no invalidation | ✅ `invalidateResponseCache("admin-test-categories")` now called on every mutation |
-| 🟠 P1 `DELETE /admin/test-categories/:id` orphaned `test_category_series` rows | ✅ Junction rows are deleted for the category and all descendants |
-| 🟠 P1 `DELETE /admin/exam-categories/:id` cascade matched slug-vs-numeric, so orphan flagging never fired | ✅ Now matches `exam_category_id` OR `category` (slug) OR `category` (id) |
-| 🟡 P2 `PUT` never recomputed `level` | ✅ Server-side circular-reference guard + `level` recomputation |
-| 🟡 P2 No server-side circular-parent guard | ✅ 400 on self-parent and on descendant-parent |
-| 🟡 P2 No slug uniqueness check / validation on exam categories | ✅ 409 + `DUPLICATE_SLUG`, plus `label`/`category_id` required |
-| 🟡 P2 Ordering written to a column nobody read | ✅ Both list endpoints now sort by `display_order ?? displayOrder ?? order` |
-| 🟡 P2 `CategoriesManager` "Permission Levels" dead placeholder | ✅ Removed |
+| Was                                                                                                                  | Fix                                                                                                  |
+| -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 🔴 P0 `POST /admin/test-categories` dropped `parentId`/`level`/`examCategoryId`/`stageIds`/`displayOrder`/`isActive` | ✅ Now reads both camelCase and snake_case; `level` derived from the stored parent                   |
+| 🔴 P0 `POST /admin/exam-categories` wrote no `category_id` (`NOT NULL` in the live schema)                           | ✅ Now derives `category_id`, auto-generates the slug, and returns 409 `DUPLICATE_SLUG` on collision |
+| 🟠 P1 `GET /admin/test-categories` cached 60 s with no invalidation                                                  | ✅ `invalidateResponseCache("admin-test-categories")` now called on every mutation                   |
+| 🟠 P1 `DELETE /admin/test-categories/:id` orphaned `test_category_series` rows                                       | ✅ Junction rows are deleted for the category and all descendants                                    |
+| 🟠 P1 `DELETE /admin/exam-categories/:id` cascade matched slug-vs-numeric, so orphan flagging never fired            | ✅ Now matches `exam_category_id` OR `category` (slug) OR `category` (id)                            |
+| 🟡 P2 `PUT` never recomputed `level`                                                                                 | ✅ Server-side circular-reference guard + `level` recomputation                                      |
+| 🟡 P2 No server-side circular-parent guard                                                                           | ✅ 400 on self-parent and on descendant-parent                                                       |
+| 🟡 P2 No slug uniqueness check / validation on exam categories                                                       | ✅ 409 + `DUPLICATE_SLUG`, plus `label`/`category_id` required                                       |
+| 🟡 P2 Ordering written to a column nobody read                                                                       | ✅ Both list endpoints now sort by `display_order ?? displayOrder ?? order`                          |
+| 🟡 P2 `CategoriesManager` "Permission Levels" dead placeholder                                                       | ✅ Removed                                                                                           |
 
 A permanent regression test now exists at
 `apps/backend/src/__tests__/adminCategories.contract.test.js` (5 tests, all passing).
@@ -98,13 +98,17 @@ sent at all**. The `catch` block shows "Failed to save category" — but the rea
 
 **Editing an exam category is completely broken.** Creating a new one works only
 because the "ID" input is empty at that point (`"" || slug` → string). The moment an
-admin clicks *Edit* on an existing category and then *Update*, the save silently
+admin clicks _Edit_ on an existing category and then _Update_, the save silently
 fails. This is the primary way exam categories are maintained.
 
 Note the same expression on line 61 is also unsafe:
 
 ```js
-const slug = (categoryFormData.slug || categoryFormData.id || label).toLowerCase()
+const slug = (
+  categoryFormData.slug ||
+  categoryFormData.id ||
+  label
+).toLowerCase();
 ```
 
 `categoryFormData.id` is a number here too — this line only survives because
@@ -151,17 +155,17 @@ Even once the `TypeError` is fixed, the payload built at lines 67-77 sends:
 
 where `categoryId` is the **numeric PK** (`"2"`), not the business key (`"ssc"`).
 
-`category_id` is the *business key* of `exam_categories` — a `VARCHAR(255) NOT NULL`
+`category_id` is the _business key_ of `exam_categories` — a `VARCHAR(255) NOT NULL`
 column that everything else joins on:
 
-| Consumer | Join |
-|----------|------|
-| `series.js:108` | `SELECT id, category_id, label, slug FROM exam_categories` |
-| `pyp-hierarchy.js:70` | `SELECT ec.id, ec.slug, ec.label, …, ec.category_id` |
-| `exam-seasons.routes.js:35` | `JOIN exam_categories ec ON e.category_id = ec.category_id` |
-| `admin-test-series.js:290` | validates `body.category` against `c.categoryId` |
-| `relationships.js:212-220` | FK `test_categories.exam_category_id → exam_categories.category_id` |
-| `migration 049` | backfills `test_series.exam_category_id` by matching `ts.category` to `ec.slug` / `ec.name` |
+| Consumer                    | Join                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------- |
+| `series.js:108`             | `SELECT id, category_id, label, slug FROM exam_categories`                                  |
+| `pyp-hierarchy.js:70`       | `SELECT ec.id, ec.slug, ec.label, …, ec.category_id`                                        |
+| `exam-seasons.routes.js:35` | `JOIN exam_categories ec ON e.category_id = ec.category_id`                                 |
+| `admin-test-series.js:290`  | validates `body.category` against `c.categoryId`                                            |
+| `relationships.js:212-220`  | FK `test_categories.exam_category_id → exam_categories.category_id`                         |
+| `migration 049`             | backfills `test_series.exam_category_id` by matching `ts.category` to `ec.slug` / `ec.name` |
 
 `migration 108` created `exam_categories` with `name`/`slug` (no `category_id`), but
 the **live table predates it** and still carries the legacy
@@ -258,7 +262,7 @@ Note the same pattern is used correctly elsewhere: `admin-test-series.js:192`
 ```js
 const query = {};
 if (includeInactive === "true" || includeInactive === true) {
-  query.includeInactive = true;      // must live INSIDE the query object
+  query.includeInactive = true; // must live INSIDE the query object
 } else {
   query.isActive = true;
 }
@@ -276,13 +280,13 @@ Two gaps let the regressions above through:
 
 1. **`includeInactive` is asserted at the wrong layer.** The test asserts
    `expect(mockFind).toHaveBeenCalledWith("testCategories", {})` — i.e. it
-   *encodes the bug as expected behaviour*. Because `dbHelpers.find` is mocked, the
+   _encodes the bug as expected behaviour_. Because `dbHelpers.find` is mocked, the
    helper's own default-scoping logic never runs, so the test passes while the
    feature is broken. It should assert that the **emitted SQL** omits `is_active`,
    or that `find()` is called with `{ includeInactive: true }`.
 2. **No exam-category edit test.** `POST /exam-categories` is covered; `PUT
-   /exam-categories/:id` is not. A test that seeds a row with `id: 2,
-   category_id: "ssc"` and asserts the update does **not** change `category_id`
+/exam-categories/:id` is not. A test that seeds a row with `id: 2,
+category_id: "ssc"` and asserts the update does **not** change `category_id`
    would have caught #2.
 
 ---
@@ -298,8 +302,8 @@ Two gaps let the regressions above through:
 `docs/SYSTEM_ARCHITECTURE.md:2400`), but **no query filters on them** — a
 repo-wide search finds the write site and the schema references only.
 
-So the panel's promise *"Deleting this category will orphan these test series (hide
-them from the user interface until reassigned)"*
+So the panel's promise _"Deleting this category will orphan these test series (hide
+them from the user interface until reassigned)"_
 (`ExamCategoriesManager.jsx:114`) is still not implemented: the series stay visible.
 Either consume the flag in the series/series-list queries or drop the claim from the
 dialog.
@@ -308,7 +312,7 @@ dialog.
 
 `CategoriesManager.jsx:1368-1397`. The import is a recursive sequence of independent
 POSTs; a mid-tree failure leaves a partially imported tree with no rollback, and the
-toast reports `count` of *attempted* creates. (The `parentId` linkage itself is now
+toast reports `count` of _attempted_ creates. (The `parentId` linkage itself is now
 correct, since #1 was fixed upstream.)
 
 ### 🟢 P3 — `ExamInfoManager` wizard blank steps — carried over, unverified
@@ -336,10 +340,10 @@ same pattern still exists in the other admin routers:
 - `admin-users.js`, `admin-questions.js`, `admin-assets.js`, `admin-bulk-ops.js`,
   `admin-import.js`, `leaderboards-admin.js`, `admin-live-tests.js`
 
-A single normalisation contract (read snake_case everywhere, or normalise *after* the
+A single normalisation contract (read snake_case everywhere, or normalise _after_ the
 handler) is the durable fix. A per-route patch list will keep regressing — as this
 very audit demonstrates: the `admin-categories.js` rewrite re-introduced the same
-class of bug twice, in the form of *dropped* fields rather than *unread* fields.
+class of bug twice, in the form of _dropped_ fields rather than _unread_ fields.
 
 ---
 

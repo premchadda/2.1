@@ -10,7 +10,7 @@ import { describe, test, expect } from "../../harness/testContext.js";
 describe("Tier 2 - Feature F16: PracticeSessionCanvas Boundaries", () => {
   const canvasPath = path.resolve(
     process.cwd(),
-    "apps/frontend/src/pages/tests/components/PracticeSessionCanvas.jsx"
+    "apps/frontend/src/pages/tests/components/PracticeSessionCanvas.jsx",
   );
 
   test("T2.F16.01: Session summary metrics computation on finish", () => {
@@ -76,7 +76,10 @@ describe("Tier 2 - Feature F16: PracticeSessionCanvas Boundaries", () => {
     };
 
     const chosenLang = "hi";
-    const renderedText = chosenLang === "hi" && question.text_hi ? question.text_hi : question.text;
+    const renderedText =
+      chosenLang === "hi" && question.text_hi
+        ? question.text_hi
+        : question.text;
     expect(renderedText).toBe("English Question Text");
   });
 });

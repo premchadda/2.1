@@ -19,9 +19,11 @@ export class DbClient {
     if (!this.pool && this.connectionString) {
       this.pool = new Pool({
         connectionString: this.connectionString,
-        ssl: this.connectionString.includes("localhost") || this.connectionString.includes("127.0.0.1")
-          ? false
-          : { rejectUnauthorized: false },
+        ssl:
+          this.connectionString.includes("localhost") ||
+          this.connectionString.includes("127.0.0.1")
+            ? false
+            : { rejectUnauthorized: false },
         max: 5,
         idleTimeoutMillis: 10000,
         connectionTimeoutMillis: 5000,

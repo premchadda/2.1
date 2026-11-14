@@ -538,6 +538,12 @@ export const sanitizeQuestionForAttempt = (question) => {
     explanationHi,
     explanation_hi,
     solution,
+    solution_image_url,
+    solutionImageUrl,
+    solution_image,
+    solutionImage,
+    solution_image_url_hi,
+    solutionImageUrlHi,
     ...safeQuestion
   } = question;
 

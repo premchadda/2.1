@@ -9,8 +9,14 @@ import { describe, test, expect } from "../../harness/testContext.js";
 import { apiClient } from "../../harness/apiClient.js";
 
 describe("Tier 3 - Pairwise 4: Dynamic Shifts (F11) ↔ PypsExam Activation (F14)", () => {
-  const pypsExamPath = path.resolve(process.cwd(), "apps/frontend/src/pages/pyps/PypsExam.jsx");
-  const examRoutesPath = path.resolve(process.cwd(), "apps/backend/src/modules/exams/exam.routes.js");
+  const pypsExamPath = path.resolve(
+    process.cwd(),
+    "apps/frontend/src/pages/pyps/PypsExam.jsx",
+  );
+  const examRoutesPath = path.resolve(
+    process.cwd(),
+    "apps/backend/src/modules/exams/exam.routes.js",
+  );
 
   test("T3.P4.01: PypsExam and Exam Routes components exist", () => {
     expect(fs.existsSync(pypsExamPath)).toBe(true);
@@ -19,8 +25,20 @@ describe("Tier 3 - Pairwise 4: Dynamic Shifts (F11) ↔ PypsExam Activation (F14
 
   test("T3.P4.02: Database tests table query populates genuine previous year shifts", () => {
     const rawDbTests = [
-      { id: 101, title: "SSC CGL 2024 Tier 1 Shift 1", date: "2024-09-09", totalQuestions: 100, isActive: true },
-      { id: 102, title: "SSC CGL 2024 Tier 1 Shift 2", date: "2024-09-10", totalQuestions: 100, isActive: true },
+      {
+        id: 101,
+        title: "SSC CGL 2024 Tier 1 Shift 1",
+        date: "2024-09-09",
+        totalQuestions: 100,
+        isActive: true,
+      },
+      {
+        id: 102,
+        title: "SSC CGL 2024 Tier 1 Shift 2",
+        date: "2024-09-10",
+        totalQuestions: 100,
+        isActive: true,
+      },
     ];
 
     const mappedPapers = rawDbTests
@@ -74,7 +92,9 @@ describe("Tier 3 - Pairwise 4: Dynamic Shifts (F11) ↔ PypsExam Activation (F14
   });
 
   test("T3.P4.05: Dynamic exam year endpoint contract", async () => {
-    const res = await apiClient.asAnonymous().get("/api/exams/ssc-cgl/year?year=2024");
+    const res = await apiClient
+      .asAnonymous()
+      .get("/api/exams/ssc-cgl/year?year=2024");
     if (res.status !== 0) {
       expect([200, 404]).toContain(res.status);
     } else {

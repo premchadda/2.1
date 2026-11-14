@@ -13,11 +13,20 @@ describe("Tier 2 - Feature F21: AuditQuestionsView Boundaries & Malformed Questi
   });
 
   test("T2.F21.02: Malformed question object handles missing options and text safely", () => {
-    const malformed = { id: 999, questionText: null, options: undefined, auditIssues: null };
+    const malformed = {
+      id: 999,
+      questionText: null,
+      options: undefined,
+      auditIssues: null,
+    };
 
     const safeTitle = malformed.questionText || "Untitled Question";
-    const safeOptions = Array.isArray(malformed.options) ? malformed.options : [];
-    const safeIssues = Array.isArray(malformed.auditIssues) ? malformed.auditIssues : [];
+    const safeOptions = Array.isArray(malformed.options)
+      ? malformed.options
+      : [];
+    const safeIssues = Array.isArray(malformed.auditIssues)
+      ? malformed.auditIssues
+      : [];
 
     expect(safeTitle).toBe("Untitled Question");
     expect(safeOptions.length).toBe(0);
@@ -31,7 +40,9 @@ describe("Tier 2 - Feature F21: AuditQuestionsView Boundaries & Malformed Questi
     ];
 
     const searchQuery = "TrigonometricIdentities";
-    const filtered = questions.filter((q) => q.text.toLowerCase().includes(searchQuery.toLowerCase()));
+    const filtered = questions.filter((q) =>
+      q.text.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
     expect(filtered.length).toBe(0);
   });
 
@@ -45,7 +56,9 @@ describe("Tier 2 - Feature F21: AuditQuestionsView Boundaries & Malformed Questi
       ],
     };
 
-    const hasCritical = question.auditIssues.some((i) => i.severity === "danger");
+    const hasCritical = question.auditIssues.some(
+      (i) => i.severity === "danger",
+    );
     expect(hasCritical).toBe(true);
     expect(question.auditIssues.length).toBe(3);
   });
@@ -58,7 +71,9 @@ describe("Tier 2 - Feature F21: AuditQuestionsView Boundaries & Malformed Questi
     ];
 
     const severityWeight = { danger: 3, warning: 2, info: 1 };
-    issues.sort((a, b) => severityWeight[b.severity] - severityWeight[a.severity]);
+    issues.sort(
+      (a, b) => severityWeight[b.severity] - severityWeight[a.severity],
+    );
 
     expect(issues[0].severity).toBe("danger");
     expect(issues[1].severity).toBe("warning");

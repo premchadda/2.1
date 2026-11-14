@@ -45,18 +45,21 @@ export const VALID_BULK_IMPORT_PAYLOAD = {
         { text: "11.8", isCorrect: false },
         { text: "13.2", isCorrect: false },
       ],
-      explanation: "First 10 primes are 2, 3, 5, 7, 11, 13, 17, 19, 23, 29. Sum = 129. Average = 129 / 10 = 12.9.",
+      explanation:
+        "First 10 primes are 2, 3, 5, 7, 11, 13, 17, 19, 23, 29. Sum = 129. Average = 129 / 10 = 12.9.",
       difficulty: "easy",
     },
     {
-      questionText: "If $x + \\frac{1}{x} = 3$, find the value of $x^3 + \\frac{1}{x^3}$.",
+      questionText:
+        "If $x + \\frac{1}{x} = 3$, find the value of $x^3 + \\frac{1}{x^3}$.",
       options: [
         { text: "18", isCorrect: true },
         { text: "27", isCorrect: false },
         { text: "36", isCorrect: false },
         { text: "9", isCorrect: false },
       ],
-      explanation: "$x^3 + \\frac{1}{x^3} = (x + \\frac{1}{x})^3 - 3(x + \\frac{1}{x}) = 3^3 - 3(3) = 27 - 9 = 18$.",
+      explanation:
+        "$x^3 + \\frac{1}{x^3} = (x + \\frac{1}{x})^3 - 3(x + \\frac{1}{x}) = 3^3 - 3(3) = 27 - 9 = 18$.",
       difficulty: "medium",
     },
   ],

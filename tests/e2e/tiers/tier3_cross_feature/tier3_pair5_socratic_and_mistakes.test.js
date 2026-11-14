@@ -11,7 +11,7 @@ import { apiClient } from "../../harness/apiClient.js";
 describe("Tier 3 - Pairwise 5: Socratic Hint Modal (F15) ↔ Mistakes Vault (F20)", () => {
   const modalPath = path.resolve(
     process.cwd(),
-    "apps/frontend/src/pages/tests/components/SocraticHintModal.jsx"
+    "apps/frontend/src/pages/tests/components/SocraticHintModal.jsx",
   );
 
   test("T3.P5.01: SocraticHintModal file exists and declares 3-tier scaffolding", () => {
@@ -22,15 +22,15 @@ describe("Tier 3 - Pairwise 5: Socratic Hint Modal (F15) ↔ Mistakes Vault (F20
 
   test("T3.P5.02: Multi-tier hint progression calculates progressive score penalty", () => {
     function calculatePenalty(tier) {
-      if (tier === 1) return 0.10; // 10% penalty
+      if (tier === 1) return 0.1; // 10% penalty
       if (tier === 2) return 0.25; // 25% penalty
-      if (tier === 3) return 0.50; // 50% penalty
+      if (tier === 3) return 0.5; // 50% penalty
       return 0.0;
     }
 
-    expect(calculatePenalty(1)).toBe(0.10);
+    expect(calculatePenalty(1)).toBe(0.1);
     expect(calculatePenalty(2)).toBe(0.25);
-    expect(calculatePenalty(3)).toBe(0.50);
+    expect(calculatePenalty(3)).toBe(0.5);
   });
 
   test("T3.P5.03: Failed question during practice enters Mistakes Vault with hint telemetry", () => {
@@ -42,7 +42,8 @@ describe("Tier 3 - Pairwise 5: Socratic Hint Modal (F15) ↔ Mistakes Vault (F20
       timeSpentSec: 85,
     };
 
-    const isWrong = questionAttempt.userAnswer !== questionAttempt.correctAnswer;
+    const isWrong =
+      questionAttempt.userAnswer !== questionAttempt.correctAnswer;
     const mistakesEntry = isWrong
       ? {
           questionId: questionAttempt.questionId,
@@ -68,7 +69,9 @@ describe("Tier 3 - Pairwise 5: Socratic Hint Modal (F15) ↔ Mistakes Vault (F20
     const expected = 4;
 
     if (reattemptAnswer === expected) {
-      mistakesQueue = mistakesQueue.filter((q) => q.questionId !== "Q_ALGEBRA_401");
+      mistakesQueue = mistakesQueue.filter(
+        (q) => q.questionId !== "Q_ALGEBRA_401",
+      );
     }
 
     expect(mistakesQueue.length).toBe(1);
@@ -76,7 +79,9 @@ describe("Tier 3 - Pairwise 5: Socratic Hint Modal (F15) ↔ Mistakes Vault (F20
   });
 
   test("T3.P5.05: Socratic hints endpoint contract in intelligence service", async () => {
-    const res = await apiClient.asStudent().get("/api/intelligence/questions/Q_ALGEBRA_401/socratic-hint");
+    const res = await apiClient
+      .asStudent()
+      .get("/api/intelligence/questions/Q_ALGEBRA_401/socratic-hint");
     if (res.status !== 0) {
       expect([200, 404]).toContain(res.status);
     } else {

@@ -14,6 +14,7 @@ import {
   scoreMcqAnswer,
 } from "../../shared/utils/scoreAttempt.js";
 import { idsMatch } from "../../services/core/common.js";
+import { sanitizeOptions } from "../tests/test.helpers.js";
 
 const liveMockService = {
   /**
@@ -269,9 +270,15 @@ const liveMockService = {
         [session.test_id],
       );
 
+      // VULN-CLIENT-02: Sanitize option rows to prevent isCorrect flag leakage during live contest
+      const safeQuestions = (questions.rows || []).map((q) => ({
+        ...q,
+        options: sanitizeOptions(q.options),
+      }));
+
       return {
         attemptId: attempt.rows[0].id,
-        questions: questions.rows,
+        questions: safeQuestions,
         duration: session.duration,
         startTime: session.start_time,
         endTime: session.end_time,

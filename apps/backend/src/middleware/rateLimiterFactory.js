@@ -60,6 +60,5 @@ export const adminLimiter = rateLimit({
   legacyHeaders: false,
   skip: (req) =>
     isUserAdminRequest(req) || process.env.NODE_ENV === "development",
-  keyGenerator: (req) =>
-    `admin-ip-${getClientIp(req)}`,
+  keyGenerator: (req) => `admin-ip-${getClientIp(req)}`,
 });

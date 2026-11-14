@@ -47,7 +47,10 @@ export async function purgeSingleUser(client, user) {
       [userId],
     );
   } catch (auditErr) {
-    logger.warn(`[DPDP Purge] Anonymizing audit logs warning for user ${userId}:`, auditErr.message);
+    logger.warn(
+      `[DPDP Purge] Anonymizing audit logs warning for user ${userId}:`,
+      auditErr.message,
+    );
   }
 
   // 3. Nullify audit/creator NO ACTION foreign keys that would block deletion
@@ -110,12 +113,16 @@ export async function purgeSingleUser(client, user) {
         JSON.stringify({
           purgedAt: new Date().toISOString(),
           compliance: "DPDP Act 2023 Section 8(7) / 12(3)",
-          originalDeletionRequestedDate: user.deletion_date || user.deletionDate,
+          originalDeletionRequestedDate:
+            user.deletion_date || user.deletionDate,
         }),
       ],
     );
   } catch (logErr) {
-    logger.warn(`[DPDP Purge] Could not write audit log for user ${userId}:`, logErr.message);
+    logger.warn(
+      `[DPDP Purge] Could not write audit log for user ${userId}:`,
+      logErr.message,
+    );
   }
 
   // 7. Clear Redis caches / keys if redis is ready
@@ -147,13 +154,18 @@ export async function purgeExpiredAccounts(options = {}) {
   const batchSize = Math.max(1, Math.min(500, Number(options.batchSize) || 50));
   const dryRun = Boolean(options.dryRun);
 
-  logger.info(`[DPDP Purge] Starting account purge run (batchSize: ${batchSize}, dryRun: ${dryRun})...`);
+  logger.info(
+    `[DPDP Purge] Starting account purge run (batchSize: ${batchSize}, dryRun: ${dryRun})...`,
+  );
 
   let client;
   try {
     client = await pool.connect();
   } catch (connErr) {
-    logger.error("[DPDP Purge] Failed to acquire database client:", connErr.message);
+    logger.error(
+      "[DPDP Purge] Failed to acquire database client:",
+      connErr.message,
+    );
     return {
       success: false,
       totalFound: 0,
@@ -176,7 +188,9 @@ export async function purgeExpiredAccounts(options = {}) {
     `;
     const { rows: expiredUsers } = await client.query(query, [batchSize]);
 
-    logger.info(`[DPDP Purge] Found ${expiredUsers.length} user account(s) due for permanent erasure.`);
+    logger.info(
+      `[DPDP Purge] Found ${expiredUsers.length} user account(s) due for permanent erasure.`,
+    );
 
     if (dryRun) {
       return {
@@ -184,7 +198,10 @@ export async function purgeExpiredAccounts(options = {}) {
         totalFound: expiredUsers.length,
         purgedCount: 0,
         failedCount: 0,
-        dryRunUsers: expiredUsers.map((u) => ({ id: u.id, deletionDate: u.deletion_date })),
+        dryRunUsers: expiredUsers.map((u) => ({
+          id: u.id,
+          deletionDate: u.deletion_date,
+        })),
         errors: [],
       };
     }
@@ -199,12 +216,17 @@ export async function purgeExpiredAccounts(options = {}) {
         await purgeSingleUser(client, user);
         await client.query("COMMIT");
         purgedCount++;
-        logger.info(`[DPDP Purge] Successfully purged user ID ${user.id} in compliance with DPDP Act 2023.`);
+        logger.info(
+          `[DPDP Purge] Successfully purged user ID ${user.id} in compliance with DPDP Act 2023.`,
+        );
       } catch (userErr) {
         await client.query("ROLLBACK");
         failedCount++;
         errors.push({ userId: user.id, error: userErr.message });
-        logger.error(`[DPDP Purge] Failed to purge user ID ${user.id}:`, userErr.message);
+        logger.error(
+          `[DPDP Purge] Failed to purge user ID ${user.id}:`,
+          userErr.message,
+        );
       }
     }
 
@@ -220,7 +242,10 @@ export async function purgeExpiredAccounts(options = {}) {
       errors,
     };
   } catch (error) {
-    logger.error("[DPDP Purge] Unhandled exception during account purge run:", error.message);
+    logger.error(
+      "[DPDP Purge] Unhandled exception during account purge run:",
+      error.message,
+    );
     return {
       success: false,
       totalFound: 0,
@@ -256,7 +281,9 @@ export function startAccountPurgeCron(intervalMs = 24 * 60 * 60 * 1000) {
   }, intervalMs);
 
   purgeIntervalHandle.unref();
-  logger.info(`[DPDP Purge] Purge cron scheduled every ${Math.round(intervalMs / 1000 / 60)} minutes.`);
+  logger.info(
+    `[DPDP Purge] Purge cron scheduled every ${Math.round(intervalMs / 1000 / 60)} minutes.`,
+  );
 }
 
 /**

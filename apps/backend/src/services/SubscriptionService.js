@@ -546,10 +546,7 @@ class SubscriptionService {
         downgradedToFree,
       };
     } catch (err) {
-      logger.error(
-        { err },
-        "[SubscriptionExpiry] Worker error",
-      );
+      logger.error({ err }, "[SubscriptionExpiry] Worker error");
       return {
         success: false,
         error: err.message,

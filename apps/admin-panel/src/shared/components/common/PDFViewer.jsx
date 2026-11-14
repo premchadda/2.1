@@ -5,6 +5,14 @@ import { X, Download, ExternalLink } from "lucide-react";
 function isSafeUrl(url) {
   if (!url || typeof url !== "string") return false;
   const trimmed = url.trim();
+  if (
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("/\\") ||
+    trimmed.startsWith("\\\\") ||
+    trimmed.startsWith("\\/")
+  ) {
+    return false;
+  }
   if (trimmed.startsWith("/") || trimmed.startsWith("./")) return true;
   try {
     const parsed = new URL(
@@ -139,7 +147,7 @@ export default function PDFViewer({ isOpen, onClose, pdfData }) {
             className="w-full h-full border-0"
             title={pdfData?.title || "PDF"}
             allow="fullscreen"
-            sandbox="allow-scripts"
+            sandbox="allow-same-origin allow-popups"
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-white/60 gap-3">

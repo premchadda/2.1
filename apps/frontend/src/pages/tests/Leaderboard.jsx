@@ -584,7 +584,9 @@ export default function Leaderboard() {
         String(c ?? "")
           .replace(/&/g, "&amp;")
           .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#x27;");
       const body = rows
         .map(
           (row) => `<tr>${row.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`,
@@ -597,7 +599,7 @@ export default function Leaderboard() {
       }
       printWin.opener = null;
       printWin.document.write(
-        `<!DOCTYPE html><html><head><title>${filename}</title><style>body{font-family:system-ui,sans-serif;padding:32px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #e5e7eb;padding:8px 12px;text-align:left;font-size:13px}th{background:#f3f4f6}</style></head><body><h2>${filename}</h2><table><thead><tr>${columns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></body></html>`,
+        `<!DOCTYPE html><html><head><title>${esc(filename)}</title><style>body{font-family:system-ui,sans-serif;padding:32px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #e5e7eb;padding:8px 12px;text-align:left;font-size:13px}th{background:#f3f4f6}</style></head><body><h2>${esc(filename)}</h2><table><thead><tr>${columns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></body></html>`,
       );
       printWin.document.close();
       printWin.focus();

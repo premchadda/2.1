@@ -7,7 +7,8 @@ import { describe, test, expect } from "../../harness/testContext.js";
 
 describe("Tier 2 - Feature F18: Audio Explainer & LazyImage Boundaries", () => {
   test("T2.F18.01: useAudioExplainer handles missing window.speechSynthesis safely", () => {
-    const isSupported = typeof window !== "undefined" && "speechSynthesis" in window;
+    const isSupported =
+      typeof window !== "undefined" && "speechSynthesis" in window;
     expect(typeof isSupported).toBe("boolean");
   });
 

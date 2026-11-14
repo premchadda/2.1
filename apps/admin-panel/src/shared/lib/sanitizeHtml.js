@@ -19,10 +19,19 @@ export function sanitizeHtml(input) {
 export function isSafeImageUrl(url) {
   if (!url || typeof url !== "string") return false;
   const trimmed = url.trim();
-  if (trimmed.startsWith("/") || trimmed.startsWith("data:image/")) {
-    // allow relative and safe data images (png/jpeg) but block svg
-    if (/^data:image\/svg/i.test(trimmed)) return false;
-    return true;
+  if (
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("/\\") ||
+    trimmed.startsWith("\\\\") ||
+    trimmed.startsWith("\\/")
+  ) {
+    return false;
+  }
+  if (trimmed.startsWith("/") || trimmed.startsWith("./")) return true;
+  if (trimmed.startsWith("data:image/")) {
+    // Only permit safe raster formats; strictly block SVG and non-raster data URIs (XSS protection)
+    if (/^data:image\/(?:png|jpe?g|webp|gif);/i.test(trimmed)) return true;
+    return false;
   }
   try {
     const u = new URL(

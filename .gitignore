@@ -99,6 +99,9 @@ apps/backend/scripts/_run-backend.cmd
 /fix-*.mjs
 /run-*.js
 /run-*.mjs
+/build_*.py
+/extract_*.py
+/generate_*.py
 
 
 # ===========================================
@@ -141,12 +144,22 @@ graphify-out/
 
 # Scratch and temp files
 scratch/
+scratch_*.json
 scripts/out/
+scripts/*_output.json
+scripts/deep_data_findings.json
 *.jsonl
 apps/backend/scratch/
 apps/backend/src/uploads/
 test_login_fetch.js
 New Text Document.txt
+tessdata/
+tessdata_best/
+ocr_results_raw.json
+questions_meta.json
+security-audit-*.md
+security-audit-findings.json
+deep-vulnerability-hunt-client-proctoring.md
 
 # Sensitive backup files
 dev-tools/backups/

@@ -8,7 +8,8 @@ import { describe, test, expect } from "../../harness/testContext.js";
 describe("Tier 2 - Feature F10: Drill History Anomalies & Input Boundaries", () => {
   test("T2.F10.01: Score exceeding totalQuestions is rejected", () => {
     const payload = { category: "percentages", score: 12, totalQuestions: 10 };
-    const isValid = payload.score >= 0 && payload.score <= payload.totalQuestions;
+    const isValid =
+      payload.score >= 0 && payload.score <= payload.totalQuestions;
     expect(isValid).toBe(false);
   });
 

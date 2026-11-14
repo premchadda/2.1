@@ -245,16 +245,25 @@ function isLikelyMathExpression(text) {
   );
 }
 
+const MAX_FORMULA_LENGTH = 2000;
+
 /**
  * Safely renders a LaTeX formula to KaTeX HTML string
  */
 function renderKatexFormula(katex, formula, isDisplay) {
   if (!formula || typeof formula !== "string") return "";
+  const trimmed = formula.trim();
+  // Formula length guard to prevent client thread exhaustion
+  if (trimmed.length > MAX_FORMULA_LENGTH) {
+    return formula;
+  }
   try {
-    return katex.renderToString(formula.trim(), {
+    return katex.renderToString(trimmed, {
       displayMode: isDisplay,
       throwOnError: false,
       output: "html",
+      maxSize: 25,
+      maxExpand: 100,
     });
   } catch {
     return formula;

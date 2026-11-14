@@ -14,6 +14,81 @@ import { API_URL } from "../apiBase.js";
 const DB_NAME = "trstprep_attempt_vault";
 const DB_VERSION = 1;
 
+// SEC-CLIENT-06: Web Cryptography API AES-GCM encryption for offline stored attempts & answers
+let vaultCryptoKey = null;
+
+async function getVaultEncryptionKey() {
+  if (vaultCryptoKey) return vaultCryptoKey;
+  if (typeof window === "undefined" || !window.crypto?.subtle) return null;
+
+  try {
+    const KEY_STORAGE_KEY = "trstprep_vault_key";
+    let rawKeyHex = sessionStorage.getItem(KEY_STORAGE_KEY);
+    if (!rawKeyHex) {
+      const rawBytes = new Uint8Array(32);
+      window.crypto.getRandomValues(rawBytes);
+      rawKeyHex = Array.from(rawBytes)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      sessionStorage.setItem(KEY_STORAGE_KEY, rawKeyHex);
+    }
+    const rawBytes = new Uint8Array(
+      rawKeyHex.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)),
+    );
+    vaultCryptoKey = await window.crypto.subtle.importKey(
+      "raw",
+      rawBytes,
+      { name: "AES-GCM" },
+      false,
+      ["encrypt", "decrypt"],
+    );
+    return vaultCryptoKey;
+  } catch {
+    return null;
+  }
+}
+
+async function encryptVaultPayload(data) {
+  try {
+    if (typeof window === "undefined" || !window.crypto?.subtle) return null;
+    const key = await getVaultEncryptionKey();
+    if (!key) return null;
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const encoded = new TextEncoder().encode(JSON.stringify(data));
+    const ciphertext = await window.crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      key,
+      encoded,
+    );
+    return {
+      iv: Array.from(iv),
+      data: Array.from(new Uint8Array(ciphertext)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function decryptVaultPayload(encrypted) {
+  try {
+    if (!encrypted || !encrypted.iv || !encrypted.data) return null;
+    if (typeof window === "undefined" || !window.crypto?.subtle) return null;
+    const key = await getVaultEncryptionKey();
+    if (!key) return null;
+    const iv = new Uint8Array(encrypted.iv);
+    const ciphertext = new Uint8Array(encrypted.data);
+    const decrypted = await window.crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      key,
+      ciphertext,
+    );
+    const text = new TextDecoder().decode(decrypted);
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 export class IndexedDBAttemptVault {
   constructor() {
     this.db = null;
@@ -109,11 +184,21 @@ export class IndexedDBAttemptVault {
       return record;
     }
 
+    const encrypted = await encryptVaultPayload(record);
+    const dbRecord = encrypted
+      ? {
+          attemptId: String(attempt.attemptId),
+          testId: attempt.testId,
+          updatedAt: record.updatedAt,
+          _encryptedData: encrypted,
+        }
+      : record;
+
     return new Promise((resolve, reject) => {
       try {
         const tx = this.db.transaction("attempts", "readwrite");
         const store = tx.objectStore("attempts");
-        const req = store.put(record);
+        const req = store.put(dbRecord);
         req.onsuccess = () => resolve(record);
         req.onerror = () => reject(req.error);
       } catch (e) {
@@ -144,7 +229,15 @@ export class IndexedDBAttemptVault {
         const tx = this.db.transaction("attempts", "readonly");
         const store = tx.objectStore("attempts");
         const req = store.get(String(attemptId));
-        req.onsuccess = () => resolve(req.result || null);
+        req.onsuccess = async () => {
+          const res = req.result;
+          if (res && res._encryptedData) {
+            const dec = await decryptVaultPayload(res._encryptedData);
+            resolve(dec || res);
+          } else {
+            resolve(res || null);
+          }
+        };
         req.onerror = () =>
           resolve(this.memoryFallback.attempts.get(String(attemptId)) || null);
       } catch (e) {
@@ -201,11 +294,23 @@ export class IndexedDBAttemptVault {
       return record;
     }
 
+    const encrypted = await encryptVaultPayload(record);
+    const dbRecord = encrypted
+      ? {
+          id,
+          attemptId: String(attemptId),
+          questionId: String(questionId),
+          syncStatus: record.syncStatus,
+          updatedAt: record.updatedAt,
+          _encryptedData: encrypted,
+        }
+      : record;
+
     return new Promise((resolve, reject) => {
       try {
         const tx = this.db.transaction("answers", "readwrite");
         const store = tx.objectStore("answers");
-        const req = store.put(record);
+        const req = store.put(dbRecord);
         req.onsuccess = () => {
           this.enqueueSyncMutation({
             attemptId,
@@ -246,7 +351,15 @@ export class IndexedDBAttemptVault {
         const tx = this.db.transaction("answers", "readonly");
         const store = tx.objectStore("answers");
         const req = store.get(id);
-        req.onsuccess = () => resolve(req.result || null);
+        req.onsuccess = async () => {
+          const res = req.result;
+          if (res && res._encryptedData) {
+            const dec = await decryptVaultPayload(res._encryptedData);
+            resolve(dec || res);
+          } else {
+            resolve(res || null);
+          }
+        };
         req.onerror = () =>
           resolve(this.memoryFallback.answers.get(id) || null);
       } catch (e) {
@@ -287,7 +400,19 @@ export class IndexedDBAttemptVault {
         const store = tx.objectStore("answers");
         const index = store.index("attemptId");
         const req = index.getAll(String(attemptId));
-        req.onsuccess = () => resolve(req.result || []);
+        req.onsuccess = async () => {
+          const items = req.result || [];
+          const decrypted = await Promise.all(
+            items.map(async (item) => {
+              if (item && item._encryptedData) {
+                const dec = await decryptVaultPayload(item._encryptedData);
+                return dec || item;
+              }
+              return item;
+            }),
+          );
+          resolve(decrypted);
+        };
         req.onerror = () => resolve([]);
       } catch (e) {
         if (import.meta.env.DEV)

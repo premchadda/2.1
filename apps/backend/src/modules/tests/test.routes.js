@@ -1432,11 +1432,42 @@ router.put("/:testId/submit", protect, async (req, res) => {
         }
         const existingSectionTimers =
           existingAttempt.section_timers || existingAttempt.sectionTimers || {};
+
+        // VULN-CLIENT-04: Enforce authoritative server-side duration to prevent client time manipulation
+        const attemptStartTime =
+          existingAttempt.started_at ||
+          existingAttempt.start_time ||
+          existingAttempt.created_at ||
+          existingAttempt.createdAt;
+        let authoritativeTimeSpent = clampedTimeSpent;
+        if (attemptStartTime) {
+          const serverWallClockSeconds = Math.max(
+            0,
+            Math.floor(
+              (Date.now() - new Date(attemptStartTime).getTime()) / 1000,
+            ),
+          );
+          const pausedSeconds = Number(
+            existingAttempt.paused_seconds ||
+              existingAttempt.pausedSeconds ||
+              0,
+          );
+          const serverNetSeconds = Math.max(
+            0,
+            serverWallClockSeconds - pausedSeconds,
+          );
+          authoritativeTimeSpent = Math.min(
+            testDurationSeconds + tolerance,
+            Math.max(clampedTimeSpent, serverNetSeconds),
+          );
+        }
+
         result = await dbHelpers.updateById(
           "attempts",
           existingAttempt.id,
           {
             ...attemptData,
+            timeSpent: Number(authoritativeTimeSpent ?? clampedTimeSpent ?? 0),
             sectionTimers:
               Object.keys(attemptData.sectionTimers).length > 0
                 ? attemptData.sectionTimers

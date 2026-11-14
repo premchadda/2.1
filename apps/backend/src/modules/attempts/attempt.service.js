@@ -150,7 +150,9 @@ export const attemptService = {
         question.correct;
 
       if (
-        (rawCorrect === undefined || rawCorrect === null || rawCorrect === "") &&
+        (rawCorrect === undefined ||
+          rawCorrect === null ||
+          rawCorrect === "") &&
         Array.isArray(question.options)
       ) {
         const correctIndices = question.options

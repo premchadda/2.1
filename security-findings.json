@@ -559,9 +559,7 @@
     ],
     "execution": {
       "attacker_perspective": "An attacker supplies a spoofed X-Forwarded-For header to rotate rate-limiting buckets during authentication brute-force.",
-      "payloads": [
-        "X-Forwarded-For: 203.0.113.195, 127.0.0.1"
-      ],
+      "payloads": ["X-Forwarded-For: 203.0.113.195, 127.0.0.1"],
       "instructions": [
         "1. Send repeated requests with varying X-Forwarded-For headers.",
         "2. Observe IP extraction returning the spoofed header value."
@@ -1060,9 +1058,7 @@
     ],
     "execution": {
       "attacker_perspective": "An attacker inputs a URL pointing to an external phishing page or HTML blob in study material metadata.",
-      "payloads": [
-        "https://attacker.com/fake-admin-login.html"
-      ],
+      "payloads": ["https://attacker.com/fake-admin-login.html"],
       "instructions": [
         "1. Set material link to external phishing page.",
         "2. Admin clicks View PDF.",
@@ -1133,9 +1129,7 @@
     ],
     "execution": {
       "attacker_perspective": "A user sets their banner URL to a tracking endpoint or string containing CSS breaking characters.",
-      "payloads": [
-        "https://evil-tracking.com/ping?user=123"
-      ],
+      "payloads": ["https://evil-tracking.com/ping?user=123"],
       "instructions": [
         "1. Update user banner to external tracking URL.",
         "2. View profile page.",
@@ -1206,9 +1200,7 @@
     ],
     "execution": {
       "attacker_perspective": "Caller supplies a test name containing HTML tags as filename.",
-      "payloads": [
-        "</title><script>alert(1)</script>"
-      ],
+      "payloads": ["</title><script>alert(1)</script>"],
       "instructions": [
         "1. Pass crafted filename to ExportMenu.",
         "2. Click Export PDF.",
@@ -1279,9 +1271,7 @@
     ],
     "execution": {
       "attacker_perspective": "An administrator mistakenly drops a 2GB raw video file into a document upload field.",
-      "payloads": [
-        "2GB arbitrary binary file."
-      ],
+      "payloads": ["2GB arbitrary binary file."],
       "instructions": [
         "1. Select large file in ContentManagement.",
         "2. Observe browser UI freeze and eventual gateway timeout."
@@ -1431,9 +1421,7 @@
     ],
     "execution": {
       "attacker_perspective": "An attacker triggers public or unauthenticated endpoints that query RLS-protected tables.",
-      "payloads": [
-        "SELECT * FROM two_factor_secrets;"
-      ],
+      "payloads": ["SELECT * FROM two_factor_secrets;"],
       "instructions": [
         "1. Connect without setting app.current_user_id.",
         "2. Query attempts or two_factor_secrets.",
@@ -1585,9 +1573,7 @@
     ],
     "execution": {
       "attacker_perspective": "An attacker accessing database backups or replicas inspects student records.",
-      "payloads": [
-        "SELECT id, phone, phone_enc FROM users LIMIT 10;"
-      ],
+      "payloads": ["SELECT id, phone, phone_enc FROM users LIMIT 10;"],
       "instructions": [
         "1. Query public.users table.",
         "2. Observe phone is plaintext and phone_enc is NULL for 100% of rows."
@@ -1662,9 +1648,7 @@
     ],
     "execution": {
       "attacker_perspective": "An attacker crafts an X-Forwarded-For header with ::ffff:127.0.0.1 to bypass IP restrictions.",
-      "payloads": [
-        "X-Forwarded-For: ::ffff:127.0.0.1"
-      ],
+      "payloads": ["X-Forwarded-For: ::ffff:127.0.0.1"],
       "instructions": [
         "1. Send request with IPv4-mapped IPv6 header.",
         "2. Observe proxy-addr parsing IP as trusted loopback."
@@ -1819,9 +1803,7 @@
     ],
     "execution": {
       "attacker_perspective": "An attacker inspects HTTP response headers on /api or web pages to find missing CSP and HSTS protections.",
-      "payloads": [
-        "curl -I https://trstprep.com/api/tests"
-      ],
+      "payloads": ["curl -I https://trstprep.com/api/tests"],
       "instructions": [
         "1. Request any endpoint under /api.",
         "2. Inspect returned headers.",
@@ -1892,9 +1874,7 @@
     ],
     "execution": {
       "attacker_perspective": "An external user queries /metrics to obtain internal system metrics and performance data.",
-      "payloads": [
-        "GET /metrics HTTP/1.1\nHost: trstprep.com"
-      ],
+      "payloads": ["GET /metrics HTTP/1.1\nHost: trstprep.com"],
       "instructions": [
         "1. Send request to /metrics via public load balancer.",
         "2. Observe Nginx treating load balancer IP as client IP.",
@@ -1977,9 +1957,7 @@
     ],
     "execution": {
       "attacker_perspective": "A developer stages .env.development containing live API keys and pushes to GitHub.",
-      "payloads": [
-        "git add .env.development && git commit -m 'add config'"
-      ],
+      "payloads": ["git add .env.development && git commit -m 'add config'"],
       "instructions": [
         "1. Create .env.development.",
         "2. Run git status and observe file is untracked instead of ignored.",
@@ -2128,9 +2106,7 @@
     ],
     "execution": {
       "attacker_perspective": "An attacker or unauthorized container connects to Redis on port 6379 without credentials.",
-      "payloads": [
-        "redis-cli -h 127.0.0.1 -p 6379 KEYS '*'"
-      ],
+      "payloads": ["redis-cli -h 127.0.0.1 -p 6379 KEYS '*'"],
       "instructions": [
         "1. Launch docker-compose up.",
         "2. Connect to Redis without password.",
@@ -2201,9 +2177,7 @@
     ],
     "execution": {
       "attacker_perspective": "An attacker notes that administrative API key checks and PII encryption fail or run in fallback modes.",
-      "payloads": [
-        "docker compose up backend-1"
-      ],
+      "payloads": ["docker compose up backend-1"],
       "instructions": [
         "1. Inspect environment variables inside running container.",
         "2. Confirm DB_ENCRYPTION_KEY and ADMIN_API_KEY are undefined."
@@ -2278,9 +2252,7 @@
     ],
     "execution": {
       "attacker_perspective": "An attacker exploits a compromised third-party action or tool to access write-capable GITHUB_TOKEN.",
-      "payloads": [
-        "Compromised runner environment extracting GITHUB_TOKEN."
-      ],
+      "payloads": ["Compromised runner environment extracting GITHUB_TOKEN."],
       "instructions": [
         "1. Trigger workflow run.",
         "2. Inspect token scopes granted to runner.",
@@ -2356,9 +2328,7 @@
     ],
     "execution": {
       "attacker_perspective": "Data loss or unauthorized local file read on backup archive directory.",
-      "payloads": [
-        "ls -l $BACKUP_DIR"
-      ],
+      "payloads": ["ls -l $BACKUP_DIR"],
       "instructions": [
         "1. Run backup script on Sunday.",
         "2. Inspect generated file name.",
@@ -2430,9 +2400,7 @@
     ],
     "execution": {
       "attacker_perspective": "An attacker inspects client bundle assets to extract administrative API key.",
-      "payloads": [
-        "strings dist/assets/*.js | grep ADMIN_API_KEY"
-      ],
+      "payloads": ["strings dist/assets/*.js | grep ADMIN_API_KEY"],
       "instructions": [
         "1. Build admin panel with VITE_ADMIN_API_KEY set.",
         "2. Inspect generated bundle.",

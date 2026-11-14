@@ -49,7 +49,8 @@ function ExamUpdates() {
         if (controller.signal.aborted) return;
 
         const categories =
-          categoriesRes.status === "fulfilled" && Array.isArray(categoriesRes.value)
+          categoriesRes.status === "fulfilled" &&
+          Array.isArray(categoriesRes.value)
             ? categoriesRes.value
             : [];
 
@@ -476,7 +477,8 @@ function ExamUpdates() {
                 Stay Updated
               </h3>
               <p className="text-sm text-indigo-700 dark:text-indigo-400 mb-4">
-                Get notified about official notifications, dates, and syllabus updates.
+                Get notified about official notifications, dates, and syllabus
+                updates.
               </p>
               <button
                 onClick={handleSubscribe}

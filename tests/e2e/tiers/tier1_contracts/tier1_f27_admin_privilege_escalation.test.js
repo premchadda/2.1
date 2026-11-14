@@ -12,7 +12,7 @@ describe("Tier 1 - Feature F27: Admin Role Privilege Escalation Guard", () => {
   test("T1.F27.01: RolePermissionsManager component exists and enforces RBAC", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/features/admin/users-enrollments/RolePermissionsManager.jsx"
+      "apps/admin-panel/src/features/admin/users-enrollments/RolePermissionsManager.jsx",
     );
     expect(fs.existsSync(compPath)).toBe(true);
 
@@ -35,7 +35,10 @@ describe("Tier 1 - Feature F27: Admin Role Privilege Escalation Guard", () => {
   });
 
   test("T1.F27.04: Backend admin-roles route rejects wildcard permission grant without super-admin", () => {
-    const routePath = path.resolve(process.cwd(), "apps/backend/src/api/routes/admin-roles.js");
+    const routePath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/admin-roles.js",
+    );
     expect(fs.existsSync(routePath)).toBe(true);
 
     const content = fs.readFileSync(routePath, "utf-8");

@@ -69,6 +69,9 @@ const EVENT_TYPES = {
 const findAttemptByIdentifier = (attemptId) =>
   findEntityByIdentifier(dbHelpers, "attempts", attemptId);
 
+// Maximum cumulative pause duration allowed per attempt (anti-freeze guard - VULN-CLIENT-05)
+const MAX_CUMULATIVE_PAUSE_SECONDS = 900; // 15 minutes
+
 // PERF: lastActivityAt/heartbeat writes are only used for coarse liveness
 // tracking (session cleaners poll at 60s intervals), so writing on every
 // event/heartbeat is redundant. Throttle to one write per attempt per window.
@@ -298,12 +301,79 @@ router.post("/pause", protect, async (req, res) => {
       });
     }
 
+    // Disallow pausing if the attempt belongs to a live competitive test series
+    // (test.is_live or test.category === 'live' / 'live_mock')
+    const testId = attempt.testId || attempt.test_id;
+    let test = null;
+    if (testId) {
+      test = await dbHelpers.findById("tests", testId);
+    }
+    const isLiveAttempt = Boolean(attempt.isLive || attempt.is_live);
+    const isLiveTest = Boolean(
+      isLiveAttempt ||
+      test?.isLive ||
+      test?.is_live ||
+      test?.category === "live" ||
+      test?.category === "live_mock" ||
+      test?.type === "live" ||
+      test?.testType === "live" ||
+      test?.test_type === "live",
+    );
+    if (isLiveTest) {
+      return res.status(400).json({
+        success: false,
+        code: "LIVE_TEST_PAUSE_DISALLOWED",
+        message: "Pausing is not allowed during live competitive tests.",
+      });
+    }
+
+    // Cumulative pause duration guard: enforce a maximum cumulative pause duration (15 min)
+    let cumulativePauseDuration = 0;
+    const existingMeta =
+      typeof attempt.metadata === "object" && attempt.metadata !== null
+        ? attempt.metadata
+        : {};
+    if (Number.isFinite(Number(existingMeta.cumulativePauseDuration))) {
+      cumulativePauseDuration = Number(existingMeta.cumulativePauseDuration);
+    } else {
+      try {
+        const pauseEventsRes = await pool.query(
+          `SELECT COALESCE(SUM((event_data::jsonb->>'pauseDuration')::numeric), 0) AS total_pause
+           FROM attempt_events
+           WHERE attempt_id = $1 AND event_type = 'resume'`,
+          [internalAttemptId],
+        );
+        cumulativePauseDuration = Number(
+          pauseEventsRes.rows[0]?.total_pause || 0,
+        );
+      } catch {
+        cumulativePauseDuration = 0;
+      }
+    }
+
+    if (cumulativePauseDuration >= MAX_CUMULATIVE_PAUSE_SECONDS) {
+      return res.status(400).json({
+        success: false,
+        code: "MAX_PAUSE_LIMIT_EXCEEDED",
+        message: `Maximum cumulative pause duration of ${Math.round(MAX_CUMULATIVE_PAUSE_SECONDS / 60)} minutes has been reached for this attempt.`,
+      });
+    }
+
     // Update attempt with paused state
+    const pausedAtTime =
+      attempt.status === ATTEMPT_STATUS.PAUSED && attempt.pausedAt
+        ? attempt.pausedAt
+        : new Date().toISOString();
+
     const updated = await dbHelpers.updateById("attempts", internalAttemptId, {
       status: ATTEMPT_STATUS.PAUSED,
-      pausedAt: new Date().toISOString(),
+      pausedAt: pausedAtTime,
       remainingTimeSeconds: safeRemainingTime,
       lastActivityAt: new Date().toISOString(),
+      metadata: {
+        ...existingMeta,
+        cumulativePauseDuration,
+      },
     });
 
     // Save question attempts with current timers
@@ -410,6 +480,14 @@ router.post("/resume", protect, async (req, res) => {
       ? Math.floor((new Date() - new Date(attempt.pausedAt)) / 1000)
       : 0;
 
+    const existingMeta =
+      typeof attempt.metadata === "object" && attempt.metadata !== null
+        ? attempt.metadata
+        : {};
+    const updatedCumulativePause =
+      (Number(existingMeta.cumulativePauseDuration) || 0) +
+      Math.max(0, pauseDuration);
+
     // Update attempt with resumed state if it was paused
     let updated = attempt;
     if (attempt.status === ATTEMPT_STATUS.PAUSED) {
@@ -417,6 +495,10 @@ router.post("/resume", protect, async (req, res) => {
         status: ATTEMPT_STATUS.IN_PROGRESS,
         resumedAt: new Date().toISOString(),
         lastActivityAt: new Date().toISOString(),
+        metadata: {
+          ...existingMeta,
+          cumulativePauseDuration: updatedCumulativePause,
+        },
       });
     } else {
       updated = await dbHelpers.updateById("attempts", internalAttemptId, {

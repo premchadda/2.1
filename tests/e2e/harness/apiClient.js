@@ -13,7 +13,8 @@ import {
   mintSuperAdminToken,
 } from "../fixtures/authTokens.js";
 
-export let DEFAULT_API_BASE = process.env.API_BASE_URL || "http://127.0.0.1:5001";
+export let DEFAULT_API_BASE =
+  process.env.API_BASE_URL || "http://127.0.0.1:5001";
 
 export class ApiClient {
   constructor(options = {}) {
@@ -61,7 +62,9 @@ export class ApiClient {
   }
 
   asProUser(overrides = null) {
-    const t = overrides ? mintStudentToken({ is_pro: true, ...overrides }) : proUserToken;
+    const t = overrides
+      ? mintStudentToken({ is_pro: true, ...overrides })
+      : proUserToken;
     return this.withToken(t);
   }
 
@@ -76,7 +79,9 @@ export class ApiClient {
   }
 
   async request(method, path, options = {}) {
-    const url = new URL(path.startsWith("http") ? path : `${this.baseUrl}${path}`);
+    const url = new URL(
+      path.startsWith("http") ? path : `${this.baseUrl}${path}`,
+    );
     if (options.params) {
       for (const [key, value] of Object.entries(options.params)) {
         if (value !== undefined && value !== null) {
@@ -95,7 +100,10 @@ export class ApiClient {
     if (this.token) {
       headers["Authorization"] = `Bearer ${this.token}`;
     }
-    if (this.csrfToken && ["POST", "PUT", "DELETE", "PATCH"].includes(method.toUpperCase())) {
+    if (
+      this.csrfToken &&
+      ["POST", "PUT", "DELETE", "PATCH"].includes(method.toUpperCase())
+    ) {
       headers["x-csrf-token"] = this.csrfToken;
     }
 
@@ -104,8 +112,14 @@ export class ApiClient {
       headers,
     };
 
-    if (options.body && ["POST", "PUT", "DELETE", "PATCH"].includes(method.toUpperCase())) {
-      fetchOptions.body = typeof options.body === "string" ? options.body : JSON.stringify(options.body);
+    if (
+      options.body &&
+      ["POST", "PUT", "DELETE", "PATCH"].includes(method.toUpperCase())
+    ) {
+      fetchOptions.body =
+        typeof options.body === "string"
+          ? options.body
+          : JSON.stringify(options.body);
     }
 
     try {
@@ -126,7 +140,9 @@ export class ApiClient {
         data: body?.data !== undefined ? body.data : body,
       };
     } catch (networkError) {
-      throw new Error(`[apiClient] Network request failed (${method} ${path}): ${networkError.message}`);
+      throw new Error(
+        `[apiClient] Network request failed (${method} ${path}): ${networkError.message}`,
+      );
     }
   }
 

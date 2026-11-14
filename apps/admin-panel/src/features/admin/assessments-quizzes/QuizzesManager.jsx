@@ -309,36 +309,75 @@ export default function QuizzesManager() {
       tags: Array.isArray(q.tags) ? q.tags : [],
     });
 
-    // Find questions linked to this quiz
+    // Find questions linked to this quiz via API and fallback to local cache
     const quizId = q.id || q._id;
-    const linked = allQuestions.filter(
-      (item) =>
-        String(item.quiz_id || item.quizId || item.test_id || item.testId) ===
-        String(quizId),
-    );
+    const storedIds = Array.isArray(q.question_ids)
+      ? q.question_ids
+      : Array.isArray(q.questionIds)
+        ? q.questionIds
+        : [];
+    let linked;
+    try {
+      const qParams = { quizId, limit: 500 };
+      if (storedIds.length > 0) {
+        qParams.ids = storedIds.join(",");
+      }
+      const res = await adminAPI.apiClient.get("/admin/questions", {
+        params: qParams,
+      });
+      linked = res.data?.data || res.data || [];
+    } catch (e) {
+      logger.warn(
+        "Could not fetch quiz questions via API, falling back to local pool:",
+        e,
+      );
+      linked = allQuestions.filter(
+        (item) =>
+          String(item.quiz_id || item.quizId || item.test_id || item.testId) ===
+            String(quizId) ||
+          storedIds.map(String).includes(String(item.id || item._id)),
+      );
+    }
     setQuizQuestions(linked);
 
     setActiveFormTab("basic");
     setShowFormModal(true);
   };
 
-  // Duplicate Quiz - fixed to use source quiz's linked questions, not currently edited quizQuestions state
+  // Duplicate Quiz - fixed to query live linked questions, not truncated 200-item sample
   const handleDuplicateQuiz = async (q) => {
     try {
       const id = q.id || q._id;
       if (!id) throw new Error("Quiz ID missing");
-      const sourceQuestions = allQuestions.filter(
-        (item) =>
-          String(item.quiz_id || item.quizId || item.test_id || item.testId) ===
-          String(id),
-      );
-      const payload = {
-        questionIds: [
-          ...new Set(
-            sourceQuestions.map((item) => item.id || item._id).filter(Boolean),
-          ),
-        ],
-      };
+      const storedIds = Array.isArray(q.question_ids)
+        ? q.question_ids
+        : Array.isArray(q.questionIds)
+          ? q.questionIds
+          : [];
+      let sourceQuestions = [];
+      try {
+        const qParams = { quizId: id, limit: 500 };
+        if (storedIds.length > 0) qParams.ids = storedIds.join(",");
+        const res = await adminAPI.apiClient.get("/admin/questions", {
+          params: qParams,
+        });
+        sourceQuestions = res.data?.data || res.data || [];
+      } catch {
+        sourceQuestions = allQuestions.filter(
+          (item) =>
+            String(
+              item.quiz_id || item.quizId || item.test_id || item.testId,
+            ) === String(id) ||
+            storedIds.map(String).includes(String(item.id || item._id)),
+        );
+      }
+      const questionIds = [
+        ...new Set([
+          ...storedIds,
+          ...sourceQuestions.map((item) => item.id || item._id).filter(Boolean),
+        ]),
+      ];
+      const payload = { questionIds };
       await adminAPI.apiClient.post(
         `/admin/quizzes/${encodeURIComponent(String(id))}/duplicate`,
         payload,

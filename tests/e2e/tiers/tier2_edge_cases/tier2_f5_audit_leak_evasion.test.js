@@ -9,10 +9,14 @@ import { describe, test, expect } from "../../harness/testContext.js";
 import { redactSensitiveValues } from "../../../apps/backend/src/middleware/audit.middleware.js";
 
 describe("Tier 2 - Feature F5: Audit Leak Evasion & Boundary Protection", () => {
-  const auditPath = path.resolve(process.cwd(), "apps/backend/src/middleware/audit.middleware.js");
+  const auditPath = path.resolve(
+    process.cwd(),
+    "apps/backend/src/middleware/audit.middleware.js",
+  );
 
   test("T2.F5.01: Delimiter, hyphenation, and camelCase evasion key patterns are redacted", () => {
-    const pattern = /secret|password|token|api[_-]?key|jwt|pass|pwd|otp|private[_-]?key|access[_-]?key|credential/i;
+    const pattern =
+      /secret|password|token|api[_-]?key|jwt|pass|pwd|otp|private[_-]?key|access[_-]?key|credential/i;
 
     const evasionKeys = [
       "API-KEY",
@@ -53,7 +57,8 @@ describe("Tier 2 - Feature F5: Audit Leak Evasion & Boundary Protection", () => 
   test("T2.F5.05: High-volume payload redaction execution speed", () => {
     const largeObj = {};
     for (let i = 0; i < 500; i++) {
-      largeObj[`param_${i}`] = i % 10 === 0 ? `token_val_${i}` : `normal_val_${i}`;
+      largeObj[`param_${i}`] =
+        i % 10 === 0 ? `token_val_${i}` : `normal_val_${i}`;
       if (i % 10 === 0) {
         largeObj[`api_key_${i}`] = `secret_key_${i}`;
       }

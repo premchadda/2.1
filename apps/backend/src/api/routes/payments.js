@@ -783,6 +783,7 @@ router.post(
                      END,
                      updated_at = NOW()
                  WHERE code = $1 AND is_active = true
+                   AND (usage_limit IS NULL OR usage_limit = 0 OR COALESCE(used_count, 0) < usage_limit)
                    AND NOT (used_by_users::jsonb ? $2)`,
                 [authoritativeCouponCode, String(req.user.id)],
               );
@@ -1181,6 +1182,7 @@ router.post(
                        END,
                        updated_at = NOW()
                    WHERE code = $1 AND is_active = true
+                     AND (usage_limit IS NULL OR usage_limit = 0 OR COALESCE(used_count, 0) < usage_limit)
                      AND NOT (used_by_users::jsonb ? $2)`,
                   [couponCode, String(userId)],
                 );

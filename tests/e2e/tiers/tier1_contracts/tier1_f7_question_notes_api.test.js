@@ -19,20 +19,36 @@ describe("Tier 1 - Feature F7: Question Notes API & Service", () => {
     requiredFields: ["questionId", "contextId", "noteText"],
     schema: {
       table: "question_notes",
-      columns: ["id", "user_id", "question_id", "context_id", "note_text", "created_at", "updated_at"],
+      columns: [
+        "id",
+        "user_id",
+        "question_id",
+        "context_id",
+        "note_text",
+        "created_at",
+        "updated_at",
+      ],
     },
   };
 
   test("T1.F7.01: Notes API interface contract specification defined per PROJECT.md", () => {
-    expect(NOTES_CONTRACT.endpoints.get).toBe("GET /api/notes?questionId=:qId&contextId=:cId");
+    expect(NOTES_CONTRACT.endpoints.get).toBe(
+      "GET /api/notes?questionId=:qId&contextId=:cId",
+    );
     expect(NOTES_CONTRACT.endpoints.post).toBe("POST /api/notes");
     expect(NOTES_CONTRACT.endpoints.put).toBe("PUT /api/notes/:id");
     expect(NOTES_CONTRACT.endpoints.delete).toBe("DELETE /api/notes/:id");
   });
 
   test("T1.F7.02: Question Notes backend router file and mount contract", () => {
-    const notesRouterPath = path.resolve(process.cwd(), "apps/backend/src/api/routes/notes.js");
-    const appPath = path.resolve(process.cwd(), "apps/backend/src/app-port5001.js");
+    const notesRouterPath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/notes.js",
+    );
+    const appPath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/app-port5001.js",
+    );
 
     // If implemented, verify route declarations; otherwise verify contract declaration
     if (fs.existsSync(notesRouterPath)) {
@@ -44,12 +60,18 @@ describe("Tier 1 - Feature F7: Question Notes API & Service", () => {
   });
 
   test("T1.F7.03: Unauthenticated access to /api/notes is guarded (returns 401)", async () => {
-    const res = await apiClient.asAnonymous().get("/api/notes?questionId=101&contextId=practice_lab");
+    const res = await apiClient
+      .asAnonymous()
+      .get("/api/notes?questionId=101&contextId=practice_lab");
     expect(res.status).toBe(401);
   });
 
   test("T1.F7.04: POST /api/notes payload schema enforces required fields", () => {
-    const payload = { questionId: 101, contextId: "practice_lab", noteText: "Important formula" };
+    const payload = {
+      questionId: 101,
+      contextId: "practice_lab",
+      noteText: "Important formula",
+    };
     for (const field of NOTES_CONTRACT.requiredFields) {
       expect(payload).toHaveProperty(field);
     }

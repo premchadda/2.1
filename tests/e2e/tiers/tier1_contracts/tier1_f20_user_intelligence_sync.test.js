@@ -10,7 +10,10 @@ import { apiClient } from "../../harness/apiClient.js";
 
 describe("Tier 1 - Feature F20: Frontend User Intelligence Sync", () => {
   test("T1.F20.01: achievements router declares /xp-summary endpoint", () => {
-    const routePath = path.resolve(process.cwd(), "apps/backend/src/api/routes/achievements.js");
+    const routePath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/achievements.js",
+    );
     expect(fs.existsSync(routePath)).toBe(true);
 
     const content = fs.readFileSync(routePath, "utf-8");
@@ -18,13 +21,19 @@ describe("Tier 1 - Feature F20: Frontend User Intelligence Sync", () => {
   });
 
   test("T1.F20.02: achievements router declares /streak-freeze endpoint", () => {
-    const routePath = path.resolve(process.cwd(), "apps/backend/src/api/routes/achievements.js");
+    const routePath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/achievements.js",
+    );
     const content = fs.readFileSync(routePath, "utf-8");
     expect(content).toContain("streak-freeze");
   });
 
   test("T1.F20.03: practice router declares /mistakes and /mistakes/count endpoints", () => {
-    const routePath = path.resolve(process.cwd(), "apps/backend/src/api/routes/practice.js");
+    const routePath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/practice.js",
+    );
     expect(fs.existsSync(routePath)).toBe(true);
 
     const content = fs.readFileSync(routePath, "utf-8");
@@ -33,7 +42,10 @@ describe("Tier 1 - Feature F20: Frontend User Intelligence Sync", () => {
   });
 
   test("T1.F20.04: intelligence router declares /daily-quiz endpoint", () => {
-    const routePath = path.resolve(process.cwd(), "apps/backend/src/api/routes/intelligence.js");
+    const routePath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/intelligence.js",
+    );
     expect(fs.existsSync(routePath)).toBe(true);
 
     const content = fs.readFileSync(routePath, "utf-8");
@@ -41,7 +53,9 @@ describe("Tier 1 - Feature F20: Frontend User Intelligence Sync", () => {
   });
 
   test("T1.F20.05: Intelligence endpoints require authenticated session", async () => {
-    const res = await apiClient.asAnonymous().get("/api/achievements/xp-summary");
+    const res = await apiClient
+      .asAnonymous()
+      .get("/api/achievements/xp-summary");
     expect(res.status).toBe(401);
   });
 });

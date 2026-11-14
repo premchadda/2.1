@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X, StickyNote, Save, Trash2, Clock, Edit2, Loader2 } from "lucide-react";
+import {
+  X,
+  StickyNote,
+  Save,
+  Trash2,
+  Clock,
+  Edit2,
+  Loader2,
+} from "lucide-react";
 import { twMerge } from "tailwind-merge";
 import { apiClient } from "../lib/dataService";
 
@@ -75,7 +83,10 @@ function QuestionNotes({
       setSyncing(true);
       apiClient
         .get("/api/notes", {
-          params: { questionId: String(questionId), contextId: String(contextId) },
+          params: {
+            questionId: String(questionId),
+            contextId: String(contextId),
+          },
           signal: controller.signal,
         })
         .then((res) => {
@@ -132,7 +143,8 @@ function QuestionNotes({
   const handleSave = useCallback(async () => {
     const trimmed = draft.trim();
     if (!trimmed) return;
-    const tempId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const tempId =
+      Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const optimisticNote = {
       id: tempId,
       text: trimmed,
@@ -281,7 +293,10 @@ function QuestionNotes({
                   Question Notes
                 </h3>
                 {syncing ? (
-                  <Loader2 className="w-3 h-3 text-amber-500 animate-spin" title="Syncing..." />
+                  <Loader2
+                    className="w-3 h-3 text-amber-500 animate-spin"
+                    title="Syncing..."
+                  />
                 ) : (
                   <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-0.5">
                     ● Cloud Synced

@@ -104,7 +104,9 @@ export function lintQuestionImport(
 
   const seenBatchStems = []; // Array of { norm, original, row, len, bigrams }
   const existingStems = (existingQuestions || []).map((eq) => {
-    const norm = normalizeStem(eq.question_text || eq.questionText || eq.text || "");
+    const norm = normalizeStem(
+      eq.question_text || eq.questionText || eq.text || "",
+    );
     return {
       id: eq.id || eq._id,
       norm,
@@ -260,7 +262,11 @@ export function lintQuestionImport(
             break;
           }
 
-          const sim = compareStemEntries(currStem, existing, similarityThreshold);
+          const sim = compareStemEntries(
+            currStem,
+            existing,
+            similarityThreshold,
+          );
           if (sim >= similarityThreshold) {
             duplicateStems.push({
               row: rowNumber,

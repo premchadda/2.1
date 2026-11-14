@@ -6,7 +6,8 @@
 export const SAMPLE_QUESTIONS = [
   {
     id: 101,
-    questionText: "If $\\sin(\\theta) + \\cos(\\theta) = \\sqrt{2}$, find the value of $\\sin^4(\\theta) + \\cos^4(\\theta)$.",
+    questionText:
+      "If $\\sin(\\theta) + \\cos(\\theta) = \\sqrt{2}$, find the value of $\\sin^4(\\theta) + \\cos^4(\\theta)$.",
     questionType: "mcq",
     difficulty: "medium",
     subjectId: 1,
@@ -18,7 +19,8 @@ export const SAMPLE_QUESTIONS = [
       { id: 3, text: "$\\frac{\\sqrt{2}}{2}$", isCorrect: false },
       { id: 4, text: "$\\frac{3}{4}$", isCorrect: false },
     ],
-    explanation: "Squaring both sides: $(\\sin\\theta + \\cos\\theta)^2 = 2 \\implies 1 + 2\\sin\\theta\\cos\\theta = 2 \\implies \\sin\\theta\\cos\\theta = \\frac{1}{2}$. Then $\\sin^4\\theta + \\cos^4\\theta = (\\sin^2\\theta + \\cos^2\\theta)^2 - 2\\sin^2\\theta\\cos^2\\theta = 1 - 2(\\frac{1}{4}) = \\frac{1}{2}$.",
+    explanation:
+      "Squaring both sides: $(\\sin\\theta + \\cos\\theta)^2 = 2 \\implies 1 + 2\\sin\\theta\\cos\\theta = 2 \\implies \\sin\\theta\\cos\\theta = \\frac{1}{2}$. Then $\\sin^4\\theta + \\cos^4\\theta = (\\sin^2\\theta + \\cos^2\\theta)^2 - 2\\sin^2\\theta\\cos^2\\theta = 1 - 2(\\frac{1}{4}) = \\frac{1}{2}$.",
     correctOptionIndex: 0,
     tags: ["trigonometry", "algebraic-identities"],
     marks: 2,
@@ -26,7 +28,8 @@ export const SAMPLE_QUESTIONS = [
   },
   {
     id: 102,
-    questionText: "A train running at $72\\text{ km/h}$ crosses a pole in $15\\text{ seconds}$. What is the length of the train?",
+    questionText:
+      "A train running at $72\\text{ km/h}$ crosses a pole in $15\\text{ seconds}$. What is the length of the train?",
     questionType: "mcq",
     difficulty: "easy",
     subjectId: 1,
@@ -38,7 +41,8 @@ export const SAMPLE_QUESTIONS = [
       { id: 3, text: "$350\\text{ m}$", isCorrect: false },
       { id: 4, text: "$400\\text{ m}$", isCorrect: false },
     ],
-    explanation: "Speed in $\\text{m/s} = 72 \\times \\frac{5}{18} = 20\\text{ m/s}$. Length = $\\text{Speed} \\times \\text{Time} = 20 \\times 15 = 300\\text{ m}$.",
+    explanation:
+      "Speed in $\\text{m/s} = 72 \\times \\frac{5}{18} = 20\\text{ m/s}$. Length = $\\text{Speed} \\times \\text{Time} = 20 \\times 15 = 300\\text{ m}$.",
     correctOptionIndex: 1,
     tags: ["trains", "speed-distance"],
     marks: 2,
@@ -46,7 +50,8 @@ export const SAMPLE_QUESTIONS = [
   },
   {
     id: 103,
-    questionText: "Select the option that is related to the third number in the same way as the second number is related to the first number: $12 : 144 :: 14 : ?$",
+    questionText:
+      "Select the option that is related to the third number in the same way as the second number is related to the first number: $12 : 144 :: 14 : ?$",
     questionType: "mcq",
     difficulty: "easy",
     subjectId: 2,
@@ -66,7 +71,8 @@ export const SAMPLE_QUESTIONS = [
   },
   {
     id: 104,
-    questionText: "Which of the following Article of the Constitution of India deals with the 'Right to Constitutional Remedies'?",
+    questionText:
+      "Which of the following Article of the Constitution of India deals with the 'Right to Constitutional Remedies'?",
     questionType: "mcq",
     difficulty: "medium",
     subjectId: 3,
@@ -78,7 +84,8 @@ export const SAMPLE_QUESTIONS = [
       { id: 3, text: "Article 44", isCorrect: false },
       { id: 4, text: "Article 14", isCorrect: false },
     ],
-    explanation: "Article 32 provides the Right to Constitutional Remedies, famously referred to by Dr. B.R. Ambedkar as the 'Heart and Soul of the Constitution'.",
+    explanation:
+      "Article 32 provides the Right to Constitutional Remedies, famously referred to by Dr. B.R. Ambedkar as the 'Heart and Soul of the Constitution'.",
     correctOptionIndex: 1,
     tags: ["polity", "fundamental-rights"],
     marks: 2,
@@ -98,7 +105,8 @@ export const SAMPLE_QUESTIONS = [
       { id: 3, text: "Powerless", isCorrect: true },
       { id: 4, text: "Formidable", isCorrect: false },
     ],
-    explanation: "Omnipotent means having unlimited power; the direct antonym is powerless (weak, impotent).",
+    explanation:
+      "Omnipotent means having unlimited power; the direct antonym is powerless (weak, impotent).",
     correctOptionIndex: 2,
     tags: ["vocabulary", "antonyms"],
     marks: 2,
@@ -118,8 +126,16 @@ export const CORRUPTED_AUDIT_QUESTIONS = [
     ],
     explanation: "",
     auditIssues: [
-      { code: "NO_CORRECT_OPTION", severity: "danger", message: "Missing correct answer key" },
-      { code: "NO_EXPLANATION", severity: "warning", message: "Missing solution explanation" },
+      {
+        code: "NO_CORRECT_OPTION",
+        severity: "danger",
+        message: "Missing correct answer key",
+      },
+      {
+        code: "NO_EXPLANATION",
+        severity: "warning",
+        message: "Missing solution explanation",
+      },
     ],
   },
   {
@@ -133,7 +149,11 @@ export const CORRUPTED_AUDIT_QUESTIONS = [
     ],
     explanation: "Standard explanation",
     auditIssues: [
-      { code: "LATEX_UNCLOSED_BRACE", severity: "warning", message: "Unclosed LaTeX bracket in question body" },
+      {
+        code: "LATEX_UNCLOSED_BRACE",
+        severity: "warning",
+        message: "Unclosed LaTeX bracket in question body",
+      },
     ],
   },
 ];

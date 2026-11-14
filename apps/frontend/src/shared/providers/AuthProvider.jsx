@@ -35,6 +35,8 @@ import { toast } from "react-hot-toast";
 import { getCsrfToken, logger } from "@trstprep/shared-config";
 import { AuthContext } from "./AuthContextCore";
 import {
+  USER_CACHE_KEY,
+  SESSION_HINT_KEY,
   getInitialUser,
   getInitialSessionHint,
   markSessionHint,
@@ -335,6 +337,26 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener("unauthorized", handleUnauthorized);
   }, [user, purgeUserCaches, resetClientAuthState]);
 
+  // SEC-API-08: Cross-tab logout synchronization via storage event listener
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (
+        (e.key === SESSION_HINT_KEY && e.newValue === null) ||
+        (e.key === USER_CACHE_KEY && e.newValue === null)
+      ) {
+        // Sibling tab logged out — purge state immediately
+        resetClientAuthState();
+        clearAuthTokens();
+        saveUserCache(null);
+        setUser(null);
+        purgeUserCaches();
+        setAuthResolved(true);
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [purgeUserCaches, resetClientAuthState]);
+
   useEffect(() => {
     setSessionActive(Boolean(user));
   }, [user]);
@@ -631,7 +653,10 @@ export function AuthProvider({ children }) {
     return true;
   };
 
-  const { isConnected, socket, on, emit } = useWebSocket(Boolean(user));
+  // SEC-API-04: Explicitly pass token or identifier to WebSocket client
+  const { isConnected, socket, on, emit } = useWebSocket(Boolean(user), {
+    token: user?.token || user?.id ? String(user.token || user.id) : null,
+  });
   useEffect(() => {
     if (!socket) return;
     const cleanupNotification = on("notification:new", (data) => {

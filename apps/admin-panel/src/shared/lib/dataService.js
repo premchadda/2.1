@@ -77,7 +77,7 @@ function mapQuestionToFrontend(question) {
 class DataService {
   constructor() {
     this.cache = new CacheService();
-    this.loadingStates = new Map();
+    this.inFlight = new Map();
     this.retryAttempts = new Map();
     this.maxRetries = 3;
   }
@@ -95,36 +95,41 @@ class DataService {
       if (this.cache.has(key)) return this.cache.get(key);
     }
 
-    if (this.loadingStates.get(key)) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      return this.fetchWithCache(key, fetchFn, options);
+    if (this.inFlight.has(key)) {
+      return this.inFlight.get(key);
     }
 
-    let lastError;
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        this.loadingStates.set(key, true);
-        const data = await fetchFn();
-        if (useCache) this.cache.set(key, data, ttl);
-        this.retryAttempts.delete(key);
-        return data;
-      } catch (error) {
-        lastError = error;
-        if (import.meta.env.DEV)
-          logger.error(`Fetch attempt ${attempt} failed for ${key}:`, error);
-        if (
-          error instanceof ValidationError ||
-          error instanceof AuthenticationError
-        )
-          throw error;
-        if (attempt === retries) break;
-        const delay = retryDelay * Math.pow(2, attempt - 1);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      } finally {
-        this.loadingStates.delete(key);
+    const execution = (async () => {
+      let lastError;
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+          const data = await fetchFn();
+          if (useCache) this.cache.set(key, data, ttl);
+          this.retryAttempts.delete(key);
+          return data;
+        } catch (error) {
+          lastError = error;
+          if (import.meta.env.DEV)
+            logger.error(`Fetch attempt ${attempt} failed for ${key}:`, error);
+          if (
+            error instanceof ValidationError ||
+            error instanceof AuthenticationError
+          )
+            throw error;
+          if (attempt === retries) break;
+          const delay = retryDelay * Math.pow(2, attempt - 1);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
       }
+      throw lastError;
+    })();
+
+    this.inFlight.set(key, execution);
+    try {
+      return await execution;
+    } finally {
+      this.inFlight.delete(key);
     }
-    throw lastError;
   }
 
   clearCacheForEndpoint(endpointPattern) {

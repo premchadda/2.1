@@ -1,115 +1,147 @@
-import { dbHelpers, pool } from '../../infrastructure/database/postgres-helpers.js'
-import analyticsService from './analyticsService.js'
-import { idsMatch, safeNumber } from './common.js'
-import { fisherYatesShuffle } from '../../shared/utils/array.js'
+import {
+  dbHelpers,
+  pool,
+} from "../../infrastructure/database/postgres-helpers.js";
+import analyticsService from "./analyticsService.js";
+import { idsMatch, safeNumber } from "./common.js";
+import { fisherYatesShuffle } from "../../shared/utils/array.js";
 
 const normalizeOption = (value) => {
-  if (value === undefined || value === null || value === '') return null
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && /^-?[0-9]+$/.test(value.trim())) return Number(value)
-  return value
-}
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && /^-?[0-9]+$/.test(value.trim()))
+    return Number(value);
+  return value;
+};
 
 const getCorrectOption = (question) =>
   normalizeOption(
     question?.correctAnswer ??
       question?.correctOption ??
       question?.correct_option ??
-      question?.correct
-  )
+      question?.correct,
+  );
 
 const buildQuestionMap = async (cachedMap = null) => {
-  if (cachedMap instanceof Map) return cachedMap
-  const questions = await dbHelpers.find('questions', { isActive: true })
-  const map = new Map()
+  if (cachedMap instanceof Map) return cachedMap;
+  const questions = await dbHelpers.find("questions", { isActive: true });
+  const map = new Map();
   questions.forEach((question) => {
-    const id = question.id || question._id
-    if (id !== undefined && id !== null) map.set(String(id), question)
-  })
-  return map
-}
+    const id = question.id || question._id;
+    if (id !== undefined && id !== null) map.set(String(id), question);
+  });
+  return map;
+};
 
-export const getWrongQuestionBank = async (userId, { testId = null, limit = 200 } = {}) => {
-  const wrongRows = await dbHelpers.find('wrongQuestions', { userId, isActive: true })
+export const getWrongQuestionBank = async (
+  userId,
+  { testId = null, limit = 200 } = {},
+) => {
+  const wrongRows = await dbHelpers.find("wrongQuestions", {
+    userId,
+    isActive: true,
+  });
   const filtered = wrongRows
-    .filter((row) => (testId ? idsMatch(row.testId || row.test_id, testId) : true))
-    .sort((a, b) => new Date(b.lastSeenAt || b.updatedAt || b.createdAt || 0) - new Date(a.lastSeenAt || a.updatedAt || a.createdAt || 0))
-    .slice(0, limit)
+    .filter((row) =>
+      testId ? idsMatch(row.testId || row.test_id, testId) : true,
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.lastSeenAt || b.updatedAt || b.createdAt || 0) -
+        new Date(a.lastSeenAt || a.updatedAt || a.createdAt || 0),
+    )
+    .slice(0, limit);
 
-  const questionMap = await buildQuestionMap()
+  const questionMap = await buildQuestionMap();
   return filtered.map((row) => {
-    const question = questionMap.get(String(row.questionId || row.question_id))
+    const question = questionMap.get(String(row.questionId || row.question_id));
     return {
       id: row.id || row._id,
       wrongCount: safeNumber(row.wrongCount || row.wrong_count, 1),
       lastSeenAt: row.lastSeenAt || row.last_seen_at,
       question,
-    }
-  })
-}
+    };
+  });
+};
 
-export const getRevisionQueue = async (userId, { dueOnly = false, limit = 200 } = {}) => {
-  const queueRows = await dbHelpers.find('revisionQueue', { userId })
-  const now = Date.now()
+export const getRevisionQueue = async (
+  userId,
+  { dueOnly = false, limit = 200 } = {},
+) => {
+  const queueRows = await dbHelpers.find("revisionQueue", { userId });
+  const now = Date.now();
   const filtered = queueRows
     .filter((row) => {
-      const status = String(row.status || 'pending').toLowerCase()
-      if (status !== 'pending') return false
-      if (!dueOnly) return true
-      return new Date(row.dueAt || row.due_at || 0).getTime() <= now
+      const status = String(row.status || "pending").toLowerCase();
+      if (status !== "pending") return false;
+      if (!dueOnly) return true;
+      return new Date(row.dueAt || row.due_at || 0).getTime() <= now;
     })
-    .sort((a, b) => new Date(a.dueAt || a.due_at || 0) - new Date(b.dueAt || b.due_at || 0))
+    .sort(
+      (a, b) =>
+        new Date(a.dueAt || a.due_at || 0) - new Date(b.dueAt || b.due_at || 0),
+    );
 
   // Dedupe: at most one pending row per question (keep the earliest due) so
   // the 4 pre-inserted SRS rows never surface the same question 4 times.
-  const deduped = []
-  const seen = new Set()
+  const deduped = [];
+  const seen = new Set();
   for (const row of filtered) {
-    const key = String(row.questionId || row.question_id)
-    if (seen.has(key)) continue
-    seen.add(key)
-    deduped.push(row)
+    const key = String(row.questionId || row.question_id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(row);
   }
 
-  const questionMap = await buildQuestionMap()
+  const questionMap = await buildQuestionMap();
   return deduped.slice(0, limit).map((row) => ({
     id: row.id || row._id,
     dueAt: row.dueAt || row.due_at,
     scheduleDay: safeNumber(row.scheduleDay || row.schedule_day),
     priority: safeNumber(row.priority),
     sourceAttemptId: row.sourceAttemptId || row.source_attempt_id,
-    question: questionMap.get(String(row.questionId || row.question_id)) || null,
-  }))
-}
+    question:
+      questionMap.get(String(row.questionId || row.question_id)) || null,
+  }));
+};
 
-export const completeRevisionItem = async (userId, revisionId, { isCorrect = true } = {}) => {
-  const revisionRow = await dbHelpers.findById('revisionQueue', revisionId)
+export const completeRevisionItem = async (
+  userId,
+  revisionId,
+  { isCorrect = true } = {},
+) => {
+  const revisionRow = await dbHelpers.findById("revisionQueue", revisionId);
   if (!revisionRow) {
-    return { success: false, reason: 'not_found' }
+    return { success: false, reason: "not_found" };
   }
   if (!idsMatch(revisionRow.userId || revisionRow.user_id, userId)) {
-    return { success: false, reason: 'unauthorized' }
+    return { success: false, reason: "unauthorized" };
   }
 
-  const completedAt = new Date().toISOString()
-  const updated = await dbHelpers.updateById('revisionQueue', revisionId, {
-    status: 'completed',
+  const completedAt = new Date().toISOString();
+  const updated = await dbHelpers.updateById("revisionQueue", revisionId, {
+    status: "completed",
     completedAt,
     updatedAt: completedAt,
-  })
+  });
 
   // Clear the other pending rows for this question (pre-inserted SRS
   // day 1/3/7/14 rows) so the question never resurfaces as duplicates.
   await pool.query(
     `UPDATE revision_queue SET status = 'completed', completed_at = $1, updated_at = $1
      WHERE user_id = $2 AND question_id = $3 AND status = 'pending' AND id <> $4`,
-    [completedAt, userId, revisionRow.questionId || revisionRow.question_id, revisionId]
-  )
+    [
+      completedAt,
+      userId,
+      revisionRow.questionId || revisionRow.question_id,
+      revisionId,
+    ],
+  );
 
   // If still wrong during revision, create a follow-up 3-day reminder.
   if (!isCorrect) {
-    const followUpDueAt = new Date()
-    followUpDueAt.setDate(followUpDueAt.getDate() + 3)
+    const followUpDueAt = new Date();
+    followUpDueAt.setDate(followUpDueAt.getDate() + 3);
 
     await pool.query(
       `
@@ -129,26 +161,29 @@ export const completeRevisionItem = async (userId, revisionId, { isCorrect = tru
         revisionRow.questionId || revisionRow.question_id,
         revisionRow.sourceAttemptId || revisionRow.source_attempt_id,
         followUpDueAt.toISOString(),
-      ]
-    )
+      ],
+    );
   }
 
-  await analyticsService.updateStudyStreak(userId)
+  await analyticsService.updateStudyStreak(userId);
 
-  return { success: true, item: updated }
-}
+  return { success: true, item: updated };
+};
 
 const getOrCreateDailyQuiz = async (date = new Date()) => {
-  const dateStr = date.toISOString().slice(0, 10)
-  const existing = await pool.query('SELECT id, title, quiz_date, questions, is_active, created_at, updated_at FROM daily_quizzes WHERE quiz_date = $1 LIMIT 1', [dateStr])
+  const dateStr = date.toISOString().slice(0, 10);
+  const existing = await pool.query(
+    "SELECT id, title, quiz_date, questions, is_active, created_at, updated_at FROM daily_quizzes WHERE quiz_date = $1 LIMIT 1",
+    [dateStr],
+  );
   if (existing.rows[0]) {
-    return existing.rows[0]
+    return existing.rows[0];
   }
 
-  const allQuestions = await dbHelpers.find('questions', { isActive: true })
+  const allQuestions = await dbHelpers.find("questions", { isActive: true });
   // Cryptographically unbiased shuffle (previously a biased Math.random sort).
-  const shuffled = fisherYatesShuffle(allQuestions)
-  const selected = shuffled.slice(0, 10)
+  const shuffled = fisherYatesShuffle(allQuestions);
+  const selected = shuffled.slice(0, 10);
 
   // Atomic insert — ON CONFLICT DO NOTHING prevents two concurrent requests
   // from both creating a quiz for the same date (unique constraint violation).
@@ -160,20 +195,23 @@ const getOrCreateDailyQuiz = async (date = new Date()) => {
     ON CONFLICT (quiz_date) DO NOTHING
     RETURNING *
     `,
-    [dateStr, `Daily Quiz - ${dateStr}`, selected.length]
-  )
+    [dateStr, `Daily Quiz - ${dateStr}`, selected.length],
+  );
 
   // If the insert was a no-op (concurrent request won), re-read
-  const quiz = inserted.rows[0] || (await pool.query(
-    'SELECT * FROM daily_quizzes WHERE quiz_date = $1',
-    [dateStr]
-  )).rows[0]
+  const quiz =
+    inserted.rows[0] ||
+    (
+      await pool.query("SELECT * FROM daily_quizzes WHERE quiz_date = $1", [
+        dateStr,
+      ])
+    ).rows[0];
 
   if (!quiz) {
-    throw new Error('Failed to create or retrieve daily quiz')
+    throw new Error("Failed to create or retrieve daily quiz");
   }
 
-  let position = 1
+  let position = 1;
   for (const question of selected) {
     await pool.query(
       `
@@ -181,16 +219,16 @@ const getOrCreateDailyQuiz = async (date = new Date()) => {
       VALUES ($1, $2, $3, NOW())
       ON CONFLICT (quiz_id, question_id) DO NOTHING
       `,
-      [quiz.id, question.id || question._id, position]
-    )
-    position += 1
+      [quiz.id, question.id || question._id, position],
+    );
+    position += 1;
   }
 
-  return quiz
-}
+  return quiz;
+};
 
 export const getDailyQuizForUser = async (userId, date = new Date()) => {
-  const quiz = await getOrCreateDailyQuiz(date)
+  const quiz = await getOrCreateDailyQuiz(date);
   const questionsResult = await pool.query(
     `
     SELECT dq.question_id, dq.position
@@ -198,25 +236,26 @@ export const getDailyQuizForUser = async (userId, date = new Date()) => {
     WHERE dq.quiz_id = $1
     ORDER BY dq.position ASC
     `,
-    [quiz.id]
-  )
+    [quiz.id],
+  );
 
-  const questionMap = await buildQuestionMap()
+  const questionMap = await buildQuestionMap();
   const questions = questionsResult.rows
     .map((row) => questionMap.get(String(row.question_id)))
     .filter(Boolean)
     .map((question) => ({
       id: question.id || question._id,
-      questionText: question.questionText || question.question_text || question.text || '',
+      questionText:
+        question.questionText || question.question_text || question.text || "",
       options: question.options || [],
-      section: question.section || question.subject || 'General',
-      subject: question.subject || 'General',
-    }))
+      section: question.section || question.subject || "General",
+      subject: question.subject || "General",
+    }));
 
   const existingAttempt = await pool.query(
-    'SELECT id, score, accuracy, submitted_at FROM daily_quiz_attempts WHERE quiz_id = $1 AND user_id = $2 LIMIT 1',
-    [quiz.id, userId]
-  )
+    "SELECT id, score, accuracy, submitted_at FROM daily_quiz_attempts WHERE quiz_id = $1 AND user_id = $2 LIMIT 1",
+    [quiz.id, userId],
+  );
 
   return {
     quiz: {
@@ -228,38 +267,38 @@ export const getDailyQuizForUser = async (userId, date = new Date()) => {
       previousResult: existingAttempt.rows[0] || null,
     },
     questions,
-  }
-}
+  };
+};
 
 export const submitDailyQuiz = async (userId, quizId, answers = []) => {
   const quizQuestions = await pool.query(
-    'SELECT question_id FROM daily_quiz_questions WHERE quiz_id = $1',
-    [quizId]
-  )
-  const questionIds = quizQuestions.rows.map((row) => row.question_id)
+    "SELECT question_id FROM daily_quiz_questions WHERE quiz_id = $1",
+    [quizId],
+  );
+  const questionIds = quizQuestions.rows.map((row) => row.question_id);
   if (questionIds.length === 0) {
-    return { success: false, reason: 'quiz_not_found' }
+    return { success: false, reason: "quiz_not_found" };
   }
 
-  const questionMap = await buildQuestionMap()
-  let correct = 0
-  let attempted = 0
+  const questionMap = await buildQuestionMap();
+  let correct = 0;
+  let attempted = 0;
 
-  const normalizedAnswers = Array.isArray(answers) ? answers : []
+  const normalizedAnswers = Array.isArray(answers) ? answers : [];
   normalizedAnswers.forEach((entry) => {
-    const question = questionMap.get(String(entry?.questionId))
-    if (!question) return
-    const selectedOption = normalizeOption(entry?.selectedOption)
-    if (selectedOption === null) return
-    attempted += 1
+    const question = questionMap.get(String(entry?.questionId));
+    if (!question) return;
+    const selectedOption = normalizeOption(entry?.selectedOption);
+    if (selectedOption === null) return;
+    attempted += 1;
     if (selectedOption === getCorrectOption(question)) {
-      correct += 1
+      correct += 1;
     }
-  })
+  });
 
-  const totalQuestions = questionIds.length
-  const accuracy = totalQuestions > 0 ? (correct / totalQuestions) * 100 : 0
-  const score = correct
+  const totalQuestions = questionIds.length;
+  const accuracy = totalQuestions > 0 ? (correct / totalQuestions) * 100 : 0;
+  const score = correct;
 
   const { upsert, streak } = await dbHelpers.withTransaction(async (client) => {
     const upsert = await client.query(
@@ -277,13 +316,17 @@ export const submitDailyQuiz = async (userId, quizId, answers = []) => {
         updated_at = NOW()
       RETURNING *
       `,
-      [quizId, userId, JSON.stringify(normalizedAnswers), score, accuracy]
-    )
+      [quizId, userId, JSON.stringify(normalizedAnswers), score, accuracy],
+    );
 
-    const streak = await analyticsService.updateStudyStreak(userId, new Date(), client)
+    const streak = await analyticsService.updateStudyStreak(
+      userId,
+      new Date(),
+      client,
+    );
 
-    return { upsert, streak }
-  })
+    return { upsert, streak };
+  });
 
   return {
     success: true,
@@ -294,8 +337,8 @@ export const submitDailyQuiz = async (userId, quizId, answers = []) => {
       attempted,
       streak,
     },
-  }
-}
+  };
+};
 
 export const learningService = {
   getWrongQuestionBank,
@@ -303,7 +346,6 @@ export const learningService = {
   completeRevisionItem,
   getDailyQuizForUser,
   submitDailyQuiz,
-}
+};
 
-export default learningService
-
+export default learningService;

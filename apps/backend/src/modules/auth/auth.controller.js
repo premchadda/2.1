@@ -574,7 +574,8 @@ export const authController = {
         if (!mobileRegex.test(mobile)) {
           return res.status(400).json({
             success: false,
-            message: "Invalid mobile format (must be 10 digits starting with 6-9)",
+            message:
+              "Invalid mobile format (must be 10 digits starting with 6-9)",
           });
         }
       }

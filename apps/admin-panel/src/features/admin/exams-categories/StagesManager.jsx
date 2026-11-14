@@ -416,14 +416,25 @@ export default function StagesManager() {
 
   const handleEdit = (stage) => {
     setFormData({
-      name: stage.name,
-      slug: stage.slug,
+      name: stage.name || "",
+      slug: stage.slug || "",
       description: stage.description || "",
       icon: stage.icon || "",
-      order: stage.order || 0,
-      examIds: parseIdsArray(stage.examIds).map(String),
-      categoryIds: parseIdsArray(stage.categoryIds || []).map(String),
-      isActive: stage.isActive !== false,
+      order: stage.order ?? stage.order_index ?? stage.display_order ?? 0,
+      examIds: parseIdsArray(
+        stage.examIds ||
+          stage.exam_ids ||
+          (stage.exam_id != null ? [stage.exam_id] : []),
+      ).map(String),
+      categoryIds: parseIdsArray(
+        stage.categoryIds || stage.category_ids || [],
+      ).map(String),
+      isActive:
+        stage.isActive !== undefined
+          ? stage.isActive
+          : stage.is_active !== undefined
+            ? stage.is_active
+            : true,
     });
     setEditingId(stage._id || stage.id);
     setFormStep(1);

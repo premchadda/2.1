@@ -5,20 +5,7 @@ import { X, Edit2, Sparkles, CheckCircle2 } from "lucide-react";
 import { Badge as _Badge } from "./Badge";
 import { DIFFICULTY_LEVELS } from "../../../../shared/config/difficultyConfig.js";
 import MathRenderer from "../../../../shared/components/MathRenderer";
-
-const isSafeImageUrl = (url) => {
-  if (!url) return false;
-  try {
-    const parsed = new URL(url, window.location.origin);
-    return (
-      parsed.protocol === "http:" ||
-      parsed.protocol === "https:" ||
-      parsed.protocol === "data:"
-    );
-  } catch {
-    return false;
-  }
-};
+import { isSafeImageUrl } from "../../../../shared/lib/sanitizeHtml.js";
 
 export default function QuestionPreviewDrawer({
   previewQuestion,

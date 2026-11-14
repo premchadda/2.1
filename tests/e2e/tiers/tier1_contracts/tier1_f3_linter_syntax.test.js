@@ -9,7 +9,10 @@ import { describe, test, expect } from "../../harness/testContext.js";
 
 describe("Tier 1 - Feature F3: Linter & Syntax Compliance", () => {
   test("T1.F3.01: Backend ESLint flat config structure and rules", () => {
-    const eslintConfigPath = path.resolve(process.cwd(), "apps/backend/eslint.config.js");
+    const eslintConfigPath = path.resolve(
+      process.cwd(),
+      "apps/backend/eslint.config.js",
+    );
     expect(fs.existsSync(eslintConfigPath)).toBe(true);
 
     const content = fs.readFileSync(eslintConfigPath, "utf-8");
@@ -35,20 +38,30 @@ describe("Tier 1 - Feature F3: Linter & Syntax Compliance", () => {
   });
 
   test("T1.F3.03: Frontend ESLint configuration existence and rules", () => {
-    const frontendEslint = path.resolve(process.cwd(), "apps/frontend/eslint.config.js");
+    const frontendEslint = path.resolve(
+      process.cwd(),
+      "apps/frontend/eslint.config.js",
+    );
     expect(fs.existsSync(frontendEslint)).toBe(true);
   });
 
   test("T1.F3.04: Admin-Panel ESLint configuration existence", () => {
-    const adminEslint = path.resolve(process.cwd(), "apps/admin-panel/eslint.config.js");
+    const adminEslint = path.resolve(
+      process.cwd(),
+      "apps/admin-panel/eslint.config.js",
+    );
     expect(fs.existsSync(adminEslint)).toBe(true);
   });
 
   test("T1.F3.05: Monorepo Turbo and package lint scripts contract", () => {
-    const rootPkg = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf-8"));
+    const rootPkg = JSON.parse(
+      fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf-8"),
+    );
     expect(rootPkg.scripts).toHaveProperty("lint");
 
-    const turboJson = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "turbo.json"), "utf-8"));
+    const turboJson = JSON.parse(
+      fs.readFileSync(path.resolve(process.cwd(), "turbo.json"), "utf-8"),
+    );
     expect(turboJson.tasks).toHaveProperty("lint");
   });
 });

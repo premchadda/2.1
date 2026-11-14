@@ -67,6 +67,8 @@ export const SEGMENT_TO_RESOURCE = {
   curriculum: "content",
   "content-management": "content",
   "current-affairs": "content",
+  blogs: "content",
+  blog: "content",
   // Practice + live assessment segments.
   // Backend canonical RBAC vocab has NO "live"/"proctoring" resource — all
   // live operations are enforced as "tests" server-side. These segments map

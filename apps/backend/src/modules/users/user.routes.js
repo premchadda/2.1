@@ -142,7 +142,9 @@ const deleteOldProfileAsset = (oldPath, userId = null) => {
 
   const fileName = path.basename(oldPath);
   // Strict format check: must be avatar_<userId>_<timestamp>.<ext> or banner_<userId>_<timestamp>.<ext>
-  const fileMatch = fileName.match(/^(avatar|banner)_(\d+)_\d+\.(webp|jpg|jpeg|png)$/i);
+  const fileMatch = fileName.match(
+    /^(avatar|banner)_(\d+)_\d+\.(webp|jpg|jpeg|png)$/i,
+  );
   if (!fileMatch) {
     return;
   }

@@ -122,21 +122,44 @@ export default function CouponsManager() {
   const handleEdit = (coupon) => {
     setEditingCoupon(coupon);
     setFormData({
-      code: coupon.code,
-      description: coupon.description,
-      discountType: coupon.discountType,
-      discountValue: coupon.discountValue,
-      maxDiscount: coupon.maxDiscount,
-      minOrderValue: coupon.minOrderValue,
+      code: coupon.code || "",
+      description: coupon.description || "",
+      discountType: coupon.discountType || coupon.discount_type || "percentage",
+      discountValue: coupon.discountValue ?? coupon.discount_value ?? 10,
+      maxDiscount: coupon.maxDiscount ?? coupon.max_discount ?? 500,
+      minOrderValue:
+        coupon.minOrderValue ??
+        coupon.min_order_value ??
+        coupon.minPurchase ??
+        coupon.min_purchase ??
+        0,
       validFrom:
         (coupon.validFrom || coupon.valid_from || "")?.split("T")[0] || "",
       validUntil:
         (coupon.validUntil || coupon.valid_until || "")?.split("T")[0] || "",
-      usageLimit: coupon.usageLimit,
-      userUsageLimit: coupon.userUsageLimit,
-      applicablePlans: coupon.applicablePlans,
-      applicableCategories: coupon.applicableCategories,
-      isActive: coupon.isActive,
+      usageLimit:
+        coupon.usageLimit ??
+        coupon.usage_limit ??
+        coupon.maxUses ??
+        coupon.max_uses ??
+        100,
+      userUsageLimit: coupon.userUsageLimit ?? coupon.user_usage_limit ?? 1,
+      applicablePlans: Array.isArray(coupon.applicablePlans)
+        ? coupon.applicablePlans
+        : Array.isArray(coupon.applicable_plans)
+          ? coupon.applicable_plans
+          : ["all"],
+      applicableCategories: Array.isArray(coupon.applicableCategories)
+        ? coupon.applicableCategories
+        : Array.isArray(coupon.applicable_categories)
+          ? coupon.applicable_categories
+          : ["All"],
+      isActive:
+        coupon.isActive !== undefined
+          ? coupon.isActive
+          : coupon.is_active !== undefined
+            ? coupon.is_active
+            : true,
     });
     setShowForm(true);
   };

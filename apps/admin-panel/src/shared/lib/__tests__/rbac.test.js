@@ -80,4 +80,11 @@ describe("live-operation resource mapping (backend-canonical)", () => {
     expect(hasPermission(["tests:*"], "tests:manage")).toBe(true);
     expect(hasPermission(["content:view"], "tests:manage")).toBe(false);
   });
+
+  test("blogs and blog map to content resource", () => {
+    expect(getResourceFromSegment("blogs")).toBe("content");
+    expect(getResourceFromSegment("blog")).toBe("content");
+    expect(getResourceFromPath("/admin/blogs")).toBe("content");
+    expect(getResourceFromPath("/admin/blog")).toBe("content");
+  });
 });

@@ -14,11 +14,8 @@ const loadPoolsWithEnv = async (env) => {
   const saved = {};
   for (const k of ENV_KEYS) {
     saved[k] = process.env[k];
-    delete process.env[k];
+    process.env[k] = env[k] !== undefined ? env[k] : "";
   }
-  // Set explicitly (never leave unset): dotenv.config() inside the module
-  // must not fill values from a developer-local .env file during tests.
-  Object.assign(process.env, env);
   try {
     return await import("../../config/database-replicas.js");
   } finally {

@@ -63,6 +63,39 @@ function getLocalStore() {
   return typeof localStorage !== "undefined" ? localStorage : undefined;
 }
 
+// SEC-API-01: Cross-tab refresh synchronization constants and helpers
+const REFRESH_LOCK_NAME = "trstprep_auth_refresh";
+const REFRESH_TIMESTAMP_KEY = "trstprep_last_refresh_timestamp";
+const REFRESH_GRACE_WINDOW_MS = 10000; // 10s grace window for sibling tab refresh
+
+function getLastRefreshTimestamp() {
+  const ts = safeStorageGet(getLocalStore(), REFRESH_TIMESTAMP_KEY);
+  return ts ? parseInt(ts, 10) : 0;
+}
+
+function setLastRefreshTimestamp(ts = Date.now()) {
+  safeStorageSet(getLocalStore(), REFRESH_TIMESTAMP_KEY, String(ts));
+}
+
+/**
+ * SEC-API-03: Validates that an API endpoint is a safe relative path and does NOT contain
+ * protocol-relative sequences (// or /\) or backslashes that could trigger SSRF / open redirect.
+ */
+export function isValidApiEndpoint(endpoint) {
+  if (typeof endpoint !== "string") return false;
+  const trimmed = endpoint.trim();
+  if (!trimmed.startsWith("/")) return false;
+  if (
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("/\\") ||
+    trimmed.startsWith("\\\\") ||
+    trimmed.startsWith("\\/")
+  ) {
+    return false;
+  }
+  return true;
+}
+
 // Extract a human-readable message from an error response body.
 //
 // The backend is not consistent about the key it uses. Most routes answer
@@ -124,6 +157,9 @@ export function createApiClient(options = {}) {
     // (cookie session is used instead), matching the admin apiClient fix.
     // Set to false to preserve legacy replay behaviour.
     stripAuthOnQueuedReplay = true,
+    // SEC-CLIENT-05: Reading unvalidated bearer token from Web Storage is disabled by
+    // default so httpOnly cookies remain primary and cannot be overridden by rogue scripts.
+    allowStorageToken = false,
   } = options;
   const baseHeaders = headers || { "Content-Type": "application/json" };
   // Empty baseURL keeps same-origin relative requests (documented default);
@@ -138,6 +174,23 @@ export function createApiClient(options = {}) {
 
   instance.interceptors.request.use(
     (config) => {
+      // SEC-API-03: Reject protocol-relative URLs (//attacker.com or /\attacker.com)
+      // which can bypass relative URL origin restrictions and leak credentials/tokens.
+      const url = config.url;
+      if (typeof url === "string") {
+        const trimmedUrl = url.trim();
+        if (
+          trimmedUrl.startsWith("//") ||
+          trimmedUrl.startsWith("/\\") ||
+          trimmedUrl.startsWith("\\\\") ||
+          trimmedUrl.startsWith("\\/")
+        ) {
+          return Promise.reject(
+            new ValidationError(`Invalid request URL: ${url}`, { url }),
+          );
+        }
+      }
+
       if (typeof FormData !== "undefined" && config.data instanceof FormData) {
         delete config.headers["Content-Type"];
         delete config.headers["content-type"];
@@ -148,7 +201,11 @@ export function createApiClient(options = {}) {
           headers?.["x-client-app"] ||
           "trstprep-web";
       }
+      // SEC-CLIENT-05: Only read bearer token from Web Storage if explicitly opted-in.
+      // In cookie-first auth, httpOnly cookies are authoritative and reading untrusted
+      // Web Storage tokens risks token injection / hijacking.
       if (
+        allowStorageToken &&
         !config.headers["Authorization"] &&
         !config.headers["authorization"]
       ) {
@@ -208,6 +265,7 @@ export function createApiClient(options = {}) {
     authGeneration += 1;
     lastRefreshedToken = null;
     isRefreshing = false;
+    setLastRefreshTimestamp(0);
     processQueue(
       new AuthenticationError("Session changed — please sign in again", null),
     );
@@ -241,6 +299,9 @@ export function createApiClient(options = {}) {
     },
     async (error) => {
       if (axios.isCancel(error)) return Promise.reject(error);
+      if (error instanceof DataError || error instanceof NetworkError) {
+        return Promise.reject(error);
+      }
       const originalRequest = error.config;
       if (captureCsrfOnError) captureRotatedCsrf(error.response);
       const status = error.response?.status;
@@ -278,81 +339,123 @@ export function createApiClient(options = {}) {
           return Promise.reject(typed);
         }
         originalRequest._authRefreshAttempted = true;
+        const requestTimestamp = Date.now();
         if (!isRefreshing) {
           isRefreshing = true;
           const refreshGeneration = authGeneration;
-          try {
-            const refreshRes = await instance.post(
-              refreshUrl,
-              {},
-              {
-                _authRefreshAttempted: true,
-              },
-            );
-            // resetAuthState() ran while this refresh was in flight (logout /
-            // account switch). The rotated token belongs to the previous
-            // session — discard it rather than replaying a stale bearer, and
-            // let the caller establish the new session instead.
-            if (authGeneration !== refreshGeneration) {
-              isRefreshing = false;
-              const staleSessionError = new AuthenticationError(
-                "Session changed — please sign in again",
-                null,
-              );
-              processQueue(staleSessionError);
-              onAuthFailure?.(staleSessionError, { isRefreshFailure: true });
-              return Promise.reject(staleSessionError);
-            }
-            const newAccessToken =
-              refreshRes?.data?.data?.token || refreshRes?.data?.token;
-            if (newAccessToken) {
-              lastRefreshedToken = newAccessToken;
-              originalRequest.headers = originalRequest.headers || {};
-              originalRequest.headers["Authorization"] =
-                `Bearer ${newAccessToken}`;
-            } else if (originalRequest.headers) {
-              // Cookie-only refresh returns no bearer token. Do not replay an expired bearer token.
-              delete originalRequest.headers["Authorization"];
-              delete originalRequest.headers["authorization"];
-            }
-            isRefreshing = false;
-            processQueue(null);
-            return instance(originalRequest);
-          } catch (refreshError) {
-            // A reset during the in-flight refresh already cleared the auth
-            // state; do not clobber the *new* session's refresh flag or queue.
-            if (authGeneration !== refreshGeneration) {
-              processQueue(
-                new AuthenticationError(
+
+          const executeRefresh = async () => {
+            // SEC-API-01: Check if sibling tab already completed refresh while this tab
+            // was queued or waiting to acquire the Web Lock.
+            const lastRefresh = getLastRefreshTimestamp();
+            if (lastRefresh && lastRefresh >= requestTimestamp) {
+              if (authGeneration !== refreshGeneration) {
+                isRefreshing = false;
+                const staleSessionError = new AuthenticationError(
                   "Session changed — please sign in again",
                   null,
-                ),
-              );
-              return Promise.reject(refreshError);
+                );
+                processQueue(staleSessionError);
+                onAuthFailure?.(staleSessionError, { isRefreshFailure: true });
+                return Promise.reject(staleSessionError);
+              }
+              isRefreshing = false;
+              processQueue(null);
+              applyReplayAuth(originalRequest);
+              return instance(originalRequest);
             }
-            isRefreshing = false;
-            // The rotated token (if any) failed — drop it so later auth
-            // state reads fall back to the cookie session / re-login.
-            lastRefreshedToken = null;
-            const refreshStatus = refreshError?.response?.status;
-            const typedRefreshError =
-              refreshStatus === 401 || refreshStatus === 419
-                ? new AuthenticationError(
-                    extractErrorMessage(
-                      refreshError?.response?.data,
-                      refreshError?.message ||
-                        "Session expired — please sign in again",
-                    ),
-                    refreshError?.response?.data ?? null,
-                  )
-                : refreshError;
-            if (typedRefreshError.status === undefined && refreshStatus)
-              typedRefreshError.status = refreshStatus;
-            processQueue(typedRefreshError);
-            if (refreshStatus === 401 || refreshStatus === 419)
-              onAuthFailure?.(typedRefreshError, { isRefreshFailure: true });
-            return Promise.reject(typedRefreshError);
+
+            try {
+              const refreshRes = await instance.post(
+                refreshUrl,
+                {},
+                {
+                  _authRefreshAttempted: true,
+                },
+              );
+              // resetAuthState() ran while this refresh was in flight (logout /
+              // account switch). The rotated token belongs to the previous
+              // session — discard it rather than replaying a stale bearer, and
+              // let the caller establish the new session instead.
+              if (authGeneration !== refreshGeneration) {
+                isRefreshing = false;
+                const staleSessionError = new AuthenticationError(
+                  "Session changed — please sign in again",
+                  null,
+                );
+                processQueue(staleSessionError);
+                onAuthFailure?.(staleSessionError, { isRefreshFailure: true });
+                return Promise.reject(staleSessionError);
+              }
+              // Mark successful refresh time for sibling tabs
+              setLastRefreshTimestamp(Date.now());
+
+              const newAccessToken =
+                refreshRes?.data?.data?.token || refreshRes?.data?.token;
+              if (newAccessToken) {
+                lastRefreshedToken = newAccessToken;
+                originalRequest.headers = originalRequest.headers || {};
+                originalRequest.headers["Authorization"] =
+                  `Bearer ${newAccessToken}`;
+              } else if (originalRequest.headers) {
+                // Cookie-only refresh returns no bearer token. Do not replay an expired bearer token.
+                delete originalRequest.headers["Authorization"];
+                delete originalRequest.headers["authorization"];
+              }
+              isRefreshing = false;
+              processQueue(null);
+              return instance(originalRequest);
+            } catch (refreshError) {
+              // A reset during the in-flight refresh already cleared the auth
+              // state; do not clobber the *new* session's refresh flag or queue.
+              if (authGeneration !== refreshGeneration) {
+                processQueue(
+                  new AuthenticationError(
+                    "Session changed — please sign in again",
+                    null,
+                  ),
+                );
+                return Promise.reject(refreshError);
+              }
+              isRefreshing = false;
+              // The rotated token (if any) failed — drop it so later auth
+              // state reads fall back to the cookie session / re-login.
+              lastRefreshedToken = null;
+              const refreshStatus = refreshError?.response?.status;
+              const typedRefreshError =
+                refreshStatus === 401 || refreshStatus === 419
+                  ? new AuthenticationError(
+                      extractErrorMessage(
+                        refreshError?.response?.data,
+                        refreshError?.message ||
+                          "Session expired — please sign in again",
+                      ),
+                      refreshError?.response?.data ?? null,
+                    )
+                  : refreshError;
+              if (typedRefreshError.status === undefined && refreshStatus)
+                typedRefreshError.status = refreshStatus;
+              processQueue(typedRefreshError);
+              if (refreshStatus === 401 || refreshStatus === 419)
+                onAuthFailure?.(typedRefreshError, { isRefreshFailure: true });
+              return Promise.reject(typedRefreshError);
+            }
+          };
+
+          // Web Locks API coordination (SEC-API-01)
+          if (
+            typeof navigator !== "undefined" &&
+            navigator?.locks &&
+            typeof navigator.locks.request === "function"
+          ) {
+            return navigator.locks.request(
+              REFRESH_LOCK_NAME,
+              { mode: "exclusive" },
+              () => executeRefresh(),
+            );
           }
+
+          return executeRefresh();
         }
         return new Promise((resolve, reject) =>
           failedQueue.push({ resolve, reject }),

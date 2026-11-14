@@ -9,8 +9,14 @@ import { describe, test, expect } from "../../harness/testContext.js";
 import { apiClient } from "../../harness/apiClient.js";
 
 describe("Tier 3 - Pairwise 1: Question Notes (F7/F19) ↔ Test Review (F13)", () => {
-  const testReviewPath = path.resolve(process.cwd(), "apps/frontend/src/pages/tests/TestReview.jsx");
-  const questionNotesPath = path.resolve(process.cwd(), "apps/frontend/src/shared/components/QuestionNotes.jsx");
+  const testReviewPath = path.resolve(
+    process.cwd(),
+    "apps/frontend/src/pages/tests/TestReview.jsx",
+  );
+  const questionNotesPath = path.resolve(
+    process.cwd(),
+    "apps/frontend/src/shared/components/QuestionNotes.jsx",
+  );
 
   test("T3.P1.01: TestReview and QuestionNotes component files exist and are integrated", () => {
     expect(fs.existsSync(testReviewPath)).toBe(true);
@@ -33,7 +39,8 @@ describe("Tier 3 - Pairwise 1: Question Notes (F7/F19) ↔ Test Review (F13)", (
       userId: studentA.id,
       questionId,
       contextId,
-      noteText: "Check sign flip when dividing inequality by negative coefficient.",
+      noteText:
+        "Check sign flip when dividing inequality by negative coefficient.",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -51,8 +58,8 @@ describe("Tier 3 - Pairwise 1: Question Notes (F7/F19) ↔ Test Review (F13)", (
     ];
 
     const notesCache = {
-      "501": [{ id: "n1", text: "Important: inequality sign reverses!" }],
-      "502": [],
+      501: [{ id: "n1", text: "Important: inequality sign reverses!" }],
+      502: [],
     };
 
     const activeQuestion = reviewQuestions[0];
@@ -64,12 +71,24 @@ describe("Tier 3 - Pairwise 1: Question Notes (F7/F19) ↔ Test Review (F13)", (
 
   test("T3.P1.04: Cross-user privacy isolation prevents Student B from reading Student A's notes", () => {
     const notesDatabase = [
-      { id: "note_1", userId: 101, questionId: 501, text: "Student A private note" },
-      { id: "note_2", userId: 102, questionId: 501, text: "Student B private note" },
+      {
+        id: "note_1",
+        userId: 101,
+        questionId: 501,
+        text: "Student A private note",
+      },
+      {
+        id: "note_2",
+        userId: 102,
+        questionId: 501,
+        text: "Student B private note",
+      },
     ];
 
     function getNotesForUser(reqUserId, targetQuestionId) {
-      return notesDatabase.filter((n) => n.userId === reqUserId && n.questionId === targetQuestionId);
+      return notesDatabase.filter(
+        (n) => n.userId === reqUserId && n.questionId === targetQuestionId,
+      );
     }
 
     const studentANotes = getNotesForUser(101, 501);

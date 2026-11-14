@@ -11,7 +11,7 @@ describe("Tier 1 - Feature F22: Admin ImportHistoryModal Activation", () => {
   test("T1.F22.01: ImportHistoryModal.jsx component file exists and is implemented", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/features/admin/assessments-quizzes/components/ImportHistoryModal.jsx"
+      "apps/admin-panel/src/features/admin/assessments-quizzes/components/ImportHistoryModal.jsx",
     );
     expect(fs.existsSync(compPath)).toBe(true);
 
@@ -22,7 +22,7 @@ describe("Tier 1 - Feature F22: Admin ImportHistoryModal Activation", () => {
   test("T1.F22.02: BulkImportModal component exists for curriculum ingestion", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/features/admin/assessments-quizzes/components/BulkImportModal.jsx"
+      "apps/admin-panel/src/features/admin/assessments-quizzes/components/BulkImportModal.jsx",
     );
     expect(fs.existsSync(compPath)).toBe(true);
 
@@ -31,7 +31,10 @@ describe("Tier 1 - Feature F22: Admin ImportHistoryModal Activation", () => {
   });
 
   test("T1.F22.03: dataService or adminAPI provides getImportHistory client call", () => {
-    const dataServicePath = path.resolve(process.cwd(), "apps/admin-panel/src/shared/lib/api/adminAPI.js");
+    const dataServicePath = path.resolve(
+      process.cwd(),
+      "apps/admin-panel/src/shared/lib/api/adminAPI.js",
+    );
     expect(fs.existsSync(dataServicePath)).toBe(true);
 
     const content = fs.readFileSync(dataServicePath, "utf-8");
@@ -41,7 +44,7 @@ describe("Tier 1 - Feature F22: Admin ImportHistoryModal Activation", () => {
   test("T1.F22.04: ImportHistoryModal implements portal rendering and dismiss handlers", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/features/admin/assessments-quizzes/components/ImportHistoryModal.jsx"
+      "apps/admin-panel/src/features/admin/assessments-quizzes/components/ImportHistoryModal.jsx",
     );
     const content = fs.readFileSync(compPath, "utf-8");
     expect(content).toContain("onClose");
@@ -50,7 +53,7 @@ describe("Tier 1 - Feature F22: Admin ImportHistoryModal Activation", () => {
   test("T1.F22.05: ImportHistoryModal displays batch records and failure logs", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/features/admin/assessments-quizzes/components/ImportHistoryModal.jsx"
+      "apps/admin-panel/src/features/admin/assessments-quizzes/components/ImportHistoryModal.jsx",
     );
     const content = fs.readFileSync(compPath, "utf-8");
     expect(content).toContain("history");

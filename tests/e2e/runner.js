@@ -10,15 +10,22 @@ import { pathToFileURL } from "node:url";
 import { register } from "node:module";
 
 // Register JSX and asset loader hook for Node 24 ESM component testing
-const loaderPath = path.resolve(process.cwd(), "tests/e2e/harness/jsxLoader.mjs");
-if (fs.existsSync(loaderPath)) {
+const loaderPath = path.resolve(
+  process.cwd(),
+  "tests/e2e/harness/jsxLoader.mjs",
+);
+if (fs.existsSync(loaderPath) && !globalThis.__JSX_LOADER_REGISTERED__) {
+  globalThis.__JSX_LOADER_REGISTERED__ = true;
   try {
     register(pathToFileURL(loaderPath).href, import.meta.url);
   } catch {}
 }
 
 import { resetRegistry, runSuites } from "./harness/testContext.js";
-import { ensureLiveTestServer, stopLiveTestServer } from "./harness/testServer.js";
+import {
+  ensureLiveTestServer,
+  stopLiveTestServer,
+} from "./harness/testServer.js";
 import { apiClient } from "./harness/apiClient.js";
 
 const ANSI = {
@@ -115,13 +122,18 @@ function findTestFiles(tiersDir, options) {
     const fullDirPath = path.resolve(tiersDir, t.dir);
     if (!fs.existsSync(fullDirPath)) continue;
 
-    const entries = fs.readdirSync(fullDirPath).filter((f) => f.endsWith(".test.js") || f.endsWith(".test.mjs"));
+    const entries = fs
+      .readdirSync(fullDirPath)
+      .filter((f) => f.endsWith(".test.js") || f.endsWith(".test.mjs"));
 
     for (const file of entries) {
       if (options.feature) {
         // e.g. feature=F1 matches tier1_f1_...
         const featLower = options.feature.toLowerCase();
-        const featPattern = new RegExp(`_${featLower}_|_pair\\d+_|journey`, "i");
+        const featPattern = new RegExp(
+          `_${featLower}_|_pair\\d+_|journey`,
+          "i",
+        );
         if (!file.toLowerCase().includes(`_${featLower}_`)) {
           // Check if it's tier3 or tier4 that might cover the feature
           continue;
@@ -146,29 +158,47 @@ async function main() {
     process.exit(0);
   }
 
-  console.log(`\n${ANSI.bold}${ANSI.cyan}======================================================${ANSI.reset}`);
-  console.log(`${ANSI.bold}${ANSI.cyan}🧪 TRSTPREP V2.1 E2E TEST SUITE RUNNER${ANSI.reset}`);
-  console.log(`${ANSI.bold}${ANSI.cyan}======================================================${ANSI.reset}`);
-  console.log(`${ANSI.dim}Filters: Tier=${options.tier || "ALL"}, Feature=${options.feature || "ALL"}, Bail=${options.bail}, JSON=${options.json}${ANSI.reset}\n`);
+  console.log(
+    `\n${ANSI.bold}${ANSI.cyan}======================================================${ANSI.reset}`,
+  );
+  console.log(
+    `${ANSI.bold}${ANSI.cyan}🧪 TRSTPREP V2.1 E2E TEST SUITE RUNNER${ANSI.reset}`,
+  );
+  console.log(
+    `${ANSI.bold}${ANSI.cyan}======================================================${ANSI.reset}`,
+  );
+  console.log(
+    `${ANSI.dim}Filters: Tier=${options.tier || "ALL"}, Feature=${options.feature || "ALL"}, Bail=${options.bail}, JSON=${options.json}${ANSI.reset}\n`,
+  );
 
   const tiersDir = path.resolve(process.cwd(), "tests/e2e/tiers");
   const testFiles = findTestFiles(tiersDir, options);
 
   if (testFiles.length === 0) {
-    console.error(`\n${ANSI.bold}${ANSI.red}❌ Error: No test files found matching criteria.${ANSI.reset}`);
-    console.error(`   Provided filter: tier=${options.tier || "ALL"}, feature=${options.feature || "ALL"}\n`);
+    console.error(
+      `\n${ANSI.bold}${ANSI.red}❌ Error: No test files found matching criteria.${ANSI.reset}`,
+    );
+    console.error(
+      `   Provided filter: tier=${options.tier || "ALL"}, feature=${options.feature || "ALL"}\n`,
+    );
     process.exit(1);
   }
 
-  console.log(`${ANSI.bold}Discovered ${testFiles.length} test suite files:${ANSI.reset}`);
+  console.log(
+    `${ANSI.bold}Discovered ${testFiles.length} test suite files:${ANSI.reset}`,
+  );
   testFiles.forEach((f, idx) => {
-    console.log(`  ${ANSI.dim}${String(idx + 1).padStart(2, " ")}.${ANSI.reset} [Tier ${f.tier}] ${f.fileName}`);
+    console.log(
+      `  ${ANSI.dim}${String(idx + 1).padStart(2, " ")}.${ANSI.reset} [Tier ${f.tier}] ${f.fileName}`,
+    );
   });
   console.log();
 
   const liveUrl = await ensureLiveTestServer();
   apiClient.setBaseUrl(liveUrl);
-  console.log(`${ANSI.cyan}⚡ Live backend API active at: ${liveUrl}${ANSI.reset}\n`);
+  console.log(
+    `${ANSI.cyan}⚡ Live backend API active at: ${liveUrl}${ANSI.reset}\n`,
+  );
 
   try {
     resetRegistry();
@@ -178,7 +208,10 @@ async function main() {
       try {
         await import(pathToFileURL(file.fullPath).href);
       } catch (importErr) {
-        console.error(`${ANSI.red}❌ Failed to load test suite ${file.fileName}:${ANSI.reset}`, importErr);
+        console.error(
+          `${ANSI.red}❌ Failed to load test suite ${file.fileName}:${ANSI.reset}`,
+          importErr,
+        );
         process.exit(1);
       }
     }
@@ -189,12 +222,18 @@ async function main() {
       onTestResult: (tResult) => {
         if (tResult.suiteName !== lastSuiteName) {
           lastSuiteName = tResult.suiteName;
-          console.log(`\n${ANSI.bold}${ANSI.blue}▶ ${lastSuiteName}${ANSI.reset}`);
+          console.log(
+            `\n${ANSI.bold}${ANSI.blue}▶ ${lastSuiteName}${ANSI.reset}`,
+          );
         }
         if (tResult.passed) {
-          console.log(`  ${ANSI.green}✓${ANSI.reset} ${tResult.name} ${ANSI.dim}(${tResult.durationMs}ms)${ANSI.reset}`);
+          console.log(
+            `  ${ANSI.green}✓${ANSI.reset} ${tResult.name} ${ANSI.dim}(${tResult.durationMs}ms)${ANSI.reset}`,
+          );
         } else {
-          console.log(`  ${ANSI.red}✗ ${tResult.name}${ANSI.reset} ${ANSI.dim}(${tResult.durationMs}ms)${ANSI.reset}`);
+          console.log(
+            `  ${ANSI.red}✗ ${tResult.name}${ANSI.reset} ${ANSI.dim}(${tResult.durationMs}ms)${ANSI.reset}`,
+          );
           if (tResult.error) {
             console.log(`    ${ANSI.red}${tResult.error.message}${ANSI.reset}`);
           }
@@ -202,19 +241,35 @@ async function main() {
       },
     });
 
-    console.log(`\n${ANSI.bold}------------------------------------------------------${ANSI.reset}`);
+    console.log(
+      `\n${ANSI.bold}------------------------------------------------------${ANSI.reset}`,
+    );
     console.log(`${ANSI.bold}TEST EXECUTION SUMMARY:${ANSI.reset}`);
-    console.log(`  Total Tests Run:  ${ANSI.bold}${results.total}${ANSI.reset}`);
-    console.log(`  Passed:           ${ANSI.green}${results.passed}${ANSI.reset}`);
-    console.log(`  Failed:           ${results.failed > 0 ? ANSI.red + results.failed : ANSI.green + "0"}${ANSI.reset}`);
-    console.log(`  Total Duration:   ${(results.durationMs / 1000).toFixed(2)}s`);
-    console.log(`${ANSI.bold}------------------------------------------------------${ANSI.reset}`);
+    console.log(
+      `  Total Tests Run:  ${ANSI.bold}${results.total}${ANSI.reset}`,
+    );
+    console.log(
+      `  Passed:           ${ANSI.green}${results.passed}${ANSI.reset}`,
+    );
+    console.log(
+      `  Failed:           ${results.failed > 0 ? ANSI.red + results.failed : ANSI.green + "0"}${ANSI.reset}`,
+    );
+    console.log(
+      `  Total Duration:   ${(results.durationMs / 1000).toFixed(2)}s`,
+    );
+    console.log(
+      `${ANSI.bold}------------------------------------------------------${ANSI.reset}`,
+    );
 
     if (results.failures.length > 0) {
-      console.log(`\n${ANSI.bold}${ANSI.red}FAILURES DETAILS (${results.failures.length}):${ANSI.reset}`);
+      console.log(
+        `\n${ANSI.bold}${ANSI.red}FAILURES DETAILS (${results.failures.length}):${ANSI.reset}`,
+      );
       results.failures.forEach((f, i) => {
         console.log(`\n${i + 1}) [${f.suite}] ${f.test}`);
-        console.log(`${ANSI.red}${f.error?.stack || f.error?.message || f.error}${ANSI.reset}`);
+        console.log(
+          `${ANSI.red}${f.error?.stack || f.error?.message || f.error}${ANSI.reset}`,
+        );
       });
     }
 
@@ -237,15 +292,25 @@ async function main() {
         })),
         suites: results.suites,
       };
-      fs.writeFileSync(reportPath, JSON.stringify(reportData, null, 2), "utf-8");
-      console.log(`\n${ANSI.cyan}📄 JSON execution report saved to: ${reportPath}${ANSI.reset}`);
+      fs.writeFileSync(
+        reportPath,
+        JSON.stringify(reportData, null, 2),
+        "utf-8",
+      );
+      console.log(
+        `\n${ANSI.cyan}📄 JSON execution report saved to: ${reportPath}${ANSI.reset}`,
+      );
     }
 
     if (results.failed === 0 && results.total > 0) {
-      console.log(`\n${ANSI.bgGreen}${ANSI.bold}  VERDICT: PASS  ${ANSI.reset} All ${results.total} tests executed cleanly.\n`);
+      console.log(
+        `\n${ANSI.bgGreen}${ANSI.bold}  VERDICT: PASS  ${ANSI.reset} All ${results.total} tests executed cleanly.\n`,
+      );
       process.exit(0);
     } else {
-      console.log(`\n${ANSI.bgRed}${ANSI.bold}  VERDICT: FAIL  ${ANSI.reset} ${results.failed} failed tests.\n`);
+      console.log(
+        `\n${ANSI.bgRed}${ANSI.bold}  VERDICT: FAIL  ${ANSI.reset} ${results.failed} failed tests.\n`,
+      );
       process.exit(1);
     }
   } finally {

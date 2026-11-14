@@ -50,9 +50,7 @@ const VERCEL_ALLOWLIST = new Set([
 ]);
 
 // Dedicated admin panel allowlist — isolates administrative mutations from the student portal
-const ADMIN_VERCEL_ALLOWLIST = new Set([
-  "https://trstprep-admin.vercel.app",
-]);
+const ADMIN_VERCEL_ALLOWLIST = new Set(["https://trstprep-admin.vercel.app"]);
 
 // Strict IPv4 private ranges with octet 0-255 validation
 const OCTET = "(?:25[0-5]|2[0-4]\\d|1?\\d{1,2})";
@@ -114,39 +112,59 @@ const isLoopback = (hostname) => {
   );
 };
 
-const sameOriginHost = (originHost, requestHost) => {
-  if (!requestHost) return false;
-  if (originHost === requestHost) return true;
-
-  const getPort = (host) => {
-    if (host.startsWith("[")) {
-      const close = host.indexOf("]");
-      if (close !== -1 && host.slice(close + 1).startsWith(":")) {
-        return host.slice(close + 2);
-      }
-      return "";
-    }
-    const parts = host.split(":");
-    return parts.length > 1 ? parts[1] : "";
-  };
-
-  const originPort = getPort(originHost);
-  const requestPort = getPort(requestHost);
-  if (originPort && requestPort && originPort !== requestPort) {
+const sameOriginHost = (originUrl, requestHost, reqProtocol = "https") => {
+  if (!requestHost || !originUrl) return false;
+  let originObj;
+  try {
+    originObj = new URL(originUrl);
+  } catch {
+    return false;
+  }
+  // Enforce scheme parity in production
+  if (
+    process.env.NODE_ENV === "production" &&
+    originObj.protocol !== `${reqProtocol}:`
+  ) {
     return false;
   }
 
-  const normalizeHost = (host) => {
-    if (!host) return "";
-    if (host.startsWith("[")) {
-      const close = host.indexOf("]");
-      if (close !== -1) return host.slice(0, close + 1);
-      return host;
-    }
-    return host.split(":")[0];
+  const getEffectivePort = (port, protocol) => {
+    if (port) return String(port);
+    return protocol === "http:" ? "80" : "443";
   };
 
-  return normalizeHost(originHost) === normalizeHost(requestHost);
+  const getHostAndPort = (host, defaultProto) => {
+    let hostname = host;
+    let port = "";
+    if (host.startsWith("[")) {
+      const close = host.indexOf("]");
+      if (close !== -1) {
+        hostname = host.slice(0, close + 1);
+        if (host.slice(close + 1).startsWith(":")) {
+          port = host.slice(close + 2);
+        }
+      }
+    } else if (host.includes(":")) {
+      const parts = host.split(":");
+      hostname = parts[0];
+      port = parts[1];
+    }
+    return {
+      hostname: hostname.toLowerCase(),
+      port: getEffectivePort(port, defaultProto),
+    };
+  };
+
+  const originDetails = {
+    hostname: originObj.hostname.toLowerCase(),
+    port: getEffectivePort(originObj.port, originObj.protocol),
+  };
+  const requestDetails = getHostAndPort(requestHost, `${reqProtocol}:`);
+
+  return (
+    originDetails.hostname === requestDetails.hostname &&
+    originDetails.port === requestDetails.port
+  );
 };
 
 // Resolve origin with Referer fallback for browsers that suppress Origin on same-origin POST
@@ -189,10 +207,32 @@ export const validateOrigin = (req, res, next) => {
     });
   }
 
-  const requestHost =
-    req.headers["x-forwarded-host"] || req.headers.host || null;
+  // VULN-EDGE-02: Do NOT trust raw client-supplied x-forwarded-host. Validate against canonical allowlist.
+  const rawForwardedHost = req.headers && req.headers["x-forwarded-host"];
+  const canonicalHost = (
+    typeof req.get === "function"
+      ? req.get("host")
+      : (req.headers && req.headers["host"]) || ""
+  ).toLowerCase();
+  let requestHost = canonicalHost;
 
-  if (sameOriginHost(originHost, requestHost)) return next();
+  if (rawForwardedHost && typeof rawForwardedHost === "string") {
+    const baseHost = rawForwardedHost.split(",")[0].trim().toLowerCase();
+    if (
+      baseHost === "trstprep.com" ||
+      baseHost === "www.trstprep.com" ||
+      baseHost === "trstprep.vercel.app" ||
+      baseHost === "trstprep-admin.vercel.app" ||
+      baseHost === canonicalHost
+    ) {
+      requestHost = baseHost;
+    }
+  }
+
+  const reqProtocol =
+    req.headers["x-forwarded-proto"] || req.protocol || "https";
+
+  if (sameOriginHost(origin, requestHost, reqProtocol)) return next();
 
   const envOrigins = (
     process.env.ALLOWED_ORIGINS ||
@@ -282,10 +322,32 @@ export const restrictAdminOrigin = (req, res, next) => {
     });
   }
 
-  const requestHost =
-    req.headers["x-forwarded-host"] || req.headers.host || null;
+  // VULN-EDGE-02: Do NOT trust raw client-supplied x-forwarded-host. Validate against canonical allowlist.
+  const rawForwardedHost = req.headers && req.headers["x-forwarded-host"];
+  const canonicalHost = (
+    typeof req.get === "function"
+      ? req.get("host")
+      : (req.headers && req.headers["host"]) || ""
+  ).toLowerCase();
+  let requestHost = canonicalHost;
 
-  if (sameOriginHost(originHost, requestHost)) return next();
+  if (rawForwardedHost && typeof rawForwardedHost === "string") {
+    const baseHost = rawForwardedHost.split(",")[0].trim().toLowerCase();
+    if (
+      baseHost === "trstprep.com" ||
+      baseHost === "www.trstprep.com" ||
+      baseHost === "trstprep.vercel.app" ||
+      baseHost === "trstprep-admin.vercel.app" ||
+      baseHost === canonicalHost
+    ) {
+      requestHost = baseHost;
+    }
+  }
+
+  const reqProtocol =
+    req.headers["x-forwarded-proto"] || req.protocol || "https";
+
+  if (sameOriginHost(origin, requestHost, reqProtocol)) return next();
 
   const adminOrigins = new Set(
     [

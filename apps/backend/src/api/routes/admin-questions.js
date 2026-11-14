@@ -397,7 +397,10 @@ router.get(
 router.get("/questions", async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
-    const maxLimit = req.query.export === "true" ? 1000 : 100;
+    const isTargetedQuery =
+      req.query.export === "true" ||
+      !!(req.query.quizId || req.query.quiz_id || req.query.ids);
+    const maxLimit = isTargetedQuery ? 1000 : 100;
     const limit = Math.min(
       Math.max(parseInt(req.query.limit, 10) || 50, 1),
       maxLimit,
@@ -460,6 +463,35 @@ router.get("/questions", async (req, res) => {
       );
       params.push(numericSeriesId);
       paramIdx++;
+    }
+
+    const reqQuizId = req.query.quizId || req.query.quiz_id;
+    if (reqQuizId) {
+      let numericQuizId = reqQuizId;
+      if (!/^\d+$/.test(String(reqQuizId))) {
+        const { rows } = await pool.query(
+          "SELECT id FROM quizzes WHERE public_id = $1 LIMIT 1",
+          [reqQuizId],
+        );
+        if (rows[0]) numericQuizId = rows[0].id;
+      }
+      whereClauses.push(
+        `(q.quiz_id = $${paramIdx} OR EXISTS (SELECT 1 FROM quizzes qz WHERE qz.id = $${paramIdx} AND qz.question_ids @> to_jsonb(q.id)))`,
+      );
+      params.push(numericQuizId);
+      paramIdx++;
+    }
+
+    if (req.query.ids) {
+      const idList = String(req.query.ids)
+        .split(",")
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !isNaN(n));
+      if (idList.length > 0) {
+        whereClauses.push(`q.id = ANY($${paramIdx})`);
+        params.push(idList);
+        paramIdx++;
+      }
     }
 
     if (search) {

@@ -69,7 +69,8 @@ if (purify) {
       const isKatexNode =
         /katex|vlist|strut|mord|mbin|mrel|msupsub|mfrac|accent|delimsizing|nulldelimiter/i.test(
           cls,
-        ) || (typeof node.closest === "function" && node.closest(".katex") !== null);
+        ) ||
+        (typeof node.closest === "function" && node.closest(".katex") !== null);
       const styleVal = node.getAttribute("style") || "";
       const isSafeCss =
         !/url\(|expression\(|javascript:|behavior|@import/i.test(styleVal) &&
@@ -193,7 +194,9 @@ export const SANITIZE_CONFIG = {
 
 /**
  * Synchronously sanitise HTML with the canonical strict policy.
- * SSR/Node no-op: returns input unchanged when DOMPurify is unavailable.
+ * SSR/Node note (SEC-06): Returns input unchanged when DOMPurify is unavailable (window is undefined).
+ * Backend Node.js routes MUST use the jsdom-backed sanitizer (`apps/backend/src/middleware/htmlSanitizer.js`)
+ * instead of this client-side DOM utility.
  */
 export const sanitizeHtml = (html) => {
   if (!purify || !html) return html;

@@ -11,7 +11,7 @@ import { apiClient } from "../../harness/apiClient.js";
 describe("Tier 3 - Pairwise 6: Admin Deep Analytics (F8/F26) ↔ Sessions Telemetry (F16/F13)", () => {
   const deepAnalyticsPath = path.resolve(
     process.cwd(),
-    "apps/admin-panel/src/features/admin/analytics-insights/DeepAnalytics.jsx"
+    "apps/admin-panel/src/features/admin/analytics-insights/DeepAnalytics.jsx",
   );
 
   test("T3.P6.01: DeepAnalytics component exists and declares diagnostic health view", () => {
@@ -43,8 +43,11 @@ describe("Tier 3 - Pairwise 6: Admin Deep Analytics (F8/F26) ↔ Sessions Teleme
     const cohortWithPractice = [80, 85, 90, 75, 80]; // Mean = 82%
     const cohortWithoutPractice = [55, 60, 58, 62, 55]; // Mean = 58%
 
-    const avgWith = cohortWithPractice.reduce((a, b) => a + b, 0) / cohortWithPractice.length;
-    const avgWithout = cohortWithoutPractice.reduce((a, b) => a + b, 0) / cohortWithoutPractice.length;
+    const avgWith =
+      cohortWithPractice.reduce((a, b) => a + b, 0) / cohortWithPractice.length;
+    const avgWithout =
+      cohortWithoutPractice.reduce((a, b) => a + b, 0) /
+      cohortWithoutPractice.length;
     const bridgeDelta = parseFloat((avgWith - avgWithout).toFixed(1));
 
     expect(avgWith).toBe(82);
@@ -79,12 +82,16 @@ describe("Tier 3 - Pairwise 6: Admin Deep Analytics (F8/F26) ↔ Sessions Teleme
   });
 
   test("T3.P6.05: Admin analytics diagnostics endpoint authorization", async () => {
-    const studentRes = await apiClient.asStudent().get("/admin/analytics/deep/diagnostics");
+    const studentRes = await apiClient
+      .asStudent()
+      .get("/admin/analytics/deep/diagnostics");
     if (studentRes.status !== 0) {
       expect([401, 403, 404]).toContain(studentRes.status);
     }
 
-    const adminRes = await apiClient.asAdmin().get("/admin/analytics/deep/diagnostics");
+    const adminRes = await apiClient
+      .asAdmin()
+      .get("/admin/analytics/deep/diagnostics");
     if (adminRes.status !== 0) {
       expect([200, 404]).toContain(adminRes.status);
     }

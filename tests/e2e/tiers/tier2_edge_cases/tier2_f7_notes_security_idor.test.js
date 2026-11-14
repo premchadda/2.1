@@ -8,7 +8,10 @@ import { apiClient } from "../../harness/apiClient.js";
 
 describe("Tier 2 - Feature F7: Notes IDOR, Security & Validation Boundaries", () => {
   test("T2.F7.01: Cross-user IDOR access isolation (User B cannot update User A's note)", async () => {
-    const attackerClient = apiClient.asStudent({ id: 9999, email: "attacker@test.com" });
+    const attackerClient = apiClient.asStudent({
+      id: 9999,
+      email: "attacker@test.com",
+    });
 
     // Test invalid note ID format
     const badFormatRes = await attackerClient.put("/api/notes/invalid-uuid", {
@@ -35,8 +38,12 @@ describe("Tier 2 - Feature F7: Notes IDOR, Security & Validation Boundaries", ()
   });
 
   test("T2.F7.03: XSS script tags in note text are sanitized and do not evaluate", () => {
-    const maliciousText = "<script>alert('xss')</script>Remember formula $x^2 + y^2 = r^2$";
-    const sanitized = maliciousText.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+    const maliciousText =
+      "<script>alert('xss')</script>Remember formula $x^2 + y^2 = r^2$";
+    const sanitized = maliciousText.replace(
+      /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+      "",
+    );
     expect(sanitized).not.toContain("<script>");
     expect(sanitized).toContain("formula");
   });

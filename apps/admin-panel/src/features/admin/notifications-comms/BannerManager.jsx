@@ -56,15 +56,26 @@ export default function BannerManager() {
     setSaving(true);
 
     try {
+      const linkVal = String(formData.linkUrl || "").trim();
+      const sortVal = Number(formData.sortOrder) || 0;
+      const imgVal = String(formData.imageUrl || "").trim();
       const payload = {
         title: String(formData.title || "").trim(),
-        imageUrl: String(formData.imageUrl || "").trim(),
-        linkUrl: String(formData.linkUrl || "").trim(),
+        imageUrl: imgVal,
+        image_url: imgVal,
+        linkUrl: linkVal,
+        link: linkVal,
         position: formData.position,
-        sortOrder: Number(formData.sortOrder) || 0,
+        sortOrder: sortVal,
+        sort_order: sortVal,
+        displayOrder: sortVal,
+        display_order: sortVal,
         isActive: !!formData.isActive,
+        is_active: !!formData.isActive,
         startDate: formData.startDate || null,
+        start_date: formData.startDate || null,
         endDate: formData.endDate || null,
+        end_date: formData.endDate || null,
       };
       if (payload.imageUrl && !isSafeImageUrl(payload.imageUrl)) {
         toast.error("Please enter a valid, safe image URL");
@@ -115,13 +126,30 @@ export default function BannerManager() {
   const handleEdit = (banner) => {
     setFormData({
       title: banner.title || "",
-      imageUrl: banner.imageUrl || "",
+      imageUrl: banner.imageUrl || banner.image_url || "",
       linkUrl: banner.linkUrl ?? banner.link ?? "",
       position: banner.position || "home",
-      sortOrder: banner.sortOrder ?? banner.order ?? banner.displayOrder ?? 0,
-      isActive: banner.isActive !== false,
-      startDate: banner.startDate ? String(banner.startDate).slice(0, 10) : "",
-      endDate: banner.endDate ? String(banner.endDate).slice(0, 10) : "",
+      sortOrder:
+        banner.displayOrder ??
+        banner.display_order ??
+        banner.sortOrder ??
+        banner.sort_order ??
+        banner.order ??
+        0,
+      isActive:
+        banner.isActive !== undefined
+          ? banner.isActive
+          : banner.is_active !== undefined
+            ? banner.is_active
+            : true,
+      startDate:
+        banner.startDate || banner.start_date
+          ? String(banner.startDate || banner.start_date).slice(0, 10)
+          : "",
+      endDate:
+        banner.endDate || banner.end_date
+          ? String(banner.endDate || banner.end_date).slice(0, 10)
+          : "",
     });
     setEditingId(banner.id || banner._id);
     setShowForm(true);

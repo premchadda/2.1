@@ -9,7 +9,10 @@ import { describe, test, expect } from "../../harness/testContext.js";
 
 describe("Tier 1 - Feature F6: DB Migrations & Schema Health", () => {
   test("T1.F6.01: run-database-audit.js script existence and structure", () => {
-    const scriptPath = path.resolve(process.cwd(), "scripts/run-database-audit.js");
+    const scriptPath = path.resolve(
+      process.cwd(),
+      "scripts/run-database-audit.js",
+    );
     expect(fs.existsSync(scriptPath)).toBe(true);
 
     const content = fs.readFileSync(scriptPath, "utf-8");
@@ -18,7 +21,10 @@ describe("Tier 1 - Feature F6: DB Migrations & Schema Health", () => {
   });
 
   test("T1.F6.02: 19 core tables verified in database audit", () => {
-    const scriptPath = path.resolve(process.cwd(), "scripts/run-database-audit.js");
+    const scriptPath = path.resolve(
+      process.cwd(),
+      "scripts/run-database-audit.js",
+    );
     const content = fs.readFileSync(scriptPath, "utf-8");
 
     const expected19Tables = [
@@ -49,7 +55,10 @@ describe("Tier 1 - Feature F6: DB Migrations & Schema Health", () => {
   });
 
   test("T1.F6.03: Shadow encryption column integrity specification", () => {
-    const scriptPath = path.resolve(process.cwd(), "scripts/run-database-audit.js");
+    const scriptPath = path.resolve(
+      process.cwd(),
+      "scripts/run-database-audit.js",
+    );
     const content = fs.readFileSync(scriptPath, "utf-8");
 
     expect(content).toContain("phone_enc");
@@ -57,17 +66,27 @@ describe("Tier 1 - Feature F6: DB Migrations & Schema Health", () => {
   });
 
   test("T1.F6.04: Migration directory contains sequential SQL migration files", () => {
-    const migrationsDir = path.resolve(process.cwd(), "apps/backend/src/infrastructure/database/migrations");
+    const migrationsDir = path.resolve(
+      process.cwd(),
+      "apps/backend/src/infrastructure/database/migrations",
+    );
     expect(fs.existsSync(migrationsDir)).toBe(true);
 
-    const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
+    const files = fs
+      .readdirSync(migrationsDir)
+      .filter((f) => f.endsWith(".sql"));
     expect(files.length).toBeGreaterThanOrEqual(100);
     expect(files.some((f) => f.startsWith("001_"))).toBe(true);
-    expect(files.some((f) => f.includes("rls") || f.includes("security"))).toBe(true);
+    expect(files.some((f) => f.includes("rls") || f.includes("security"))).toBe(
+      true,
+    );
   });
 
   test("T1.F6.05: Migration Runner script contract and safety checks", () => {
-    const runnerPath = path.resolve(process.cwd(), "apps/backend/src/infrastructure/database/migrationRunner.js");
+    const runnerPath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/infrastructure/database/migrationRunner.js",
+    );
     expect(fs.existsSync(runnerPath)).toBe(true);
 
     const content = fs.readFileSync(runnerPath, "utf-8");

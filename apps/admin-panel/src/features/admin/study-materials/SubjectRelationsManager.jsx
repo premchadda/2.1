@@ -48,8 +48,6 @@ export default function SubjectRelationsManager() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
-  const [previewVideo, setPreviewVideo] = useState(null);
-  const [previewPdf, setPreviewPdf] = useState(null);
 
   // Link detail panel
   const [selected, setSelected] = useState(null);
@@ -698,6 +696,9 @@ function SubjectLinkPanel({
   series,
   onClose,
 }) {
+  const [previewVideo, setPreviewVideo] = useState(null);
+  const [previewPdf, setPreviewPdf] = useState(null);
+
   const topicsFor = (chId) =>
     allTopics.filter(
       (t) => String(t.chapterId || t.chapter_id || "") === String(chId),

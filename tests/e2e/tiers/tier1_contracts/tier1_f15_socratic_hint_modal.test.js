@@ -13,7 +13,7 @@ describe("Tier 1 - Feature F15: Frontend SocraticHintModal Activation", () => {
   test("T1.F15.01: SocraticHintModal component exists and is fully implemented", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/frontend/src/pages/tests/components/SocraticHintModal.jsx"
+      "apps/frontend/src/pages/tests/components/SocraticHintModal.jsx",
     );
     expect(fs.existsSync(compPath)).toBe(true);
 
@@ -67,7 +67,9 @@ describe("Tier 1 - Feature F15: Frontend SocraticHintModal Activation", () => {
     });
 
     // Language toggle button exists
-    const langBtn = screen.getByRole("button", { name: /हिंदी|english|language/i });
+    const langBtn = screen.getByRole("button", {
+      name: /हिंदी|english|language/i,
+    });
     expect(langBtn).toBeDefined();
 
     env.cleanup();
@@ -76,7 +78,7 @@ describe("Tier 1 - Feature F15: Frontend SocraticHintModal Activation", () => {
   test("T1.F15.04: SocraticHintModal renders penalty badges for all 3 tiers", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/frontend/src/pages/tests/components/SocraticHintModal.jsx"
+      "apps/frontend/src/pages/tests/components/SocraticHintModal.jsx",
     );
     const content = fs.readFileSync(compPath, "utf-8");
     expect(content).toContain("5% penalty");
@@ -85,7 +87,10 @@ describe("Tier 1 - Feature F15: Frontend SocraticHintModal Activation", () => {
   });
 
   test("T1.F15.05: Socratic hint API endpoint declared in intelligence routes", () => {
-    const intelPath = path.resolve(process.cwd(), "apps/backend/src/api/routes/intelligence.js");
+    const intelPath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/intelligence.js",
+    );
     expect(fs.existsSync(intelPath)).toBe(true);
 
     const content = fs.readFileSync(intelPath, "utf-8");

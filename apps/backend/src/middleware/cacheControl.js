@@ -25,7 +25,7 @@ const cacheControl = (req, res, next) => {
   }
   // User-specific data — never cache
   else if (noCacheEndpoints.some((prefix) => path.startsWith(prefix))) {
-    res.set("Cache-Control", "no-store");
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
   }
   // Rarely-changing public data — cache for 5 minutes. Match the endpoint or
   // any of its sub-paths (e.g. /api/test-series/123, not just the exact path).
@@ -35,6 +35,11 @@ const cacheControl = (req, res, next) => {
     )
   ) {
     res.set("Cache-Control", "public, max-age=300");
+    res.set("Vary", "Accept-Encoding, Cookie, Authorization, Origin");
+  }
+  // SEC-EDGE-07: Default fallback for all other API endpoints
+  else if (path.startsWith("/api/")) {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
   }
 
   next();

@@ -13,7 +13,7 @@ describe("Tier 1 - Feature F19: Frontend QuestionNotes Dynamic Sync", () => {
   test("T1.F19.01: QuestionNotes.jsx component file exists", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/frontend/src/shared/components/QuestionNotes.jsx"
+      "apps/frontend/src/shared/components/QuestionNotes.jsx",
     );
     expect(fs.existsSync(compPath)).toBe(true);
 
@@ -24,7 +24,7 @@ describe("Tier 1 - Feature F19: Frontend QuestionNotes Dynamic Sync", () => {
   test("T1.F19.02: QuestionNotes accepts contextId and question props", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/frontend/src/shared/components/QuestionNotes.jsx"
+      "apps/frontend/src/shared/components/QuestionNotes.jsx",
     );
     const content = fs.readFileSync(compPath, "utf-8");
     expect(content).toContain("contextId");
@@ -45,12 +45,16 @@ describe("Tier 1 - Feature F19: Frontend QuestionNotes Dynamic Sync", () => {
 
     const textarea = globalThis.document.querySelector("textarea");
     expect(textarea).not.toBeNull();
-    fireEvent.input(textarea, { target: { value: "Pythagorean theorem application note" } });
+    fireEvent.input(textarea, {
+      target: { value: "Pythagorean theorem application note" },
+    });
 
     const saveBtn = screen.getByRole("button", { name: /save note/i });
     fireEvent.click(saveBtn);
 
-    expect(screen.getByText("Pythagorean theorem application note")).toBeDefined();
+    expect(
+      screen.getByText("Pythagorean theorem application note"),
+    ).toBeDefined();
 
     env.cleanup();
   });
@@ -58,7 +62,7 @@ describe("Tier 1 - Feature F19: Frontend QuestionNotes Dynamic Sync", () => {
   test("T1.F19.04: Notes component provides save and delete handlers", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/frontend/src/shared/components/QuestionNotes.jsx"
+      "apps/frontend/src/shared/components/QuestionNotes.jsx",
     );
     const content = fs.readFileSync(compPath, "utf-8");
     expect(content).toContain("handleSave");
@@ -68,7 +72,15 @@ describe("Tier 1 - Feature F19: Frontend QuestionNotes Dynamic Sync", () => {
   test("T1.F19.05: Migration 155 contract specifies question_notes schema per PROJECT.md", () => {
     const expectedSchema = {
       tableName: "question_notes",
-      columns: ["id", "user_id", "question_id", "context_id", "note_text", "created_at", "updated_at"],
+      columns: [
+        "id",
+        "user_id",
+        "question_id",
+        "context_id",
+        "note_text",
+        "created_at",
+        "updated_at",
+      ],
     };
     expect(expectedSchema.tableName).toBe("question_notes");
     expect(expectedSchema.columns).toContain("note_text");

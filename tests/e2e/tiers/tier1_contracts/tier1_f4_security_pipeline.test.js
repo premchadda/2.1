@@ -10,7 +10,10 @@ import { apiClient } from "../../harness/apiClient.js";
 
 describe("Tier 1 - Feature F4: Security Pipeline & Route Guarding", () => {
   test("T1.F4.01: Admin router mounts canonical defense middleware stack in order", () => {
-    const adminRouterPath = path.resolve(process.cwd(), "apps/backend/src/api/routes/admin.js");
+    const adminRouterPath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/admin.js",
+    );
     expect(fs.existsSync(adminRouterPath)).toBe(true);
 
     const content = fs.readFileSync(adminRouterPath, "utf-8");
@@ -31,7 +34,10 @@ describe("Tier 1 - Feature F4: Security Pipeline & Route Guarding", () => {
   });
 
   test("T1.F4.04: Administrative stage mutations require admin authorization", () => {
-    const stagesPath = path.resolve(process.cwd(), "apps/backend/src/api/routes/stages.js");
+    const stagesPath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/stages.js",
+    );
     expect(fs.existsSync(stagesPath)).toBe(true);
 
     const content = fs.readFileSync(stagesPath, "utf-8");
@@ -39,7 +45,10 @@ describe("Tier 1 - Feature F4: Security Pipeline & Route Guarding", () => {
   });
 
   test("T1.F4.05: FortSpy security keygen routes require authentication", () => {
-    const fortspyPath = path.resolve(process.cwd(), "apps/backend/src/api/routes/fortspy.js");
+    const fortspyPath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/fortspy.js",
+    );
     expect(fs.existsSync(fortspyPath)).toBe(true);
 
     const content = fs.readFileSync(fortspyPath, "utf-8");

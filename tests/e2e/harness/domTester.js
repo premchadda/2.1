@@ -9,8 +9,12 @@ import { pathToFileURL } from "node:url";
 import { register } from "node:module";
 
 // Ensure Node 24 dynamic JSX and asset loader hook is active
-const loaderPath = path.resolve(process.cwd(), "tests/e2e/harness/jsxLoader.mjs");
-if (fs.existsSync(loaderPath)) {
+const loaderPath = path.resolve(
+  process.cwd(),
+  "tests/e2e/harness/jsxLoader.mjs",
+);
+if (fs.existsSync(loaderPath) && !globalThis.__JSX_LOADER_REGISTERED__) {
+  globalThis.__JSX_LOADER_REGISTERED__ = true;
   try {
     register(pathToFileURL(loaderPath).href, import.meta.url);
   } catch {}
@@ -20,7 +24,10 @@ let JSDOM;
 
 async function loadJSDOM() {
   if (!JSDOM) {
-    const jsdomPath = path.resolve(process.cwd(), "apps/backend/node_modules/jsdom/lib/api.js");
+    const jsdomPath = path.resolve(
+      process.cwd(),
+      "apps/backend/node_modules/jsdom/lib/api.js",
+    );
     const module = await import(pathToFileURL(jsdomPath).href);
     JSDOM = module.JSDOM;
   }
@@ -28,7 +35,9 @@ async function loadJSDOM() {
 }
 
 export class DomEnvironment {
-  constructor(html = '<!DOCTYPE html><html><head></head><body><div id="root"></div></body></html>') {
+  constructor(
+    html = '<!DOCTYPE html><html><head></head><body><div id="root"></div></body></html>',
+  ) {
     this.html = html;
     this.dom = null;
     this.window = null;
@@ -108,7 +117,16 @@ export class DomEnvironment {
         this.elements.clear();
       }
       triggerIntersect(element, isIntersecting = true) {
-        this.callback([{ target: element, isIntersecting, intersectionRatio: isIntersecting ? 1 : 0 }], this);
+        this.callback(
+          [
+            {
+              target: element,
+              isIntersecting,
+              intersectionRatio: isIntersecting ? 1 : 0,
+            },
+          ],
+          this,
+        );
       }
     }
     this.window.IntersectionObserver = MockIntersectionObserver;
@@ -139,17 +157,40 @@ export class DomEnvironment {
    * Mount a React component headlessly into #root with optional MemoryRouter wrapping
    */
   async mount(Component, props = {}, options = {}) {
-    const React = (await import(pathToFileURL(path.resolve(process.cwd(), "apps/frontend/node_modules/react/index.js")).href)).default;
-    const ReactDOM = await import(pathToFileURL(path.resolve(process.cwd(), "apps/frontend/node_modules/react-dom/client.js")).href);
+    const React = (
+      await import(
+        pathToFileURL(
+          path.resolve(
+            process.cwd(),
+            "apps/frontend/node_modules/react/index.js",
+          ),
+        ).href
+      )
+    ).default;
+    const ReactDOM = await import(
+      pathToFileURL(
+        path.resolve(
+          process.cwd(),
+          "apps/frontend/node_modules/react-dom/client.js",
+        ),
+      ).href
+    );
 
-    const rootEl = this.document.getElementById("root") || this.document.body.appendChild(this.document.createElement("div"));
+    const rootEl =
+      this.document.getElementById("root") ||
+      this.document.body.appendChild(this.document.createElement("div"));
     this.activeRoot = ReactDOM.createRoot(rootEl);
 
     let element = React.createElement(Component, props);
 
     if (options.router) {
       const { MemoryRouter, Routes, Route } = await import(
-        pathToFileURL(path.resolve(process.cwd(), "apps/frontend/node_modules/react-router-dom/dist/index.js")).href
+        pathToFileURL(
+          path.resolve(
+            process.cwd(),
+            "apps/frontend/node_modules/react-router-dom/dist/index.js",
+          ),
+        ).href
       );
       const initialEntries = options.router.initialEntries || ["/"];
       const routePath = options.router.routePath || "*";
@@ -159,8 +200,8 @@ export class DomEnvironment {
         React.createElement(
           Routes,
           null,
-          React.createElement(Route, { path: routePath, element })
-        )
+          React.createElement(Route, { path: routePath, element }),
+        ),
       );
     }
 
@@ -175,8 +216,24 @@ export class DomEnvironment {
    * Render and test a custom React Hook headlessly
    */
   async renderHook(hookFn, initialProps) {
-    const React = (await import(pathToFileURL(path.resolve(process.cwd(), "apps/frontend/node_modules/react/index.js")).href)).default;
-    const ReactDOM = await import(pathToFileURL(path.resolve(process.cwd(), "apps/frontend/node_modules/react-dom/client.js")).href);
+    const React = (
+      await import(
+        pathToFileURL(
+          path.resolve(
+            process.cwd(),
+            "apps/frontend/node_modules/react/index.js",
+          ),
+        ).href
+      )
+    ).default;
+    const ReactDOM = await import(
+      pathToFileURL(
+        path.resolve(
+          process.cwd(),
+          "apps/frontend/node_modules/react-dom/client.js",
+        ),
+      ).href
+    );
 
     const result = { current: null };
     function HookHarness({ props }) {
@@ -298,30 +355,44 @@ export const screen = {
     return el;
   },
   queryByTestId(testId) {
-    return globalThis.document?.querySelector(`[data-testid="${testId}"]`) || null;
+    return (
+      globalThis.document?.querySelector(`[data-testid="${testId}"]`) || null
+    );
   },
   getAllByTestId(testId) {
-    const list = Array.from(globalThis.document?.querySelectorAll(`[data-testid="${testId}"]`) || []);
+    const list = Array.from(
+      globalThis.document?.querySelectorAll(`[data-testid="${testId}"]`) || [],
+    );
     return list;
   },
   getByRole(role, options = {}) {
     let selector = role;
-    if (role === "button") selector = "button, [role='button'], input[type='button'], input[type='submit']";
+    if (role === "button")
+      selector =
+        "button, [role='button'], input[type='button'], input[type='submit']";
     if (role === "dialog") selector = "dialog, [role='dialog']";
     if (role === "radio") selector = "input[type='radio'], [role='radio']";
     if (role === "img") selector = "img, [role='img']";
     if (role === "navigation") selector = "nav, [role='navigation']";
     if (role === "combobox") selector = "select, [role='combobox']";
 
-    const all = Array.from(globalThis.document?.querySelectorAll(selector) || []);
+    const all = Array.from(
+      globalThis.document?.querySelectorAll(selector) || [],
+    );
     if (options.name) {
-      const regex = typeof options.name === "string" ? new RegExp(options.name, "i") : options.name;
+      const regex =
+        typeof options.name === "string"
+          ? new RegExp(options.name, "i")
+          : options.name;
       const filtered = all.filter((el) => {
-        const label = el.getAttribute("aria-label") || el.textContent || el.value || "";
+        const label =
+          el.getAttribute("aria-label") || el.textContent || el.value || "";
         return regex.test(label);
       });
       if (filtered.length === 0) {
-        throw new Error(`Unable to find role "${role}" with name: ${options.name}`);
+        throw new Error(
+          `Unable to find role "${role}" with name: ${options.name}`,
+        );
       }
       return filtered[0];
     }
@@ -335,20 +406,27 @@ export const screen = {
     if (role === "button") selector = "button, [role='button']";
     if (role === "link") selector = "a[href], [role='link']";
     if (role === "radio") selector = "input[type='radio'], [role='radio']";
-    const all = Array.from(globalThis.document?.querySelectorAll(selector) || []);
+    const all = Array.from(
+      globalThis.document?.querySelectorAll(selector) || [],
+    );
     return all;
   },
   getByLabelText(textOrRegex) {
-    const regex = typeof textOrRegex === "string" ? new RegExp(textOrRegex, "i") : textOrRegex;
-    const labels = Array.from(globalThis.document?.querySelectorAll("label") || []);
+    const regex =
+      typeof textOrRegex === "string"
+        ? new RegExp(textOrRegex, "i")
+        : textOrRegex;
+    const labels = Array.from(
+      globalThis.document?.querySelectorAll("label") || [],
+    );
     const matching = labels.find((l) => regex.test(l.textContent || ""));
     if (matching && matching.htmlFor) {
       const input = globalThis.document.getElementById(matching.htmlFor);
       if (input) return input;
     }
-    const ariaMatch = Array.from(globalThis.document?.querySelectorAll("[aria-label]") || []).find(
-      (el) => regex.test(el.getAttribute("aria-label") || "")
-    );
+    const ariaMatch = Array.from(
+      globalThis.document?.querySelectorAll("[aria-label]") || [],
+    ).find((el) => regex.test(el.getAttribute("aria-label") || ""));
     if (ariaMatch) return ariaMatch;
     throw new Error(`Unable to find element by label text: ${textOrRegex}`);
   },

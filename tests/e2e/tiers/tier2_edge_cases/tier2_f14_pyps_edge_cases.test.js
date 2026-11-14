@@ -8,7 +8,10 @@ import path from "node:path";
 import { describe, test, expect } from "../../harness/testContext.js";
 
 describe("Tier 2 - Feature F14: PypsExam Boundaries & Edge States", () => {
-  const compPath = path.resolve(process.cwd(), "apps/frontend/src/pages/pyps/PypsExam.jsx");
+  const compPath = path.resolve(
+    process.cwd(),
+    "apps/frontend/src/pages/pyps/PypsExam.jsx",
+  );
 
   test("T2.F14.01: Empty paper list renders friendly empty state", () => {
     const content = fs.readFileSync(compPath, "utf-8");

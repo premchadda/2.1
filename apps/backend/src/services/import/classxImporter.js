@@ -25,7 +25,10 @@
  *   ClassX.solution_text → questions.explanation
  */
 
-import { pool, execSavepoint } from "../../infrastructure/database/postgres-helpers.js";
+import {
+  pool,
+  execSavepoint,
+} from "../../infrastructure/database/postgres-helpers.js";
 
 const SOURCE_NAME = "classx";
 

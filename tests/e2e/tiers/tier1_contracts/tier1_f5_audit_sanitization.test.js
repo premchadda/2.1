@@ -6,15 +6,30 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, test, expect } from "../../harness/testContext.js";
-import { redactSensitiveValues, SENSITIVE_KEY_PATTERN } from "../../../apps/backend/src/middleware/audit.middleware.js";
+import {
+  redactSensitiveValues,
+  SENSITIVE_KEY_PATTERN,
+} from "../../../apps/backend/src/middleware/audit.middleware.js";
 
 describe("Tier 1 - Feature F5: Audit Log Query Sanitization", () => {
-  const auditPath = path.resolve(process.cwd(), "apps/backend/src/middleware/audit.middleware.js");
+  const auditPath = path.resolve(
+    process.cwd(),
+    "apps/backend/src/middleware/audit.middleware.js",
+  );
 
   test("T1.F5.01: SENSITIVE_KEY_PATTERN regex covers tokens, keys, passwords, and secrets", () => {
     expect(fs.existsSync(auditPath)).toBe(true);
 
-    const sensitiveKeys = ["token", "secret", "password", "apiKey", "api_key", "jwt", "otp", "credential"];
+    const sensitiveKeys = [
+      "token",
+      "secret",
+      "password",
+      "apiKey",
+      "api_key",
+      "jwt",
+      "otp",
+      "credential",
+    ];
     for (const key of sensitiveKeys) {
       expect(SENSITIVE_KEY_PATTERN.test(key)).toBe(true);
     }
@@ -35,7 +50,7 @@ describe("Tier 1 - Feature F5: Audit Log Query Sanitization", () => {
 
   test("T1.F5.03: Audit middleware request path sanitization logic strips raw query strings", () => {
     const content = fs.readFileSync(auditPath, "utf-8");
-    expect(content).toContain("split(\"?\")[0]");
+    expect(content).toContain('split("?")[0]');
   });
 
   test("T1.F5.04: Deep recursive object and array redaction preserves object purity", () => {

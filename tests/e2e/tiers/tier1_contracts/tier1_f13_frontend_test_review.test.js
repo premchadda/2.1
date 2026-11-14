@@ -29,7 +29,10 @@ describe("Tier 1 - Feature F13: Frontend TestReview Activation", () => {
   };
 
   test("T1.F13.01: TestReview.jsx component file existence and completeness", () => {
-    const compPath = path.resolve(process.cwd(), "apps/frontend/src/pages/tests/TestReview.jsx");
+    const compPath = path.resolve(
+      process.cwd(),
+      "apps/frontend/src/pages/tests/TestReview.jsx",
+    );
     expect(fs.existsSync(compPath)).toBe(true);
 
     const content = fs.readFileSync(compPath, "utf-8");
@@ -54,10 +57,15 @@ describe("Tier 1 - Feature F13: Frontend TestReview Activation", () => {
       {},
       {
         router: {
-          initialEntries: [{ pathname: "/tests/test-101/review", state: { testData: mockTest } }],
+          initialEntries: [
+            {
+              pathname: "/tests/test-101/review",
+              state: { testData: mockTest },
+            },
+          ],
           routePath: "/tests/:testId/review",
         },
-      }
+      },
     );
 
     expect(screen.getByText("Test Paper & Solutions")).toBeDefined();
@@ -76,10 +84,15 @@ describe("Tier 1 - Feature F13: Frontend TestReview Activation", () => {
       {},
       {
         router: {
-          initialEntries: [{ pathname: "/tests/test-101/review", state: { testData: mockTest } }],
+          initialEntries: [
+            {
+              pathname: "/tests/test-101/review",
+              state: { testData: mockTest },
+            },
+          ],
           routePath: "/tests/:testId/review",
         },
-      }
+      },
     );
 
     expect(env.printCalls).toBe(0);
@@ -99,10 +112,15 @@ describe("Tier 1 - Feature F13: Frontend TestReview Activation", () => {
       {},
       {
         router: {
-          initialEntries: [{ pathname: "/tests/test-101/review", state: { testData: mockTest } }],
+          initialEntries: [
+            {
+              pathname: "/tests/test-101/review",
+              state: { testData: mockTest },
+            },
+          ],
           routePath: "/tests/:testId/review",
         },
-      }
+      },
     );
 
     const reSolveBtn = screen.getByRole("button", { name: /re-solve/i });

@@ -3,6 +3,8 @@ import {
   createApiClient,
   clearCsrfToken,
   getCsrfToken,
+  isValidApiEndpoint,
+  ValidationError,
 } from "@trstprep/shared-config";
 
 function axiosError(
@@ -116,5 +118,84 @@ describe("createApiClient refresh handling", () => {
     expect(refreshCalls).toBe(1);
     expect(getCsrfToken()).toBe("csrf-after-refresh");
     expect(onAuthFailure).toHaveBeenCalledTimes(1);
+  });
+
+  test("rejects protocol-relative URLs to prevent SSRF and token leakage (SEC-API-03)", async () => {
+    expect(isValidApiEndpoint("//attacker.com/api")).toBe(false);
+    expect(isValidApiEndpoint("/\\attacker.com/api")).toBe(false);
+    expect(isValidApiEndpoint("\\\\attacker.com/api")).toBe(false);
+    expect(isValidApiEndpoint("/api/protected")).toBe(true);
+
+    const { client } = makeClient(async (config) => response(config));
+
+    await expect(client.get("//attacker.com/api")).rejects.toThrow(
+      /Invalid request URL/,
+    );
+    await expect(client.get("/\\attacker.com/api")).rejects.toThrow(
+      /Invalid request URL/,
+    );
+  });
+
+  test("guards Web Storage token by default and respects allowStorageToken opt-in (SEC-CLIENT-05)", async () => {
+    sessionStorage.setItem("trstprep_token", "untrusted-storage-token");
+
+    let capturedHeaders = null;
+    const { client: defaultClient } = makeClient(async (config) => {
+      capturedHeaders = config.headers;
+      return response(config);
+    });
+
+    await defaultClient.get("/api/test");
+    // Default client must NOT inject untrusted storage token
+    expect(capturedHeaders["Authorization"]).toBeUndefined();
+
+    // Opt-in client explicitly allows storage token
+    const optInClient = createApiClient({
+      baseURL: "http://api.test",
+      allowStorageToken: true,
+    });
+    optInClient.defaults.adapter = async (config) => {
+      capturedHeaders = config.headers;
+      return response(config);
+    };
+
+    await optInClient.get("/api/test");
+    expect(capturedHeaders["Authorization"]).toBe(
+      "Bearer untrusted-storage-token",
+    );
+
+    sessionStorage.removeItem("trstprep_token");
+  });
+
+  test("reuses fresh sibling-tab refresh without re-issuing duplicate refresh request (SEC-API-01)", async () => {
+    let refreshCalls = 0;
+    let protectedCalls = 0;
+
+    const { client } = makeClient(async (config) => {
+      if (config.url === "/api/protected") {
+        protectedCalls += 1;
+        if (protectedCalls === 1) throw axiosError(config, 401);
+        return response(config, { success: true, data: { value: 99 } });
+      }
+      if (config.url === "/api/auth/refresh") {
+        refreshCalls += 1;
+        return response(config, { success: true });
+      }
+      throw new Error(`Unexpected request: ${config.url}`);
+    });
+
+    // Simulate sibling tab having refreshed concurrently just now
+    localStorage.setItem(
+      "trstprep_last_refresh_timestamp",
+      String(Date.now() + 100),
+    );
+
+    const result = await client.get("/api/protected");
+    expect(result.data.data.value).toBe(99);
+    // Refresh should have been skipped because sibling tab already refreshed
+    expect(refreshCalls).toBe(0);
+    expect(protectedCalls).toBe(2);
+
+    localStorage.removeItem("trstprep_last_refresh_timestamp");
   });
 });

@@ -1,12 +1,12 @@
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 
 dotenv.config();
 
 /**
  * FortSpy Integration Service
- * 
+ *
  * Communicates with the FortSpy Python Flask API for video encryption/decryption.
- * 
+ *
  * FortSpy API Endpoints:
  *   POST /api/encrypt      - Encrypt a video file
  *   POST /api/decrypt      - Decrypt an encrypted video
@@ -15,8 +15,8 @@ dotenv.config();
  *   POST /api/keygen       - Generate AES encryption key
  */
 
-const FORTSPY_BASE_URL = process.env.FORTSPY_URL || 'http://localhost:5002';
-const FORTSPY_TIMEOUT = parseInt(process.env.FORTSPY_TIMEOUT || '30000', 10);
+const FORTSPY_BASE_URL = process.env.FORTSPY_URL || "http://localhost:5002";
+const FORTSPY_TIMEOUT = parseInt(process.env.FORTSPY_TIMEOUT || "30000", 10);
 
 class FortSpyService {
   constructor() {
@@ -30,7 +30,7 @@ class FortSpyService {
   async healthCheck() {
     try {
       const response = await fetch(`${this.baseUrl}/api/health`, {
-        method: 'GET',
+        method: "GET",
         signal: AbortSignal.timeout(5000),
       });
       return response.ok;
@@ -44,14 +44,18 @@ class FortSpyService {
    */
   async generateKey() {
     const response = await fetch(`${this.baseUrl}/api/keygen`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(this.timeout),
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Key generation failed' }));
-      throw new Error(error.message || `FortSpy keygen failed with status ${response.status}`);
+      const error = await response
+        .json()
+        .catch(() => ({ message: "Key generation failed" }));
+      throw new Error(
+        error.message || `FortSpy keygen failed with status ${response.status}`,
+      );
     }
 
     return response.json();
@@ -66,22 +70,27 @@ class FortSpyService {
    */
   async encryptVideo(videoBuffer, filename, options = {}) {
     const formData = new FormData();
-    const blob = new Blob([videoBuffer], { type: 'video/mp4' });
-    formData.append('file', blob, filename);
+    const blob = new Blob([videoBuffer], { type: "video/mp4" });
+    formData.append("file", blob, filename);
 
     if (options.key) {
-      formData.append('key', options.key);
+      formData.append("key", options.key);
     }
 
     const response = await fetch(`${this.baseUrl}/api/encrypt`, {
-      method: 'POST',
+      method: "POST",
       body: formData,
       signal: AbortSignal.timeout(this.timeout * 3), // Encrypt can take longer
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Encryption failed' }));
-      throw new Error(error.message || `FortSpy encryption failed with status ${response.status}`);
+      const error = await response
+        .json()
+        .catch(() => ({ message: "Encryption failed" }));
+      throw new Error(
+        error.message ||
+          `FortSpy encryption failed with status ${response.status}`,
+      );
     }
 
     return response.json();
@@ -95,20 +104,44 @@ class FortSpyService {
    */
   async decryptVideo(encryptedId, key) {
     const response = await fetch(`${this.baseUrl}/api/decrypt`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: encryptedId, key }),
       signal: AbortSignal.timeout(this.timeout * 2),
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Decryption failed' }));
-      throw new Error(error.message || `FortSpy decryption failed with status ${response.status}`);
+      const error = await response
+        .json()
+        .catch(() => ({ message: "Decryption failed" }));
+      throw new Error(
+        error.message ||
+          `FortSpy decryption failed with status ${response.status}`,
+      );
     }
 
     const result = await response.json();
 
     if (result.url) {
+      // VULN-EDGE-06: Validate URL scheme and block private/loopback/cloud metadata SSRF targets
+      const parsedUrl = new URL(result.url);
+      if (parsedUrl.protocol !== "https:") {
+        throw new Error("Invalid decryption URL scheme: HTTPS required");
+      }
+      const hostname = parsedUrl.hostname.toLowerCase();
+      if (
+        hostname === "localhost" ||
+        hostname.endsWith(".localhost") ||
+        hostname === "169.254.169.254" ||
+        hostname.startsWith("127.") ||
+        hostname.startsWith("10.") ||
+        hostname.startsWith("192.168.") ||
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)
+      ) {
+        throw new Error(
+          "Invalid decryption URL: Private or loopback target prohibited",
+        );
+      }
       // If the API returns a URL, fetch the decrypted file
       const fileResponse = await fetch(result.url, {
         signal: AbortSignal.timeout(this.timeout * 2),
@@ -116,7 +149,7 @@ class FortSpyService {
       return Buffer.from(await fileResponse.arrayBuffer());
     }
 
-    return Buffer.from(result.data, 'base64');
+    return Buffer.from(result.data, "base64");
   }
 
   /**
@@ -136,13 +169,17 @@ class FortSpyService {
    */
   async getVideoInfo(encryptedId) {
     const response = await fetch(`${this.baseUrl}/api/info/${encryptedId}`, {
-      method: 'GET',
+      method: "GET",
       signal: AbortSignal.timeout(this.timeout),
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Failed to get video info' }));
-      throw new Error(error.message || `FortSpy info failed with status ${response.status}`);
+      const error = await response
+        .json()
+        .catch(() => ({ message: "Failed to get video info" }));
+      throw new Error(
+        error.message || `FortSpy info failed with status ${response.status}`,
+      );
     }
 
     return response.json();

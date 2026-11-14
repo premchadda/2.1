@@ -3008,7 +3008,6 @@ router.get("/questions", protect, async (req, res) => {
         "id",
         "question_text",
         "options",
-        "explanation",
         "subject",
         "topic",
         "difficulty",
@@ -3039,7 +3038,7 @@ router.get("/questions/:id", protect, async (req, res) => {
         .json({ success: false, error: "Invalid question ID" });
     }
     const result = await pool.query(
-      `SELECT id, question_text, options, explanation, subject, topic, difficulty, language
+      `SELECT id, question_text, options, subject, topic, difficulty, language
        FROM questions WHERE id = $1 AND is_practice = true AND is_active = true`,
       [id],
     );

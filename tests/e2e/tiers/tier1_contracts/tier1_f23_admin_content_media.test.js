@@ -11,7 +11,7 @@ describe("Tier 1 - Feature F23: Admin Content Hierarchy & Media Preview", () => 
   test("T1.F23.01: ContentHierarchySidebar.jsx component file existence and hierarchy selectors", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/features/admin/study-materials/components/ContentHierarchySidebar.jsx"
+      "apps/admin-panel/src/features/admin/study-materials/components/ContentHierarchySidebar.jsx",
     );
     expect(fs.existsSync(compPath)).toBe(true);
 
@@ -22,7 +22,7 @@ describe("Tier 1 - Feature F23: Admin Content Hierarchy & Media Preview", () => 
   test("T1.F23.02: ContentReader.jsx component file existence and HTML reader modal", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/shared/components/common/ContentReader.jsx"
+      "apps/admin-panel/src/shared/components/common/ContentReader.jsx",
     );
     expect(fs.existsSync(compPath)).toBe(true);
 
@@ -33,7 +33,7 @@ describe("Tier 1 - Feature F23: Admin Content Hierarchy & Media Preview", () => 
   test("T1.F23.03: PDFViewer.jsx component file existence and iframe viewer logic", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/shared/components/common/PDFViewer.jsx"
+      "apps/admin-panel/src/shared/components/common/PDFViewer.jsx",
     );
     expect(fs.existsSync(compPath)).toBe(true);
 
@@ -45,7 +45,7 @@ describe("Tier 1 - Feature F23: Admin Content Hierarchy & Media Preview", () => 
   test("T1.F23.04: VideoPlayer.jsx component file existence and custom media controls", () => {
     const compPath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/shared/components/common/VideoPlayer.jsx"
+      "apps/admin-panel/src/shared/components/common/VideoPlayer.jsx",
     );
     expect(fs.existsSync(compPath)).toBe(true);
 
@@ -56,7 +56,7 @@ describe("Tier 1 - Feature F23: Admin Content Hierarchy & Media Preview", () => 
   test("T1.F23.05: ContentManagement page integrates study materials navigation", () => {
     const pagePath = path.resolve(
       process.cwd(),
-      "apps/admin-panel/src/features/admin/study-materials/ContentManagement.jsx"
+      "apps/admin-panel/src/features/admin/study-materials/ContentManagement.jsx",
     );
     expect(fs.existsSync(pagePath)).toBe(true);
 

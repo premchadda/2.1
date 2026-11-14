@@ -1,4 +1,7 @@
-import { pool, execSavepoint } from "../../infrastructure/database/postgres-helpers.js";
+import {
+  pool,
+  execSavepoint,
+} from "../../infrastructure/database/postgres-helpers.js";
 import { saveTestContent } from "./testContentStorage.js";
 
 // ─── Slug → ID resolution helpers (with upsert) ─────────────────────────────
@@ -104,7 +107,8 @@ export const parseCorrectOption = (q, options = []) => {
 
   if (Array.isArray(options) && options.length > 0) {
     const idx = options.findIndex(
-      (o) => String(o).trim().toLowerCase() === String(raw).trim().toLowerCase(),
+      (o) =>
+        String(o).trim().toLowerCase() === String(raw).trim().toLowerCase(),
     );
     if (idx !== -1) return idx;
   }
@@ -1293,7 +1297,8 @@ export async function importFullTest(json, config = {}) {
           const qRow = {
             question_text: questionText || questionTextHi || "",
             question_text_hi: questionTextHi,
-            options: typeof options === "string" ? options : JSON.stringify(options),
+            options:
+              typeof options === "string" ? options : JSON.stringify(options),
             options_hi:
               typeof optionsHi === "string"
                 ? optionsHi
@@ -1352,7 +1357,8 @@ export async function importFullTest(json, config = {}) {
           await client.query(releaseSql);
         } catch (qPrepErr) {
           try {
-            const rollbackSql = "ROLLBACK TO SAVEPOINT " + '"' + safeSpName + '"';
+            const rollbackSql =
+              "ROLLBACK TO SAVEPOINT " + '"' + safeSpName + '"';
             await client.query(rollbackSql);
           } catch (_) {
             void _;
@@ -1501,11 +1507,7 @@ export async function importFullTest(json, config = {}) {
           `UPDATE test_sections
            SET question_count = $1, total_marks = $2, updated_at = NOW()
            WHERE id = $3`,
-          [
-            actualCount,
-            section.maxMarks || 0,
-            sectionDbId,
-          ],
+          [actualCount, section.maxMarks || 0, sectionDbId],
         );
       }
     }

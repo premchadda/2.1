@@ -14,7 +14,9 @@ describe("Tier 2 - Feature F4: Security Attack Vectors & Route Guarding", () => 
       Origin: "https://attacker-phishing-site.com",
     });
 
-    const res = await maliciousClient.post("/api/admin/roles", { name: "attacker_role" });
+    const res = await maliciousClient.post("/api/admin/roles", {
+      name: "attacker_role",
+    });
     expect([401, 403]).toContain(res.status);
   });
 
@@ -32,12 +34,17 @@ describe("Tier 2 - Feature F4: Security Attack Vectors & Route Guarding", () => 
       "x-csrf-token": "forged-csrf-token-xyz",
     });
 
-    const res = await badCsrfClient.post("/api/admin/catalog", { title: "Forged Test" });
+    const res = await badCsrfClient.post("/api/admin/catalog", {
+      title: "Forged Test",
+    });
     expect([401, 403]).toContain(res.status);
   });
 
   test("T2.F4.04: Client IP extraction in phoneAuth.js validates headers safely", () => {
-    const phoneAuthPath = path.resolve(process.cwd(), "apps/backend/src/api/routes/phoneAuth.js");
+    const phoneAuthPath = path.resolve(
+      process.cwd(),
+      "apps/backend/src/api/routes/phoneAuth.js",
+    );
     expect(fs.existsSync(phoneAuthPath)).toBe(true);
 
     const content = fs.readFileSync(phoneAuthPath, "utf-8");
@@ -45,7 +52,10 @@ describe("Tier 2 - Feature F4: Security Attack Vectors & Route Guarding", () => 
   });
 
   test("T2.F4.05: Nginx proxy configuration preserves critical proxy headers", () => {
-    const nginxConfPath = path.resolve(process.cwd(), "deploy/nginx/nginx.conf");
+    const nginxConfPath = path.resolve(
+      process.cwd(),
+      "deploy/nginx/nginx.conf",
+    );
     expect(fs.existsSync(nginxConfPath)).toBe(true);
     const content = fs.readFileSync(nginxConfPath, "utf-8");
     expect(content).toContain("proxy_set_header");

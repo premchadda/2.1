@@ -682,6 +682,6 @@ export const getTopPerformers = (limit = 10, seriesId = null) => {
 };
 export const getTopPerformersLeaderboard = getTopPerformers;
 
-export { adminAPI } from "./adminAPI.js";
+// SEC-CLIENT-07: adminAPI export removed from student frontend client bundle
 
 export default apiClient;

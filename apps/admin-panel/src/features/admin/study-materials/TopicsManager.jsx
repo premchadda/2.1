@@ -91,7 +91,9 @@ export default function TopicsManager() {
         description: formData.description,
         icon: formData.icon,
         chapterId: formData.chapterId,
+        chapter_id: formData.chapterId,
         order: formData.order,
+        orderIndex: formData.order,
         isActive: formData.isActive,
       };
       if (editingTopic) {
@@ -133,9 +135,14 @@ export default function TopicsManager() {
       name: topic.name || "",
       description: topic.description || "",
       icon: topic.icon || "📚",
-      chapterId: topic.chapterId ?? "",
-      order: topic.order ?? topic.orderIndex ?? 0,
-      isActive: topic.isActive !== false,
+      chapterId: topic.chapterId ?? topic.chapter_id ?? "",
+      order: topic.order ?? topic.orderIndex ?? topic.order_index ?? 0,
+      isActive:
+        topic.isActive !== undefined
+          ? topic.isActive
+          : topic.is_active !== undefined
+            ? topic.is_active
+            : true,
     });
     setShowForm(true);
   };
